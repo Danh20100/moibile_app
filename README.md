@@ -1,6 +1,6 @@
 # Trọ Ơi — Landing Page
 
-Landing page kể chuyện bằng 3D cho dự án Trọ Ơi. Đây là source của bản 2 đang chạy tại https://tro-oi-story.trtien520.chatgpt.site.
+Landing page kể chuyện bằng 3D cho dự án Trọ Ơi.
 
 ## Chạy local
 
