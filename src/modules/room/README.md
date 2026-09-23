@@ -1,28 +1,99 @@
-# Room Module
+# Room
 
-> Trạng thái: skeleton bounded context.
+Folder `room` chứa các chức năng liên quan đến **đơn vị cho thuê cốt lõi** trong TrọƠi.
 
-## Trách nhiệm
+## Folder này dùng để làm gì?
 
-Quản lý hồ sơ vận hành cốt lõi của từng phòng/tài sản cho thuê.
+Folder này quản lý hồ sơ vận hành cơ bản của từng phòng/tài sản cho thuê.
 
-## Sở hữu
+Nó chịu trách nhiệm cho:
 
-- Room profile.
-- Room code/name và metadata cơ bản.
-- Trạng thái vận hành chính của room.
-- Liên kết room với property.
-- Điểm neo để các workflow khác tham chiếu.
+- room profile;
+- room code/name;
+- trạng thái vận hành chính của room;
+- liên kết room với property;
+- điểm neo để tenancy, billing, incident và listing tham chiếu.
 
-## Không thuộc module
+```mermaid
+flowchart TD
+    Property["property"] --> Room["Room"]
+    Room --> Tenancy["tenancy"]
+    Room --> Billing["billing"]
+    Room --> Incident["incident"]
+    Room --> Listing["listing"]
+```
 
-- Kỳ thuê.
-- Billing/công nợ.
-- Ticket sự cố.
-- Listing public.
+## Chức năng chính
 
-## Quan hệ chính
+### Room Profile
 
-`property`, `tenancy`, `billing`, `incident`, `listing`.
+Quản lý thông tin nhận diện và metadata cơ bản của room.
 
-Room là object trung tâm của product nhưng không gom mọi workflow vào một state machine duy nhất.
+Ví dụ:
+
+- mã phòng;
+- tên phòng;
+- thuộc property nào;
+- trạng thái hiện tại;
+- thông tin vận hành cơ bản cần thiết.
+
+### Room State
+
+Room có state riêng, tách khỏi tenancy, billing hoặc incident.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Vacant
+    Vacant --> Occupied
+    Occupied --> Vacant
+    Vacant --> Maintenance
+    Occupied --> Maintenance
+    Maintenance --> Vacant
+    Vacant --> Archived
+```
+
+Một room có thể đang `Occupied` nhưng đồng thời có billing quá hạn hoặc incident đang mở. Vì vậy các workflow đó không được gom vào `room.status`.
+
+### Operational Anchor
+
+Room là object trung tâm để các workflow khác gắn vào.
+
+```mermaid
+flowchart LR
+    Room["Room"]
+    Room --> T["Tenancies"]
+    Room --> B["Billing Cycles"]
+    Room --> I["Incidents"]
+    Room --> L["Listings"]
+```
+
+## Quan hệ với các module khác
+
+```mermaid
+flowchart LR
+    Property["property"] --> Room["room"]
+    Room --> Tenancy["tenancy"]
+    Room --> Billing["billing"]
+    Room --> Incident["incident"]
+    Room --> Listing["listing"]
+    Room --> Audit["audit-trust"]
+```
+
+## Không thuộc folder này
+
+- tenant assignment và tenancy lifecycle;
+- billing cycle hoặc công nợ;
+- receipt;
+- incident status;
+- listing public content;
+- subscription entitlement.
+
+## Tóm tắt
+
+```mermaid
+flowchart LR
+    Property["Property"] --> Room["Room"] --> Workflows["Tenancy / Billing / Incident / Listing"]
+```
+
+`room` tập trung vào: **room profile → room state → liên kết với property → điểm neo cho các workflow khác**.
