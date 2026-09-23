@@ -42,6 +42,7 @@ Các thành phần sẽ được thiết lập:
 - `eslint`
 - `@eslint/js`
 - `typescript-eslint`
+- `globals`
 - `prettier`
 - `eslint-config-prettier`
 
@@ -53,6 +54,7 @@ Version cụ thể sẽ được resolve khi cài đặt bằng `pnpm`; không h
 /
 ├── package.json
 ├── pnpm-lock.yaml
+├── nest-cli.json
 ├── tsconfig.json
 ├── tsconfig.build.json
 ├── eslint.config.mjs
@@ -95,7 +97,7 @@ pnpm format:check
 - `format`: chạy Prettier ghi thay đổi;
 - `format:check`: kiểm tra formatting mà không sửa file.
 
-## TypeScript
+## TypeScript và build output
 
 TypeScript configuration phải ưu tiên:
 
@@ -104,9 +106,24 @@ TypeScript configuration phải ưu tiên:
 - metadata emit cho NestJS dependency injection;
 - source maps;
 - separate build config để loại trừ file development-only khi cần;
-- output build vào `dist/`.
+- output build vào `build/`.
+
+Backend dùng `build/` thay cho NestJS default `dist/` vì `.gitignore` dùng chung của TrọƠi cố ý không ignore `dist/` để branch landing page có thể version deployable static files. Rule `**/build/` hiện đã được ignore, nên backend build artifact không làm bẩn working tree.
 
 Không thêm path alias nếu chưa có nhu cầu thực tế ở foundation này.
+
+## Nest CLI
+
+`nest-cli.json` chỉ định source root và giữ Nest CLI làm entry point thống nhất cho development/build scripts.
+
+```mermaid
+flowchart LR
+    PNPM["pnpm scripts"] --> NestCLI["Nest CLI"]
+    NestCLI --> TS["TypeScript compiler"]
+    TS --> Build["build/"]
+```
+
+Không dùng `nest new` để regenerate project vì repository đã có `src/modules/` và docs riêng cần được bảo toàn.
 
 ## ESLint và Prettier
 
@@ -122,7 +139,7 @@ flowchart LR
     Prettier --> Formatted["Consistent formatting"]
 ```
 
-`eslint-config-prettier` được dùng để tránh xung đột giữa rule formatting của ESLint và Prettier.
+ESLint dùng flat config. `globals` cung cấp Node runtime globals cho lint configuration. `eslint-config-prettier` được dùng để tránh xung đột giữa rule formatting của ESLint và Prettier.
 
 ## Debug workflow
 
@@ -135,13 +152,13 @@ flowchart LR
     Nest --> SourceMap["TypeScript Source Maps"]
 ```
 
-`start:debug` mở inspector; `.vscode/launch.json` cung cấp cấu hình attach/launch phù hợp để breakpoint map về source TypeScript.
+`start:debug` mở inspector; `.vscode/launch.json` cung cấp cấu hình attach phù hợp để breakpoint map về source TypeScript.
 
 ## VS Code workspace
 
 `.vscode/settings.json` sẽ cấu hình các behavior an toàn ở workspace level như format-on-save và formatter cho TypeScript/JSON/Markdown khi phù hợp.
 
-`.vscode/extensions.json` chỉ recommend extension cần cho backend development, ví dụ:
+`.vscode/extensions.json` chỉ recommend extension cần cho backend development:
 
 - ESLint;
 - Prettier;
@@ -178,7 +195,8 @@ Foundation được coi là đạt khi fresh checkout/worktree có thể:
 5. `pnpm lint` thành công;
 6. `pnpm format:check` thành công;
 7. `pnpm build` thành công;
-8. không làm thay đổi boundary của 12 module hiện tại.
+8. build artifact nằm trong `build/` và không làm working tree dirty;
+9. không làm thay đổi boundary của 12 module hiện tại.
 
 ## Kết quả mong muốn
 
