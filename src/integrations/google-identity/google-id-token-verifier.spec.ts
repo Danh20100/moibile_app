@@ -1,5 +1,7 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+
+import { createGoogleIdTokenVerifierFromEnv } from './google-id-token-verifier.factory';
 
 import {
   GoogleIdentityVerificationError,
@@ -142,5 +144,32 @@ describe('GoogleAuthIdTokenVerifier', () => {
         return true;
       },
     );
+  });
+});
+
+describe('createGoogleIdTokenVerifierFromEnv', () => {
+  it('fails early when GOOGLE_CLIENT_ID is missing', () => {
+    assert.throws(
+      () => createGoogleIdTokenVerifierFromEnv({}),
+      expectIntegrationError('CONFIGURATION_ERROR'),
+    );
+  });
+
+  it('fails early when GOOGLE_CLIENT_ID contains only whitespace', () => {
+    assert.throws(
+      () =>
+        createGoogleIdTokenVerifierFromEnv({
+          GOOGLE_CLIENT_ID: '   ',
+        }),
+      expectIntegrationError('CONFIGURATION_ERROR'),
+    );
+  });
+
+  it('creates a verifier when GOOGLE_CLIENT_ID is configured', () => {
+    const verifier = createGoogleIdTokenVerifierFromEnv({
+      GOOGLE_CLIENT_ID: 'google-client-id',
+    });
+
+    assert.equal(typeof verifier.verify, 'function');
   });
 });
