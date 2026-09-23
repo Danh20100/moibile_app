@@ -17,18 +17,20 @@
 - Không dùng `nest new`; repository hiện có `src/modules/` cần được bảo toàn.
 - Build output phải là `build/`, không phải `dist/`.
 - TypeScript phải bật strict checking, decorators, emitted metadata và source maps.
+- Dùng `NodeNext` compiler semantics theo NestJS hiện hành nhưng **không** thêm `"type": "module"`; application source vẫn ở CommonJS mode cho foundation này và có thể chuyển ESM bằng task riêng sau này.
 - ESLint dùng flat config; Prettier chỉ chịu trách nhiệm formatting.
 - Debug dùng Node.js Inspector; không thêm debugger package riêng.
 - Không thêm ORM, PostgreSQL client, Redis client, MinIO SDK, auth strategy, Swagger bootstrap, test framework, Docker, CI/CD hay observability trong plan này.
 - Không sửa nội dung/boundary của 12 `src/modules/*/README.md`.
 - Vì spec cố ý chưa chọn test framework và foundation chưa có business behavior, các task dùng command-level acceptance checks thay cho unit tests.
+- Khi cài NestJS hiện hành, development Node.js phải đáp ứng yêu cầu của `@nestjs/schematics`: Node `22.22.3+` trên dòng 22, `24.15+` trên dòng 24, hoặc `26+`. Nếu môi trường không đạt, dừng trước khi cài package.
 
 ## Review Focus
 
 1. **Fresh install:** `pnpm install --frozen-lockfile` phải thành công từ lockfile đã commit; Task 1 kiểm tra trực tiếp.
-2. **Build pollution:** `pnpm build` chỉ được tạo `build/`, và build artifacts không xuất hiện trong `git status`; Task 3 kiểm tra trực tiếp.
+2. **Build pollution:** `pnpm build` chỉ được tạo generated state trong `build/`; cả JS/source maps và TypeScript incremental metadata không được làm dirty Git; Tasks 2, 3 và 6 kiểm tra.
 3. **Existing module preservation:** danh sách 12 bounded modules và nội dung của chúng không thay đổi; Tasks 3, 4 và 6 kiểm tra.
-4. **Static tooling compatibility:** `pnpm typecheck`, `pnpm lint` và `pnpm format:check` phải cùng pass; Task 4 và Task 6 kiểm tra.
+4. **Static tooling compatibility:** `pnpm typecheck`, `pnpm lint` và `pnpm format:check` phải cùng pass; Tasks 4 và 6 kiểm tra.
 5. **Debug attach:** `pnpm start:debug` phải mở Node Inspector ở port `9229` và VS Code attach phải map breakpoint về TypeScript source; Task 5 kiểm tra.
 
 ---
@@ -65,11 +67,13 @@
 - Consumes: clean backend worktree with no existing Node package metadata.
 - Produces: `pnpm exec nest`, `pnpm exec tsc`, `pnpm exec eslint`, `pnpm exec prettier` and reproducible dependency resolution.
 
-- [ ] **Step 1: Verify package metadata is absent**
+- [ ] **Step 1: Verify package metadata is absent and development runtime is compatible**
 
 ```powershell
 Test-Path package.json
 Test-Path pnpm-lock.yaml
+node --version
+pnpm --version
 ```
 
 Expected before implementation:
@@ -79,7 +83,7 @@ False
 False
 ```
 
-If either is already present, inspect instead of overwriting it.
+Node must satisfy one current Nest CLI development line: `22.22.3+`, `24.15+`, or `26+`. If package metadata already exists or Node is outside those supported lines, stop and inspect/upgrade instead of proceeding.
 
 - [ ] **Step 2: Create deterministic `package.json`**
 
@@ -91,6 +95,9 @@ Create exactly:
   "version": "0.1.0",
   "private": true,
   "description": "TrọƠi backend application",
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
+  },
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -112,7 +119,7 @@ The unmatched-pattern flag is required because `.vscode/` does not exist until T
 pnpm add @nestjs/common @nestjs/core @nestjs/platform-express reflect-metadata rxjs
 ```
 
-Expected: these packages appear under `dependencies` and pnpm creates `pnpm-lock.yaml`.
+Expected: packages appear under `dependencies` and pnpm creates `pnpm-lock.yaml`.
 
 - [ ] **Step 4: Install development dependencies**
 
@@ -120,7 +127,7 @@ Expected: these packages appear under `dependencies` and pnpm creates `pnpm-lock
 pnpm add -D typescript @types/node ts-node @nestjs/cli @nestjs/schematics eslint @eslint/js typescript-eslint globals prettier eslint-config-prettier
 ```
 
-Expected: these packages appear under `devDependencies`; no database/auth/test packages are added.
+Expected: packages appear under `devDependencies`; no database/auth/test packages are added.
 
 - [ ] **Step 5: Verify reproducible installation**
 
@@ -129,7 +136,7 @@ pnpm install --frozen-lockfile
 pnpm list --depth 0
 ```
 
-Expected: both commands exit `0`; lockfile is unchanged.
+Expected: both commands exit `0`; lockfile is unchanged and all Nest packages resolve to the same current major.
 
 - [ ] **Step 6: Commit package foundation**
 
@@ -149,15 +156,18 @@ git commit -m "chore: initialize backend package tooling"
 
 **Interfaces:**
 - Consumes: TypeScript and Nest CLI from Task 1.
-- Produces: strict compilation with Nest decorator metadata and build output under `build/`.
+- Produces: strict Nest-compatible compilation with generated state under ignored `build/`.
 
 - [ ] **Step 1: Create `tsconfig.json`**
 
 ```json
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -166,26 +176,32 @@ git commit -m "chore: initialize backend package tooling"
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./build",
+    "tsBuildInfoFile": "./build/tsconfig.tsbuildinfo",
     "baseUrl": "./",
     "incremental": true,
+    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "strict": true,
-    "noImplicitOverride": true,
-    "forceConsistentCasingInFileNames": true
+    "strictPropertyInitialization": false,
+    "types": ["node"]
   }
 }
 ```
+
+`tsBuildInfoFile` is intentionally inside `build/` so `typecheck`/incremental compilation cannot create an unignored root `.tsbuildinfo` file.
 
 - [ ] **Step 2: Create `tsconfig.build.json`**
 
 ```json
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "build", "test", "tests", "**/*.spec.ts"]
+  "exclude": ["node_modules", "build", "test", "tests", "**/*spec.ts"]
 }
 ```
 
 - [ ] **Step 3: Create `nest-cli.json`**
+
+Use the standard-project shape:
 
 ```json
 {
@@ -193,19 +209,22 @@ git commit -m "chore: initialize backend package tooling"
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true,
-    "tsConfigPath": "tsconfig.build.json"
+    "deleteOutDir": true
   }
 }
 ```
 
-- [ ] **Step 4: Verify the resolved compiler config**
+Do **not** add global `tsConfigPath`; current Nest CLI documents that option for monorepo/default-project selection, while this repository is a standard single application.
+
+- [ ] **Step 4: Verify resolved compiler config and clean generated-state behavior**
 
 ```powershell
 pnpm exec tsc --showConfig -p tsconfig.build.json
+pnpm typecheck
+git status --short
 ```
 
-Expected: exit `0`; resolved config contains `strict: true`, decorator metadata and `outDir` resolving to `build`.
+Expected: `--showConfig` resolves NodeNext, strict mode and `outDir` to `build`; typecheck exits `0` once source bootstrap exists (Task 3), or reports only the expected current absence of root source before Task 3. No root `*.tsbuildinfo` appears in Git status.
 
 - [ ] **Step 5: Commit compiler configuration**
 
@@ -278,6 +297,8 @@ async function bootstrap(): Promise<void> {
 void bootstrap();
 ```
 
+Because `package.json` has no `"type": "module"`, NodeNext emits this application as CommonJS and extensionless relative imports remain valid.
+
 - [ ] **Step 4: Verify typecheck and build**
 
 ```powershell
@@ -295,7 +316,7 @@ git diff -- src/modules
 Get-ChildItem src/modules -Directory | Select-Object -ExpandProperty Name | Sort-Object
 ```
 
-Expected: `build/` is absent from Git status, module diff is empty, module list still has the same 12 names.
+Expected: `build/` and `*.tsbuildinfo` are absent from Git status, module diff is empty, module list still has the same 12 names.
 
 - [ ] **Step 6: Smoke-run compiled application**
 
@@ -563,7 +584,7 @@ pnpm format:check
 pnpm build
 ```
 
-Expected: every command exits `0`; generated output is only under `build/`.
+Expected: every command exits `0`; generated output and incremental metadata remain under `build/`.
 
 - [ ] **Step 5: Smoke-test development mode**
 
@@ -579,10 +600,11 @@ Expected: Nest starts on port `3000`; stop with `Ctrl+C` after confirmation.
 git status --short
 git diff -- src/modules
 git diff -- .gitignore docs/backend-tech-stack.md docs/tech-stack-summary.md
+Get-ChildItem -Path . -Filter *.tsbuildinfo -Recurse | Where-Object { $_.FullName -notmatch '[\\/]build[\\/]' }
 (Get-ChildItem src/modules -Directory).Count
 ```
 
-Expected: no unexpected diff/status, build artifacts absent from Git status, and module count is:
+Expected: no unexpected diff/status; the `tsbuildinfo` search returns nothing outside `build/`; module count is:
 
 ```text
 12
