@@ -1,258 +1,312 @@
-# TrọƠi Tech Stack
+# Tóm tắt Tech Stack TrọƠi
 
-This document defines the technology stack selected for the TrọƠi mobile application and its supporting backend infrastructure.
+Tài liệu này ghi nhận **tech stack đã chốt** cho ứng dụng mobile TrọƠi và hạ tầng backend hỗ trợ.
 
-TrọƠi is developed as an Android-first application with a self-hosted backend. The stack is intentionally kept focused and conventional so that the team can maintain a consistent codebase while using AI coding assistants during development.
+TrọƠi được phát triển theo hướng **Android-first**, backend **self-hosted**, kiến trúc ưu tiên tính đơn giản, rõ ràng và dễ duy trì. Mục tiêu là để toàn bộ team — bao gồm cả khi sử dụng AI coding assistant — cùng làm việc trên một stack thống nhất, tránh tự ý thay đổi công nghệ hoặc kiến trúc giữa các feature.
 
 ---
 
-## Stack Overview
+## 1. Tổng quan tech stack
 
-| Area | Technology | Purpose |
+| Khu vực | Công nghệ | Vai trò |
 | --- | --- | --- |
-| Mobile Platform | Android | Primary application platform |
-| Mobile Language | Kotlin | Main language for Android development |
-| Mobile UI | Jetpack Compose | Declarative Android UI framework |
-| Mobile Architecture | MVVM + Repository | Application state and data-flow structure |
-| Dependency Injection | Hilt | Dependency management on Android |
-| Async / Reactive State | Kotlin Coroutines + Flow | Asynchronous work and reactive state |
-| HTTP Client | Retrofit + OkHttp | Communication with the backend API |
-| Serialization | kotlinx.serialization | JSON serialization and deserialization |
-| Local Database | Room | Structured local persistence and caching |
-| Local Preferences | DataStore | Lightweight application preferences |
-| Image Loading | Coil | Image loading and caching in Compose |
-| Backend | NestJS | Backend application framework |
-| Backend Language | TypeScript | Main backend language |
-| Backend Architecture | Modular Monolith | Modular backend within a single deployable application |
-| Primary Database | PostgreSQL | Persistent relational application data |
-| Cache / Temporary State | Redis | Cache and short-lived application state |
-| Object Storage | MinIO | Self-hosted S3-compatible file storage |
-| API Contract | OpenAPI / Swagger | Contract between the backend and Android application |
-| Reverse Proxy | Traefik | HTTPS termination and service routing |
-| Containerization | Docker | Containerized backend infrastructure |
-| Local / Server Orchestration | Docker Compose | Multi-container environment management |
-| CI/CD | GitHub Actions | Automated build, test, and validation workflows |
-| UI/UX Design | Figma | UI/UX and design-system source of truth |
+| Mobile Platform | Android | Nền tảng ứng dụng chính |
+| Mobile Language | Kotlin | Ngôn ngữ chính cho Android |
+| Mobile UI | Jetpack Compose | Xây dựng giao diện Android theo hướng declarative |
+| Mobile Architecture | MVVM + Repository | Tổ chức state, logic màn hình và truy cập dữ liệu |
+| Dependency Injection | Hilt | Quản lý dependency trên Android |
+| Async / Reactive State | Kotlin Coroutines + Flow | Xử lý bất đồng bộ và state phản ứng |
+| HTTP Client | Retrofit + OkHttp | Giao tiếp với backend API |
+| Serialization | kotlinx.serialization | Chuyển đổi JSON và Kotlin object |
+| Local Database | Room | Lưu trữ dữ liệu cục bộ có cấu trúc |
+| Local Preferences | DataStore | Lưu preference và state nhỏ trên thiết bị |
+| Image Loading | Coil | Tải và cache ảnh trong Compose |
+| Backend | NestJS | Framework backend chính |
+| Backend Language | TypeScript | Ngôn ngữ backend |
+| Backend Architecture | Modular Monolith | Backend chia module nhưng vẫn là một ứng dụng triển khai thống nhất |
+| Primary Database | PostgreSQL | Nguồn dữ liệu nghiệp vụ chính |
+| Cache / Temporary State | Redis | Cache và dữ liệu tạm thời |
+| Object Storage | MinIO | Lưu file/ảnh theo chuẩn S3-compatible |
+| API Contract | OpenAPI / Swagger | Contract giữa backend và Android |
+| Reverse Proxy | Traefik | Routing và HTTPS cho backend self-hosted |
+| Containerization | Docker | Đóng gói service và dependency |
+| Multi-container Management | Docker Compose | Quản lý môi trường nhiều container |
+| CI/CD | GitHub Actions | Build, test và validation tự động |
+| UI/UX Design | Figma | Source of truth cho UI/UX và Design System |
+
+### Sơ đồ tổng quan
+
+```mermaid
+flowchart LR
+    A["Android App<br/>Kotlin + Jetpack Compose"]
+    B["Traefik"]
+    C["NestJS<br/>TypeScript"]
+    D["PostgreSQL"]
+    E["Redis"]
+    F["MinIO"]
+
+    A -->|HTTPS / REST| B
+    B --> C
+    C --> D
+    C --> E
+    C --> F
+```
 
 ---
 
-# Mobile Application
+# 2. Mobile Application
 
 ## Kotlin
 
-Kotlin is the primary programming language for the TrọƠi Android application.
+**Kotlin** là ngôn ngữ chính để phát triển ứng dụng Android của TrọƠi.
 
-It provides strong type safety, null safety, first-class Android support, and interoperability with the Android ecosystem. Using Kotlin also allows the project to work directly with native Android APIs without introducing an additional cross-platform abstraction layer.
+Kotlin có type system chặt chẽ, hỗ trợ null-safety và tích hợp trực tiếp với hệ sinh thái Android. Việc sử dụng Kotlin giúp dự án làm việc trực tiếp với Android SDK mà không phải thêm một lớp abstraction cross-platform không cần thiết ở giai đoạn hiện tại.
 
 ---
 
 ## Jetpack Compose
 
-Jetpack Compose is the primary UI framework for the Android application.
+**Jetpack Compose** là framework UI chính của ứng dụng Android.
 
-Compose uses a declarative UI model where the interface is rendered from application state. This makes screens and reusable components easier to structure, test, and keep consistent with the application's design system.
+Compose sử dụng mô hình giao diện declarative: UI được render từ state thay vì thao tác thủ công với View. Cách này phù hợp với kiến trúc state-driven, giúp component dễ tái sử dụng, dễ kiểm thử và dễ đồng bộ với Design System trong Figma.
 
 ---
 
 ## MVVM + Repository
 
-The Android application follows an MVVM-based architecture combined with the Repository pattern.
+Ứng dụng Android sử dụng **MVVM kết hợp Repository Pattern**.
 
-The main responsibilities are separated as follows:
+Vai trò chính của từng lớp:
 
-- **Compose UI** renders application state and forwards user interactions.
-- **ViewModel** owns screen state and coordinates application logic.
-- **Repository** provides a stable boundary for remote and local data access.
-- **Remote and local data sources** communicate with the backend API and local persistence.
+- **Compose UI**: hiển thị state và gửi user interaction.
+- **ViewModel**: quản lý state của màn hình và điều phối logic.
+- **Repository**: cung cấp một boundary thống nhất cho việc truy cập dữ liệu.
+- **Remote / Local Data Source**: giao tiếp với backend API hoặc local database.
 
-The project is organized primarily by product feature rather than by global technical layer.
+```mermaid
+flowchart LR
+    UI["Jetpack Compose UI"] --> VM["ViewModel"]
+    VM --> R["Repository"]
+    R --> API["Remote API"]
+    R --> ROOM["Room Database"]
+```
+
+Source code mobile nên ưu tiên tổ chức theo **feature-first**, để mỗi feature chứa phần UI, state và data logic liên quan thay vì chia toàn bộ project chỉ theo technical layer.
 
 ---
 
 ## Hilt
 
-Hilt is used for dependency injection in the Android application.
+**Hilt** được dùng cho Dependency Injection trên Android.
 
-It manages dependencies such as API clients, repositories, databases, and application services. Centralized dependency injection reduces manual object construction and keeps dependencies consistent across features.
+Hilt chịu trách nhiệm cung cấp các dependency như API client, Repository, Room Database và các application service. Việc inject dependency tập trung giúp giảm coupling, tránh khởi tạo object thủ công ở nhiều nơi và giữ wiring nhất quán giữa các feature.
 
 ---
 
 ## Kotlin Coroutines + Flow
 
-Kotlin Coroutines are used for asynchronous operations such as network requests, database access, and file operations.
+**Kotlin Coroutines** được dùng để xử lý các tác vụ bất đồng bộ như gọi API, truy vấn database hoặc thao tác file mà không block UI thread.
 
-Flow is used for reactive streams and state that changes over time. It integrates naturally with ViewModel and Jetpack Compose for state-driven interfaces.
+**Flow** được dùng cho stream dữ liệu và state thay đổi theo thời gian. Flow tích hợp tốt với ViewModel và Jetpack Compose để xây dựng UI phản ứng theo state.
 
 ---
 
 ## Retrofit + OkHttp
 
-Retrofit is the primary HTTP client used by the Android application to communicate with the TrọƠi backend.
+**Retrofit** là HTTP client chính để Android giao tiếp với backend TrọƠi.
 
-OkHttp provides the underlying HTTP transport and handles concerns such as connections, interceptors, request headers, authentication, and network logging.
+**OkHttp** là lớp networking phía dưới, đảm nhiệm connection, interceptor, header, authentication và logging request/response.
 
-The API models and endpoints must remain consistent with the backend OpenAPI contract.
+API model và endpoint phía Android phải bám theo OpenAPI contract của backend, không tự định nghĩa schema riêng.
 
 ---
 
 ## kotlinx.serialization
 
-`kotlinx.serialization` is used for serialization between JSON payloads and Kotlin models.
+**`kotlinx.serialization`** được dùng để serialize và deserialize dữ liệu giữa JSON và Kotlin model.
 
-It provides type-safe serialization that integrates directly with Kotlin and avoids maintaining a separate JSON mapping approach.
+Thư viện này tích hợp trực tiếp với Kotlin, giúp model có typing rõ ràng và giữ cách mapping dữ liệu nhất quán trong toàn ứng dụng.
 
 ---
 
 ## Room
 
-Room provides structured local persistence on Android using SQLite.
+**Room** là local relational database trên Android, xây dựng trên SQLite.
 
-It is intended for local application data and caching where persistent structured storage is useful. PostgreSQL remains the authoritative server-side data source.
+Room được dùng cho local persistence hoặc cache có cấu trúc khi cần. Nó không thay thế database phía server; **PostgreSQL vẫn là source of truth của dữ liệu nghiệp vụ**.
 
 ---
 
 ## DataStore
 
-DataStore is used for lightweight local application preferences and configuration.
+**DataStore** được dùng để lưu các preference và state nhỏ trên thiết bị.
 
-Typical examples include UI preferences, language settings, onboarding state, and other small pieces of non-relational local state.
+Ví dụ:
 
-Sensitive credentials must not be stored as plain text in DataStore.
+- theme;
+- ngôn ngữ;
+- onboarding state;
+- các cấu hình local không mang tính quan hệ.
+
+Thông tin nhạy cảm không được lưu plaintext trong DataStore.
 
 ---
 
 ## Coil
 
-Coil is used for loading and caching images in the Android application.
+**Coil** được sử dụng để tải và cache ảnh trong ứng dụng Android.
 
-It integrates directly with Kotlin and Jetpack Compose and will be used for content such as room images, incident attachments, and user-facing media.
+Các nội dung phù hợp gồm ảnh phòng, ảnh sự cố, avatar hoặc các media được hiển thị trong Jetpack Compose.
 
 ---
 
-# Backend
+# 3. Backend
 
 ## NestJS
 
-NestJS is the primary backend framework for TrọƠi.
+**NestJS** là framework backend chính của TrọƠi.
 
-It provides a structured TypeScript architecture built around modules, controllers, services, dependency injection, validation, and standardized HTTP APIs.
-
-Its convention-based structure helps keep backend implementation consistent across different product domains.
+NestJS cung cấp cấu trúc rõ ràng dựa trên module, controller, service, dependency injection, validation và HTTP API. Convention có sẵn của NestJS giúp backend duy trì cùng một kiểu tổ chức giữa các domain khác nhau.
 
 ---
 
 ## TypeScript
 
-TypeScript is the primary language used by the backend.
+**TypeScript** là ngôn ngữ chính của backend.
 
-Static typing improves maintainability of domain models, DTOs, services, and API contracts while reducing errors caused by inconsistent object structures.
+Static typing giúp tăng độ an toàn khi làm việc với domain model, DTO, service và API contract, đồng thời giảm lỗi do object structure không thống nhất.
 
 ---
 
 ## Modular Monolith
 
-The backend is implemented as a modular monolith.
+Backend được xây dựng theo kiến trúc **Modular Monolith**.
 
-Business domains are separated into independent modules while remaining part of one deployable backend application.
+Các domain nghiệp vụ được tách thành module độc lập về mặt tổ chức code nhưng vẫn chạy trong cùng một backend application.
 
-Initial modules are expected to include domains such as:
+Các module dự kiến ban đầu gồm:
 
-- Authentication
-- Properties
-- Rooms
-- Tenancies
-- Billing
-- Receipts
-- Incidents
-- Notifications
-- Audit history
+- Authentication;
+- Properties;
+- Rooms;
+- Tenancies;
+- Billing;
+- Receipts;
+- Incidents;
+- Notifications;
+- Audit History.
 
-This structure provides clear domain boundaries without introducing distributed-system complexity.
+Kiến trúc này giữ boundary giữa các domain đủ rõ mà không đưa distributed-system complexity vào MVP.
 
 ---
 
-# Data and Storage
+# 4. Data & Storage
 
 ## PostgreSQL
 
-PostgreSQL is the primary relational database and authoritative data store for TrọƠi.
+**PostgreSQL** là relational database chính và là **authoritative data store** của TrọƠi.
 
-It stores persistent application data such as users, properties, rooms, tenancies, charges, payment records, receipts, incidents, permissions, and operational history.
+PostgreSQL lưu các dữ liệu nghiệp vụ bền vững như:
 
-The relational model and transactional capabilities of PostgreSQL are well suited to the strongly related operational data managed by TrọƠi.
+- user;
+- property;
+- room;
+- tenancy;
+- charge;
+- payment record;
+- receipt;
+- incident;
+- permission;
+- operational history.
+
+Dữ liệu của TrọƠi có nhiều quan hệ và cần transaction/data integrity rõ ràng, nên PostgreSQL phù hợp làm nguồn dữ liệu trung tâm.
 
 ---
 
 ## Redis
 
-Redis is used for data that is temporary or benefits from fast in-memory access.
+**Redis** dùng cho dữ liệu tạm thời hoặc dữ liệu cần truy cập nhanh trong bộ nhớ.
 
-Potential responsibilities include:
+Các use case có thể gồm:
 
-- caching;
+- cache;
 - rate limiting;
 - OTP state;
-- temporary session data;
-- short-lived application state.
+- session metadata;
+- state ngắn hạn.
 
-Redis is not the authoritative store for business data.
+Redis **không phải source of truth** cho dữ liệu nghiệp vụ.
 
 ---
 
 ## MinIO
 
-MinIO provides self-hosted object storage using an S3-compatible API.
+**MinIO** là object storage self-hosted tương thích S3.
 
-It stores binary objects such as:
+MinIO dùng để lưu các file nhị phân như:
 
-- room images;
-- incident photos;
-- receipt attachments;
-- avatars;
-- uploaded documents.
+- ảnh phòng;
+- ảnh sự cố;
+- attachment của biên nhận;
+- avatar;
+- tài liệu upload.
 
-PostgreSQL stores the metadata and object references, while the binary files themselves are stored in MinIO.
+PostgreSQL chỉ lưu metadata và object reference; file thật nằm trong MinIO.
 
-Using an S3-compatible interface also keeps the storage layer portable if the project later moves to another compatible object-storage provider.
+```mermaid
+flowchart LR
+    API["NestJS Backend"] --> DB["PostgreSQL<br/>Metadata + nghiệp vụ"]
+    API --> OBJ["MinIO<br/>Ảnh + file"]
+```
+
+Việc dùng S3-compatible API cũng giúp storage layer không bị khóa cứng vào một implementation duy nhất.
 
 ---
 
-# API
+# 5. API Contract
 
 ## OpenAPI / Swagger
 
-OpenAPI defines the contract between the NestJS backend and the Android application.
+**OpenAPI** là contract chính thức giữa backend NestJS và ứng dụng Android.
 
-The API specification describes:
+Contract mô tả:
 
-- endpoints;
-- request models;
-- response models;
-- validation requirements;
-- status codes;
-- error structures.
+- endpoint;
+- request model;
+- response model;
+- validation;
+- status code;
+- error structure.
 
-Swagger tooling is used on the backend to generate and expose the OpenAPI specification.
+**Swagger** được dùng ở backend để generate và expose OpenAPI specification.
 
-The OpenAPI contract acts as the shared source of truth between mobile and backend implementations.
+```mermaid
+flowchart LR
+    DTO["NestJS DTO"] --> SPEC["OpenAPI Specification"]
+    SPEC --> CLIENT["Android API Models / Client"]
+    CLIENT --> REPO["Repository"]
+    REPO --> VM["ViewModel"]
+```
+
+OpenAPI đóng vai trò source of truth để mobile và backend không tự phát triển schema khác nhau.
 
 ---
 
-# Infrastructure
+# 6. Infrastructure
 
 ## Docker
 
-Docker is used to package backend services and infrastructure dependencies into reproducible containers.
+**Docker** được dùng để đóng gói backend service và các infrastructure dependency thành container.
 
-This ensures that development and deployment environments use consistent versions and configurations.
+Điều này giúp môi trường development và deployment sử dụng cùng version và configuration, giảm khác biệt giữa máy của các thành viên trong team.
 
 ---
 
 ## Docker Compose
 
-Docker Compose manages the TrọƠi backend environment during development and initial self-hosted deployment.
+**Docker Compose** dùng để quản lý môi trường nhiều container trong quá trình development và triển khai self-hosted ban đầu.
 
-The environment can include:
+Môi trường có thể gồm:
 
 - NestJS API;
 - PostgreSQL;
@@ -260,56 +314,64 @@ The environment can include:
 - MinIO;
 - Traefik.
 
-The goal is to make the backend environment reproducible with a small number of commands rather than requiring developers to configure every dependency manually.
+```mermaid
+flowchart TB
+    DC["Docker Compose"]
+    DC --> API["NestJS API"]
+    DC --> PG["PostgreSQL"]
+    DC --> REDIS["Redis"]
+    DC --> MINIO["MinIO"]
+    DC --> TR["Traefik"]
+```
+
+Mục tiêu là để toàn bộ backend environment có thể khởi động theo cùng một cấu hình thay vì mỗi thành viên tự cài từng dependency theo cách riêng.
 
 ---
 
 ## Traefik
 
-Traefik acts as the reverse proxy for the self-hosted backend infrastructure.
+**Traefik** là reverse proxy của hạ tầng backend self-hosted.
 
-Its responsibilities include:
+Các trách nhiệm chính:
 
-- routing external requests to backend services;
+- routing request tới backend service;
 - HTTPS/TLS termination;
-- domain and subdomain routing;
-- integration with Docker services.
+- domain/subdomain routing;
+- tích hợp với Docker service.
 
-Application services remain behind Traefik instead of being exposed directly to the internet.
+Các application service không cần expose trực tiếp ra Internet mà đi qua Traefik.
 
 ---
 
-# Development Tooling
+# 7. Development Tooling
 
 ## GitHub Actions
 
-GitHub Actions provides CI/CD automation for the project.
+**GitHub Actions** là nền tảng CI/CD của dự án.
 
-Automated workflows will be used to validate changes through tasks such as:
+Workflow tự động sẽ được sử dụng để kiểm tra các thay đổi thông qua các bước như:
 
-- Android builds;
-- backend builds;
-- automated tests;
+- Android build;
+- backend build;
+- automated test;
 - static analysis;
 - API contract validation.
 
-The exact workflows will evolve with the codebase, but GitHub Actions remains the selected automation platform.
+Workflow cụ thể có thể thay đổi theo codebase, nhưng GitHub Actions là nền tảng automation đã được chọn.
 
 ---
 
 ## Figma
 
-Figma is the source of truth for the TrọƠi UI/UX design system.
+**Figma** là source of truth cho UI/UX và Design System của TrọƠi.
 
-It defines visual foundations and reusable interface components before they are implemented in Jetpack Compose.
+Figma định nghĩa các nền tảng và component giao diện trước khi được implement trong Jetpack Compose, bao gồm:
 
-Design definitions include areas such as:
-
-- color;
+- màu sắc;
 - typography;
 - spacing;
-- component states;
-- reusable components;
-- application screens.
+- component state;
+- reusable component;
+- application screen.
 
-The Android implementation should follow the shared Figma design system rather than defining independent visual styles for individual screens.
+Android implementation phải bám theo Design System chung trong Figma thay vì mỗi feature tự tạo style riêng.
