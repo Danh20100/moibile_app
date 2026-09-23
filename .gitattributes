@@ -1,0 +1,6 @@
+# Keep backend source/config line endings stable across platforms.
+*.ts text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+.prettierrc text eol=lf
+.editorconfig text eol=lf
