@@ -1,0 +1,146 @@
+﻿import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  GoogleIdentityVerificationError,
+  type GoogleIdentityErrorCode,
+} from './google-identity.errors';
+import {
+  GoogleAuthIdTokenVerifier,
+  type GoogleIdTokenClient,
+  type GoogleTokenPayload,
+} from './google-id-token-verifier';
+
+function expectIntegrationError(code: GoogleIdentityErrorCode) {
+  return (error: unknown): boolean => {
+    assert.ok(error instanceof GoogleIdentityVerificationError);
+    assert.equal(error.code, code);
+    return true;
+  };
+}
+
+function clientWithPayload(
+  payload: GoogleTokenPayload | undefined,
+  expectedToken = 'valid-token',
+  expectedAudience = 'google-client-id',
+): GoogleIdTokenClient {
+  return {
+    async verifyIdToken(options) {
+      assert.equal(options.idToken, expectedToken);
+      assert.equal(options.audience, expectedAudience);
+      return {
+        getPayload: () => payload,
+      };
+    },
+  };
+}
+
+describe('GoogleAuthIdTokenVerifier', () => {
+  it('normalizes a valid verified Google payload', async () => {
+    const verifier = new GoogleAuthIdTokenVerifier(
+      '  google-client-id  ',
+      clientWithPayload({
+        sub: 'google-subject',
+        email: 'user@example.com',
+        email_verified: true,
+        name: 'TrọƠi User',
+        picture: 'https://example.com/avatar.png',
+      }),
+    );
+
+    const identity = await verifier.verify('valid-token');
+
+    assert.deepEqual(identity, {
+      subject: 'google-subject',
+      email: 'user@example.com',
+      emailVerified: true,
+      name: 'TrọƠi User',
+      pictureUrl: 'https://example.com/avatar.png',
+    });
+  });
+
+  it('accepts a valid payload when optional claims are absent', async () => {
+    const verifier = new GoogleAuthIdTokenVerifier(
+      'google-client-id',
+      clientWithPayload({ sub: 'google-subject' }),
+    );
+
+    assert.deepEqual(await verifier.verify('valid-token'), {
+      subject: 'google-subject',
+    });
+  });
+
+  it('preserves email_verified false', async () => {
+    const verifier = new GoogleAuthIdTokenVerifier(
+      'google-client-id',
+      clientWithPayload({
+        sub: 'google-subject',
+        email_verified: false,
+      }),
+    );
+
+    assert.deepEqual(await verifier.verify('valid-token'), {
+      subject: 'google-subject',
+      emailVerified: false,
+    });
+  });
+
+  it('rejects an empty or whitespace-only token before calling Google', async () => {
+    let calls = 0;
+
+    const client: GoogleIdTokenClient = {
+      async verifyIdToken() {
+        calls += 1;
+        throw new Error('must not be called');
+      },
+    };
+
+    const verifier = new GoogleAuthIdTokenVerifier('google-client-id', client);
+
+    await assert.rejects(() => verifier.verify(''), expectIntegrationError('INVALID_TOKEN'));
+
+    await assert.rejects(() => verifier.verify('   '), expectIntegrationError('INVALID_TOKEN'));
+
+    assert.equal(calls, 0);
+  });
+
+  it('rejects a verified payload without a usable sub claim', async () => {
+    const missingSub = new GoogleAuthIdTokenVerifier('google-client-id', clientWithPayload({}));
+
+    const whitespaceSub = new GoogleAuthIdTokenVerifier(
+      'google-client-id',
+      clientWithPayload({ sub: '   ' }),
+    );
+
+    await assert.rejects(
+      () => missingSub.verify('valid-token'),
+      expectIntegrationError('INVALID_PAYLOAD'),
+    );
+
+    await assert.rejects(
+      () => whitespaceSub.verify('valid-token'),
+      expectIntegrationError('INVALID_PAYLOAD'),
+    );
+  });
+
+  it('maps Google client failures to a safe provider error', async () => {
+    const client: GoogleIdTokenClient = {
+      async verifyIdToken() {
+        throw 'sensitive vendor failure';
+      },
+    };
+
+    const verifier = new GoogleAuthIdTokenVerifier('google-client-id', client);
+
+    await assert.rejects(
+      () => verifier.verify('valid-token'),
+      (error: unknown) => {
+        assert.ok(error instanceof GoogleIdentityVerificationError);
+        assert.equal(error.code, 'PROVIDER_ERROR');
+        assert.equal(error.message, 'Google ID token verification failed.');
+        assert.equal(error.message.includes('sensitive vendor failure'), false);
+        return true;
+      },
+    );
+  });
+});
