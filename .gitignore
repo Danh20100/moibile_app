@@ -1,0 +1,177 @@
+# ============================================================
+# TrọƠi — Shared Git Ignore
+# Used by all project branches.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# Environment & secrets
+# ------------------------------------------------------------
+
+.env
+.env.*
+!.env.example
+
+.envrc
+.secrets/
+
+
+# ------------------------------------------------------------
+# Operating system
+# ------------------------------------------------------------
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+
+# ------------------------------------------------------------
+# IDE / Editor
+# ------------------------------------------------------------
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+
+# ------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------
+
+*.log
+logs/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# ------------------------------------------------------------
+# Temporary files
+# ------------------------------------------------------------
+
+.tmp/
+tmp/
+temp/
+
+*.tmp
+*.temp
+*.bak
+*.backup
+
+
+# ------------------------------------------------------------
+# Node.js / TypeScript
+# ------------------------------------------------------------
+
+node_modules/
+
+coverage/
+.nyc_output/
+
+.eslintcache
+.stylelintcache
+.cache/
+
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+
+
+# ------------------------------------------------------------
+# Android / Kotlin / Gradle
+# ------------------------------------------------------------
+
+.gradle/
+**/build/
+
+local.properties
+
+.externalNativeBuild/
+.cxx/
+
+captures/
+
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+
+# ------------------------------------------------------------
+# Python
+# Used only for local tooling / simple development utilities.
+# ------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.venv/
+venv/
+
+
+# ------------------------------------------------------------
+# Test / coverage output
+# ------------------------------------------------------------
+
+coverage.xml
+htmlcov/
+test-results/
+
+
+# ------------------------------------------------------------
+# Local runtime / generated state
+# ------------------------------------------------------------
+
+.pid
+*.pid
+*.pid.lock
+
+*.seed
+*.retry
+
+
+# ------------------------------------------------------------
+# Local containers / tooling
+# ------------------------------------------------------------
+
+.docker/
+docker-compose.override.yml
+
+
+# ------------------------------------------------------------
+# Git worktrees
+# ------------------------------------------------------------
+
+.worktrees/
+
+
+# ------------------------------------------------------------
+# Important project files that MUST remain tracked
+# ------------------------------------------------------------
+
+!.env.example
+
+# `dist/` is intentionally NOT ignored.
+# The landing-page branch versions its deployable static files
+# under `dist/`.
