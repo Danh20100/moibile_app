@@ -5,9 +5,9 @@ TrọƠi là **sổ vận hành thuê trọ theo từng phòng/tài sản** dàn
 ## Product Orientation
 
 - **Core:** hồ sơ vận hành theo phòng/tài sản và các workflow sau thuê.
-- **Primary payer:** chủ nhà, chủ trọ hoặc bên chịu chi phí vận hành.
+- **Primary payer (landlord/owner):** chủ nhà, chủ trọ hoặc bên chịu chi phí vận hành.
 - **Operator:** người trực tiếp vận hành hằng ngày; có thể là chủ trọ, người thân, quản lý khu trọ hoặc nhân viên vận hành.
-- **Tenant user:** người thuê tham gia xem thông tin được phép, đối chiếu biên nhận và báo sự cố; không phải nguồn thu chính của MVP.
+- **Secondary user (tenant):** người thuê tham gia xem thông tin được phép, đối chiếu biên nhận và báo sự cố; không phải nguồn thu chính của MVP.
 - **Future layer:** mạng lưới đối tác dịch vụ vận hành có kiểm soát ở Phase 2 trở đi.
 
 Listing, discovery và map có thể tồn tại như bề mặt hỗ trợ cho hành trình thuê, nhưng **không phải lõi định vị của TrọƠi**.
