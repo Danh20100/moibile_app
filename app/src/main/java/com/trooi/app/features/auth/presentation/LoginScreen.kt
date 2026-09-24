@@ -28,6 +28,7 @@ import com.trooi.app.ui.components.TroOiTextField
 fun LoginScreen(
     onLogin: (email: String, password: String) -> Unit,
     modifier: Modifier = Modifier,
+    loginAvailable: Boolean = true,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -79,12 +80,16 @@ fun LoginScreen(
                 text = "Đăng nhập",
                 onClick = { onLogin(email.trim(), password) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = email.isNotBlank() && password.isNotBlank(),
+                enabled = loginAvailable && email.isNotBlank() && password.isNotBlank(),
             )
 
             Spacer(Modifier.height(18.dp))
             Text(
-                text = "Quyền truy cập và vai trò được xác nhận bởi hệ thống TrọƠi.",
+                text = if (loginAvailable) {
+                    "Quyền truy cập và vai trò được xác nhận bởi hệ thống TrọƠi."
+                } else {
+                    "Đăng nhập sẽ được kích hoạt sau khi OpenAPI xác định contract xác thực."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
