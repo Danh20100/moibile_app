@@ -12,7 +12,10 @@ fun TroOiApp() {
         if (BuildConfig.DEBUG) {
             FrontendReviewScreen()
         } else {
-            LoginScreen(onLogin = { _, _ -> })
+            LoginScreen(
+                onLogin = { _, _ -> },
+                loginAvailable = false,
+            )
         }
     }
 }
