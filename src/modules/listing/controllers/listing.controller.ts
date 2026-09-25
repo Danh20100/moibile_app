@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+import { Public } from '../../../common';
 import { ListingContent } from '../contracts';
 import { CreateListingDto, UpdateListingDto, UpdateListingStatusDto } from '../dto';
 import { ListingService } from '../services/listing.service';
@@ -17,6 +18,7 @@ export class ListingController {
     return this.listingService.create(dto);
   }
 
+  @Public()
   @Get('public')
   @ApiOperation({ summary: 'Tìm kiếm danh sách tin đăng công khai (status: published)' })
   @ApiQuery({ name: 'propertyId', required: false, description: 'Lọc theo Property ID' })

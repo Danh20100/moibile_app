@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsPositive,
   IsString,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 
@@ -49,6 +50,9 @@ export class CreateBillingCycleDto {
   @ApiProperty({ description: 'Tháng của kỳ thu (YYYY-MM)', example: '2026-10' })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message: 'cycleMonth phải có định dạng YYYY-MM',
+  })
   cycleMonth!: string;
 
   @ApiProperty({ description: 'Hạn nộp tiền (YYYY-MM-DD)', example: '2026-10-05' })

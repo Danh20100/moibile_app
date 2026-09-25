@@ -15,7 +15,7 @@
     "lint": "eslint \"src/**/*.ts\" --max-warnings=0",
     "format": "prettier --no-error-on-unmatched-pattern --write \"src/**/*.ts\" \"*.{json,mjs}\" \".vscode/*.json\"",
     "format:check": "prettier --no-error-on-unmatched-pattern --check \"src/**/*.ts\" \"*.{json,mjs}\" \".vscode/*.json\"",
-    "test": "tsx --test src/**/*.spec.ts",
+    "test": "tsx --test src/**/*.spec.ts tests/**/*.test.ts",
     "test:google:live": "node --env-file=.env --import tsx tests/live/google-identity/google-id-token.live.ts"
   },
   "dependencies": {

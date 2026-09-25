@@ -1,5 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 
+import { PropertyService } from '../../property/services/property.service';
 import { RoomProfile, RoomStatus } from '../contracts';
 import { CreateRoomDto, UpdateRoomDto, UpdateRoomStatusDto } from '../dto';
 
@@ -13,9 +20,17 @@ const VALID_TRANSITIONS: Record<RoomStatus, RoomStatus[]> = {
 
 @Injectable()
 export class RoomService {
-  private readonly rooms = new Map<string, RoomProfile>();
+  private static readonly rooms = new Map<string, RoomProfile>();
+
+  constructor(
+    @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
+  ) {}
 
   async create(dto: CreateRoomDto): Promise<RoomProfile> {
+    if (this.propertyService) {
+      await this.propertyService.findById(dto.propertyId);
+    }
+
     const id = `room_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
     const room: RoomProfile = {
@@ -29,24 +44,24 @@ export class RoomService {
       createdAt: now,
       updatedAt: now,
     };
-    this.rooms.set(id, room);
-    return room;
+    RoomService.rooms.set(id, room);
+    return { ...room };
   }
 
   async findById(id: string): Promise<RoomProfile> {
-    const room = this.rooms.get(id);
+    const room = RoomService.rooms.get(id);
     if (!room) {
       throw new NotFoundException(`Không tìm thấy room với id: ${id}`);
     }
-    return room;
+    return { ...room };
   }
 
   async findByPropertyId(propertyId?: string): Promise<RoomProfile[]> {
-    const all = Array.from(this.rooms.values());
+    const all = Array.from(RoomService.rooms.values());
     if (!propertyId) {
-      return all;
+      return all.map((r) => ({ ...r }));
     }
-    return all.filter((r) => r.propertyId === propertyId);
+    return all.filter((r) => r.propertyId === propertyId).map((r) => ({ ...r }));
   }
 
   async update(id: string, dto: UpdateRoomDto): Promise<RoomProfile> {
@@ -59,8 +74,8 @@ export class RoomService {
       maxOccupants: dto.maxOccupants ?? room.maxOccupants,
       updatedAt: new Date().toISOString(),
     };
-    this.rooms.set(id, updated);
-    return updated;
+    RoomService.rooms.set(id, updated);
+    return { ...updated };
   }
 
   async updateStatus(id: string, dto: UpdateRoomStatusDto): Promise<RoomProfile> {
@@ -78,7 +93,7 @@ export class RoomService {
       status: dto.status,
       updatedAt: new Date().toISOString(),
     };
-    this.rooms.set(id, updated);
-    return updated;
+    RoomService.rooms.set(id, updated);
+    return { ...updated };
   }
 }

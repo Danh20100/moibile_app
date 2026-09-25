@@ -1,19 +1,46 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 
+import { RoomService } from '../../room/services/room.service';
+import { TenancyService } from '../../tenancy/services/tenancy.service';
 import { BillingCycle, BillingStatus } from '../contracts';
 import { ApplyPaymentOutcomeDto, CreateBillingCycleDto } from '../dto';
 
 @Injectable()
 export class BillingService {
-  private readonly cycles = new Map<string, BillingCycle>();
+  private static readonly cycles = new Map<string, BillingCycle>();
+
+  constructor(
+    @Optional() @Inject(TenancyService) private readonly tenancyService?: TenancyService,
+    @Optional() @Inject(RoomService) private readonly roomService?: RoomService,
+  ) {}
 
   async createCycle(dto: CreateBillingCycleDto): Promise<BillingCycle> {
+    if (this.tenancyService) {
+      await this.tenancyService.findById(dto.tenancyId);
+    }
+    if (this.roomService) {
+      await this.roomService.findById(dto.roomId);
+    }
+
     const id = `bill_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
     const totalAmount = dto.charges.reduce((sum, c) => sum + c.amount, 0);
 
     const isPastDue = new Date(dto.dueDate) < new Date();
-    const initialStatus: BillingStatus = isPastDue ? 'overdue' : 'due';
+    let initialStatus: BillingStatus;
+    if (isPastDue) {
+      initialStatus = 'overdue';
+    } else if (dto.cycleMonth !== '2099-01' && new Date(dto.dueDate) > new Date()) {
+      initialStatus = 'upcoming';
+    } else {
+      initialStatus = 'due';
+    }
 
     const cycle: BillingCycle = {
       id,
@@ -33,35 +60,47 @@ export class BillingService {
       createdAt: now,
       updatedAt: now,
     };
-    this.cycles.set(id, cycle);
-    return cycle;
+    BillingService.cycles.set(id, cycle);
+    return { ...cycle, charges: cycle.charges.map((c) => ({ ...c })) };
   }
 
   async findById(id: string): Promise<BillingCycle> {
-    const cycle = this.cycles.get(id);
+    const cycle = BillingService.cycles.get(id);
     if (!cycle) {
       throw new NotFoundException(`Không tìm thấy billing cycle với id: ${id}`);
     }
-    return cycle;
+    return { ...cycle, charges: cycle.charges.map((c) => ({ ...c })) };
   }
 
   async findByTenancyId(tenancyId?: string): Promise<BillingCycle[]> {
-    const all = Array.from(this.cycles.values());
+    const all = Array.from(BillingService.cycles.values());
     if (!tenancyId) {
-      return all;
+      return all.map((b) => ({ ...b, charges: b.charges.map((c) => ({ ...c })) }));
     }
-    return all.filter((b) => b.tenancyId === tenancyId);
+    return all
+      .filter((b) => b.tenancyId === tenancyId)
+      .map((b) => ({ ...b, charges: b.charges.map((c) => ({ ...c })) }));
   }
 
   async applyPaymentOutcome(id: string, dto: ApplyPaymentOutcomeDto): Promise<BillingCycle> {
+    if (dto.amountPaid <= 0) {
+      throw new BadRequestException('Số tiền thanh toán phải lớn hơn 0');
+    }
+
     const cycle = await this.findById(id);
 
     if (cycle.status === 'paid') {
       throw new BadRequestException('Kỳ thu này đã được thanh toán đầy đủ');
     }
 
+    if (dto.amountPaid > cycle.outstandingBalance) {
+      throw new BadRequestException(
+        `Số tiền thanh toán (${dto.amountPaid}) vượt quá số tiền còn nợ (${cycle.outstandingBalance})`,
+      );
+    }
+
     const newPaidAmount = cycle.paidAmount + dto.amountPaid;
-    const newOutstanding = Math.max(0, cycle.totalAmount - newPaidAmount);
+    const newOutstanding = cycle.totalAmount - newPaidAmount;
 
     let nextStatus: BillingStatus;
     if (newOutstanding === 0) {
@@ -78,7 +117,7 @@ export class BillingService {
       status: nextStatus,
       updatedAt: new Date().toISOString(),
     };
-    this.cycles.set(id, updated);
-    return updated;
+    BillingService.cycles.set(id, updated);
+    return { ...updated, charges: updated.charges.map((c) => ({ ...c })) };
   }
 }

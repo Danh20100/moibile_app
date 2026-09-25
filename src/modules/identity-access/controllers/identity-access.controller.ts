@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+import { Public } from '../../../common';
 import { Invitation, UserProfile } from '../contracts';
 import { AcceptInvitationDto, CreateInvitationDto, VerifyGoogleTokenDto } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
@@ -10,6 +11,7 @@ import { IdentityAccessService } from '../services/identity-access.service';
 export class IdentityAccessController {
   constructor(private readonly identityAccessService: IdentityAccessService) {}
 
+  @Public()
   @Post('auth/google')
   @ApiOperation({ summary: 'Xác thực người dùng qua Google ID Token (Android Credential Manager)' })
   @ApiResponse({ status: 200, description: 'Xác thực thành công và trả về thông tin user profile' })

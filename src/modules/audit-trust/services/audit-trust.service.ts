@@ -16,23 +16,31 @@ export class AuditTrustService {
       action: dto.action,
       resourceType: dto.resourceType,
       resourceId: dto.resourceId,
-      metadata: dto.metadata,
+      metadata: dto.metadata ? structuredClone(dto.metadata) : undefined,
       timestamp: new Date().toISOString(),
     };
     this.records.push(record);
-    return record;
+    return {
+      ...record,
+      metadata: record.metadata ? structuredClone(record.metadata) : undefined,
+    };
   }
 
   async queryAudit(query: QueryAuditDto): Promise<AuditRecord[]> {
-    return this.records.filter((r) => {
-      if (query.resourceType && r.resourceType !== query.resourceType) {
-        return false;
-      }
-      if (query.resourceId && r.resourceId !== query.resourceId) {
-        return false;
-      }
-      return true;
-    });
+    return this.records
+      .filter((r) => {
+        if (query.resourceType && r.resourceType !== query.resourceType) {
+          return false;
+        }
+        if (query.resourceId && r.resourceId !== query.resourceId) {
+          return false;
+        }
+        return true;
+      })
+      .map((r) => ({
+        ...r,
+        metadata: r.metadata ? structuredClone(r.metadata) : undefined,
+      }));
   }
 
   async submitReport(dto: SubmitInternalReportDto): Promise<InternalReport> {

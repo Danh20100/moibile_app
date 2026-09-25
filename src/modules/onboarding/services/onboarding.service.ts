@@ -1,11 +1,24 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 
+import { PropertyService } from '../../property/services/property.service';
+import { RoomService } from '../../room/services/room.service';
 import { OnboardingBatch } from '../contracts';
 import { ConfirmOnboardingBatchDto, CreateOnboardingBatchDto } from '../dto';
 
 @Injectable()
 export class OnboardingService {
   private readonly batches = new Map<string, OnboardingBatch>();
+
+  constructor(
+    @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
+    @Optional() @Inject(RoomService) private readonly roomService?: RoomService,
+  ) {}
 
   async validateAndPreview(dto: CreateOnboardingBatchDto): Promise<OnboardingBatch> {
     const id = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -54,14 +67,32 @@ export class OnboardingService {
       throw new BadRequestException('Batch này đã được xác nhận và khởi tạo trước đó');
     }
 
-    const mockPropertyId = `prop_onboard_${Date.now()}`;
-    const mockRoomIds = batch.rooms.map((_, index) => `room_onboard_${Date.now()}_${index + 1}`);
+    const propService = this.propertyService ?? new PropertyService();
+    const rmService = this.roomService ?? new RoomService();
+
+    const createdProperty = await propService.create({
+      organizationId: batch.organizationId,
+      name: batch.propertyName,
+      address: batch.propertyAddress,
+    });
+
+    const createdRoomIds: string[] = [];
+    for (const r of batch.rooms) {
+      const room = await rmService.create({
+        propertyId: createdProperty.id,
+        roomNumber: r.roomNumber,
+        basePrice: r.basePrice,
+        area: r.area,
+        maxOccupants: r.maxOccupants,
+      });
+      createdRoomIds.push(room.id);
+    }
 
     const updated: OnboardingBatch = {
       ...batch,
       status: 'confirmed',
-      createdPropertyId: mockPropertyId,
-      createdRoomIds: mockRoomIds,
+      createdPropertyId: createdProperty.id,
+      createdRoomIds,
       updatedAt: new Date().toISOString(),
     };
     this.batches.set(dto.batchId, updated);

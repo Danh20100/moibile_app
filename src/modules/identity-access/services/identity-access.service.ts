@@ -59,7 +59,6 @@ export class IdentityAccessService {
       const newUser: UserProfile = {
         id,
         externalSubject: googleIdentity.subject,
-        role: 'tenant',
         email: googleIdentity.email,
         name: googleIdentity.name,
         pictureUrl: googleIdentity.pictureUrl,

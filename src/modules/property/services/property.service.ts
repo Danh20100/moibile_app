@@ -1,13 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
+import { OrganizationService } from '../../organization/services/organization.service';
 import { PropertyProfile } from '../contracts';
 import { CreatePropertyDto, UpdatePropertyDto } from '../dto';
 
 @Injectable()
 export class PropertyService {
-  private readonly properties = new Map<string, PropertyProfile>();
+  private static readonly properties = new Map<string, PropertyProfile>();
+
+  constructor(
+    @Optional()
+    @Inject(OrganizationService)
+    private readonly organizationService?: OrganizationService,
+  ) {}
 
   async create(dto: CreatePropertyDto): Promise<PropertyProfile> {
+    if (this.organizationService) {
+      await this.organizationService.findById(dto.organizationId);
+    }
+
     const id = `prop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
     const property: PropertyProfile = {
@@ -24,24 +35,26 @@ export class PropertyService {
       createdAt: now,
       updatedAt: now,
     };
-    this.properties.set(id, property);
-    return property;
+    PropertyService.properties.set(id, property);
+    return { ...property, location: { ...property.location } };
   }
 
   async findById(id: string): Promise<PropertyProfile> {
-    const prop = this.properties.get(id);
+    const prop = PropertyService.properties.get(id);
     if (!prop) {
       throw new NotFoundException(`Không tìm thấy property với id: ${id}`);
     }
-    return prop;
+    return { ...prop, location: { ...prop.location } };
   }
 
   async findByOrganizationId(organizationId?: string): Promise<PropertyProfile[]> {
-    const all = Array.from(this.properties.values());
+    const all = Array.from(PropertyService.properties.values());
     if (!organizationId) {
-      return all;
+      return all.map((p) => ({ ...p, location: { ...p.location } }));
     }
-    return all.filter((p) => p.organizationId === organizationId);
+    return all
+      .filter((p) => p.organizationId === organizationId)
+      .map((p) => ({ ...p, location: { ...p.location } }));
   }
 
   async update(id: string, dto: UpdatePropertyDto): Promise<PropertyProfile> {
@@ -58,7 +71,7 @@ export class PropertyService {
       status: dto.status ?? prop.status,
       updatedAt: new Date().toISOString(),
     };
-    this.properties.set(id, updated);
-    return updated;
+    PropertyService.properties.set(id, updated);
+    return { ...updated, location: { ...updated.location } };
   }
 }

@@ -1,5 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 
+import { PropertyService } from '../../property/services/property.service';
+import { RoomService } from '../../room/services/room.service';
 import { ListingContent, ListingStatus } from '../contracts';
 import { CreateListingDto, UpdateListingDto, UpdateListingStatusDto } from '../dto';
 
@@ -12,9 +20,21 @@ const VALID_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = {
 
 @Injectable()
 export class ListingService {
-  private readonly listings = new Map<string, ListingContent>();
+  private static readonly listings = new Map<string, ListingContent>();
+
+  constructor(
+    @Optional() @Inject(RoomService) private readonly roomService?: RoomService,
+    @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
+  ) {}
 
   async create(dto: CreateListingDto): Promise<ListingContent> {
+    if (this.roomService) {
+      await this.roomService.findById(dto.roomId);
+    }
+    if (this.propertyService) {
+      await this.propertyService.findById(dto.propertyId);
+    }
+
     const id = `list_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
     const listing: ListingContent = {
@@ -29,24 +49,26 @@ export class ListingService {
       createdAt: now,
       updatedAt: now,
     };
-    this.listings.set(id, listing);
-    return listing;
+    ListingService.listings.set(id, listing);
+    return { ...listing };
   }
 
   async findById(id: string): Promise<ListingContent> {
-    const listing = this.listings.get(id);
+    const listing = ListingService.listings.get(id);
     if (!listing) {
       throw new NotFoundException(`Không tìm thấy listing với id: ${id}`);
     }
-    return listing;
+    return { ...listing };
   }
 
   async findPublic(propertyId?: string): Promise<ListingContent[]> {
-    const all = Array.from(this.listings.values());
-    return all.filter((l) => {
-      const matchProperty = !propertyId || l.propertyId === propertyId;
-      return matchProperty && l.status === 'published';
-    });
+    const all = Array.from(ListingService.listings.values());
+    return all
+      .filter((l) => {
+        const matchProperty = !propertyId || l.propertyId === propertyId;
+        return matchProperty && l.status === 'published';
+      })
+      .map((l) => ({ ...l }));
   }
 
   async update(id: string, dto: UpdateListingDto): Promise<ListingContent> {
@@ -59,8 +81,8 @@ export class ListingService {
       locationSummary: dto.locationSummary ?? listing.locationSummary,
       updatedAt: new Date().toISOString(),
     };
-    this.listings.set(id, updated);
-    return updated;
+    ListingService.listings.set(id, updated);
+    return { ...updated };
   }
 
   async updateStatus(id: string, dto: UpdateListingStatusDto): Promise<ListingContent> {
@@ -80,7 +102,7 @@ export class ListingService {
       publishedAt: dto.status === 'published' ? now : listing.publishedAt,
       updatedAt: now,
     };
-    this.listings.set(id, updated);
-    return updated;
+    ListingService.listings.set(id, updated);
+    return { ...updated };
   }
 }

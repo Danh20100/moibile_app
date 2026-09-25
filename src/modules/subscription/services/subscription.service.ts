@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
+import { OrganizationService } from '../../organization/services/organization.service';
 import { EntitlementDecision, OrganizationSubscription, SubscriptionPlan } from '../contracts';
 import { AssignSubscriptionDto } from '../dto';
 
@@ -26,9 +27,19 @@ const PLAN_CAPABILITIES: Record<SubscriptionPlan, { maxRooms: number; capabiliti
 
 @Injectable()
 export class SubscriptionService {
-  private readonly subscriptions = new Map<string, OrganizationSubscription>();
+  private static readonly subscriptions = new Map<string, OrganizationSubscription>();
+
+  constructor(
+    @Optional()
+    @Inject(OrganizationService)
+    private readonly organizationService?: OrganizationService,
+  ) {}
 
   async assignPlan(dto: AssignSubscriptionDto): Promise<OrganizationSubscription> {
+    if (this.organizationService) {
+      await this.organizationService.findById(dto.organizationId);
+    }
+
     const now = new Date();
     const expiresAt = new Date(now.getTime() + dto.durationDays * 24 * 60 * 60 * 1000);
     const planInfo = PLAN_CAPABILITIES[dto.plan];
@@ -37,18 +48,18 @@ export class SubscriptionService {
       organizationId: dto.organizationId,
       plan: dto.plan,
       maxRooms: planInfo.maxRooms,
-      capabilities: planInfo.capabilities,
+      capabilities: [...planInfo.capabilities],
       expiresAt: expiresAt.toISOString(),
       isActive: true,
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
-    this.subscriptions.set(dto.organizationId, sub);
-    return sub;
+    SubscriptionService.subscriptions.set(dto.organizationId, sub);
+    return { ...sub, capabilities: [...sub.capabilities] };
   }
 
   async getSubscription(organizationId: string): Promise<OrganizationSubscription> {
-    const sub = this.subscriptions.get(organizationId);
+    const sub = SubscriptionService.subscriptions.get(organizationId);
     if (!sub) {
       // Default to free tier if not explicitly subscribed
       const now = new Date();
@@ -58,14 +69,14 @@ export class SubscriptionService {
         organizationId,
         plan: 'free',
         maxRooms: freePlan.maxRooms,
-        capabilities: freePlan.capabilities,
+        capabilities: [...freePlan.capabilities],
         expiresAt: expiresAt.toISOString(),
         isActive: true,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
       };
-      this.subscriptions.set(organizationId, defaultSub);
-      return defaultSub;
+      SubscriptionService.subscriptions.set(organizationId, defaultSub);
+      return { ...defaultSub, capabilities: [...defaultSub.capabilities] };
     }
 
     const isExpired = new Date(sub.expiresAt) < new Date();
@@ -74,7 +85,7 @@ export class SubscriptionService {
       sub.updatedAt = new Date().toISOString();
     }
 
-    return sub;
+    return { ...sub, capabilities: [...sub.capabilities] };
   }
 
   async checkEntitlement(organizationId: string, capability: string): Promise<EntitlementDecision> {

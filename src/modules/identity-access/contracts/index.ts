@@ -7,7 +7,7 @@ export interface UserReference {
 export interface UserProfile {
   id: string;
   externalSubject: string;
-  role: UserRole;
+  role?: UserRole;
   email?: string;
   name?: string;
   pictureUrl?: string;
