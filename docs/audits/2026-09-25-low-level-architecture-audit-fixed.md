@@ -2,7 +2,7 @@
 
 - Date: 2026-09-25
 - Branch: `backend/low-level-architecture`
-- Status: **REMEDIATION COMPLETE — 100% AUDIT PASS (36/36 Audit Tests, 45/45 Total Tests)**
+- Status: **LOW-ARCH REMEDIATION COMPLETE — 40/40 Audit Tests, 49/49 Total Tests PASS**
 - Reference Audit Document: `docs/audits/2026-09-25-low-level-architecture-audit.md`
 - Target Branch for Merge: `backend/core-foundations`
 
@@ -12,16 +12,16 @@
 
 Báo cáo này ghi nhận toàn diện kết quả khắc phục 14 phát hiện kiến trúc (F-01 đến F-14) từ báo cáo kiểm toán [2026-09-25-low-level-architecture-audit.md](./2026-09-25-low-level-architecture-audit.md).
 
-Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò rỉ đóng gói (encapsulation leakage), thiếu hụt xác thực tham chiếu chéo (cross-module reference integrity) và lỗ hổng kiểm soát truy cập (access enforcement) đã được xử lý triệt để, đảm bảo tính toàn vẹn của mô hình Modular Monolith.
+Các blocker thuộc phạm vi low-level architecture đã được xử lý và codify bằng test. Các concern thuộc production hardening như token verification hoàn chỉnh, persistence adapter/database, transaction và permission matrix vẫn được chủ động để phase sau.
 
 ### Bảng đối chiếu kết quả kiểm thử (Before vs After)
 
 | Test Suite / Metric        | Trước khắc phục (Initial Audit) | Sau khắc phục (Remediation) | Trạng thái                  |
 | -------------------------- | ------------------------------- | --------------------------- | --------------------------- |
-| **Audit Tests Pass**       | 13 / 36 tests (36.1%)           | **36 / 36 tests (100%)**    | Đạt chuẩn                   |
-| **Audit Tests Fail**       | 23 / 36 tests (63.9%)           | **0 / 36 tests (0%)**       | Đã khắc phục hoàn toàn      |
+| **Audit Tests Pass**       | 13 / 36 tests (36.1%)           | **40 / 40 tests (100%)**    | Đạt chuẩn                   |
+| **Audit Tests Fail**       | 23 / 36 tests (63.9%)           | **0 / 40 tests (0%)**       | Đã khắc phục hoàn toàn      |
 | **Google Auth Spec Tests** | 9 / 9 tests PASS                | **9 / 9 tests PASS**        | Giữ vững baseline           |
-| **Total Test Suite**       | 9 / 9 tests discovered          | **45 / 45 tests PASS**      | Tự động phát hiện toàn bộ   |
+| **Total Test Suite**       | 9 / 9 tests discovered          | **49 / 49 tests PASS**      | Tự động phát hiện toàn bộ   |
 | `typecheck`                | PASS                            | **PASS**                    | 0 error                     |
 | `lint`                     | PASS                            | **PASS**                    | 0 warning                   |
 | `format:check`             | PASS                            | **PASS**                    | 100% Prettier compliant     |
@@ -103,8 +103,8 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
 
 ### F-09 — MEDIUM ARCHITECTURE DEBT — In-memory persistence nằm trực tiếp trong service
 
-- **Đánh giá**: Ở giai đoạn low-level architecture, việc duy trì in-memory `Map` tĩnh trong service là phù hợp với nguyên lý tối giản (YAGNI / Ponytail) để kiểm chứng flow và contract trước khi tích hợp ORM/database.
-- **Kế hoạch tiếp theo**: Tách persistence container thành abstract repository interfaces khi tích hợp PostgreSQL/Prisma ở phase tiếp theo.
+- **Đánh giá**: Ở giai đoạn low-level architecture, in-memory `Map` được giữ lại để kiểm chứng flow và contract trước database. `PropertyService` và `RoomService` đã được đưa về state theo service instance để không cần process-global state cho onboarding tests.
+- **Kế hoạch tiếp theo**: Persistence ports/adapters và PostgreSQL/Prisma vẫn được defer sang database phase; đây không phải merge blocker của low architecture.
 
 ### F-10 — MEDIUM TEST INFRASTRUCTURE GAP — Lệnh test mặc định bỏ sót audit tests
 
@@ -112,19 +112,19 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
 - **Giải pháp**:
   - Cập nhật `package.json`:
     ```json
-    "test": "tsx --test src/**/*.spec.ts tests/**/*.test.ts"
+    "test": "nest build && tsx --test src/**/*.spec.ts tests/**/*.test.ts"
     ```
-- **Kết quả kiểm thử**: Test `includes repository audit tests in the default test command` chuyển sang **PASS**.
+- **Kết quả kiểm thử**: Audit tests được discover bởi lệnh mặc định; runtime audit cũng tự có build artifact nên `pnpm test` chạy được từ fresh checkout.
 
 ### F-11 — CRITICAL SECURITY — Private routes không có cơ chế Auth Guard bảo vệ
 
 - **Vấn đề**: Swagger quảng bá Bearer Auth nhưng toàn bộ hệ thống không có bất kỳ Guard nào được gắn vào NestJS pipeline, cho phép truy cập trái phép vào các dữ liệu nhạy cảm của tổ chức mà không cần token.
 - **Giải pháp**:
   - Xây dựng decorator `@Public()` (`src/common/decorators/public.decorator.ts`) sử dụng `Reflector`.
-  - Triển khai `AuthGuard` implements `CanActivate` (`src/common/guards/auth.guard.ts`) để kiểm tra `Authorization: Bearer <token>`, ném `401 Unauthorized` nếu thiếu hoặc không hợp lệ.
+  - Triển khai `AuthGuard` implements `CanActivate` (`src/common/guards/auth.guard.ts`) để biểu diễn private/public access boundary ở mức low architecture; request thiếu Bearer credential bị chặn.
   - Đăng ký `AuthGuard` toàn cục qua token `APP_GUARD` trong `AppModule`.
   - Đánh dấu `@Public()` cho các endpoint mở: `HealthController` (`/api/v1/health`), `ListingController.findPublic` (`/api/v1/listings/public`), `IdentityAccessController.authenticateWithGoogle` (`/api/v1/identity-access/auth/google`).
-- **Kết quả kiểm thử**: Hai tests `has an authentication/authorization enforcement mechanism for non-public API routes` và `blocks unauthenticated access to private organization data` chuyển sang **PASS**.
+- **Kết quả kiểm thử**: Hai tests `has an authentication/authorization enforcement mechanism for non-public API routes` và `blocks unauthenticated access to private organization data` chuyển sang **PASS**. Cryptographic/session token verification hoàn chỉnh được defer sang auth implementation phase.
 
 ### F-12 — HIGH — Thiếu ràng buộc tính toàn vẹn tham chiếu chéo giữa 8 cặp module
 
@@ -139,8 +139,8 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
     6. `IncidentService.create` -> kiểm tra `roomId` qua `RoomService`.
     7. `ListingService.create` -> kiểm tra `roomId` qua `RoomService` và `propertyId` qua `PropertyService`.
     8. `SubscriptionService.assignPlan` -> kiểm tra `organizationId` qua `OrganizationService`.
-  - Sử dụng `@Optional() @Inject(...)` để vừa tương thích Nest DI container vừa hỗ trợ unit test khởi tạo độc lập.
-- **Kết quả kiểm thử**: Toàn bộ 8/8 tests trong suite `cross-module reference integrity audit` chuyển sang **PASS**.
+  - Sử dụng module wiring/DI để kiểm tra reference qua owning service.
+- **Kết quả kiểm thử**: Toàn bộ 8/8 tests trong suite `cross-module reference integrity audit` chuyển sang **PASS**. Phạm vi low-arch hiện kiểm existence; relationship consistency sâu hơn được defer sang business-hardening phase.
 
 ### F-13 — MEDIUM — Vòng đời Billing không có trạng thái ban đầu Upcoming
 
@@ -150,7 +150,7 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
     - Nếu `dueDate` trong tương lai -> trạng thái ban đầu là `'upcoming'`.
     - Nếu `dueDate` trùng thời điểm hiện tại -> trạng thái là `'due'`.
     - Nếu `dueDate` trong quá khứ -> trạng thái là `'overdue'`.
-- **Kết quả kiểm thử**: Test `creates a future billing cycle in Upcoming state` chuyển sang **PASS**.
+- **Kết quả kiểm thử**: Test `creates a future billing cycle in Upcoming state` và regression test cho literal `2099-01` đều **PASS**; không còn business special-case phục vụ test fixture.
 
 ### F-14 — HIGH — BillingService chấp nhận số tiền thanh toán âm tại business boundary
 
@@ -178,7 +178,7 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
 
 ### File chỉnh sửa
 
-- `package.json`: Cập nhật script test phát hiện toàn bộ audit tests.
+- `package.json`: Cập nhật script test để build trước runtime audit và phát hiện toàn bộ audit tests từ fresh checkout.
 - `src/app.module.ts`: Đăng ký `AuthGuard` toàn cục qua `APP_GUARD`.
 - `src/common/index.ts`: Export thêm guards và decorators.
 - `src/health.controller.ts`: Gắn `@Public()` cho health check endpoint.
@@ -189,11 +189,11 @@ Toàn bộ các vi phạm hợp đồng kiến trúc (contract violations), rò 
 - `src/modules/listing/listing.module.ts`: Import `RoomModule` và `PropertyModule`.
 - `src/modules/listing/services/listing.service.ts`: Xác thực tham chiếu `roomId` và `propertyId`.
 - `src/modules/onboarding/onboarding.module.ts`: Import `PropertyModule` và `RoomModule`.
-- `src/modules/onboarding/services/onboarding.service.ts`: Khởi tạo domain data thật vào Property và Room.
+- `src/modules/onboarding/services/onboarding.service.ts`: Khởi tạo domain data thật qua Property/Room services đã inject; bỏ fallback tự `new` destination services.
 - `src/modules/property/property.module.ts`: Import `OrganizationModule`.
-- `src/modules/property/services/property.service.ts`: Xác thực tham chiếu `organizationId` và defensive copy.
+- `src/modules/property/services/property.service.ts`: Xác thực tham chiếu `organizationId`, defensive copy và instance-scoped in-memory state.
 - `src/modules/room/room.module.ts`: Import `PropertyModule`.
-- `src/modules/room/services/room.service.ts`: Xác thực tham chiếu `propertyId` và defensive copy.
+- `src/modules/room/services/room.service.ts`: Xác thực tham chiếu `propertyId`, defensive copy và instance-scoped in-memory state.
 - `src/modules/tenancy/tenancy.module.ts`: Import `RoomModule`.
 - `src/modules/tenancy/services/tenancy.service.ts`: Xác thực tham chiếu `roomId` và kiểm tra logic ngày thuê.
 - `src/modules/billing/billing.module.ts`: Import `TenancyModule` và `RoomModule`.
@@ -227,8 +227,8 @@ prettier --no-error-on-unmatched-pattern --check "src/**/*.ts" "*.{json,mjs}" ".
 -> All matched files use Prettier code style!
 
 > pnpm run test
-tsx --test src/**/*.spec.ts tests/**/*.test.ts
--> tests: 45 | suites: 10 | pass: 45 | fail: 0 | duration_ms: 2259ms
+nest build && tsx --test src/**/*.spec.ts tests/**/*.test.ts
+-> tests: 49 | suites: 10 | pass: 49 | fail: 0 | cancelled: 0 | skipped: 0
 
 > pnpm run build
 nest build
@@ -239,6 +239,6 @@ nest build
 
 ## 5. Conclusion & Merge Readiness
 
-Tất cả 9 Merge Blockers (F-01, F-02, F-03, F-04, F-05, F-06, F-11, F-12, F-14) cùng các hardening gaps liên quan đã được giải quyết triệt để.
+Các blocker thuộc scope low architecture đã được xử lý và test hóa. Billing không còn sentinel `2099-01`; onboarding dùng destination services được inject thay vì fallback construction; Property/Room không còn dựa vào static shared state; và default test command tự chuẩn bị runtime artifact.
 
-Nhánh `backend/low-level-architecture` đã đạt đầy đủ điều kiện kỹ thuật và tính toàn vẹn kiến trúc để tiến hành merge an toàn vào nhánh nền tảng `backend/core-foundations`.
+Nhánh `backend/low-level-architecture` đạt trạng thái **low-arch ready trên chính branch này**. Do branch hiện diverged với `backend/core-foundations`, bước kế tiếp vẫn phải sync core vào low-level, resolve khác biệt và chạy lại toàn bộ verification trước khi merge vào core.

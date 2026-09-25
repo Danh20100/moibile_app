@@ -6,7 +6,7 @@ import { CreatePropertyDto, UpdatePropertyDto } from '../dto';
 
 @Injectable()
 export class PropertyService {
-  private static readonly properties = new Map<string, PropertyProfile>();
+  private readonly properties = new Map<string, PropertyProfile>();
 
   constructor(
     @Optional()
@@ -35,12 +35,12 @@ export class PropertyService {
       createdAt: now,
       updatedAt: now,
     };
-    PropertyService.properties.set(id, property);
+    this.properties.set(id, property);
     return { ...property, location: { ...property.location } };
   }
 
   async findById(id: string): Promise<PropertyProfile> {
-    const prop = PropertyService.properties.get(id);
+    const prop = this.properties.get(id);
     if (!prop) {
       throw new NotFoundException(`Không tìm thấy property với id: ${id}`);
     }
@@ -48,7 +48,7 @@ export class PropertyService {
   }
 
   async findByOrganizationId(organizationId?: string): Promise<PropertyProfile[]> {
-    const all = Array.from(PropertyService.properties.values());
+    const all = Array.from(this.properties.values());
     if (!organizationId) {
       return all.map((p) => ({ ...p, location: { ...p.location } }));
     }
@@ -71,7 +71,7 @@ export class PropertyService {
       status: dto.status ?? prop.status,
       updatedAt: new Date().toISOString(),
     };
-    PropertyService.properties.set(id, updated);
+    this.properties.set(id, updated);
     return { ...updated, location: { ...updated.location } };
   }
 }

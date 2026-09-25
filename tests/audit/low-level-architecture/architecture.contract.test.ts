@@ -1,13 +1,18 @@
 ﻿import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import type { GoogleIdTokenVerifier } from '../../../src/integrations/google-identity';
 import { AuditTrustService } from '../../../src/modules/audit-trust/services/audit-trust.service';
 import { BillingService } from '../../../src/modules/billing/services/billing.service';
 import { IdentityAccessService } from '../../../src/modules/identity-access/services/identity-access.service';
 import { OnboardingService } from '../../../src/modules/onboarding/services/onboarding.service';
+import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
 import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
@@ -121,26 +126,23 @@ describe('architecture contract audit', () => {
   });
 
   it('creates actual destination-domain data when onboarding is confirmed', async () => {
-    const onboarding = new OnboardingService();
-    const properties = new PropertyService();
+    const organizations = new OrganizationService();
+    const properties = new PropertyService(organizations);
+    const rooms = new RoomService(properties);
+    const onboarding = new OnboardingService(properties, rooms);
+    const organization = await organizations.create({ name: 'Organization A' });
 
     const batch = await onboarding.validateAndPreview({
-      organizationId: 'org_1',
+      organizationId: organization.id,
       propertyName: 'Property A',
       propertyAddress: 'Address A',
       rooms: [{ roomNumber: '101', basePrice: 3_000_000 }],
     });
     const confirmed = await onboarding.confirmBatch({ batchId: batch.id });
 
-    assert.ok(
-      confirmed.createdPropertyId,
-      'Confirmation should expose the destination property reference.',
-    );
-
-    await assert.doesNotReject(
-      properties.findById(confirmed.createdPropertyId),
-      'A confirmed onboarding result must reference domain data accepted by the destination module.',
-    );
+    assert.ok(confirmed.createdPropertyId);
+    await assert.doesNotReject(properties.findById(confirmed.createdPropertyId));
+    assert.equal((await rooms.findByPropertyId(confirmed.createdPropertyId)).length, 1);
   });
 
   it('keeps an audit record immutable even if the returned record is modified', async () => {
@@ -163,21 +165,57 @@ describe('architecture contract audit', () => {
   });
 
   it('does not silently create fake destination data for a confirmed onboarding batch', async () => {
-    const onboarding = new OnboardingService();
+    const organizations = new OrganizationService();
+    const properties = new PropertyService(organizations);
+    const rooms = new RoomService(properties);
+    const onboarding = new OnboardingService(properties, rooms);
+    const organization = await organizations.create({ name: 'Organization B' });
     const batch = await onboarding.validateAndPreview({
-      organizationId: 'org_1',
-      propertyName: 'Property A',
-      propertyAddress: 'Address A',
+      organizationId: organization.id,
+      propertyName: 'Property B',
+      propertyAddress: 'Address B',
       rooms: [{ roomNumber: '101', basePrice: 3_000_000 }],
     });
     const confirmed = await onboarding.confirmBatch({ batchId: batch.id });
 
     assert.ok(confirmed.createdPropertyId);
-    assert.equal(
-      confirmed.createdPropertyId.startsWith('prop_onboard_'),
-      false,
-      'Confirmation should not manufacture placeholder-looking domain identifiers.',
+    assert.equal(confirmed.createdPropertyId.startsWith('prop_onboard_'), false);
+  });
+
+  it('requires destination services before onboarding confirmation can create domain data', async () => {
+    const onboarding = new OnboardingService();
+    const batch = await onboarding.validateAndPreview({
+      organizationId: 'org_reference',
+      propertyName: 'Property C',
+      propertyAddress: 'Address C',
+      rooms: [{ roomNumber: '101', basePrice: 3_000_000 }],
+    });
+
+    await assert.rejects(
+      onboarding.confirmBatch({ batchId: batch.id }),
+      InternalServerErrorException,
+      'Confirmation must not instantiate destination services as an internal fallback.',
     );
+  });
+
+  it('keeps independent property and room service instances isolated', async () => {
+    const propertiesA = new PropertyService();
+    const propertiesB = new PropertyService();
+    const createdProperty = await propertiesA.create({
+      organizationId: 'org_reference',
+      name: 'Isolated Property',
+      address: 'Address',
+    });
+    await assert.rejects(propertiesB.findById(createdProperty.id), NotFoundException);
+
+    const roomsA = new RoomService();
+    const roomsB = new RoomService();
+    const createdRoom = await roomsA.create({
+      propertyId: 'prop_reference',
+      roomNumber: 'A-101',
+      basePrice: 3_000_000,
+    });
+    await assert.rejects(roomsB.findById(createdRoom.id), NotFoundException);
   });
 
   it('still reports missing resources with the expected Nest exception type', async () => {

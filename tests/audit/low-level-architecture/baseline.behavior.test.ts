@@ -114,7 +114,7 @@ describe('low-level architecture baseline behavior', () => {
     assert.deepEqual(await service.findPublic(), []);
   });
 
-  it('reconciles an exact billing payment from due to paid', async () => {
+  it('reconciles an exact billing payment from upcoming to paid', async () => {
     const service = new BillingService();
     const cycle = await service.createCycle({
       tenancyId: 'ten_1',
@@ -129,7 +129,7 @@ describe('low-level architecture baseline behavior', () => {
 
     assert.equal(cycle.totalAmount, 3_600_000);
     assert.equal(cycle.outstandingBalance, 3_600_000);
-    assert.equal(cycle.status, 'due');
+    assert.equal(cycle.status, 'upcoming');
 
     const partial = await service.applyPaymentOutcome(cycle.id, {
       amountPaid: 1_000_000,

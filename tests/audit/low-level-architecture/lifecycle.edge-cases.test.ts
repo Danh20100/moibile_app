@@ -33,6 +33,23 @@ describe('lifecycle edge-case audit', () => {
     );
   });
 
+  it('does not special-case a future 2099-01 billing cycle as Due', async () => {
+    const service = new BillingService();
+    const cycle = await service.createCycle({
+      tenancyId: 'tenancy_reference',
+      roomId: 'room_reference',
+      cycleMonth: '2099-01',
+      dueDate: '2099-01-31',
+      charges: [{ type: 'rent', description: 'Rent', amount: 3000000 }],
+    });
+
+    assert.equal(
+      cycle.status,
+      'upcoming',
+      'A future cycle must follow lifecycle semantics regardless of the literal cycleMonth value.',
+    );
+  });
+
   it('rejects a negative payment outcome at the business boundary', async () => {
     const service = new BillingService();
     const cycle = await service.createCycle({

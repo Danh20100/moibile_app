@@ -15,4 +15,16 @@ describe('test discovery audit', () => {
       'The default test command only discovers src/**/*.spec.ts; tests/audit/** can be silently skipped by CI/developers.',
     );
   });
+  it('builds the runtime artifact before running the default test suite', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    const testScript = pkg.scripts?.test ?? '';
+
+    assert.match(
+      testScript,
+      /nest build.*tsx --test/,
+      'pnpm test must prepare build/main.js before the runtime access audit runs.',
+    );
+  });
 });

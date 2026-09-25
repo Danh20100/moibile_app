@@ -20,7 +20,7 @@ const VALID_TRANSITIONS: Record<RoomStatus, RoomStatus[]> = {
 
 @Injectable()
 export class RoomService {
-  private static readonly rooms = new Map<string, RoomProfile>();
+  private readonly rooms = new Map<string, RoomProfile>();
 
   constructor(
     @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
@@ -44,12 +44,12 @@ export class RoomService {
       createdAt: now,
       updatedAt: now,
     };
-    RoomService.rooms.set(id, room);
+    this.rooms.set(id, room);
     return { ...room };
   }
 
   async findById(id: string): Promise<RoomProfile> {
-    const room = RoomService.rooms.get(id);
+    const room = this.rooms.get(id);
     if (!room) {
       throw new NotFoundException(`Không tìm thấy room với id: ${id}`);
     }
@@ -57,7 +57,7 @@ export class RoomService {
   }
 
   async findByPropertyId(propertyId?: string): Promise<RoomProfile[]> {
-    const all = Array.from(RoomService.rooms.values());
+    const all = Array.from(this.rooms.values());
     if (!propertyId) {
       return all.map((r) => ({ ...r }));
     }
@@ -74,7 +74,7 @@ export class RoomService {
       maxOccupants: dto.maxOccupants ?? room.maxOccupants,
       updatedAt: new Date().toISOString(),
     };
-    RoomService.rooms.set(id, updated);
+    this.rooms.set(id, updated);
     return { ...updated };
   }
 
@@ -93,7 +93,7 @@ export class RoomService {
       status: dto.status,
       updatedAt: new Date().toISOString(),
     };
-    RoomService.rooms.set(id, updated);
+    this.rooms.set(id, updated);
     return { ...updated };
   }
 }

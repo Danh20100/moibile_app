@@ -32,11 +32,11 @@ export class BillingService {
     const now = new Date().toISOString();
     const totalAmount = dto.charges.reduce((sum, c) => sum + c.amount, 0);
 
-    const isPastDue = new Date(dto.dueDate) < new Date();
+    const today = new Date().toISOString().slice(0, 10);
     let initialStatus: BillingStatus;
-    if (isPastDue) {
+    if (dto.dueDate < today) {
       initialStatus = 'overdue';
-    } else if (dto.cycleMonth !== '2099-01' && new Date(dto.dueDate) > new Date()) {
+    } else if (dto.dueDate > today) {
       initialStatus = 'upcoming';
     } else {
       initialStatus = 'due';

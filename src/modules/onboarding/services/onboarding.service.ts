@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
@@ -67,10 +68,11 @@ export class OnboardingService {
       throw new BadRequestException('Batch này đã được xác nhận và khởi tạo trước đó');
     }
 
-    const propService = this.propertyService ?? new PropertyService();
-    const rmService = this.roomService ?? new RoomService();
+    if (!this.propertyService || !this.roomService) {
+      throw new InternalServerErrorException('Onboarding destination services are unavailable');
+    }
 
-    const createdProperty = await propService.create({
+    const createdProperty = await this.propertyService.create({
       organizationId: batch.organizationId,
       name: batch.propertyName,
       address: batch.propertyAddress,
@@ -78,7 +80,7 @@ export class OnboardingService {
 
     const createdRoomIds: string[] = [];
     for (const r of batch.rooms) {
-      const room = await rmService.create({
+      const room = await this.roomService.create({
         propertyId: createdProperty.id,
         roomNumber: r.roomNumber,
         basePrice: r.basePrice,
