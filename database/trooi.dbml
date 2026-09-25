@@ -1,0 +1,403 @@
+// TrọƠi — Database schema (DBML)
+// Cách dùng: mở https://dbdiagram.io -> New Diagram -> xoá nội dung mẫu ->
+// dán toàn bộ file này vào -> sơ đồ ERD hiện ra tự động, kéo thả chỉnh vị trí thoải mái.
+
+Enum user_role {
+  admin
+  owner
+  operator
+  tenant
+  partner
+}
+
+Enum room_status {
+  vacant
+  occupied
+  reserved
+  maintenance
+  inactive
+}
+
+Enum tenancy_status {
+  active
+  ended
+  terminated_early
+}
+
+Enum charge_type {
+  rent
+  deposit
+  utility
+  service_fee
+  penalty
+  other
+}
+
+Enum invoice_status {
+  draft
+  issued
+  partially_paid
+  paid
+  overdue
+  void
+}
+
+Enum payment_method {
+  cash
+  bank_transfer
+  in_app
+}
+
+Enum incident_status {
+  open
+  in_progress
+  waiting_partner
+  resolved
+  closed
+  cancelled
+}
+
+Enum subscription_status {
+  trialing
+  active
+  past_due
+  cancelled
+  expired
+}
+
+Enum verification_status {
+  unverified
+  pending
+  verified
+  rejected
+}
+
+// ---------------------------------------------------------------------
+// 1. ACTORS
+// ---------------------------------------------------------------------
+
+Table users {
+  id uuid [pk]
+  role user_role [not null]
+  full_name varchar [not null]
+  phone varchar [unique]
+  phone_verified_at timestamptz
+  email varchar [unique]
+  password_hash varchar
+  created_at timestamptz
+  deactivated_at timestamptz
+
+  Note: "Actors: Payer/Owner, Operator, Tenant(account), Partner, Admin"
+}
+
+Table tenants {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, note: "NULL nếu tenant chưa có account"]
+  full_name varchar [not null]
+  phone varchar
+  id_number varchar
+  note text
+  created_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 2. PROPERTY & ROOM
+// ---------------------------------------------------------------------
+
+Table properties {
+  id uuid [pk]
+  owner_id uuid [ref: > users.id, not null]
+  operator_id uuid [ref: > users.id]
+  name varchar [not null]
+  address varchar [not null]
+  ward varchar
+  district varchar
+  city varchar
+  total_rooms int
+  verification_status verification_status
+  created_at timestamptz
+}
+
+Table rooms {
+  id uuid [pk]
+  property_id uuid [ref: > properties.id, not null]
+  code varchar [not null]
+  floor varchar
+  area_sqm decimal
+  status room_status [not null, default: 'vacant']
+  base_rent decimal
+  base_deposit decimal
+  attributes "jsonb"
+  created_at timestamptz
+
+  indexes {
+    (property_id, code) [unique]
+  }
+}
+
+Table room_operational_records {
+  room_id uuid [pk, ref: - rooms.id]
+  last_meter_electric decimal
+  last_meter_water decimal
+  notes text
+  updated_at timestamptz
+}
+
+Table room_status_history {
+  id bigint [pk, increment]
+  room_id uuid [ref: > rooms.id, not null]
+  from_status room_status
+  to_status room_status [not null]
+  changed_by uuid [ref: > users.id]
+  reason text
+  changed_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 3. RENTAL LIFECYCLE
+// ---------------------------------------------------------------------
+
+Table tenancies {
+  id uuid [pk]
+  room_id uuid [ref: > rooms.id, not null]
+  status tenancy_status [not null, default: 'active']
+  rent_amount decimal [not null]
+  deposit_amount decimal [not null]
+  billing_cycle_days int
+  start_date date [not null]
+  end_date date
+  moved_out_at timestamptz
+  moved_out_reason text
+  created_by uuid [ref: > users.id]
+  created_at timestamptz
+}
+
+Table tenancy_tenants {
+  tenancy_id uuid [ref: > tenancies.id]
+  tenant_id uuid [ref: > tenants.id]
+  is_primary bool
+
+  indexes {
+    (tenancy_id, tenant_id) [pk]
+  }
+}
+
+Table tenancy_payers {
+  tenancy_id uuid [ref: > tenancies.id]
+  payer_user_id uuid [ref: > users.id]
+
+  indexes {
+    (tenancy_id, payer_user_id) [pk]
+  }
+}
+
+// ---------------------------------------------------------------------
+// 4. FINANCE
+// ---------------------------------------------------------------------
+
+Table charge_definitions {
+  id uuid [pk]
+  property_id uuid [ref: > properties.id, note: "NULL = mặc định toàn hệ thống"]
+  type charge_type [not null]
+  name varchar [not null]
+  unit varchar
+  default_unit_price decimal
+  created_at timestamptz
+}
+
+Table billing_cycles {
+  id uuid [pk]
+  tenancy_id uuid [ref: > tenancies.id, not null]
+  period_start date [not null]
+  period_end date [not null]
+  due_date date [not null]
+  created_at timestamptz
+
+  indexes {
+    (tenancy_id, period_start) [unique]
+  }
+}
+
+Table invoices {
+  id uuid [pk]
+  billing_cycle_id uuid [ref: > billing_cycles.id, not null]
+  status invoice_status [not null, default: 'draft']
+  total_amount decimal
+  paid_amount decimal
+  issued_at timestamptz
+  created_at timestamptz
+}
+
+Table invoice_items {
+  id bigint [pk, increment]
+  invoice_id uuid [ref: > invoices.id, not null]
+  charge_definition_id uuid [ref: > charge_definitions.id]
+  type charge_type [not null]
+  description text
+  quantity decimal
+  unit_price decimal [not null]
+  amount decimal [note: "generated: quantity * unit_price"]
+}
+
+Table payments {
+  id uuid [pk]
+  invoice_id uuid [ref: > invoices.id, not null]
+  amount decimal [not null]
+  method payment_method [not null, default: 'cash']
+  paid_at timestamptz
+  recorded_by uuid [ref: > users.id]
+  external_ref varchar [note: "[GĐ3] mã giao dịch cổng thanh toán"]
+}
+
+Table receipts {
+  id uuid [pk]
+  payment_id uuid [ref: > payments.id, not null]
+  receipt_no varchar [unique, not null]
+  issued_at timestamptz
+  pdf_url varchar
+  is_system_generated bool
+}
+
+// v_tenancy_debt (VIEW, không phải bảng) — công nợ tính động từ invoices/payments,
+// không khai báo ở đây vì DBML chỉ mô tả bảng lưu trữ vật lý.
+
+// ---------------------------------------------------------------------
+// 5. INCIDENT
+// ---------------------------------------------------------------------
+
+Table incident_categories {
+  id int [pk, increment]
+  name varchar [unique, not null]
+}
+
+Table incidents {
+  id uuid [pk]
+  room_id uuid [ref: > rooms.id, not null]
+  reported_by uuid [ref: > users.id]
+  category_id int [ref: > incident_categories.id]
+  title varchar [not null]
+  description text
+  status incident_status [not null, default: 'open']
+  assigned_partner_id uuid [ref: > users.id, note: "[GĐ2+]"]
+  created_at timestamptz
+  resolved_at timestamptz
+}
+
+Table incident_attachments {
+  id bigint [pk, increment]
+  incident_id uuid [ref: > incidents.id, not null]
+  file_url varchar [not null]
+  uploaded_by uuid [ref: > users.id]
+  uploaded_at timestamptz
+}
+
+Table incident_events {
+  id bigint [pk, increment]
+  incident_id uuid [ref: > incidents.id, not null]
+  actor_id uuid [ref: > users.id]
+  event_type varchar [not null]
+  from_status incident_status
+  to_status incident_status
+  comment text
+  created_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 6. TRUST, LEGAL & PRIVACY
+// ---------------------------------------------------------------------
+
+Table verifications {
+  id uuid [pk]
+  subject_type varchar [not null, note: "'user' | 'property'"]
+  subject_id uuid [not null]
+  method varchar [not null]
+  status verification_status [not null, default: 'pending']
+  reviewed_by uuid [ref: > users.id]
+  created_at timestamptz
+  reviewed_at timestamptz
+}
+
+Table reports {
+  id uuid [pk]
+  reporter_id uuid [ref: > users.id]
+  subject_type varchar [not null]
+  subject_id uuid [not null]
+  reason text [not null]
+  status varchar [default: 'open']
+  created_at timestamptz
+}
+
+Table audit_log {
+  id bigint [pk, increment]
+  actor_id uuid [ref: > users.id]
+  action varchar [not null]
+  entity_type varchar [not null]
+  entity_id uuid
+  metadata "jsonb"
+  created_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 7. ONBOARDING
+// ---------------------------------------------------------------------
+
+Table import_batches {
+  id uuid [pk]
+  property_id uuid [ref: > properties.id, not null]
+  uploaded_by uuid [ref: > users.id]
+  source varchar [not null, note: "excel_csv | template | assisted"]
+  file_url varchar
+  row_count int
+  success_count int
+  error_count int
+  created_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 8. BUSINESS MODEL
+// ---------------------------------------------------------------------
+
+Table subscription_plans {
+  id int [pk, increment]
+  name varchar [not null]
+  price_per_month decimal [not null]
+  max_rooms int
+  features "jsonb"
+}
+
+Table subscriptions {
+  id uuid [pk]
+  owner_id uuid [ref: > users.id, not null]
+  plan_id int [ref: > subscription_plans.id, not null]
+  status subscription_status [not null, default: 'trialing']
+  current_period_start date [not null]
+  current_period_end date [not null]
+  created_at timestamptz
+}
+
+// ---------------------------------------------------------------------
+// 9. [GĐ2+] PARTNER DOMAIN
+// ---------------------------------------------------------------------
+
+Table partner_categories {
+  id int [pk, increment]
+  name varchar [unique, not null]
+}
+
+Table partners {
+  id uuid [pk, ref: - users.id]
+  category_id int [ref: > partner_categories.id]
+  service_area varchar
+  verification_status verification_status
+  rating_avg decimal
+}
+
+Table partner_quotations {
+  id uuid [pk]
+  incident_id uuid [ref: > incidents.id, not null]
+  partner_id uuid [ref: > partners.id, not null]
+  amount decimal
+  note text
+  status varchar [default: 'pending']
+  created_at timestamptz
+}
