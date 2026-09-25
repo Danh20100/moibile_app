@@ -1,0 +1,143 @@
+{
+  "format": "trooi-lucid-erd-snapshot/v1",
+  "snapshot_kind": "normalized-review-snapshot",
+  "level": "LV2",
+  "title": "TrọƠi — ERD LV2 LogicDB (MVP + Discovery + Trust)",
+  "source": {
+    "provider": "Lucid",
+    "document_id": "3d20b82a-652f-480c-a4cf-21d69fabe9f8",
+    "edit_url": "https://lucid.app/lucidchart/3d20b82a-652f-480c-a4cf-21d69fabe9f8/edit",
+    "page_count": 1
+  },
+  "purpose": "Logical database model expanding the LV1 backbone into detailed MVP, Discovery and Trust capabilities.",
+  "domain_groups": {
+    "identity_and_scope": [
+      "USER",
+      "ORGANIZATION",
+      "ORGANIZATION_MEMBERSHIP",
+      "PROPERTY_ACCESS",
+      "SUBSCRIPTION_PLAN",
+      "SUBSCRIPTION"
+    ],
+    "property_and_room_operation": [
+      "PROPERTY",
+      "ROOM",
+      "ROOM_STATUS_HISTORY",
+      "ROOM_ASSET"
+    ],
+    "tenancy_and_handover": [
+      "TENANCY",
+      "TENANCY_PARTICIPANT",
+      "TENANCY_TERM",
+      "HANDOVER",
+      "HANDOVER_ITEM",
+      "DEPOSIT_TRANSACTION"
+    ],
+    "utility_and_billing": [
+      "UTILITY_METER",
+      "METER_READING",
+      "CHARGE_DEFINITION",
+      "BILLING_CYCLE",
+      "CHARGE",
+      "PAYMENT",
+      "RECEIPT"
+    ],
+    "incident": [
+      "INCIDENT_CATEGORY",
+      "INCIDENT",
+      "INCIDENT_ATTACHMENT",
+      "INCIDENT_EVENT"
+    ],
+    "listing_and_discovery": [
+      "LISTING",
+      "LISTING_IMAGE",
+      "AMENITY",
+      "LISTING_AMENITY",
+      "SAVED_LISTING",
+      "VIEWING_APPOINTMENT"
+    ],
+    "review_and_trust": [
+      "PROPERTY_REVIEW",
+      "PROPERTY_VERIFICATION",
+      "TRUST_REPORT"
+    ],
+    "onboarding_and_audit": [
+      "IMPORT_BATCH",
+      "IMPORT_ROW_RESULT",
+      "AUDIT_EVENT"
+    ]
+  },
+  "entities": {
+    "USER": ["user_id: UUID PK", "display_name: text", "email: text?", "phone: text?", "account_status: active | suspended | disabled"],
+    "ORGANIZATION": ["organization_id: UUID PK", "name: text", "status: active | inactive"],
+    "ORGANIZATION_MEMBERSHIP": ["membership_id: UUID PK", "organization_id: UUID FK", "user_id: UUID FK", "business_role: owner | operator | staff", "status: active | revoked"],
+    "PROPERTY_ACCESS": ["property_access_id: UUID PK", "membership_id: UUID FK", "property_id: UUID FK", "access_level: manage | operate | view"],
+    "SUBSCRIPTION_PLAN": ["plan_id: UUID PK", "code: text", "name: text", "entitlements: logical set"],
+    "SUBSCRIPTION": ["subscription_id: UUID PK", "organization_id: UUID FK", "plan_id: UUID FK", "status: trial | active | past_due | cancelled", "period_start: date", "period_end: date"],
+    "PROPERTY": ["property_id: UUID PK", "organization_id: UUID FK", "name: text", "address: text", "latitude: decimal?", "longitude: decimal?", "status: active | inactive"],
+    "ROOM": ["room_id: UUID PK", "property_id: UUID FK", "code: text", "operational_status: vacant | occupied | maintenance | inactive", "base_rent: money?", "base_deposit: money?"],
+    "ROOM_STATUS_HISTORY": ["room_status_history_id: UUID PK", "room_id: UUID FK", "from_status: room status?", "to_status: room status", "changed_by_user_id: UUID? FK", "changed_at: timestamp"],
+    "ROOM_ASSET": ["room_asset_id: UUID PK", "room_id: UUID FK", "asset_name: text", "asset_type: text", "condition: good | worn | damaged | missing", "note: text?"],
+    "TENANCY": ["tenancy_id: UUID PK", "room_id: UUID FK", "status: draft | active | ended | terminated_early", "start_date: date", "end_date: date?", "agreed_rent: money", "agreed_deposit: money"],
+    "TENANCY_PARTICIPANT": ["tenancy_participant_id: UUID PK", "tenancy_id: UUID FK", "user_id: UUID FK", "participant_role: primary | occupant", "joined_at: date", "left_at: date?"],
+    "TENANCY_TERM": ["tenancy_term_id: UUID PK", "tenancy_id: UUID FK", "effective_from: date", "effective_to: date?", "billing_day: smallint", "term_snapshot: logical record"],
+    "HANDOVER": ["handover_id: UUID PK", "tenancy_id: UUID FK", "handover_type: check_in | check_out", "performed_at: timestamp", "performed_by_user_id: UUID? FK", "note: text?"],
+    "HANDOVER_ITEM": ["handover_item_id: UUID PK", "handover_id: UUID FK", "room_asset_id: UUID? FK", "item_name_snapshot: text", "condition_snapshot: text", "note: text?"],
+    "DEPOSIT_TRANSACTION": ["deposit_transaction_id: UUID PK", "tenancy_id: UUID FK", "type: collected | refunded | deducted | adjusted", "amount: money", "reason: text?", "recorded_at: timestamp"],
+    "UTILITY_METER": ["utility_meter_id: UUID PK", "room_id: UUID FK", "meter_type: electricity | water | other", "meter_code: text?", "unit: kWh | m3 | custom", "status: active | replaced | inactive"],
+    "METER_READING": ["meter_reading_id: UUID PK", "utility_meter_id: UUID FK", "reading_value: decimal", "read_at: timestamp", "recorded_by_user_id: UUID? FK", "photo_ref: object ref?"],
+    "CHARGE_DEFINITION": ["charge_definition_id: UUID PK", "organization_id: UUID FK", "property_id: UUID? FK", "name: text", "charge_type: rent | deposit | utility | service | other", "calculation_mode: fixed | metered | manual", "default_rate: money?"],
+    "BILLING_CYCLE": ["billing_cycle_id: UUID PK", "tenancy_id: UUID FK", "period_start: date", "period_end: date", "due_date: date", "status: draft | issued | partially_paid | paid | overdue | void"],
+    "CHARGE": ["charge_id: UUID PK", "billing_cycle_id: UUID FK", "charge_definition_id: UUID? FK", "utility_meter_id: UUID? FK", "charge_type: rent | deposit | utility | service | other", "quantity: decimal?", "unit_rate_snapshot: money?", "amount: money"],
+    "PAYMENT": ["payment_id: UUID PK", "billing_cycle_id: UUID FK", "recorded_by_user_id: UUID? FK", "amount: money", "method: cash | bank_transfer | in_app | other", "external_reference: text?", "recorded_at: timestamp"],
+    "RECEIPT": ["receipt_id: UUID PK", "payment_id: UUID FK", "receipt_number: text", "confirmation_state: recorded | confirmed | disputed", "issued_at: timestamp"],
+    "INCIDENT_CATEGORY": ["incident_category_id: UUID PK", "organization_id: UUID? FK", "name: text", "active: boolean"],
+    "INCIDENT": ["incident_id: UUID PK", "room_id: UUID FK", "tenancy_id: UUID? FK", "incident_category_id: UUID? FK", "reported_by_user_id: UUID FK", "assigned_to_user_id: UUID?", "status: open | acknowledged | in_progress | resolved | closed", "title: text"],
+    "INCIDENT_ATTACHMENT": ["incident_attachment_id: UUID PK", "incident_id: UUID FK", "uploaded_by_user_id: UUID FK", "object_ref: object ref", "created_at: timestamp"],
+    "INCIDENT_EVENT": ["incident_event_id: UUID PK", "incident_id: UUID FK", "actor_user_id: UUID? FK", "event_type: reported | acknowledged | assigned | status_changed | comment | resolved", "event_payload: logical record", "created_at: timestamp"],
+    "LISTING": ["listing_id: UUID PK", "room_id: UUID FK", "created_by_user_id: UUID FK", "title: text", "description: text?", "advertised_price: money?", "publish_status: draft | published | paused | archived", "published_at: timestamp?"],
+    "LISTING_IMAGE": ["listing_image_id: UUID PK", "listing_id: UUID FK", "object_ref: object ref", "sort_order: int", "caption: text?"],
+    "AMENITY": ["amenity_id: UUID PK", "code: text", "name: text", "category: text?"],
+    "LISTING_AMENITY": ["listing_amenity_id: UUID PK", "listing_id: UUID FK", "amenity_id: UUID FK"],
+    "SAVED_LISTING": ["saved_listing_id: UUID PK", "user_id: UUID FK", "listing_id: UUID FK", "saved_at: timestamp"],
+    "VIEWING_APPOINTMENT": ["viewing_appointment_id: UUID PK", "listing_id: UUID FK", "requester_user_id: UUID FK", "scheduled_at: timestamp", "status: requested | confirmed | completed | cancelled", "note: text?"],
+    "PROPERTY_REVIEW": ["property_review_id: UUID PK", "property_id: UUID FK", "tenancy_id: UUID FK", "reviewer_user_id: UUID FK", "rating: 1..5", "content: text", "visibility_status: pending | published | hidden", "created_at: timestamp"],
+    "PROPERTY_VERIFICATION": ["property_verification_id: UUID PK", "property_id: UUID FK", "reviewed_by_user_id: UUID? FK", "status: unverified | pending | verified | rejected", "evidence_ref: object ref?", "reviewed_at: timestamp?"],
+    "TRUST_REPORT": ["trust_report_id: UUID PK", "reporter_user_id: UUID FK", "subject_type: listing | property | review", "subject_id: UUID logical reference", "reason_code: text", "status: open | reviewing | actioned | dismissed", "created_at: timestamp"],
+    "IMPORT_BATCH": ["import_batch_id: UUID PK", "organization_id: UUID FK", "initiated_by_user_id: UUID FK", "source_type: csv | excel | bulk_input", "status: uploaded | validating | importing | completed | failed", "created_at: timestamp"],
+    "IMPORT_ROW_RESULT": ["import_row_result_id: UUID PK", "import_batch_id: UUID FK", "row_number: int", "status: valid | imported | rejected", "error_code: text?", "message: text?"],
+    "AUDIT_EVENT": ["audit_event_id: UUID PK", "organization_id: UUID FK", "actor_user_id: UUID? FK", "aggregate_type: room | tenancy | billing | payment | incident | listing | subscription", "aggregate_id: UUID logical reference", "event_type: text", "occurred_at: timestamp"]
+  },
+  "relationship_backbone": [
+    "USER -> ORGANIZATION_MEMBERSHIP -> ORGANIZATION",
+    "ORGANIZATION -> PROPERTY -> ROOM",
+    "ORGANIZATION -> SUBSCRIPTION -> SUBSCRIPTION_PLAN",
+    "ORGANIZATION_MEMBERSHIP -> PROPERTY_ACCESS -> PROPERTY",
+    "ROOM -> ROOM_STATUS_HISTORY",
+    "ROOM -> ROOM_ASSET",
+    "ROOM -> TENANCY -> TENANCY_PARTICIPANT",
+    "TENANCY -> TENANCY_TERM",
+    "TENANCY -> HANDOVER -> HANDOVER_ITEM",
+    "TENANCY -> DEPOSIT_TRANSACTION",
+    "ROOM -> UTILITY_METER -> METER_READING",
+    "TENANCY -> BILLING_CYCLE -> CHARGE",
+    "BILLING_CYCLE -> PAYMENT -> RECEIPT",
+    "CHARGE_DEFINITION -> CHARGE",
+    "ROOM -> INCIDENT -> INCIDENT_EVENT",
+    "INCIDENT -> INCIDENT_ATTACHMENT",
+    "ROOM -> LISTING -> LISTING_IMAGE",
+    "LISTING -> LISTING_AMENITY <- AMENITY",
+    "USER -> SAVED_LISTING -> LISTING",
+    "USER -> VIEWING_APPOINTMENT -> LISTING",
+    "PROPERTY + TENANCY + USER -> PROPERTY_REVIEW",
+    "PROPERTY -> PROPERTY_VERIFICATION",
+    "ORGANIZATION -> IMPORT_BATCH -> IMPORT_ROW_RESULT",
+    "ORGANIZATION + USER -> AUDIT_EVENT"
+  ],
+  "notes": [
+    "Normalized from Lucid structured ERD data for repository review/versioning.",
+    "Canvas layout and Lucid internal IDs are intentionally omitted.",
+    "The relationship_backbone is a readable normalization of the Lucid relationships; the Lucid document remains the editable visual source.",
+    "This file is not executable and is not a native Lucid import/export format."
+  ]
+}

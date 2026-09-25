@@ -1,0 +1,54 @@
+{
+  "format": "trooi-lucid-erd-snapshot/v1",
+  "snapshot_kind": "normalized-review-snapshot",
+  "level": "LV1",
+  "title": "TrọƠi — ERD LV1 Tổng Quan (Scope-Corrected Conceptual Model)",
+  "source": {
+    "provider": "Lucid",
+    "document_id": "535786d8-68da-4dd9-97ae-6c02178470be",
+    "edit_url": "https://lucid.app/lucidchart/535786d8-68da-4dd9-97ae-6c02178470be/edit",
+    "page_count": 1
+  },
+  "purpose": "Conceptual business/domain backbone. This level describes major ownership and lifecycle relationships without attempting to be an implementation schema.",
+  "entities": [
+    {"name":"USER","attributes":[{"name":"user_id","type":"UUID","key":"PK"},{"name":"identity/profile","type":"conceptual"}]},
+    {"name":"ORGANIZATION","attributes":[{"name":"organization_id","type":"UUID","key":"PK"},{"name":"name","type":"text"}]},
+    {"name":"ORGANIZATION_MEMBERSHIP","attributes":[{"name":"membership_id","type":"UUID","key":"PK"},{"name":"organization_id","type":"UUID","key":"FK"},{"name":"user_id","type":"UUID","key":"FK"},{"name":"business_role","type":"owner | operator | staff"}]},
+    {"name":"SUBSCRIPTION","attributes":[{"name":"subscription_id","type":"UUID","key":"PK"},{"name":"organization_id","type":"UUID","key":"FK"},{"name":"plan/status","type":"conceptual"}]},
+    {"name":"PROPERTY","attributes":[{"name":"property_id","type":"UUID","key":"PK"},{"name":"organization_id","type":"UUID","key":"FK"},{"name":"location","type":"conceptual"}]},
+    {"name":"ROOM","attributes":[{"name":"room_id","type":"UUID","key":"PK"},{"name":"property_id","type":"UUID","key":"FK"},{"name":"operational_status","type":"vacant | occupied | maintenance | inactive"}]},
+    {"name":"LISTING","attributes":[{"name":"listing_id","type":"UUID","key":"PK"},{"name":"room_id","type":"UUID","key":"FK"},{"name":"publish_status","type":"draft | published | paused"}]},
+    {"name":"TENANCY","attributes":[{"name":"tenancy_id","type":"UUID","key":"PK"},{"name":"room_id","type":"UUID","key":"FK"},{"name":"rental_terms","type":"conceptual"},{"name":"lifecycle_status","type":"conceptual"}]},
+    {"name":"TENANCY_PARTICIPANT","attributes":[{"name":"participant_id","type":"UUID","key":"PK"},{"name":"tenancy_id","type":"UUID","key":"FK"},{"name":"user_id","type":"UUID","key":"FK"},{"name":"participant_role","type":"primary | occupant"}]},
+    {"name":"BILLING_CYCLE","attributes":[{"name":"billing_cycle_id","type":"UUID","key":"PK"},{"name":"tenancy_id","type":"UUID","key":"FK"},{"name":"period","type":"calendar period"},{"name":"due_date","type":"date"}]},
+    {"name":"CHARGE","attributes":[{"name":"charge_id","type":"UUID","key":"PK"},{"name":"billing_cycle_id","type":"UUID","key":"FK"},{"name":"charge_type","type":"rent | utility | service | other"},{"name":"amount_basis","type":"conceptual"}]},
+    {"name":"PAYMENT","attributes":[{"name":"payment_id","type":"UUID","key":"PK"},{"name":"billing_cycle_id","type":"UUID","key":"FK"},{"name":"amount","type":"money"},{"name":"recorded_at","type":"timestamp"}]},
+    {"name":"RECEIPT","attributes":[{"name":"receipt_id","type":"UUID","key":"PK"},{"name":"payment_id","type":"UUID","key":"FK"},{"name":"confirmation_state","type":"conceptual"}]},
+    {"name":"INCIDENT","attributes":[{"name":"incident_id","type":"UUID","key":"PK"},{"name":"room_id","type":"UUID","key":"FK"},{"name":"reported_by","type":"UUID","key":"FK"},{"name":"status","type":"open → resolved → closed"}]},
+    {"name":"INCIDENT_EVENT","attributes":[{"name":"incident_event_id","type":"UUID","key":"PK"},{"name":"incident_id","type":"UUID","key":"FK"},{"name":"actor_user_id","type":"UUID","key":"FK"},{"name":"event_type","type":"reported | status_changed | comment | assignment"}]}
+  ],
+  "relationships": [
+    {"from":"USER","to":"ORGANIZATION_MEMBERSHIP","cardinality":"1:N"},
+    {"from":"ORGANIZATION","to":"ORGANIZATION_MEMBERSHIP","cardinality":"1:N"},
+    {"from":"ORGANIZATION","to":"SUBSCRIPTION","cardinality":"1:N history"},
+    {"from":"ORGANIZATION","to":"PROPERTY","cardinality":"1:N"},
+    {"from":"PROPERTY","to":"ROOM","cardinality":"1:N"},
+    {"from":"ROOM","to":"LISTING","cardinality":"1:N lifecycle/history"},
+    {"from":"ROOM","to":"TENANCY","cardinality":"1:N over time"},
+    {"from":"TENANCY","to":"TENANCY_PARTICIPANT","cardinality":"1:N"},
+    {"from":"USER","to":"TENANCY_PARTICIPANT","cardinality":"1:N"},
+    {"from":"TENANCY","to":"BILLING_CYCLE","cardinality":"1:N"},
+    {"from":"BILLING_CYCLE","to":"CHARGE","cardinality":"1:N"},
+    {"from":"BILLING_CYCLE","to":"PAYMENT","cardinality":"1:N"},
+    {"from":"PAYMENT","to":"RECEIPT","cardinality":"1:0..1 intended"},
+    {"from":"ROOM","to":"INCIDENT","cardinality":"1:N"},
+    {"from":"USER","to":"INCIDENT","cardinality":"1:N reported"},
+    {"from":"INCIDENT","to":"INCIDENT_EVENT","cardinality":"1:N"},
+    {"from":"USER","to":"INCIDENT_EVENT","cardinality":"1:N actor"}
+  ],
+  "notes": [
+    "Normalized from Lucid structured ERD data for repository review/versioning.",
+    "Canvas coordinates, internal Lucid shape IDs and styling are intentionally omitted.",
+    "This file is not a native Lucid import/export format and is not an executable database schema."
+  ]
+}
