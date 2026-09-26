@@ -1,49 +1,27 @@
 # Database workspace
 
-Thư mục này là **implementation skeleton** cho persistence layer của TrọƠi.
+`database/` chỉ chứa **executable persistence artifacts** sau khi ERD LV3 đã được review.
 
-Ở giai đoạn `schema-foundations`, thư mục này chưa chứa database implementation thật. Mục đích của nó là giữ sẵn boundary rõ ràng để sau khi ERD LV3 và các invariant được review/freeze, team có thể bắt đầu migration/schema theo một hướng duy nhất.
+## Current status
 
-## Structure
+Database foundation đang ở giai đoạn thiết kế ERD. Hiện tại chưa có schema, migration hay seed executable nào được xem là canonical.
+
+## Source flow
 
 ```text
-database/
-├── README.md
-├── migrations/
-│   └── README.md
-└── seeds/
-    └── README.md
+docs/database/canonical.md
+        ↓
+docs/database/erd/ — LV1 → LV2 → LV3
+        ↓
+database/ — schema / migrations / seeds
 ```
 
-## `migrations/`
+## Rules
 
-Nơi dành cho các PostgreSQL migration có version trong giai đoạn implementation.
-
-Hiện tại: **skeleton only**.
-
-## `seeds/`
-
-Nơi dành cho development/test/reference seed data trong giai đoạn implementation.
-
-Hiện tại: **skeleton only**.
-
-## Không đặt ở đây trong foundation stage
-
-- ERD source/snapshot;
-- schema thử nghiệm chưa được review;
-- DBML song song với ERD;
-- Redis design tự phát;
-- ORM model dùng để quyết định ngược business model.
+- Không đặt ERD hoặc design docs trong `database/`.
+- Không viết schema/ORM trước rồi ép domain model chạy theo.
+- Chỉ bắt đầu migration khi LV3 và các invariant liên quan đã được review.
+- Migration đã chia sẻ là history; không rewrite âm thầm.
+- Seed data không được trở thành nguồn business rule.
 
 Các tài liệu thiết kế nằm tại `docs/database/`.
-
-## Gate trước implementation
-
-Chỉ bắt đầu tạo schema/migrations khi các điểm sau đã được chốt:
-
-1. scope và domain ownership;
-2. LV1 conceptual model;
-3. LV2 logical model;
-4. LV3 PostgreSQL physical candidate;
-5. cardinality và lifecycle invariant quan trọng;
-6. source-of-truth convention.

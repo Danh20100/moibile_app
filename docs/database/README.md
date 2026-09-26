@@ -1,60 +1,34 @@
-# Database design documentation
+# Database foundation
 
-`docs/database/` là khu vực **design/review** cho database foundation của TrọƠi. Nó tách biệt với `/database`, nơi chỉ dành cho implementation artifacts ở giai đoạn sau.
+`docs/database/` là nơi duy nhất chứa tài liệu thiết kế database của TrọƠi.
 
 ## Structure
 
 ```text
 docs/database/
 ├── README.md
-├── schema-scope-review.md
+├── canonical.md
 ├── tech-stack.md
 └── erd/
-    ├── README.md
-    ├── TroOi_ERD_LV1_TongQuan.json
-    ├── TroOi_ERD_LV2_LogicDB.json
-    └── TroOi_ERD_LV3_ChiTiet.json
+    └── README.md
 ```
 
-## Tài liệu chính
+## Authority
 
-### `schema-scope-review.md`
-
-Ghi nhận scope alignment, domain boundary, các finding và invariant cần giải quyết trước khi database implementation được coi là ổn định.
-
-### `tech-stack.md`
-
-Ghi nhận vai trò của PostgreSQL, Redis và object storage trong data layer. Đây là tài liệu technology responsibility, không thay thế ERD/domain model.
-
-### `erd/`
-
-Chứa snapshot JSON của ba ERD đang được maintain/review trên Lucid:
-
-- **LV1 — Conceptual:** backbone nghiệp vụ và ownership/lifecycle chính;
-- **LV2 — Logical:** entity/relationship chi tiết theo capability;
-- **LV3 — Physical candidate:** kiểu dữ liệu và constraint định hướng PostgreSQL.
-
-## Source-of-truth direction
+`canonical.md` là **trusted source** cho Product & Domain Model. ERD và schema phía dưới phải bám theo tài liệu này, không tự diễn giải business rule khác đi.
 
 ```text
-Project scope / use cases
-        ↓
-ERD LV1
-        ↓
-ERD LV2
-        ↓
-ERD LV3
-        ↓
-Foundation freeze
-        ↓
-Database implementation
+canonical.md
+    ↓
+ERD LV1 — Conceptual
+    ↓
+ERD LV2 — Logical
+    ↓
+ERD LV3 — Physical candidate
+    ↓
+Schema / migrations
 ```
 
-Không dùng artifact implementation cũ để quyết định ngược lại conceptual/logical model.
+`tech-stack.md` chỉ mô tả trách nhiệm công nghệ, không sở hữu entity/cardinality/invariant.
 
-## Boundary
-
-```text
-docs/database/ = scope, design, review, ERD snapshots
-/database/     = future executable persistence workspace
-```
+`erd/` là workspace cho snapshot ERD mới sau khi dựng lại từ canonical.
