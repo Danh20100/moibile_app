@@ -1,0 +1,69 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrọƠi Google Identity Live Test</title>
+
+    <script src="https://accounts.google.com/gsi/client" async></script>
+  </head>
+
+  <body>
+    <h1>TrọƠi Google Identity Live Test</h1>
+
+    <label>
+      Google Client ID
+      <input
+        id="client-id"
+        type="text"
+        placeholder="xxxxxxxx.apps.googleusercontent.com"
+        size="80"
+      />
+    </label>
+
+    <button id="initialize">Initialize Google Sign-In</button>
+
+    <div id="google-signin" style="margin-top: 24px"></div>
+
+    <h2>ID Token</h2>
+
+    <textarea
+      id="token"
+      rows="12"
+      cols="120"
+      readonly
+      placeholder="Google ID token will appear here."
+    ></textarea>
+
+    <script>
+      const initializeButton = document.getElementById('initialize');
+      const clientIdInput = document.getElementById('client-id');
+      const tokenOutput = document.getElementById('token');
+      const signInContainer = document.getElementById('google-signin');
+
+      initializeButton.addEventListener('click', () => {
+        const clientId = clientIdInput.value.trim();
+
+        if (!clientId) {
+          alert('Enter GOOGLE_CLIENT_ID first.');
+          return;
+        }
+
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => {
+            tokenOutput.value = response.credential;
+          },
+        });
+
+        signInContainer.replaceChildren();
+
+        google.accounts.id.renderButton(signInContainer, {
+          type: 'standard',
+          theme: 'outline',
+          size: 'large',
+        });
+      });
+    </script>
+  </body>
+</html>
