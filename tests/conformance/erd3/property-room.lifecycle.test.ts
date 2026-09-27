@@ -26,18 +26,26 @@ test('ROOM separates operational state from record lifecycle', () => {
 
 test('ROOM operational states are VACANT OCCUPIED MAINTENANCE INACTIVE only', () => {
   const source = readRepoFile('src/modules/room/contracts/index.ts');
+  const declaration = source.match(/(?:type|enum)\s+\w*OperationalState\w*[\s\S]*?(?:;|\n\})/i);
+  assert.ok(declaration, 'Room contract must expose a dedicated operational-state type');
+  const operationalState = declaration[0];
   for (const state of ['vacant', 'occupied', 'maintenance', 'inactive']) {
-    assert.match(source, new RegExp(`['\"]${state}['\"]`, 'i'), `missing Room operational state ${state}`);
+    assert.match(
+      operationalState,
+      new RegExp(`['\"]?${state}['\"]?`, 'i'),
+      `missing Room operational state ${state}`,
+    );
   }
-  assert.doesNotMatch(source, /['"]draft['"]/i);
-  assert.doesNotMatch(source, /['"]archived['"]/i);
+  assert.doesNotMatch(operationalState, /draft|archived/i);
 });
 
 test('ROOM record lifecycle is ACTIVE ARCHIVED only', () => {
   const source = readRepoFile('src/modules/room/contracts/index.ts');
-  assert.match(source, /recordLifecycle|record_lifecycle/i);
-  assert.match(source, /['"]active['"]/i);
-  assert.match(source, /['"]archived['"]/i);
+  const declaration = source.match(/(?:type|enum)\s+\w*(?:RecordLifecycle|Lifecycle)\w*[\s\S]*?(?:;|\n\})/i);
+  assert.ok(declaration, 'Room contract must expose a dedicated record-lifecycle type');
+  const lifecycle = declaration[0];
+  assert.match(lifecycle, /active/i);
+  assert.match(lifecycle, /archived/i);
 });
 
 test('ROOM contract does not own base rent price', () => {
