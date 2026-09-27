@@ -1,0 +1,2078 @@
+{
+  "schemaVersion": "1.0",
+  "title": "TrọƠi — ERD LV2 Logical — Canonical v3.7 / LV1 Frozen",
+  "level": "LV2_LOGICAL",
+  "status": "REVIEWED_FROZEN",
+  "source": {
+    "canonical": {
+      "path": "docs/database/canonical-v3.7.md",
+      "version": "v3.7",
+      "authority": "TRUSTED_SOURCE"
+    },
+    "lv1": {
+      "path": "docs/database/erd/trooi-erd-lv1-conceptual.json",
+      "requiredStatus": "REVIEWED_FROZEN",
+      "observedStatus": "REVIEWED_FROZEN"
+    }
+  },
+  "zones": [
+    {
+      "id": "identity_operating",
+      "name": "Identity / Operating"
+    },
+    {
+      "id": "discovery",
+      "name": "Discovery"
+    },
+    {
+      "id": "rental_lifecycle",
+      "name": "Rental Lifecycle"
+    },
+    {
+      "id": "financial",
+      "name": "Billing / Financial"
+    },
+    {
+      "id": "operations",
+      "name": "Operations"
+    },
+    {
+      "id": "trust",
+      "name": "Trust / Delivery"
+    }
+  ],
+  "entities": [
+    {
+      "id": "user",
+      "name": "USER",
+      "zone": "identity_operating",
+      "kind": "backbone",
+      "meaning": "Digital identity; no global landlord/tenant role",
+      "attributes": [
+        {
+          "name": "user_id",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "organization",
+      "name": "ORGANIZATION",
+      "zone": "identity_operating",
+      "kind": "backbone",
+      "meaning": "Rental operating workspace",
+      "attributes": [
+        {
+          "name": "organization_id",
+          "presence": "required"
+        },
+        {
+          "name": "primary_owner_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "name",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "property",
+      "name": "PROPERTY",
+      "zone": "identity_operating",
+      "kind": "backbone",
+      "meaning": "Physical property identity owned by one Organization",
+      "attributes": [
+        {
+          "name": "property_id",
+          "presence": "required"
+        },
+        {
+          "name": "organization_id",
+          "presence": "required"
+        },
+        {
+          "name": "name",
+          "presence": "required"
+        },
+        {
+          "name": "lifecycle_status",
+          "presence": "required",
+          "values": [
+            "ACTIVE",
+            "ARCHIVED"
+          ]
+        },
+        {
+          "name": "operational_location",
+          "presence": "required"
+        },
+        {
+          "name": "public_location_projection",
+          "presence": "required"
+        }
+      ],
+      "stateVocabulary": [
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
+    {
+      "id": "room",
+      "name": "ROOM",
+      "zone": "identity_operating",
+      "kind": "backbone",
+      "meaning": "Rental unit identity and operational root",
+      "attributes": [
+        {
+          "name": "room_id",
+          "presence": "required"
+        },
+        {
+          "name": "property_id",
+          "presence": "required"
+        },
+        {
+          "name": "name_or_label",
+          "presence": "required",
+          "label": "name / label"
+        },
+        {
+          "name": "operational_state",
+          "presence": "required",
+          "values": [
+            "VACANT",
+            "OCCUPIED",
+            "MAINTENANCE",
+            "INACTIVE"
+          ]
+        },
+        {
+          "name": "record_lifecycle",
+          "presence": "required",
+          "values": [
+            "ACTIVE",
+            "ARCHIVED"
+          ]
+        }
+      ],
+      "stateVocabulary": [
+        "VACANT",
+        "OCCUPIED",
+        "MAINTENANCE",
+        "INACTIVE"
+      ]
+    },
+    {
+      "id": "listing",
+      "name": "LISTING",
+      "zone": "discovery",
+      "kind": "backbone",
+      "meaning": "Public discovery projection of a Room",
+      "attributes": [
+        {
+          "name": "listing_id",
+          "presence": "required"
+        },
+        {
+          "name": "room_id",
+          "presence": "required"
+        },
+        {
+          "name": "status",
+          "presence": "required",
+          "values": [
+            "DRAFT",
+            "PUBLISHED",
+            "UNPUBLISHED",
+            "ARCHIVED"
+          ]
+        },
+        {
+          "name": "public_title",
+          "presence": "required"
+        },
+        {
+          "name": "public_description",
+          "presence": "required"
+        },
+        {
+          "name": "public_price_projection",
+          "presence": "required"
+        },
+        {
+          "name": "public_location_projection",
+          "presence": "required"
+        }
+      ],
+      "stateVocabulary": [
+        "DRAFT",
+        "PUBLISHED",
+        "UNPUBLISHED",
+        "ARCHIVED"
+      ]
+    },
+    {
+      "id": "listing_status_event",
+      "name": "LISTING_STATUS_EVENT",
+      "zone": "discovery",
+      "kind": "event",
+      "meaning": "Append-only Listing transition history",
+      "attributes": [
+        {
+          "name": "listing_status_event_id",
+          "presence": "required"
+        },
+        {
+          "name": "listing_id",
+          "presence": "required"
+        },
+        {
+          "name": "from_status",
+          "presence": "required"
+        },
+        {
+          "name": "to_status",
+          "presence": "required"
+        },
+        {
+          "name": "reason_code",
+          "presence": "required"
+        },
+        {
+          "name": "actor_type",
+          "presence": "required"
+        },
+        {
+          "name": "actor_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "trigger",
+          "presence": "required"
+        },
+        {
+          "name": "occurred_at",
+          "presence": "required"
+        },
+        {
+          "name": "metadata",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "inquiry",
+      "name": "INQUIRY",
+      "zone": "discovery",
+      "kind": "supporting",
+      "meaning": "Optional discovery/contact bridge; never prerequisite for Tenancy",
+      "attributes": [
+        {
+          "name": "inquiry_id",
+          "presence": "required"
+        },
+        {
+          "name": "listing_id",
+          "presence": "required"
+        },
+        {
+          "name": "sender_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "contact_intent_or_message",
+          "presence": "required",
+          "label": "contact_intent / message"
+        },
+        {
+          "name": "status",
+          "presence": "required"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "tenancy",
+      "name": "TENANCY",
+      "zone": "rental_lifecycle",
+      "kind": "backbone",
+      "meaning": "Rental relationship for one Room over time",
+      "attributes": [
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "room_id",
+          "presence": "required"
+        },
+        {
+          "name": "status",
+          "presence": "required",
+          "values": [
+            "DRAFT",
+            "ACTIVE",
+            "ENDING",
+            "ENDED",
+            "CANCELLED"
+          ]
+        },
+        {
+          "name": "started_at",
+          "presence": "optional"
+        },
+        {
+          "name": "ended_at",
+          "presence": "optional"
+        },
+        {
+          "name": "end_reason",
+          "presence": "optional",
+          "values": [
+            "TERM_ENDED",
+            "TENANT_INITIATED",
+            "OPERATOR_INITIATED",
+            "MUTUAL",
+            "OTHER"
+          ]
+        }
+      ],
+      "stateVocabulary": [
+        "DRAFT",
+        "ACTIVE",
+        "ENDING",
+        "ENDED",
+        "CANCELLED"
+      ]
+    },
+    {
+      "id": "tenancy_participant",
+      "name": "TENANCY_PARTICIPANT",
+      "zone": "rental_lifecycle",
+      "kind": "backbone",
+      "meaning": "Rental participant identity independent of account existence",
+      "attributes": [
+        {
+          "name": "tenancy_participant_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "role",
+          "presence": "required",
+          "values": [
+            "PRIMARY",
+            "OCCUPANT"
+          ]
+        },
+        {
+          "name": "joined_at",
+          "presence": "required"
+        },
+        {
+          "name": "left_at",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "tenancy_terms",
+      "name": "TENANCY_TERMS",
+      "zone": "rental_lifecycle",
+      "kind": "backbone",
+      "meaning": "Versioned rental agreement terms and financial provenance",
+      "attributes": [
+        {
+          "name": "tenancy_terms_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "version",
+          "presence": "required"
+        },
+        {
+          "name": "rent_amount",
+          "presence": "required"
+        },
+        {
+          "name": "agreed_deposit_requirement",
+          "presence": "required"
+        },
+        {
+          "name": "term_start",
+          "presence": "required"
+        },
+        {
+          "name": "term_end",
+          "presence": "required"
+        },
+        {
+          "name": "billing_day_or_due_date_rule",
+          "presence": "required",
+          "label": "billing_day / due_date_rule"
+        },
+        {
+          "name": "electricity_arrangement",
+          "presence": "required"
+        },
+        {
+          "name": "water_arrangement",
+          "presence": "required"
+        },
+        {
+          "name": "minimal_rental_conditions",
+          "presence": "required"
+        },
+        {
+          "name": "effective_from_cycle_boundary",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "terms_acknowledgement",
+      "name": "TERMS_ACKNOWLEDGEMENT",
+      "zone": "rental_lifecycle",
+      "kind": "supporting",
+      "meaning": "Version-specific acknowledgement by rental participant/account",
+      "attributes": [
+        {
+          "name": "terms_acknowledgement_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_terms_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_participant_id",
+          "presence": "required"
+        },
+        {
+          "name": "user_id",
+          "presence": "required"
+        },
+        {
+          "name": "acknowledged_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "tenancy_notice",
+      "name": "TENANCY_NOTICE",
+      "zone": "rental_lifecycle",
+      "kind": "supporting",
+      "meaning": "Rental lifecycle notice without legal-service claim",
+      "attributes": [
+        {
+          "name": "tenancy_notice_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "notice_type",
+          "presence": "required"
+        },
+        {
+          "name": "issued_by_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "content_or_note",
+          "presence": "required",
+          "label": "content / note"
+        },
+        {
+          "name": "issued_at",
+          "presence": "required"
+        },
+        {
+          "name": "acknowledged_by_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "acknowledged_at",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "billing_cycle",
+      "name": "BILLING_CYCLE",
+      "zone": "financial",
+      "kind": "backbone",
+      "meaning": "Tenancy billing period with applied Terms version provenance",
+      "attributes": [
+        {
+          "name": "billing_cycle_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_terms_id",
+          "presence": "required"
+        },
+        {
+          "name": "period_start",
+          "presence": "required"
+        },
+        {
+          "name": "period_end",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "charge",
+      "name": "CHARGE",
+      "zone": "financial",
+      "kind": "backbone",
+      "meaning": "Receivable line under a Billing Cycle",
+      "attributes": [
+        {
+          "name": "charge_id",
+          "presence": "required"
+        },
+        {
+          "name": "billing_cycle_id",
+          "presence": "required"
+        },
+        {
+          "name": "charge_type",
+          "presence": "required",
+          "values": [
+            "RENT",
+            "ELECTRICITY",
+            "WATER"
+          ]
+        },
+        {
+          "name": "amount",
+          "presence": "required"
+        },
+        {
+          "name": "utility_connection_id",
+          "presence": "conditional",
+          "condition": "ELECTRICITY/WATER when utility provenance is recorded"
+        },
+        {
+          "name": "start_meter_reading_id",
+          "presence": "conditional",
+          "condition": "only with utility_connection_id"
+        },
+        {
+          "name": "end_meter_reading_id",
+          "presence": "conditional",
+          "condition": "only with utility_connection_id"
+        }
+      ]
+    },
+    {
+      "id": "utility_connection",
+      "name": "UTILITY_CONNECTION",
+      "zone": "financial",
+      "kind": "supporting",
+      "meaning": "Utility source/meter context attached to a Room",
+      "attributes": [
+        {
+          "name": "utility_connection_id",
+          "presence": "required"
+        },
+        {
+          "name": "room_id",
+          "presence": "required"
+        },
+        {
+          "name": "utility_type",
+          "presence": "required",
+          "values": [
+            "ELECTRICITY",
+            "WATER"
+          ]
+        },
+        {
+          "name": "source_or_provider",
+          "presence": "required",
+          "label": "source / provider"
+        },
+        {
+          "name": "meter_identifier",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "meter_reading",
+      "name": "METER_READING",
+      "zone": "financial",
+      "kind": "supporting",
+      "meaning": "Recorded reading belonging to one Utility Connection",
+      "attributes": [
+        {
+          "name": "meter_reading_id",
+          "presence": "required"
+        },
+        {
+          "name": "utility_connection_id",
+          "presence": "required"
+        },
+        {
+          "name": "reading_value",
+          "presence": "required"
+        },
+        {
+          "name": "recorded_at",
+          "presence": "required"
+        },
+        {
+          "name": "recorded_by_user_id",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "payment",
+      "name": "PAYMENT",
+      "zone": "financial",
+      "kind": "backbone",
+      "meaning": "Authoritative confirmed actual money inflow for exactly one Tenancy",
+      "attributes": [
+        {
+          "name": "payment_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "amount",
+          "presence": "required"
+        },
+        {
+          "name": "source",
+          "presence": "required",
+          "values": [
+            "MANUAL_CASH",
+            "MANUAL_TRANSFER",
+            "GATEWAY"
+          ]
+        },
+        {
+          "name": "verification",
+          "presence": "required",
+          "values": [
+            "USER_RECORDED",
+            "PROVIDER_VERIFIED"
+          ]
+        },
+        {
+          "name": "confirmed_at",
+          "presence": "required"
+        },
+        {
+          "name": "voided_or_reversed_at",
+          "presence": "optional"
+        },
+        {
+          "name": "correction_note",
+          "presence": "optional"
+        },
+        {
+          "name": "replacement_payment_id",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "payment_allocation",
+      "name": "PAYMENT_ALLOCATION",
+      "zone": "financial",
+      "kind": "junction",
+      "meaning": "Junction allocating confirmed Payment amount to Charge",
+      "attributes": [
+        {
+          "name": "payment_allocation_id",
+          "presence": "required"
+        },
+        {
+          "name": "payment_id",
+          "presence": "required"
+        },
+        {
+          "name": "charge_id",
+          "presence": "required"
+        },
+        {
+          "name": "allocated_amount",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "payment_claim",
+      "name": "PAYMENT_CLAIM",
+      "zone": "financial",
+      "kind": "supporting",
+      "meaning": "Tenant-submitted evidence claim distinct from Payment",
+      "attributes": [
+        {
+          "name": "payment_claim_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "submitted_by_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "submitted_by_participant_id",
+          "presence": "optional"
+        },
+        {
+          "name": "claimed_amount",
+          "presence": "required"
+        },
+        {
+          "name": "evidence_reference",
+          "presence": "optional"
+        },
+        {
+          "name": "status",
+          "presence": "required"
+        },
+        {
+          "name": "submitted_at",
+          "presence": "required"
+        },
+        {
+          "name": "reviewed_by_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "reviewed_at",
+          "presence": "optional"
+        },
+        {
+          "name": "resulting_payment_id",
+          "presence": "optional"
+        }
+      ]
+    },
+    {
+      "id": "receipt",
+      "name": "RECEIPT",
+      "zone": "financial",
+      "kind": "backbone",
+      "meaning": "Evidence generated only from confirmed Payment",
+      "attributes": [
+        {
+          "name": "receipt_id",
+          "presence": "required"
+        },
+        {
+          "name": "payment_id",
+          "presence": "required"
+        },
+        {
+          "name": "status",
+          "presence": "required",
+          "values": [
+            "ISSUED",
+            "VOIDED"
+          ]
+        },
+        {
+          "name": "issued_at",
+          "presence": "required"
+        },
+        {
+          "name": "voided_at",
+          "presence": "optional"
+        },
+        {
+          "name": "replacement_receipt_id",
+          "presence": "optional"
+        }
+      ],
+      "stateVocabulary": [
+        "ISSUED",
+        "VOIDED"
+      ]
+    },
+    {
+      "id": "deposit",
+      "name": "DEPOSIT",
+      "zone": "financial",
+      "kind": "backbone",
+      "meaning": "Deposit fulfillment, holding, settlement and history; requirement remains in Terms",
+      "attributes": [
+        {
+          "name": "deposit_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        }
+      ],
+      "stateVocabulary": [
+        "EXPECTED",
+        "PARTIALLY_HELD",
+        "HELD",
+        "PENDING_SETTLEMENT",
+        "SETTLED"
+      ]
+    },
+    {
+      "id": "deposit_payment_application",
+      "name": "DEPOSIT_PAYMENT_APPLICATION",
+      "zone": "financial",
+      "kind": "junction",
+      "meaning": "Junction applying confirmed Payment amount to Deposit",
+      "attributes": [
+        {
+          "name": "deposit_payment_application_id",
+          "presence": "required"
+        },
+        {
+          "name": "payment_id",
+          "presence": "required"
+        },
+        {
+          "name": "deposit_id",
+          "presence": "required"
+        },
+        {
+          "name": "applied_amount",
+          "presence": "required"
+        },
+        {
+          "name": "applied_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "deposit_settlement",
+      "name": "DEPOSIT_SETTLEMENT",
+      "zone": "financial",
+      "kind": "supporting",
+      "meaning": "Settlement provenance for refunded/retained outcomes",
+      "attributes": [
+        {
+          "name": "deposit_settlement_id",
+          "presence": "required"
+        },
+        {
+          "name": "deposit_id",
+          "presence": "required"
+        },
+        {
+          "name": "refunded_amount",
+          "presence": "required"
+        },
+        {
+          "name": "retained_amount",
+          "presence": "required"
+        },
+        {
+          "name": "reason_or_note",
+          "presence": "required",
+          "label": "reason / note"
+        },
+        {
+          "name": "acted_by_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "settled_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "deposit_event",
+      "name": "DEPOSIT_EVENT",
+      "zone": "financial",
+      "kind": "event",
+      "meaning": "Append-only deposit history with provenance",
+      "attributes": [
+        {
+          "name": "deposit_event_id",
+          "presence": "required"
+        },
+        {
+          "name": "deposit_id",
+          "presence": "required"
+        },
+        {
+          "name": "event_type",
+          "presence": "required",
+          "values": [
+            "RECEIVED",
+            "REFUNDED",
+            "RETAINED"
+          ]
+        },
+        {
+          "name": "amount",
+          "presence": "required"
+        },
+        {
+          "name": "occurred_at",
+          "presence": "required"
+        },
+        {
+          "name": "payment_application_id",
+          "presence": "optional"
+        },
+        {
+          "name": "settlement_id",
+          "presence": "optional"
+        }
+      ],
+      "stateVocabulary": [
+        "RECEIVED",
+        "REFUNDED",
+        "RETAINED"
+      ]
+    },
+    {
+      "id": "incident",
+      "name": "INCIDENT",
+      "zone": "operations",
+      "kind": "backbone",
+      "meaning": "Operational problem lifecycle of a Room",
+      "attributes": [
+        {
+          "name": "incident_id",
+          "presence": "required"
+        },
+        {
+          "name": "room_id",
+          "presence": "required"
+        },
+        {
+          "name": "reported_by_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "category",
+          "presence": "required",
+          "values": [
+            "ELECTRICAL",
+            "PLUMBING",
+            "ACCESS_SECURITY",
+            "ROOM_FACILITY",
+            "APPLIANCE",
+            "OTHER"
+          ]
+        },
+        {
+          "name": "status",
+          "presence": "required",
+          "values": [
+            "REPORTED",
+            "ACKNOWLEDGED",
+            "IN_PROGRESS",
+            "RESOLVED",
+            "CLOSED",
+            "REJECTED"
+          ]
+        },
+        {
+          "name": "closure_reason",
+          "presence": "optional"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        },
+        {
+          "name": "closed_at",
+          "presence": "optional"
+        }
+      ],
+      "stateVocabulary": [
+        "REPORTED",
+        "ACKNOWLEDGED",
+        "IN_PROGRESS",
+        "RESOLVED",
+        "CLOSED",
+        "REJECTED"
+      ]
+    },
+    {
+      "id": "incident_event",
+      "name": "INCIDENT_EVENT",
+      "zone": "operations",
+      "kind": "event",
+      "meaning": "Append-only operational timeline for an Incident",
+      "attributes": [
+        {
+          "name": "incident_event_id",
+          "presence": "required"
+        },
+        {
+          "name": "incident_id",
+          "presence": "required"
+        },
+        {
+          "name": "event_type",
+          "presence": "required"
+        },
+        {
+          "name": "actor_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "note",
+          "presence": "optional"
+        },
+        {
+          "name": "attachment_reference",
+          "presence": "optional"
+        },
+        {
+          "name": "from_status",
+          "presence": "optional"
+        },
+        {
+          "name": "to_status",
+          "presence": "optional"
+        },
+        {
+          "name": "occurred_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "name": "REVIEW",
+      "zone": "trust",
+      "kind": "backbone",
+      "meaning": "Verified rental review targeting Property/Rental Experience",
+      "attributes": [
+        {
+          "name": "review_id",
+          "presence": "required"
+        },
+        {
+          "name": "tenancy_id",
+          "presence": "required"
+        },
+        {
+          "name": "property_id",
+          "presence": "required"
+        },
+        {
+          "name": "author_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "author_participant_id",
+          "presence": "required"
+        },
+        {
+          "name": "overall_rating",
+          "presence": "required"
+        },
+        {
+          "name": "comment",
+          "presence": "required"
+        },
+        {
+          "name": "landlord_response",
+          "presence": "optional"
+        },
+        {
+          "name": "landlord_response_by_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "landlord_responded_at",
+          "presence": "optional"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "trust_report",
+      "name": "TRUST_REPORT",
+      "zone": "trust",
+      "kind": "backbone",
+      "meaning": "Report against public Listing or Review content",
+      "attributes": [
+        {
+          "name": "trust_report_id",
+          "presence": "required"
+        },
+        {
+          "name": "reporter_user_id",
+          "presence": "optional"
+        },
+        {
+          "name": "listing_id",
+          "presence": "optional"
+        },
+        {
+          "name": "review_id",
+          "presence": "optional"
+        },
+        {
+          "name": "reason",
+          "presence": "required",
+          "values": [
+            "INCORRECT_INFORMATION",
+            "MISLEADING_PRICE",
+            "WRONG_LOCATION",
+            "DUPLICATE_LISTING",
+            "INAPPROPRIATE_CONTENT",
+            "SUSPECTED_FRAUD",
+            "PRIVACY_VIOLATION",
+            "SPAM",
+            "OTHER"
+          ]
+        },
+        {
+          "name": "status",
+          "presence": "required",
+          "values": [
+            "SUBMITTED",
+            "UNDER_REVIEW",
+            "RESOLVED",
+            "REJECTED"
+          ]
+        },
+        {
+          "name": "note_or_evidence_reference",
+          "presence": "optional",
+          "label": "note / evidence_reference"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        },
+        {
+          "name": "resolved_at",
+          "presence": "optional"
+        }
+      ],
+      "stateVocabulary": [
+        "SUBMITTED",
+        "UNDER_REVIEW",
+        "RESOLVED",
+        "REJECTED"
+      ]
+    },
+    {
+      "id": "notification",
+      "name": "NOTIFICATION",
+      "zone": "trust",
+      "kind": "delivery",
+      "meaning": "Non-authoritative delivery/side-effect record",
+      "attributes": [
+        {
+          "name": "notification_id",
+          "presence": "required"
+        },
+        {
+          "name": "recipient_user_id",
+          "presence": "required"
+        },
+        {
+          "name": "category",
+          "presence": "required"
+        },
+        {
+          "name": "message_or_payload_reference",
+          "presence": "required",
+          "label": "message / payload_reference"
+        },
+        {
+          "name": "delivery_status",
+          "presence": "required"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        },
+        {
+          "name": "delivered_at",
+          "presence": "optional"
+        },
+        {
+          "name": "read_at",
+          "presence": "optional"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "user_operates_organization",
+      "from": "user",
+      "to": "organization",
+      "label": "operates",
+      "cardinality": {
+        "from": "0..N organizations per USER",
+        "to": "exactly 1 primary owner/operator USER per ORGANIZATION"
+      }
+    },
+    {
+      "id": "organization_contains_property",
+      "from": "organization",
+      "to": "property",
+      "label": "contains",
+      "cardinality": {
+        "from": "0..N properties",
+        "to": "exactly 1 organization"
+      }
+    },
+    {
+      "id": "property_contains_room",
+      "from": "property",
+      "to": "room",
+      "label": "contains",
+      "cardinality": {
+        "from": "0..N rooms",
+        "to": "exactly 1 property"
+      }
+    },
+    {
+      "id": "room_projects_listing",
+      "from": "room",
+      "to": "listing",
+      "label": "public projection",
+      "cardinality": {
+        "from": "0..N listing history",
+        "to": "exactly 1 room"
+      }
+    },
+    {
+      "id": "room_has_tenancy",
+      "from": "room",
+      "to": "tenancy",
+      "label": "rental relationship",
+      "cardinality": {
+        "from": "0..N tenancy history; max 1 non-terminal",
+        "to": "exactly 1 room"
+      }
+    },
+    {
+      "id": "room_has_incident",
+      "from": "room",
+      "to": "incident",
+      "label": "operational issue",
+      "cardinality": {
+        "from": "0..N incidents",
+        "to": "exactly 1 room"
+      }
+    },
+    {
+      "id": "room_has_utility_connection",
+      "from": "room",
+      "to": "utility_connection",
+      "label": "utility context",
+      "cardinality": {
+        "from": "0..N connections",
+        "to": "exactly 1 room"
+      }
+    },
+    {
+      "id": "tenancy_has_participant",
+      "from": "tenancy",
+      "to": "tenancy_participant",
+      "label": "participants",
+      "cardinality": {
+        "from": "0..N participant history",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "participant_links_user",
+      "from": "tenancy_participant",
+      "to": "user",
+      "label": "optional account",
+      "cardinality": {
+        "from": "0..1 linked user",
+        "to": "0..N participant identities"
+      }
+    },
+    {
+      "id": "tenancy_has_terms",
+      "from": "tenancy",
+      "to": "tenancy_terms",
+      "label": "versioned terms",
+      "cardinality": {
+        "from": "0..N terms versions",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "terms_has_acknowledgement",
+      "from": "tenancy_terms",
+      "to": "terms_acknowledgement",
+      "label": "acknowledgements",
+      "cardinality": {
+        "from": "0..N acknowledgements",
+        "to": "exactly 1 terms version"
+      }
+    },
+    {
+      "id": "ack_participant",
+      "from": "terms_acknowledgement",
+      "to": "tenancy_participant",
+      "label": "rental identity",
+      "cardinality": {
+        "from": "exactly 1 participant",
+        "to": "0..N acknowledgements"
+      }
+    },
+    {
+      "id": "ack_user",
+      "from": "terms_acknowledgement",
+      "to": "user",
+      "label": "account action",
+      "cardinality": {
+        "from": "exactly 1 user",
+        "to": "0..N acknowledgements"
+      }
+    },
+    {
+      "id": "tenancy_has_notice",
+      "from": "tenancy",
+      "to": "tenancy_notice",
+      "label": "notices",
+      "cardinality": {
+        "from": "0..N notices",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "notice_issued_by_user",
+      "from": "tenancy_notice",
+      "to": "user",
+      "label": "issued by",
+      "cardinality": {
+        "from": "exactly 1 user",
+        "to": "0..N issued notices"
+      }
+    },
+    {
+      "id": "notice_acknowledged_by_user",
+      "from": "tenancy_notice",
+      "to": "user",
+      "label": "acknowledged by",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N acknowledged notices"
+      }
+    },
+    {
+      "id": "tenancy_has_billing_cycle",
+      "from": "tenancy",
+      "to": "billing_cycle",
+      "label": "billing cycles",
+      "cardinality": {
+        "from": "0..N cycles",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "billing_cycle_uses_terms",
+      "from": "billing_cycle",
+      "to": "tenancy_terms",
+      "label": "applied version",
+      "cardinality": {
+        "from": "exactly 1 terms version",
+        "to": "0..N billing cycles"
+      }
+    },
+    {
+      "id": "billing_cycle_has_charge",
+      "from": "billing_cycle",
+      "to": "charge",
+      "label": "charges",
+      "cardinality": {
+        "from": "1..N charges",
+        "to": "exactly 1 billing cycle"
+      }
+    },
+    {
+      "id": "tenancy_has_deposit",
+      "from": "tenancy",
+      "to": "deposit",
+      "label": "deposit lifecycle",
+      "cardinality": {
+        "from": "0..1 deposit lifecycle",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "tenancy_owns_payment",
+      "from": "tenancy",
+      "to": "payment",
+      "label": "payments",
+      "cardinality": {
+        "from": "0..N payments",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "payment_has_allocation",
+      "from": "payment",
+      "to": "payment_allocation",
+      "label": "allocations",
+      "cardinality": {
+        "from": "0..N allocations",
+        "to": "exactly 1 payment"
+      }
+    },
+    {
+      "id": "allocation_targets_charge",
+      "from": "payment_allocation",
+      "to": "charge",
+      "label": "allocates to",
+      "cardinality": {
+        "from": "exactly 1 charge",
+        "to": "0..N allocations"
+      }
+    },
+    {
+      "id": "payment_has_deposit_application",
+      "from": "payment",
+      "to": "deposit_payment_application",
+      "label": "deposit applications",
+      "cardinality": {
+        "from": "0..N applications",
+        "to": "exactly 1 payment"
+      }
+    },
+    {
+      "id": "deposit_application_targets_deposit",
+      "from": "deposit_payment_application",
+      "to": "deposit",
+      "label": "applies to",
+      "cardinality": {
+        "from": "exactly 1 deposit",
+        "to": "0..N applications"
+      }
+    },
+    {
+      "id": "payment_produces_receipt",
+      "from": "payment",
+      "to": "receipt",
+      "label": "receipts",
+      "cardinality": {
+        "from": "0..N historical receipts; max 1 current",
+        "to": "exactly 1 payment"
+      }
+    },
+    {
+      "id": "payment_replacement",
+      "from": "payment",
+      "to": "payment",
+      "label": "replacement payment",
+      "cardinality": {
+        "from": "0..1 replacement",
+        "to": "0..1 corrected predecessor"
+      },
+      "condition": "only for voided/reversed payment correction; same Tenancy"
+    },
+    {
+      "id": "tenancy_receives_payment_claim",
+      "from": "tenancy",
+      "to": "payment_claim",
+      "label": "payment claims",
+      "cardinality": {
+        "from": "0..N claims",
+        "to": "exactly 1 tenancy"
+      }
+    },
+    {
+      "id": "payment_claim_submitted_by_user",
+      "from": "payment_claim",
+      "to": "user",
+      "label": "submitted by",
+      "cardinality": {
+        "from": "exactly 1 user",
+        "to": "0..N claims"
+      }
+    },
+    {
+      "id": "payment_claim_participant_context",
+      "from": "payment_claim",
+      "to": "tenancy_participant",
+      "label": "participant context",
+      "cardinality": {
+        "from": "0..1 participant",
+        "to": "0..N claims"
+      }
+    },
+    {
+      "id": "payment_claim_resulting_payment",
+      "from": "payment_claim",
+      "to": "payment",
+      "label": "resulting payment",
+      "cardinality": {
+        "from": "0..1 payment",
+        "to": "0..1 originating claim"
+      },
+      "condition": "when claim is confirmed; same Tenancy"
+    },
+    {
+      "id": "deposit_has_settlement",
+      "from": "deposit",
+      "to": "deposit_settlement",
+      "label": "settlements",
+      "cardinality": {
+        "from": "0..N settlements",
+        "to": "exactly 1 deposit"
+      }
+    },
+    {
+      "id": "deposit_has_event",
+      "from": "deposit",
+      "to": "deposit_event",
+      "label": "events",
+      "cardinality": {
+        "from": "0..N events",
+        "to": "exactly 1 deposit"
+      }
+    },
+    {
+      "id": "deposit_event_received_application",
+      "from": "deposit_event",
+      "to": "deposit_payment_application",
+      "label": "received provenance",
+      "cardinality": {
+        "from": "exactly 1 application for RECEIVED",
+        "to": "0..N received events"
+      },
+      "condition": "event_type = RECEIVED"
+    },
+    {
+      "id": "deposit_event_settlement",
+      "from": "deposit_event",
+      "to": "deposit_settlement",
+      "label": "settlement provenance",
+      "cardinality": {
+        "from": "exactly 1 settlement for REFUNDED/RETAINED",
+        "to": "0..N settlement events"
+      },
+      "condition": "event_type in REFUNDED, RETAINED"
+    },
+    {
+      "id": "deposit_settlement_actor",
+      "from": "deposit_settlement",
+      "to": "user",
+      "label": "acted by",
+      "cardinality": {
+        "from": "exactly 1 user",
+        "to": "0..N settlement actions"
+      }
+    },
+    {
+      "id": "utility_connection_has_reading",
+      "from": "utility_connection",
+      "to": "meter_reading",
+      "label": "readings",
+      "cardinality": {
+        "from": "0..N readings",
+        "to": "exactly 1 utility connection"
+      }
+    },
+    {
+      "id": "meter_reading_recorded_by_user",
+      "from": "meter_reading",
+      "to": "user",
+      "label": "recorded by",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N readings"
+      }
+    },
+    {
+      "id": "charge_utility_connection",
+      "from": "charge",
+      "to": "utility_connection",
+      "label": "utility connection",
+      "cardinality": {
+        "from": "0..1 connection",
+        "to": "0..N charges"
+      },
+      "condition": "ELECTRICITY/WATER when utility provenance is recorded"
+    },
+    {
+      "id": "charge_start_meter_reading",
+      "from": "charge",
+      "to": "meter_reading",
+      "label": "start reading",
+      "cardinality": {
+        "from": "0..1 reading",
+        "to": "0..N charge references"
+      },
+      "condition": "only with utility_connection_id"
+    },
+    {
+      "id": "charge_end_meter_reading",
+      "from": "charge",
+      "to": "meter_reading",
+      "label": "end reading",
+      "cardinality": {
+        "from": "0..1 reading",
+        "to": "0..N charge references"
+      },
+      "condition": "only with utility_connection_id"
+    },
+    {
+      "id": "listing_has_status_event",
+      "from": "listing",
+      "to": "listing_status_event",
+      "label": "status events",
+      "cardinality": {
+        "from": "0..N events",
+        "to": "exactly 1 listing"
+      }
+    },
+    {
+      "id": "listing_status_event_actor",
+      "from": "listing_status_event",
+      "to": "user",
+      "label": "actor",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N listing events"
+      }
+    },
+    {
+      "id": "listing_receives_inquiry",
+      "from": "listing",
+      "to": "inquiry",
+      "label": "inquiries",
+      "cardinality": {
+        "from": "0..N inquiries",
+        "to": "exactly 1 listing"
+      }
+    },
+    {
+      "id": "inquiry_sender_user",
+      "from": "inquiry",
+      "to": "user",
+      "label": "optional sender",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N inquiries"
+      }
+    },
+    {
+      "id": "incident_has_event",
+      "from": "incident",
+      "to": "incident_event",
+      "label": "timeline",
+      "cardinality": {
+        "from": "0..N events",
+        "to": "exactly 1 incident"
+      }
+    },
+    {
+      "id": "incident_reported_by_user",
+      "from": "incident",
+      "to": "user",
+      "label": "reported by",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N incidents"
+      }
+    },
+    {
+      "id": "incident_event_actor",
+      "from": "incident_event",
+      "to": "user",
+      "label": "actor",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N incident events"
+      }
+    },
+    {
+      "id": "review_source_tenancy",
+      "from": "review",
+      "to": "tenancy",
+      "label": "verified rental source",
+      "cardinality": {
+        "from": "exactly 1 tenancy",
+        "to": "0..N reviews"
+      }
+    },
+    {
+      "id": "review_author_user",
+      "from": "review",
+      "to": "user",
+      "label": "author identity",
+      "cardinality": {
+        "from": "exactly 1 user",
+        "to": "0..N reviews"
+      }
+    },
+    {
+      "id": "review_author_participant",
+      "from": "review",
+      "to": "tenancy_participant",
+      "label": "author rental identity",
+      "cardinality": {
+        "from": "exactly 1 participant",
+        "to": "0..N reviews"
+      }
+    },
+    {
+      "id": "review_target_property",
+      "from": "review",
+      "to": "property",
+      "label": "property experience target",
+      "cardinality": {
+        "from": "exactly 1 property",
+        "to": "0..N reviews"
+      }
+    },
+    {
+      "id": "trust_report_listing_target",
+      "from": "trust_report",
+      "to": "listing",
+      "label": "listing target",
+      "cardinality": {
+        "from": "0..1 listing",
+        "to": "0..N reports"
+      },
+      "condition": "exactly one of listing/review target"
+    },
+    {
+      "id": "trust_report_review_target",
+      "from": "trust_report",
+      "to": "review",
+      "label": "review target",
+      "cardinality": {
+        "from": "0..1 review",
+        "to": "0..N reports"
+      },
+      "condition": "exactly one of listing/review target"
+    },
+    {
+      "id": "trust_report_reporter_user",
+      "from": "trust_report",
+      "to": "user",
+      "label": "reporter",
+      "cardinality": {
+        "from": "0..1 user",
+        "to": "0..N reports"
+      }
+    },
+    {
+      "id": "user_receives_notification",
+      "from": "user",
+      "to": "notification",
+      "label": "notifications",
+      "cardinality": {
+        "from": "0..N notifications",
+        "to": "exactly 1 recipient user"
+      }
+    }
+  ],
+  "invariants": [
+    {
+      "id": "no_global_user_role",
+      "number": 1,
+      "text": "No global landlord/tenant role on USER.",
+      "scope": "identity"
+    },
+    {
+      "id": "organization_single_primary_owner",
+      "number": 2,
+      "text": "Each Organization has exactly one primary owner/operator in MVP.",
+      "scope": "identity"
+    },
+    {
+      "id": "property_single_organization",
+      "number": 3,
+      "text": "Each Property belongs to exactly one Organization.",
+      "scope": "identity"
+    },
+    {
+      "id": "room_state_separate_archive_lifecycle",
+      "number": 4,
+      "text": "Room operational state and archive lifecycle remain separate.",
+      "scope": "room"
+    },
+    {
+      "id": "listing_publish_guard",
+      "number": 5,
+      "text": "Published Listing requires eligible VACANT active Room under active Property.",
+      "scope": "listing"
+    },
+    {
+      "id": "room_max_one_current_listing",
+      "number": 6,
+      "text": "One Room has at most one current non-archived Listing.",
+      "scope": "listing"
+    },
+    {
+      "id": "room_max_one_nonterminal_tenancy",
+      "number": 7,
+      "text": "One Room has at most one non-terminal Tenancy.",
+      "scope": "tenancy"
+    },
+    {
+      "id": "active_tenancy_single_primary",
+      "number": 8,
+      "text": "Active Tenancy has exactly one active PRIMARY participant.",
+      "scope": "tenancy"
+    },
+    {
+      "id": "participant_optional_user",
+      "number": 9,
+      "text": "Participant may exist without a linked User.",
+      "scope": "tenancy"
+    },
+    {
+      "id": "terms_version_specific_ack",
+      "number": 10,
+      "text": "Terms are versioned and acknowledgement is version-specific.",
+      "scope": "terms"
+    },
+    {
+      "id": "terms_next_cycle_boundary",
+      "number": 11,
+      "text": "Financial Terms change only at the next Billing Cycle boundary in MVP.",
+      "scope": "terms"
+    },
+    {
+      "id": "billing_cycle_terms_provenance",
+      "number": 12,
+      "text": "Every Billing Cycle stores its applied Terms version provenance.",
+      "scope": "billing"
+    },
+    {
+      "id": "billing_cycle_no_overlap",
+      "number": 13,
+      "text": "Billing Cycle periods for one Tenancy do not overlap.",
+      "scope": "billing"
+    },
+    {
+      "id": "charge_type_whitelist",
+      "number": 14,
+      "text": "Charge types are exactly RENT/ELECTRICITY/WATER in current scope.",
+      "scope": "billing"
+    },
+    {
+      "id": "payment_single_tenancy",
+      "number": 15,
+      "text": "Payment belongs to exactly one Tenancy.",
+      "scope": "payment"
+    },
+    {
+      "id": "payment_allocation_no_cross_tenancy",
+      "number": 16,
+      "text": "Payment Allocation may be partial/multi-charge/multi-cycle but never cross-Tenancy.",
+      "scope": "payment"
+    },
+    {
+      "id": "deposit_application_no_cross_tenancy",
+      "number": 17,
+      "text": "Deposit Payment Application never crosses Tenancy.",
+      "scope": "deposit"
+    },
+    {
+      "id": "payment_amount_cap",
+      "number": 18,
+      "text": "Sum of Payment Allocation + Deposit Payment Application amounts cannot exceed Payment amount.",
+      "scope": "payment"
+    },
+    {
+      "id": "payment_claim_not_payment",
+      "number": 19,
+      "text": "Payment Claim is not Payment.",
+      "scope": "payment_claim"
+    },
+    {
+      "id": "payment_correction_history",
+      "number": 20,
+      "text": "Confirmed Payment correction preserves history; replacement_payment_id, when present, links a voided/reversed Payment to its corrected Payment in the same Tenancy.",
+      "scope": "payment"
+    },
+    {
+      "id": "receipt_confirmed_history",
+      "number": 21,
+      "text": "Receipt is derived from confirmed Payment and has max one current/non-voided record per Payment.",
+      "scope": "receipt"
+    },
+    {
+      "id": "deposit_requirement_owned_by_terms",
+      "number": 22,
+      "text": "Deposit requirement truth belongs to Terms.",
+      "scope": "deposit"
+    },
+    {
+      "id": "deposit_state_derived",
+      "number": 23,
+      "text": "Deposit state is derived, not authoritative mutable input.",
+      "scope": "deposit"
+    },
+    {
+      "id": "deposit_received_amount_matches_application",
+      "number": 24,
+      "text": "RECEIVED Deposit Event provenance is a Deposit Payment Application; DEPOSIT_EVENT.amount must equal the linked DEPOSIT_PAYMENT_APPLICATION.applied_amount.",
+      "scope": "deposit"
+    },
+    {
+      "id": "deposit_settlement_amount_matches_event",
+      "number": 25,
+      "text": "REFUNDED/RETAINED Deposit Event provenance is a Deposit Settlement; REFUNDED.amount must equal DEPOSIT_SETTLEMENT.refunded_amount, and RETAINED.amount must equal DEPOSIT_SETTLEMENT.retained_amount.",
+      "scope": "deposit"
+    },
+    {
+      "id": "open_incident_blocks_archive",
+      "number": 26,
+      "text": "Open Incident blocks Room/Property archive.",
+      "scope": "incident"
+    },
+    {
+      "id": "trust_report_exactly_one_target",
+      "number": 27,
+      "text": "Trust Report targets exactly one Listing or Review.",
+      "scope": "trust"
+    },
+    {
+      "id": "trust_report_no_auto_remove",
+      "number": 28,
+      "text": "Trust Report does not auto-remove content.",
+      "scope": "trust"
+    },
+    {
+      "id": "review_targets_property_experience",
+      "number": 29,
+      "text": "Review target is Property/Rental Experience, not a person.",
+      "scope": "review"
+    },
+    {
+      "id": "delivery_readmodels_not_truth",
+      "number": 30,
+      "text": "Notification/History/Dashboard do not own business truth.",
+      "scope": "cross_cutting"
+    },
+    {
+      "id": "terms_version_unique_per_tenancy",
+      "number": 31,
+      "text": "TENANCY_TERMS.version is unique within one Tenancy.",
+      "scope": "terms"
+    },
+    {
+      "id": "terms_ack_same_tenancy",
+      "number": 32,
+      "text": "A Terms Acknowledgement participant belongs to the same Tenancy as the acknowledged Terms; its User is the linked account performing that action.",
+      "scope": "terms"
+    },
+    {
+      "id": "utility_charge_provenance_integrity",
+      "number": 33,
+      "text": "For an ELECTRICITY/WATER Charge, when utility provenance is recorded: the referenced Utility Connection belongs to the Room of the Charge's Billing Cycle Tenancy; its utility type matches the Charge type; and any start/end Meter Readings belong to that same Utility Connection. Meter readings cannot be referenced without their Utility Connection.",
+      "scope": "utility"
+    },
+    {
+      "id": "review_author_identity_consistency",
+      "number": 34,
+      "text": "Review author Participant belongs to the Review Tenancy and is linked to the Review author User.",
+      "scope": "review"
+    },
+    {
+      "id": "payment_claim_participant_same_tenancy",
+      "number": 35,
+      "text": "Payment Claim participant, when present, belongs to the same Tenancy as the claim.",
+      "scope": "payment_claim"
+    },
+    {
+      "id": "review_property_historical_target",
+      "number": 36,
+      "text": "REVIEW.property_id is captured at Review creation time and is not live-synced to the current Tenancy → Room → Property chain. Subsequent Room/Property reassignment does not retarget existing Reviews. Correction of an erroneous target is an explicit audited action, never a cascade.",
+      "scope": "review"
+    },
+    {
+      "id": "payment_claim_result_same_tenancy",
+      "number": 37,
+      "text": "PAYMENT_CLAIM.resulting_payment_id, when present, belongs to the same Tenancy as the Payment Claim.",
+      "scope": "payment_claim"
+    }
+  ],
+  "openPolicies": [
+    "Payment unallocated amount handling",
+    "Payment Claim evidence format",
+    "Payment Claim confirmation permission",
+    "Deposit requirement change after partially held",
+    "Review minimum occupancy duration",
+    "Review edit policy",
+    "Review moderation authority",
+    "Review target (property_id) correction authority",
+    "Review rating dimensions",
+    "Trust Report login requirement",
+    "Trust Report rate limit",
+    "Trust Report moderation permissions",
+    "Trust Report evidence policy",
+    "Notification delivery channels",
+    "Search/Map room/property type authoritative owner and vocabulary",
+    "Charge over-allocation across multiple Payments targeting one Charge",
+    "Review multiplicity per eligible Participant/Tenancy"
+  ],
+  "excludedFuture": [
+    "Subscription / Pricing tiers / quota gating",
+    "CSV / Excel import",
+    "advanced team/staff delegation",
+    "Room Asset Inventory",
+    "generic Service/WiFi/Parking/Other charges",
+    "Partner marketplace / worker dispatch / commission",
+    "AI / OCR / predictive features",
+    "full realtime messaging",
+    "saved search / advanced favorites",
+    "OTA reservation / instant booking",
+    "nightly calendar / dynamic pricing",
+    "proration engine",
+    "public tenant rating",
+    "public personal landlord rating"
+  ],
+  "nonAuthoritativeSurfaces": [
+    "DASHBOARD",
+    "OPERATIONAL_HISTORY",
+    "TECHNICAL_AUDIT as business entity",
+    "SEARCH_INDEX",
+    "MAP_PROJECTION"
+  ]
+}
