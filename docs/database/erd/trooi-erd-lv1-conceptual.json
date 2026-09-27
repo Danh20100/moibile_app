@@ -1,0 +1,526 @@
+{
+  "schemaVersion": "1.0",
+  "title": "TrọƠi — ERD LV1 Conceptual — Canonical v3.7",
+  "level": "LV1_CONCEPTUAL",
+  "status": "REVIEWED_FROZEN",
+  "source": {
+    "path": "docs/database/canonical-v3.7.md",
+    "version": "v3.7",
+    "authority": "TRUSTED_SOURCE"
+  },
+  "zones": [
+    {
+      "id": "identity_operating",
+      "name": "Identity / Operating",
+      "meaning": "Digital identity, rental workspace, physical property and room backbone."
+    },
+    {
+      "id": "discovery",
+      "name": "Discovery",
+      "meaning": "Public listing and lightweight inquiry/contact bridge."
+    },
+    {
+      "id": "rental_lifecycle",
+      "name": "Rental Lifecycle",
+      "meaning": "Rental relationship, participants and versioned terms."
+    },
+    {
+      "id": "financial",
+      "name": "Financial",
+      "meaning": "Receivables, payment, deposit and receipt evidence."
+    },
+    {
+      "id": "operations",
+      "name": "Operations",
+      "meaning": "Room incident/problem lifecycle and event history."
+    },
+    {
+      "id": "trust",
+      "name": "Trust",
+      "meaning": "Verified rental review and public-content reporting."
+    }
+  ],
+  "entities": [
+    {
+      "id": "user",
+      "name": "USER",
+      "zone": "identity_operating",
+      "meaning": "Digital identity; capabilities come from relationships, not a global landlord/tenant role."
+    },
+    {
+      "id": "organization",
+      "name": "ORGANIZATION",
+      "zone": "identity_operating",
+      "meaning": "Rental operating workspace; not necessarily a legal company."
+    },
+    {
+      "id": "property",
+      "name": "PROPERTY",
+      "zone": "identity_operating",
+      "meaning": "Physical property identity and controlled-change root containing rooms."
+    },
+    {
+      "id": "room",
+      "name": "ROOM",
+      "zone": "identity_operating",
+      "meaning": "Rental unit identity with operational state and independent record lifecycle."
+    },
+    {
+      "id": "listing",
+      "name": "LISTING",
+      "zone": "discovery",
+      "meaning": "Public discovery projection of an eligible room; not room operational truth."
+    },
+    {
+      "id": "tenancy",
+      "name": "TENANCY",
+      "zone": "rental_lifecycle",
+      "meaning": "A specific rental relationship for one room over time."
+    },
+    {
+      "id": "tenancy_participant",
+      "name": "TENANCY_PARTICIPANT",
+      "zone": "rental_lifecycle",
+      "meaning": "Effective tenancy membership that may exist before a linked user account."
+    },
+    {
+      "id": "tenancy_terms",
+      "name": "TENANCY_TERMS",
+      "zone": "rental_lifecycle",
+      "meaning": "Versioned agreed rental terms and financial requirement provenance."
+    },
+    {
+      "id": "deposit",
+      "name": "DEPOSIT",
+      "zone": "financial",
+      "meaning": "Deposit fulfillment, held amount, settlement and history; requirement comes from terms."
+    },
+    {
+      "id": "billing_cycle",
+      "name": "BILLING_CYCLE",
+      "zone": "financial",
+      "meaning": "Tenancy billing period carrying provenance to the applied terms version."
+    },
+    {
+      "id": "charge",
+      "name": "CHARGE",
+      "zone": "financial",
+      "meaning": "Receivable line item within a billing cycle."
+    },
+    {
+      "id": "payment",
+      "name": "PAYMENT",
+      "zone": "financial",
+      "meaning": "Source of truth for confirmed actual money inflow, owned by one tenancy."
+    },
+    {
+      "id": "receipt",
+      "name": "RECEIPT",
+      "zone": "financial",
+      "meaning": "Immutable evidence artifact issued from a confirmed payment; correction is void/reissue."
+    },
+    {
+      "id": "incident",
+      "name": "INCIDENT",
+      "zone": "operations",
+      "meaning": "Operational problem lifecycle for a room; distinct from trust reporting."
+    },
+    {
+      "id": "incident_event",
+      "name": "INCIDENT_EVENT",
+      "zone": "operations",
+      "meaning": "Append-only incident timeline/event history."
+    },
+    {
+      "id": "inquiry",
+      "name": "INQUIRY",
+      "zone": "discovery",
+      "meaning": "Lightweight contact bridge from listing interest toward a possible tenancy; not a prerequisite."
+    },
+    {
+      "id": "review",
+      "name": "REVIEW",
+      "zone": "trust",
+      "meaning": "Verified rental review based on eligible rental history and targeting property/rental experience."
+    },
+    {
+      "id": "trust_report",
+      "name": "TRUST_REPORT",
+      "zone": "trust",
+      "meaning": "Moderation report against public listing or review content; not an incident."
+    }
+  ],
+  "relationships": [
+    {
+      "id": "user_operates_organization",
+      "from": "user",
+      "to": "organization",
+      "label": "operates",
+      "cardinality": {
+        "from": "0..N organizations per USER",
+        "to": "exactly 1 primary owner/operator USER per ORGANIZATION"
+      }
+    },
+    {
+      "id": "organization_contains_property",
+      "from": "organization",
+      "to": "property",
+      "label": "contains / operates",
+      "cardinality": {
+        "from": "0..N properties per ORGANIZATION",
+        "to": "exactly 1 ORGANIZATION per PROPERTY"
+      }
+    },
+    {
+      "id": "property_contains_room",
+      "from": "property",
+      "to": "room",
+      "label": "contains",
+      "cardinality": {
+        "from": "unspecified",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "room_projects_listing",
+      "from": "room",
+      "to": "listing",
+      "label": "public projection",
+      "cardinality": {
+        "from": "0..N historical; max 1 current non-archived LISTING per ROOM",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "room_has_tenancy",
+      "from": "room",
+      "to": "tenancy",
+      "label": "rental relationship",
+      "cardinality": {
+        "from": "0..N historical; max 1 non-terminal TENANCY per ROOM",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "room_has_incident",
+      "from": "room",
+      "to": "incident",
+      "label": "operational issue",
+      "cardinality": {
+        "from": "0..N incidents per ROOM",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "tenancy_has_participant",
+      "from": "tenancy",
+      "to": "tenancy_participant",
+      "label": "participants",
+      "cardinality": {
+        "from": "active tenancy: exactly 1 active PRIMARY + 0..N active OCCUPANT",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "participant_links_user",
+      "from": "tenancy_participant",
+      "to": "user",
+      "label": "optional linked account",
+      "cardinality": {
+        "from": "0..1 USER per TENANCY_PARTICIPANT",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "tenancy_has_terms",
+      "from": "tenancy",
+      "to": "tenancy_terms",
+      "label": "versioned terms",
+      "cardinality": {
+        "from": "versioned over time",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "terms_used_by_billing_cycle",
+      "from": "tenancy_terms",
+      "to": "billing_cycle",
+      "label": "applied version",
+      "cardinality": {
+        "from": "0..N billing cycles may use one TENANCY_TERMS version",
+        "to": "exactly 1 applied TENANCY_TERMS version per BILLING_CYCLE"
+      }
+    },
+    {
+      "id": "terms_owns_deposit_requirement",
+      "from": "tenancy_terms",
+      "to": "deposit",
+      "label": "requirement provenance",
+      "cardinality": {
+        "from": "versioned requirement provenance",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "tenancy_has_deposit",
+      "from": "tenancy",
+      "to": "deposit",
+      "label": "deposit lifecycle",
+      "cardinality": {
+        "from": "unspecified",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "tenancy_has_billing_cycle",
+      "from": "tenancy",
+      "to": "billing_cycle",
+      "label": "billing periods",
+      "cardinality": {
+        "from": "0..N billing cycles per TENANCY",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "billing_cycle_has_charge",
+      "from": "billing_cycle",
+      "to": "charge",
+      "label": "receivable lines",
+      "cardinality": {
+        "from": "1..N charges per BILLING_CYCLE",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "payment_belongs_tenancy",
+      "from": "payment",
+      "to": "tenancy",
+      "label": "belongs to",
+      "cardinality": {
+        "from": "exactly 1 TENANCY per PAYMENT",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "payment_allocates_charge",
+      "from": "payment",
+      "to": "charge",
+      "label": "allocates to (conceptual)",
+      "cardinality": {
+        "from": "partial / multi-charge allowed within same tenancy",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "payment_applies_deposit",
+      "from": "payment",
+      "to": "deposit",
+      "label": "applies to (conceptual)",
+      "cardinality": {
+        "from": "0..N deposit applications conceptually within same tenancy",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "payment_produces_receipt",
+      "from": "payment",
+      "to": "receipt",
+      "label": "produces evidence",
+      "cardinality": {
+        "from": "0..N historical; max 1 current non-voided RECEIPT per PAYMENT",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "incident_has_event",
+      "from": "incident",
+      "to": "incident_event",
+      "label": "timeline",
+      "cardinality": {
+        "from": "0..N events per INCIDENT",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "inquiry_links_user",
+      "from": "inquiry",
+      "to": "user",
+      "label": "optional sender account",
+      "cardinality": {
+        "from": "0..1 USER per INQUIRY",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "inquiry_concerns_listing",
+      "from": "inquiry",
+      "to": "listing",
+      "label": "concerns",
+      "cardinality": {
+        "from": "unspecified",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "review_verified_by_tenancy",
+      "from": "review",
+      "to": "tenancy",
+      "label": "verified rental source",
+      "cardinality": {
+        "from": "unspecified",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "review_targets_property",
+      "from": "review",
+      "to": "property",
+      "label": "targets rental experience",
+      "cardinality": {
+        "from": "unspecified",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "trust_report_targets_listing",
+      "from": "trust_report",
+      "to": "listing",
+      "label": "reports listing",
+      "cardinality": {
+        "from": "exactly one public-content target across Listing/Review",
+        "to": "unspecified"
+      }
+    },
+    {
+      "id": "trust_report_targets_review",
+      "from": "trust_report",
+      "to": "review",
+      "label": "reports review",
+      "cardinality": {
+        "from": "exactly one public-content target across Listing/Review",
+        "to": "unspecified"
+      }
+    }
+  ],
+  "constraints": [
+    {
+      "id": "no_global_user_role",
+      "text": "USER has no global landlord/tenant role; role/capability is relationship-derived.",
+      "sourceSection": "4.1 USER"
+    },
+    {
+      "id": "room_state_separate_lifecycle",
+      "text": "ROOM operational state VACANT/OCCUPIED/MAINTENANCE/INACTIVE is separate from ACTIVE/ARCHIVED record lifecycle.",
+      "sourceSection": "6 Room"
+    },
+    {
+      "id": "listing_publish_guard",
+      "text": "LISTING=PUBLISHED requires Room=VACANT and both Room/Property active; Room leaving VACANT synchronously unpublishes it.",
+      "sourceSection": "7.2 Publish invariant"
+    },
+    {
+      "id": "max_one_current_listing",
+      "text": "A Room has at most one current non-archived Listing; historical archived Listings may be many.",
+      "sourceSection": "7.3 Listing cardinality"
+    },
+    {
+      "id": "max_one_nonterminal_tenancy",
+      "text": "A Room has at most one non-terminal Tenancy where non-terminal = DRAFT | ACTIVE | ENDING.",
+      "sourceSection": "11 Tenancy"
+    },
+    {
+      "id": "ending_blocks_next_draft",
+      "text": "While a Tenancy is ENDING, MVP does not create the next Draft Tenancy; pre-rental interest remains Inquiry until Room is VACANT.",
+      "sourceSection": "11.1 Pre-leasing decision"
+    },
+    {
+      "id": "active_tenancy_primary_participant",
+      "text": "An active Tenancy has exactly one active PRIMARY participant and 0..N active OCCUPANT participants.",
+      "sourceSection": "10 Tenant identity & linking"
+    },
+    {
+      "id": "participant_optional_user_link",
+      "text": "TENANCY_PARTICIPANT may link 0..1 USER and may exist before an account.",
+      "sourceSection": "10 Tenant identity & linking"
+    },
+    {
+      "id": "terms_versioned_billing_provenance",
+      "text": "TENANCY_TERMS is versioned; each Billing Cycle keeps the applied Terms version provenance.",
+      "sourceSection": "13 Tenancy Terms / 14.1 Billing Cycle"
+    },
+    {
+      "id": "billing_scope_rent_electricity_water",
+      "text": "MVP Charge scope is RENT | ELECTRICITY | WATER only.",
+      "sourceSection": "14 Billing"
+    },
+    {
+      "id": "payment_single_tenancy",
+      "text": "Each PAYMENT belongs to exactly one TENANCY.",
+      "sourceSection": "16 Payment"
+    },
+    {
+      "id": "payment_no_cross_tenancy",
+      "text": "Payment allocation/application targets must belong to the same Tenancy as the Payment.",
+      "sourceSection": "16.1 Payment Allocation"
+    },
+    {
+      "id": "deposit_requirement_owned_by_terms",
+      "text": "Agreed deposit requirement belongs to TENANCY_TERMS; DEPOSIT owns fulfillment/holding/settlement.",
+      "sourceSection": "19 Deposit"
+    },
+    {
+      "id": "receipt_confirmed_payment_history",
+      "text": "RECEIPT is issued only from confirmed Payment; void/reissue preserves history and allows max 1 current non-voided Receipt.",
+      "sourceSection": "18 Receipt"
+    },
+    {
+      "id": "open_incident_blocks_archive",
+      "text": "Open Incident blocks Room/Property archive; archive never auto-closes an Incident.",
+      "sourceSection": "20 Incident / archive guards"
+    },
+    {
+      "id": "trust_report_exactly_one_target",
+      "text": "A Trust Report targets exactly one public-content object: Listing or Review.",
+      "sourceSection": "23 Trust Report"
+    },
+    {
+      "id": "inquiry_not_tenancy_prerequisite",
+      "text": "Inquiry is a discovery-to-rental bridge but is not a prerequisite for creating Tenancy.",
+      "sourceSection": "9 Inquiry / Contact"
+    },
+    {
+      "id": "review_verified_rental_history",
+      "text": "Review eligibility is based on verified rental history; baseline requires ENDED tenancy and eligible linked participant.",
+      "sourceSection": "22 Review"
+    },
+    {
+      "id": "review_not_person_target",
+      "text": "Review targets Property/Rental Experience, not a public personal landlord/operator rating.",
+      "sourceSection": "22 Review"
+    }
+  ],
+  "deferredToLv2": [
+    "PAYMENT_ALLOCATION",
+    "DEPOSIT_PAYMENT_APPLICATION",
+    "LISTING_STATUS_EVENT",
+    "TERMS_ACKNOWLEDGEMENT",
+    "TENANCY_NOTICE",
+    "PAYMENT_CLAIM",
+    "UTILITY_CONNECTION / METER_READING",
+    "NOTIFICATION delivery detail"
+  ],
+  "excludedFuture": [
+    "Subscription / pricing tiers / quota gating",
+    "CSV / Excel import",
+    "Advanced team / staff delegation",
+    "Room Asset Inventory",
+    "Service / WiFi / Parking / Other charge types",
+    "Partner marketplace / worker dispatch / commission",
+    "AI / OCR / predictive features",
+    "Full realtime messaging",
+    "Saved search / advanced favorites",
+    "OTA reservation / instant booking / nightly calendar / dynamic pricing",
+    "Proration engine",
+    "Public tenant rating / public personal landlord rating"
+  ]
+}
