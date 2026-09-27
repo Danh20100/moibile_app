@@ -4,27 +4,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
-private val TroOiColorScheme = lightColorScheme(
-    primary = TroOiInk,
-    onPrimary = TroOiBackground,
-    primaryContainer = TroOiLime,
-    onPrimaryContainer = TroOiInk,
-    secondary = TroOiAccent,
-    onSecondary = TroOiSurface,
+private val Scheme = lightColorScheme(
+    primary = TroOiGreen,
+    onPrimary = TroOiPanel,
+    primaryContainer = TroOiGreenSoft,
+    onPrimaryContainer = TroOiGreen,
+    secondary = TroOiGreenAlt,
     background = TroOiBackground,
-    onBackground = TroOiInk,
-    surface = TroOiSurface,
-    onSurface = TroOiInk,
+    onBackground = TroOiText,
+    surface = TroOiPanel,
+    onSurface = TroOiText,
     surfaceVariant = TroOiBackground,
-    onSurfaceVariant = TroOiInkMuted,
-    outline = TroOiBorder,
-    error = TroOiDanger,
+    onSurfaceVariant = TroOiMuted,
+    outline = TroOiLine,
+    error = TroOiRed,
 )
 
 @Composable
 fun TroOiTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = TroOiColorScheme,
+        colorScheme = Scheme,
         typography = TroOiTypography,
         content = content,
     )
