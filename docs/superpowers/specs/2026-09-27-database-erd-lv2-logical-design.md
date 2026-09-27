@@ -413,11 +413,12 @@ verification: USER_RECORDED | PROVIDER_VERIFIED
 confirmed_at
 voided_or_reversed_at?
 correction_note?
+replacement_payment_id?
 ```
 
 Payment is authoritative actual money inflow and belongs to exactly one Tenancy.
 
-Confirmed Payment is not destructively edited. Correction uses void/reverse plus a new corrected Payment while preserving history.
+Confirmed Payment is not destructively edited. Correction uses void/reverse plus a new corrected Payment while preserving history. The voided/reversed Payment may point to the replacement Payment through `replacement_payment_id`; the replacement must belong to the same Tenancy. This link is correction provenance, not permission to mutate the old Payment.
 
 Gateway transaction details remain outside MVP dependency; LV2 does not collapse `Payment Intent`, gateway transaction and Payment into one concept.
 ### PAYMENT_ALLOCATION
@@ -543,7 +544,6 @@ Append-only deposit history.
 deposit_event_id
 deposit_id
 event_type: RECEIVED | REFUNDED | RETAINED
-amount
 occurred_at
 payment_application_id?
 settlement_id?
@@ -562,7 +562,7 @@ REFUNDED | RETAINED
 → no DEPOSIT_PAYMENT_APPLICATION provenance
 ```
 
-Amount of `RECEIVED` must equal the linked Deposit Payment Application amount.
+`DEPOSIT_EVENT` does not duplicate monetary amount. `RECEIVED` amount is owned by the linked `DEPOSIT_PAYMENT_APPLICATION.applied_amount`; `REFUNDED` and `RETAINED` amounts are owned by the linked `DEPOSIT_SETTLEMENT.refunded_amount` and `retained_amount` respectively.
 
 Refunded/Retained are settlement outcomes, not Deposit state values.
 
@@ -639,6 +639,10 @@ AND author USER is linked to an eligible TENANCY_PARTICIPANT
 
 `end_reason` does not automatically block Review eligibility.
 Review target remains Property/Rental Experience, not a personal landlord rating.
+
+`REVIEW.property_id` is the authoritative Property/Rental Experience target captured at Review creation time. It is not a live derived reference to the Room's current Property. Subsequent Room/Property reassignment does not automatically retarget existing Reviews. Correction of an erroneous target, if required, must be an explicit audited action — never a cascade from Room/Property changes.
+
+LV2 does not introduce a `REVIEW_TARGET_CORRECTION_EVENT`; correction audit belongs to the cross-cutting Technical Audit concern rather than a second business source-of-truth entity.
 
 Current LV2 keeps the optional single landlord/operator response on `REVIEW` rather than introducing `REVIEW_RESPONSE` as a separate entity. A separate response entity is only justified if response lifecycle/moderation/history becomes first-class later.
 
@@ -735,12 +739,15 @@ BILLING_CYCLE 1 ──contains── 1..N CHARGE
 PAYMENT N ──through PAYMENT_ALLOCATION── N CHARGE
 PAYMENT N ──through DEPOSIT_PAYMENT_APPLICATION── N DEPOSIT
 PAYMENT 1 ──produces── 0..N RECEIPT history
+PAYMENT (voided/reversed) 0..1 ──replacement_payment_id── 0..1 PAYMENT
 
 DEPOSIT 1 ──has── 0..N DEPOSIT_PAYMENT_APPLICATION
 DEPOSIT 1 ──has── 0..N DEPOSIT_SETTLEMENT
 DEPOSIT 1 ──has── 0..N DEPOSIT_EVENT
 
 UTILITY_CONNECTION 1 ──has── 0..N METER_READING
+UTILITY CHARGE ──may reference── 0..1 UTILITY_CONNECTION
+UTILITY CHARGE ──may reference── start/end METER_READING on that connection
 ```
 
 Trust/discovery relationships:
@@ -809,12 +816,12 @@ LV3 must be able to implement these logical constraints without changing their m
 17. Deposit Payment Application never crosses Tenancy.
 18. Sum of Payment Allocation + Deposit Payment Application amounts cannot exceed Payment amount.
 19. Payment Claim is not Payment.
-20. Confirmed Payment correction preserves history.
+20. Confirmed Payment correction preserves history; `replacement_payment_id`, when present, links a voided/reversed Payment to its corrected Payment in the same Tenancy.
 21. Receipt is derived from confirmed Payment and has max one current/non-voided record per Payment.
 22. Deposit requirement truth belongs to Terms.
 23. Deposit state is derived, not authoritative mutable input.
-24. RECEIVED Deposit Event provenance is a Deposit Payment Application.
-25. REFUNDED/RETAINED Deposit Event provenance is a Deposit Settlement.
+24. RECEIVED Deposit Event provenance is a Deposit Payment Application; its monetary amount is owned only by `DEPOSIT_PAYMENT_APPLICATION.applied_amount`, not duplicated on DEPOSIT_EVENT.
+25. REFUNDED/RETAINED Deposit Event provenance is a Deposit Settlement; monetary outcome is owned only by `DEPOSIT_SETTLEMENT.refunded_amount` / `retained_amount`, not duplicated on DEPOSIT_EVENT.
 26. Open Incident blocks Room/Property archive.
 27. Trust Report targets exactly one Listing or Review.
 28. Trust Report does not auto-remove content.
@@ -822,9 +829,11 @@ LV3 must be able to implement these logical constraints without changing their m
 30. Notification/History/Dashboard do not own business truth.
 31. TENANCY_TERMS.version is unique within one Tenancy.
 32. A Terms Acknowledgement participant belongs to the same Tenancy as the acknowledged Terms; its User is the linked account performing that action.
-33. Utility start/end Meter Readings referenced by a Charge belong to the same Utility Connection and match the Charge utility type.
+33. For an ELECTRICITY/WATER Charge, when utility provenance is recorded: the referenced Utility Connection belongs to the Room of the Charge's Billing Cycle Tenancy; its utility type matches the Charge type; and any start/end Meter Readings belong to that same Utility Connection. Meter readings cannot be referenced without their Utility Connection.
 34. Review author Participant belongs to the Review Tenancy and is linked to the Review author User.
 35. Payment Claim participant, when present, belongs to the same Tenancy as the claim.
+36. `REVIEW.property_id` is captured at Review creation time and is not live-synced to the current Tenancy → Room → Property chain. Subsequent Room/Property reassignment does not retarget existing Reviews. Correction of an erroneous target is an explicit audited action, never a cascade.
+37. `PAYMENT_CLAIM.resulting_payment_id`, when present, belongs to the same Tenancy as the Payment Claim.
 ## 16. Explicit OPEN policies
 
 The following remain intentionally unresolved in LV2 and must not be silently encoded as fixed business policy:
@@ -837,6 +846,7 @@ Deposit requirement change after partially held
 Review minimum occupancy duration
 Review edit policy
 Review moderation authority
+Review target (`property_id`) correction authority
 Review rating dimensions
 Trust Report login requirement
 Trust Report rate limit
