@@ -26,6 +26,7 @@ def build_valid_contract(lv2):
     tables = []
     for entity in lv2["entities"]:
         columns = []
+        checks = []
         for i, attribute in enumerate(entity["attributes"]):
             columns.append({
                 "name": attribute["name"],
@@ -34,11 +35,22 @@ def build_valid_contract(lv2):
                 "nullable": attribute["presence"] != "required",
                 "primaryKey": i == 0,
             })
+            values = attribute.get("values")
+            if values:
+                literals = ",".join(f"'{value}'" for value in values)
+                checks.append({
+                    "name": (
+                        f"ck_{entity['id']}_{attribute['name']}_vocabulary"
+                    ),
+                    "expression": f"{attribute['name']} IN ({literals})",
+                    "sourceKind": "row_check",
+                })
+
         tables.append({
             "logicalEntity": entity["name"],
             "name": f"t_{entity['id']}",
             "columns": columns,
-            "checks": [],
+            "checks": checks,
             "uniqueConstraints": [],
             "indexes": [],
         })
@@ -49,10 +61,19 @@ def build_valid_contract(lv2):
         "status": "DRAFT_REVIEW",
         "source": {
             "canonicalVersion": "v3.6",
-            "lv1": {"path": str(LV1_PATH), "status": "REVIEWED_FROZEN"},
-            "lv2": {"path": str(LV2_PATH), "status": "REVIEWED_FROZEN"},
+            "lv1": {
+                "path": str(LV1_PATH),
+                "status": "REVIEWED_FROZEN",
+            },
+            "lv2": {
+                "path": str(LV2_PATH),
+                "status": "REVIEWED_FROZEN",
+            },
         },
-        "platform": {"database": "PostgreSQL", "extensions": ["postgis"]},
+        "platform": {
+            "database": "PostgreSQL",
+            "extensions": ["postgis"],
+        },
         "tables": tables,
         "transactionGuards": [],
         "openPolicies": list(lv2["openPolicies"]) + [
@@ -62,12 +83,30 @@ def build_valid_contract(lv2):
         "openPolicyFreezes": [],
         "excludedFuture": list(lv2["excludedFuture"]),
         "reconciliationMarkers": [
-            {"kind": "UPSTREAM_RECONCILE", "id": "deposit_event_amount_single_owner"},
-            {"kind": "UPSTREAM_RECONCILE", "id": "review_property_historical_target_upstream"},
-            {"kind": "UPSTREAM_RECONCILE", "id": "room_property_type_search_filter"},
-            {"kind": "UPSTREAM_RECONCILE", "id": "charge_overallocation_policy"},
-            {"kind": "UPSTREAM_RECONCILE", "id": "review_multiplicity_policy"},
-            {"kind": "DOC_RECONCILE", "id": "tech_stack_postgis"},
+            {
+                "kind": "UPSTREAM_RECONCILE",
+                "id": "deposit_event_amount_single_owner",
+            },
+            {
+                "kind": "UPSTREAM_RECONCILE",
+                "id": "review_property_historical_target_upstream",
+            },
+            {
+                "kind": "UPSTREAM_RECONCILE",
+                "id": "room_property_type_search_filter",
+            },
+            {
+                "kind": "UPSTREAM_RECONCILE",
+                "id": "charge_overallocation_policy",
+            },
+            {
+                "kind": "UPSTREAM_RECONCILE",
+                "id": "review_multiplicity_policy",
+            },
+            {
+                "kind": "DOC_RECONCILE",
+                "id": "tech_stack_postgis",
+            },
         ],
     }
 
@@ -83,56 +122,114 @@ class LV3ValidatorTests(unittest.TestCase):
     def test_rejects_missing_lv2_entity(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"].pop()
-        self.assertTrue(any("29" in e or "entity" in e.lower() for e in validate_contract(self.lv2, contract)))
+        self.assertTrue(
+            any(
+                "29" in error or "entity" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_missing_lv2_attribute(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"][1]["columns"].pop()
-        self.assertTrue(any("attribute" in e.lower() for e in validate_contract(self.lv2, contract)))
+        self.assertTrue(
+            any(
+                "attribute" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_future_table(self):
         contract = copy.deepcopy(self.contract)
-        contract["tables"].append({"logicalEntity": "PARTNER_MARKETPLACE", "name": "partner_marketplace", "columns": [], "checks": [], "uniqueConstraints": [], "indexes": []})
+        contract["tables"].append({
+            "logicalEntity": "PARTNER_MARKETPLACE",
+            "name": "partner_marketplace",
+            "columns": [],
+            "checks": [],
+            "uniqueConstraints": [],
+            "indexes": [],
+        })
         self.assertTrue(validate_contract(self.lv2, contract))
 
     def test_requires_exact_reconciliation_markers(self):
         contract = copy.deepcopy(self.contract)
         contract["reconciliationMarkers"].pop()
-        self.assertTrue(any("reconciliation" in e.lower() for e in validate_contract(self.lv2, contract)))
+        self.assertTrue(
+            any(
+                "reconciliation" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_open_policy_vocabulary_freeze(self):
         contract = copy.deepcopy(self.contract)
-        contract["openPolicyFreezes"] = ["PAYMENT_CLAIM.status=APPROVED"]
-        self.assertTrue(any("open" in e.lower() for e in validate_contract(self.lv2, contract)))
+        contract["openPolicyFreezes"] = [
+            "PAYMENT_CLAIM.status=APPROVED",
+        ]
+        self.assertTrue(
+            any(
+                "open" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_transaction_guard_emitted_as_check(self):
         contract = copy.deepcopy(self.contract)
-        contract["tables"][0]["checks"].append({"name": "ck_bad", "expression": "TRUE", "sourceKind": "transaction_guard"})
-        self.assertTrue(any("transaction" in e.lower() for e in validate_contract(self.lv2, contract)))
+        contract["tables"][0]["checks"].append({
+            "name": "ck_bad",
+            "expression": "TRUE",
+            "sourceKind": "transaction_guard",
+        })
+        self.assertTrue(
+            any(
+                "transaction" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_non_frozen_lv1_or_lv2(self):
         contract = copy.deepcopy(self.contract)
         contract["source"]["lv2"]["status"] = "DRAFT_REVIEW"
-        self.assertTrue(any("reviewed_frozen" in e.lower() for e in validate_contract(self.lv2, contract)))
+        self.assertTrue(
+            any(
+                "reviewed_frozen" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_malformed_column_shape(self):
         contract = copy.deepcopy(self.contract)
         del contract["tables"][0]["columns"][0]["nullable"]
-        self.assertTrue(any("column" in e.lower() for e in validate_contract(self.lv2, contract)))
+        self.assertTrue(
+            any(
+                "column" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_dangling_fk_reference(self):
         contract = copy.deepcopy(self.contract)
-        contract["tables"][0]["columns"][0]["references"] = {"table": "missing_table", "column": "missing_id", "onDelete": "NO ACTION"}
-        self.assertTrue(any("reference" in e.lower() or "foreign" in e.lower() for e in validate_contract(self.lv2, contract)))
+        contract["tables"][0]["columns"][0]["references"] = {
+            "table": "missing_table",
+            "column": "missing_id",
+            "onDelete": "NO ACTION",
+        }
+        self.assertTrue(
+            any(
+                "reference" in error.lower() or "foreign" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
     def test_rejects_disallowed_type_family(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"][0]["columns"][0]["type"] = "varchar(255)"
-        self.assertTrue(any("type" in e.lower() for e in validate_contract(self.lv2, contract)))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertTrue(
+            any(
+                "type" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
 
 
 class LV3RepositoryContractTests(unittest.TestCase):
@@ -143,8 +240,63 @@ class LV3RepositoryContractTests(unittest.TestCase):
         errors = validate_contract(lv2, lv3)
         self.assertEqual([], errors)
         self.assertEqual(29, len(lv3["tables"]))
-        self.assertEqual("REVIEWED_FROZEN", lv3["source"]["lv2"]["status"])
-        upstream = [m for m in lv3["reconciliationMarkers"] if m["kind"] == "UPSTREAM_RECONCILE"]
-        docs = [m for m in lv3["reconciliationMarkers"] if m["kind"] == "DOC_RECONCILE"]
+        self.assertEqual(
+            "REVIEWED_FROZEN",
+            lv3["source"]["lv2"]["status"],
+        )
+        upstream = [
+            marker
+            for marker in lv3["reconciliationMarkers"]
+            if marker["kind"] == "UPSTREAM_RECONCILE"
+        ]
+        docs = [
+            marker
+            for marker in lv3["reconciliationMarkers"]
+            if marker["kind"] == "DOC_RECONCILE"
+        ]
         self.assertEqual(5, len(upstream))
         self.assertEqual(1, len(docs))
+
+
+class LV3ValidatorFinalReviewTests(unittest.TestCase):
+    def setUp(self):
+        self.lv2 = load_lv2()
+        self.contract = build_valid_contract(self.lv2)
+
+    def test_rejects_duplicate_logical_entity_as_extra_table(self):
+        contract = copy.deepcopy(self.contract)
+        duplicate = copy.deepcopy(contract["tables"][0])
+        duplicate["name"] = f"{duplicate['name']}_duplicate"
+        contract["tables"].append(duplicate)
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any(
+                "29" in error or "unique logicalentity" in error.lower()
+                for error in errors
+            )
+        )
+
+    def test_rejects_required_attribute_mapped_only_nullable(self):
+        contract = copy.deepcopy(self.contract)
+        contract["tables"][0]["columns"][0]["nullable"] = True
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any("nullability" in error.lower() for error in errors)
+        )
+
+    def test_rejects_missing_frozen_vocabulary_check(self):
+        contract = copy.deepcopy(self.contract)
+        room_table = next(
+            table
+            for table in contract["tables"]
+            if table["logicalEntity"] == "ROOM"
+        )
+        room_table["checks"] = []
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any("vocabulary" in error.lower() for error in errors)
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
