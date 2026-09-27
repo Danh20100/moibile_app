@@ -476,6 +476,7 @@ Minimum race cases:
 - Listing publish racing Room occupancy/state transition;
 - checkout racing another Room-state operation;
 - archive racing creation/transition of child state that would make archive invalid.
+- two overlapping Billing Cycles created concurrently for the same Tenancy; exactly one outcome may commit when the frozen no-overlap guard rejects the competing write.
 
 Each race test must assert both the returned outcome and final persisted state.
 
