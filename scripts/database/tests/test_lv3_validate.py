@@ -133,3 +133,18 @@ class LV3ValidatorTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LV3RepositoryContractTests(unittest.TestCase):
+    def test_repository_lv3_contract_matches_frozen_lv2(self):
+        lv3_path = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+        lv2 = load_lv2()
+        lv3 = json.loads(lv3_path.read_text(encoding="utf-8"))
+        errors = validate_contract(lv2, lv3)
+        self.assertEqual([], errors)
+        self.assertEqual(29, len(lv3["tables"]))
+        self.assertEqual("REVIEWED_FROZEN", lv3["source"]["lv2"]["status"])
+        upstream = [m for m in lv3["reconciliationMarkers"] if m["kind"] == "UPSTREAM_RECONCILE"]
+        docs = [m for m in lv3["reconciliationMarkers"] if m["kind"] == "DOC_RECONCILE"]
+        self.assertEqual(5, len(upstream))
+        self.assertEqual(1, len(docs))
