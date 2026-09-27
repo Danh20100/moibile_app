@@ -62,7 +62,7 @@ Workspace cho LV1/LV2/LV3 mới được dựng trực tiếp từ canonical.
 ```text
 Canonical v3.6          FROZEN / TRUSTED
 ERD LV1                 REVIEWED / FROZEN
-ERD LV2                 design approved; snapshot pending/review
+ERD LV2                 REVIEWED / FROZEN
 ERD LV3                 not started
 Executable schema       not started
 Migrations              not started

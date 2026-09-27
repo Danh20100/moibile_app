@@ -23,7 +23,7 @@ Không bỏ qua level. Một level thấp hơn không được thay đổi meani
 
 ```text
 LV1 Conceptual          REVIEWED / FROZEN
-LV2 Logical             ACTIVE — design approved; snapshot/review in progress
+LV2 Logical             REVIEWED / FROZEN
 LV3 Physical Candidate  NOT STARTED
 ```
 
@@ -100,6 +100,8 @@ NOTIFICATION
 ```
 
 LV2 phải giữ nguyên ownership đã chốt; supporting entity không được trở thành nguồn business truth thứ hai.
+
+Hai `>> UPSTREAM-RECONCILE` debt được giữ nguyên trong LV2 frozen và chỉ xử lý trong vòng reconciliation sau khi LV3 đã review xong.
 
 ## LV3 — Physical Candidate
 
