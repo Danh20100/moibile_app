@@ -1,12 +1,12 @@
-# TrÃ¡Â»ÂÃ†Â i PostgreSQL + Redis Implementation Design
+# TrọƠi PostgreSQL + Redis Implementation Design
 
-**Date:** 2026-09-28  
-**Branch:** `database/postgres-redis-implementation`  
-**Status:** Design for review Ã¢â‚¬â€ implementation must not start until this spec is approved and an implementation plan is written.  
+**Date:** 2026-09-28
+**Branch:** `database/postgres-redis-implementation`
+**Status:** Design for review — implementation must not start until this spec is approved and an implementation plan is written.
 
 ## 1. Intent
 
-This phase turns the frozen TrÃ¡Â»ÂÃ†Â i data contract into executable persistence without reopening the domain model.
+This phase turns the frozen TrọƠi data contract into executable persistence without reopening the domain model.
 
 The implementation must provide:
 
@@ -25,11 +25,11 @@ Repository authority is, in order:
 
 ```text
 docs/database/canonical-v3.7.md
-Ã¢â€ â€™ docs/database/erd/trooi-erd-lv1-conceptual.json
-Ã¢â€ â€™ docs/database/erd/trooi-erd-lv2-logical.json
-Ã¢â€ â€™ docs/database/erd/trooi-erd-lv3-physical.json
-Ã¢â€ â€™ docs/database/schema/trooi-schema-lv3.sql
-Ã¢â€ â€™ migrations / persistence / backend implementation
+→ docs/database/erd/trooi-erd-lv1-conceptual.json
+→ docs/database/erd/trooi-erd-lv2-logical.json
+→ docs/database/erd/trooi-erd-lv3-physical.json
+→ docs/database/schema/trooi-schema-lv3.sql
+→ migrations / persistence / backend implementation
 ```
 
 `trooi-erd-lv3-physical.json` is authoritative for exact physical columns, PostgreSQL types, nullability, PK/FK definitions, CHECK constraints, ordinary UNIQUE constraints, indexes, transaction guards, and OPEN-policy boundaries.
@@ -89,7 +89,7 @@ table count                   29
 
 The implementation must preserve these gates and add persistence-specific tests rather than replacing the existing suites.
 
-A minor documentation debt remains in `database/README.md`: wording still says Ã¢â‚¬Å“LV3 physical candidateÃ¢â‚¬Â. This may be corrected as documentation only; it must not alter schema semantics.
+A minor documentation debt remains in `database/README.md`: wording still says “LV3 physical candidate”. This may be corrected as documentation only; it must not alter schema semantics.
 ## 4. Contract reconciliation gate before persistence wiring
 
 The current backend scaffold is persistence-agnostic but some service-level semantics predate the final LV3 freeze. Those shapes must not be copied into database models as-is.
@@ -162,13 +162,13 @@ Recommended shape:
 
 ```text
 database/
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ README.md
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ migrations/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ 000001_lv3_baseline.ts
-Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ sql/
-Ã¢â€â€š       Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ 000001_lv3_baseline.up.sql
-Ã¢â€â€š       Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ 000001_lv3_baseline.down.sql
-Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ seeds/
+├── README.md
+├── migrations/
+│   ├── 000001_lv3_baseline.ts
+│   └── sql/
+│       ├── 000001_lv3_baseline.up.sql
+│       └── 000001_lv3_baseline.down.sql
+└── seeds/
 ```
 
 The first migration is a versioned snapshot of the frozen LV3 physical contract. It must not execute the mutable reference file directly at migration runtime.
@@ -232,9 +232,9 @@ Introduce a small transaction abstraction:
 
 ```text
 TransactionManager.run(callback)
-    Ã¢â€ â€™ TransactionContext
-        Ã¢â€ â€™ repositories bound to one PostgreSQL transaction
-        Ã¢â€ â€™ afterCommit callbacks
+    → TransactionContext
+        → repositories bound to one PostgreSQL transaction
+        → afterCommit callbacks
 ```
 
 Default isolation remains PostgreSQL `READ COMMITTED` unless a specific guard proves it insufficient after explicit locking.
@@ -242,17 +242,17 @@ Default isolation remains PostgreSQL `READ COMMITTED` unless a specific guard pr
 Correctness strategy:
 
 ```text
-row-local constraints      Ã¢â€ â€™ PostgreSQL CHECK / FK / UNIQUE / index
-aggregate concurrency      Ã¢â€ â€™ stable-owner row lock + validate + write
-cross-aggregate operation  Ã¢â€ â€™ deterministic lock order + one transaction
-cache work                 Ã¢â€ â€™ after commit only
+row-local constraints      → PostgreSQL CHECK / FK / UNIQUE / index
+aggregate concurrency      → stable-owner row lock + validate + write
+cross-aggregate operation  → deterministic lock order + one transaction
+cache work                 → after commit only
 ```
 
 Do not use Redis distributed locks to protect authoritative business invariants.
 
 Lock acquisition order must be deterministic inside each command path to reduce deadlock risk. Deadlocks/serialization failures that remain possible must be translated into bounded retry behavior only where the operation is safe to retry.
 
-No application workflow may treat Ã¢â‚¬Å“read current totals, then insertÃ¢â‚¬Â under ordinary READ COMMITTED as sufficient when the frozen guard is aggregate-sensitive.
+No application workflow may treat “read current totals, then insert” under ordinary READ COMMITTED as sufficient when the frozen guard is aggregate-sensitive.
 ## 11. Transaction guard implementation map
 
 All 23 LV3 guards remain authoritative. The code-level grouping below is organizational only; it does not redefine guard semantics.
@@ -330,8 +330,8 @@ Invariant:
 
 ```text
 Redis flush/loss
-Ã¢â€ â€™ PostgreSQL still contains complete authoritative business state
-Ã¢â€ â€™ application can reconstruct cached data
+→ PostgreSQL still contains complete authoritative business state
+→ application can reconstruct cached data
 ```
 
 Business writes commit in PostgreSQL first. Cache mutation/invalidation runs only after commit.
@@ -487,12 +487,12 @@ For each module slice:
 
 ```text
 reconcile service contract to frozen domain
-Ã¢â€ â€™ define/confirm repository port
-Ã¢â€ â€™ implement PostgreSQL adapter
-Ã¢â€ â€™ implement required transaction guards
-Ã¢â€ â€™ switch application service from Map/state engine to port
-Ã¢â€ â€™ run existing + new integration/concurrency tests
-Ã¢â€ â€™ only then continue to the next slice
+→ define/confirm repository port
+→ implement PostgreSQL adapter
+→ implement required transaction guards
+→ switch application service from Map/state engine to port
+→ run existing + new integration/concurrency tests
+→ only then continue to the next slice
 ```
 
 Temporary dual-write between in-memory Maps and PostgreSQL is prohibited because it creates two business truths and ambiguous rollback semantics.
