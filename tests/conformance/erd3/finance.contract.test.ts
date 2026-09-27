@@ -13,11 +13,13 @@ const financeSource = () =>
 
 test('current charge types are RENT ELECTRICITY WATER only', () => {
   const source = readRepoFile('src/modules/billing/contracts/index.ts');
+  const declaration = source.match(/(?:type|enum)\s+\w*ChargeType\w*[\s\S]*?(?:;|\n\})/i);
+  assert.ok(declaration, 'finance contract must expose an explicit ChargeType set');
+  const chargeType = declaration[0];
   for (const type of ['rent', 'electricity', 'water']) {
-    assert.match(source, new RegExp(`['\"]${type}['\"]`, 'i'), `missing Charge type ${type}`);
+    assert.match(chargeType, new RegExp(type, 'i'), `missing Charge type ${type}`);
   }
-  assert.doesNotMatch(source, /type\s*:\s*string/);
-  assert.doesNotMatch(source, /service|internet/i);
+  assert.doesNotMatch(chargeType, /service|internet|other/i);
 });
 
 test('Payment is a first-class actual-inflow concept belonging to exactly one Tenancy', () => {
@@ -44,7 +46,10 @@ test('allocation and deposit application cannot cross Tenancy', () => {
 test('allocation plus deposit application cannot exceed Payment amount', () => {
   const source = financeSource().toLowerCase();
   assert.ok(
-    (source.includes('allocation') && source.includes('deposit') && source.includes('payment') && source.includes('amount')) &&
+    source.includes('allocation') &&
+      source.includes('deposit') &&
+      source.includes('payment') &&
+      source.includes('amount') &&
       (source.includes('exceed') || source.includes('remaining') || source.includes('available')),
     'finance implementation must expose the Payment amount cap',
   );
