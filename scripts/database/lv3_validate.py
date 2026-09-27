@@ -17,15 +17,12 @@ ALLOWED_TYPES = {
     "geography(Point,4326)",
 }
 
-REQUIRED_UPSTREAM_MARKERS = {
-    "deposit_event_amount_single_owner",
-    "review_property_historical_target_upstream",
-    "room_property_type_search_filter",
-    "charge_overallocation_policy",
-    "review_multiplicity_policy",
-}
-REQUIRED_DOC_MARKERS = {"tech_stack_postgis"}
 REQUIRED_TRANSACTION_GUARDS = {"deposit_settlement_amount_cap"}
+REQUIRED_POST_LV3_OPEN_POLICIES = {
+    "Search/Map room/property type authoritative owner and vocabulary",
+    "Charge over-allocation across multiple Payments targeting one Charge",
+    "Review multiplicity per eligible Participant/Tenancy",
+}
 REQUIRED_COLUMN_KEYS = {"name", "logicalAttribute", "type", "nullable", "primaryKey"}
 
 APPROVED_PHYSICAL_DECOMPOSITIONS = {
@@ -78,18 +75,17 @@ def _validate_sources(contract: dict, errors: list[str]) -> None:
 
 def _validate_markers(contract: dict, errors: list[str]) -> None:
     markers = contract.get("reconciliationMarkers", [])
-    upstream = {
-        marker.get("id")
-        for marker in markers
-        if marker.get("kind") == "UPSTREAM_RECONCILE"
-    }
-    docs = {
-        marker.get("id")
-        for marker in markers
-        if marker.get("kind") == "DOC_RECONCILE"
-    }
-    if upstream != REQUIRED_UPSTREAM_MARKERS or docs != REQUIRED_DOC_MARKERS:
-        errors.append("reconciliation markers must be exactly 5 upstream + 1 doc")
+    if markers:
+        errors.append("reconciliation markers must be empty after LV3 freeze")
+
+
+def _validate_open_policies(contract: dict, errors: list[str]) -> None:
+    policies = set(contract.get("openPolicies", []))
+    missing = REQUIRED_POST_LV3_OPEN_POLICIES - policies
+    if missing:
+        errors.append(
+            "missing post-LV3 OPEN policies: " + ", ".join(sorted(missing))
+        )
 
 
 def _validate_frozen_vocabulary(
@@ -292,6 +288,7 @@ def validate_contract(
     _validate_references(lv3, errors)
     _validate_checks(lv3, errors)
     _validate_transaction_guards(lv3, errors)
+    _validate_open_policies(lv3, errors)
     _validate_markers(lv3, errors)
     return errors
 
@@ -323,20 +320,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"- {error}")
         return 1
 
-    upstream = sum(
-        1
-        for marker in lv3.get("reconciliationMarkers", [])
-        if marker.get("kind") == "UPSTREAM_RECONCILE"
-    )
-    docs = sum(
-        1
-        for marker in lv3.get("reconciliationMarkers", [])
-        if marker.get("kind") == "DOC_RECONCILE"
-    )
     print("LV3 physical contract validation: PASS")
     print(
         f"tables={len(lv3.get('tables', []))} "
-        f"upstream={upstream} doc={docs}"
+        f"reconciliation={len(lv3.get('reconciliationMarkers', []))}"
     )
     return 0
 

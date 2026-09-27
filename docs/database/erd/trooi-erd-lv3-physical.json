@@ -3169,7 +3169,8 @@
     "Trust Report evidence policy",
     "Notification delivery channels",
     "Charge over-allocation across multiple Payments targeting one Charge",
-    "Review multiplicity per eligible Participant/Tenancy"
+    "Review multiplicity per eligible Participant/Tenancy",
+    "Search/Map room/property type authoritative owner and vocabulary"
   ],
   "openPolicyFreezes": [],
   "excludedFuture": [
@@ -3187,38 +3188,6 @@
     "proration engine",
     "public tenant rating",
     "public personal landlord rating"
-  ],
-  "reconciliationMarkers": [
-    {
-      "kind": "UPSTREAM_RECONCILE",
-      "id": "deposit_event_amount_single_owner",
-      "text": ">> UPSTREAM-RECONCILE: Deposit Event amount ownership."
-    },
-    {
-      "kind": "UPSTREAM_RECONCILE",
-      "id": "review_property_historical_target_upstream",
-      "text": ">> UPSTREAM-RECONCILE: Review historical Property target semantics."
-    },
-    {
-      "kind": "UPSTREAM_RECONCILE",
-      "id": "room_property_type_search_filter",
-      "text": ">> UPSTREAM-RECONCILE: Canonical Search/Map requires Room/property type filter but owner/vocabulary is unresolved."
-    },
-    {
-      "kind": "UPSTREAM_RECONCILE",
-      "id": "charge_overallocation_policy",
-      "text": ">> UPSTREAM-RECONCILE: Charge over-allocation across Payments remains OPEN."
-    },
-    {
-      "kind": "UPSTREAM_RECONCILE",
-      "id": "review_multiplicity_policy",
-      "text": ">> UPSTREAM-RECONCILE: Review multiplicity per Participant/Tenancy remains OPEN."
-    },
-    {
-      "kind": "DOC_RECONCILE",
-      "id": "tech_stack_postgis",
-      "text": ">> DOC-RECONCILE: tech-stack.md must reflect frozen PostGIS requirement after ERD3 cleanup."
-    }
   ],
   "visualReview": {
     "documentId": "7b7fc608-f969-4d70-bf99-7a58dd2a3199",

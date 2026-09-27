@@ -2050,7 +2050,10 @@
     "Trust Report rate limit",
     "Trust Report moderation permissions",
     "Trust Report evidence policy",
-    "Notification delivery channels"
+    "Notification delivery channels",
+    "Search/Map room/property type authoritative owner and vocabulary",
+    "Charge over-allocation across multiple Payments targeting one Charge",
+    "Review multiplicity per eligible Participant/Tenancy"
   ],
   "excludedFuture": [
     "Subscription / Pricing tiers / quota gating",
@@ -2067,18 +2070,6 @@
     "proration engine",
     "public tenant rating",
     "public personal landlord rating"
-  ],
-  "reconciliationMarkers": [
-    {
-      "id": "deposit_event_amount_single_owner",
-      "status": "DEFERRED_UNTIL_POST_LV3_RECONCILIATION",
-      "text": ">> UPSTREAM-RECONCILE: After ERD LV3 review, reconsider whether DEPOSIT_EVENT.amount should be removed so monetary amount has a single owner in Application/Settlement. Canonical v3.6 currently implies an event amount, so LV2 does not make that upstream change now."
-    },
-    {
-      "id": "review_property_historical_target_upstream",
-      "status": "DEFERRED_UNTIL_POST_LV3_RECONCILIATION",
-      "text": ">> UPSTREAM-RECONCILE: This historical-target clarification is currently defined at LV2 only. After ERD LV3 review, decide whether it should be promoted into the Canonical/LV1 invariant set or remain a lower-layer interpretation consistent with the existing Review target relationship."
-    }
   ],
   "nonAuthoritativeSurfaces": [
     "DASHBOARD",

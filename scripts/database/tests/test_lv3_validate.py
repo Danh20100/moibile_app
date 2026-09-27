@@ -96,38 +96,10 @@ def build_valid_contract(lv2):
                 "enforcement": "transaction",
             }
         ],
-        "openPolicies": list(lv2["openPolicies"]) + [
-            "Charge over-allocation across multiple Payments targeting one Charge",
-            "Review multiplicity per eligible Participant/Tenancy",
-        ],
+        "openPolicies": list(lv2["openPolicies"]),
         "openPolicyFreezes": [],
         "excludedFuture": list(lv2["excludedFuture"]),
-        "reconciliationMarkers": [
-            {
-                "kind": "UPSTREAM_RECONCILE",
-                "id": "deposit_event_amount_single_owner",
-            },
-            {
-                "kind": "UPSTREAM_RECONCILE",
-                "id": "review_property_historical_target_upstream",
-            },
-            {
-                "kind": "UPSTREAM_RECONCILE",
-                "id": "room_property_type_search_filter",
-            },
-            {
-                "kind": "UPSTREAM_RECONCILE",
-                "id": "charge_overallocation_policy",
-            },
-            {
-                "kind": "UPSTREAM_RECONCILE",
-                "id": "review_multiplicity_policy",
-            },
-            {
-                "kind": "DOC_RECONCILE",
-                "id": "tech_stack_postgis",
-            },
-        ],
+        "reconciliationMarkers": []
     }
 
 
@@ -171,15 +143,28 @@ class LV3ValidatorTests(unittest.TestCase):
         })
         self.assertTrue(validate_contract(self.lv2, contract))
 
-    def test_requires_exact_reconciliation_markers(self):
+    def test_rejects_any_reconciliation_marker(self):
         contract = copy.deepcopy(self.contract)
-        contract["reconciliationMarkers"].pop()
+        contract["reconciliationMarkers"] = [{
+            "kind": "UPSTREAM_RECONCILE",
+            "id": "stale_debt",
+        }]
+        errors = validate_contract(self.lv2, contract)
         self.assertTrue(
-            any(
-                "reconciliation" in error.lower()
-                for error in validate_contract(self.lv2, contract)
-            )
+            any("reconciliation markers must be empty" in error.lower() for error in errors)
         )
+
+
+    def test_rejects_missing_post_lv3_open_policy(self):
+        contract = copy.deepcopy(self.contract)
+        contract["openPolicies"].remove(
+            "Search/Map room/property type authoritative owner and vocabulary"
+        )
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any("room/property type" in error.lower() for error in errors)
+        )
+
 
     def test_rejects_open_policy_vocabulary_freeze(self):
         contract = copy.deepcopy(self.contract)
@@ -274,18 +259,19 @@ class LV3RepositoryContractTests(unittest.TestCase):
             "REVIEWED_FROZEN",
             lv3["source"]["lv2"]["status"],
         )
-        upstream = [
-            marker
-            for marker in lv3["reconciliationMarkers"]
-            if marker["kind"] == "UPSTREAM_RECONCILE"
-        ]
-        docs = [
-            marker
-            for marker in lv3["reconciliationMarkers"]
-            if marker["kind"] == "DOC_RECONCILE"
-        ]
-        self.assertEqual(5, len(upstream))
-        self.assertEqual(1, len(docs))
+        self.assertEqual([], lv3.get("reconciliationMarkers", []))
+        self.assertIn(
+            "Search/Map room/property type authoritative owner and vocabulary",
+            lv3["openPolicies"],
+        )
+        self.assertIn(
+            "Charge over-allocation across multiple Payments targeting one Charge",
+            lv3["openPolicies"],
+        )
+        self.assertIn(
+            "Review multiplicity per eligible Participant/Tenancy",
+            lv3["openPolicies"],
+        )
 
 
 class LV3ValidatorFinalReviewTests(unittest.TestCase):
