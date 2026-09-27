@@ -25,3 +25,16 @@ Lower-level docs, code and old tests must change when they conflict with frozen 
 - CURRENT semantics are pinned by conformance.
 - Canonical `[OPEN]` policies remain unresolved; tests must not decide them.
 - `[FUTURE]` capabilities must not appear as current core authority merely because old scaffolding exists.
+
+## Baseline rules
+
+- A later rebuild may replace a static assertion with a stronger behavioral, transaction or concurrency test.
+- A frozen invariant must **not** be deleted or weakened merely to make the suite green.
+- A deliberate invariant change requires changing the higher Canonical/ERD authority first, then updating conformance.
+- Source-level evidence does not prove concurrency safety. Guards such as payment caps, one-non-terminal-tenancy-per-Room, Listing/Room coordination and checkout atomicity require later transaction/concurrency verification.
+- Authority/documentation tests are expected to be GREEN before the domain rebuild starts.
+- Product-contract tests are expected to be RED until their owning bounded-context rebuild lands.
+
+## Execution note
+
+The baseline audit distinguishes **source-inspected expected RED** from **runtime-verified RED**. Do not label a test runtime-verified until `pnpm test:conformance:erd3` has actually executed in a checkout with dependencies installed.
