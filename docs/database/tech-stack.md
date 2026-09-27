@@ -4,7 +4,7 @@ Tài liệu này ghi nhận **tech stack đã chốt cho lớp dữ liệu của
 
 Database stack hiện tại gồm:
 
-- **PostgreSQL** — relational database chính;
+- **PostgreSQL + PostGIS** - relational database and geospatial capability for Search/Map;
 - **Redis** — in-memory data store cho cache và state tạm thời;
 - **MinIO** — object storage self-hosted tương thích S3.
 
@@ -18,6 +18,7 @@ Schema, entity, migration strategy, ORM, backup policy và database design chi t
 | Khu vực | Công nghệ | Vai trò |
 | --- | --- | --- |
 | Relational Database | PostgreSQL | Lưu dữ liệu nghiệp vụ bền vững |
+| Geospatial Extension | PostGIS | geography(Point,4326), spatial query, and GiST indexing for Search/Map |
 | In-Memory Data Store | Redis | Cache và dữ liệu tạm thời |
 | Object Storage | MinIO | Lưu file và binary object |
 | Storage Protocol | S3-compatible API | Giao tiếp với object storage |
@@ -30,7 +31,7 @@ Schema, entity, migration strategy, ORM, backup policy và database design chi t
 flowchart LR
     APP["Backend Application"]
 
-    PG["PostgreSQL"]
+    PG["PostgreSQL + PostGIS"]
     REDIS["Redis"]
     MINIO["MinIO"]
 
@@ -45,7 +46,7 @@ Mỗi công nghệ đảm nhiệm một loại workload khác nhau:
 flowchart TB
     DATA["Data Layer"]
 
-    PG["PostgreSQL<br/>Relational Data"]
+    PG["PostgreSQL + PostGIS<br/>Relational + Geospatial Data"]
     REDIS["Redis<br/>In-Memory Data"]
     MINIO["MinIO<br/>Object Storage"]
 
@@ -72,6 +73,14 @@ PostgreSQL được chọn làm nơi lưu trữ dữ liệu nghiệp vụ cần:
 PostgreSQL đóng vai trò **authoritative data store** cho dữ liệu nghiệp vụ của hệ thống.
 
 Redis và MinIO không thay thế vai trò này.
+
+## 3.1 PostGIS
+
+**PostGIS** is the required PostgreSQL extension for geospatial data used by Search/Map. The physical schema uses `geography(Point,4326)` for locations and GiST indexes for spatial lookup.
+
+Exact operational location remains private operational data; public search reads only the approved public projection.
+
+PostGIS is part of the relational database stack and is not a separate business source of truth.
 
 ---
 
@@ -147,7 +156,7 @@ Cách tiếp cận này giữ storage layer có interface thống nhất và gi�
 flowchart LR
     BACKEND["Backend"]
 
-    PG["PostgreSQL"]
+    PG["PostgreSQL + PostGIS"]
     REDIS["Redis"]
     MINIO["MinIO"]
 
@@ -158,7 +167,7 @@ flowchart LR
 
 | Công nghệ | Trách nhiệm chính |
 | --- | --- |
-| PostgreSQL | Persistent relational data |
+| PostgreSQL + PostGIS | Persistent relational + geospatial data |
 | Redis | Cache và temporary state |
 | MinIO | File và object storage |
 
@@ -181,6 +190,6 @@ Database & Storage
 
 Database tech stack hiện tại của TrọƠi được giới hạn ở:
 
-**PostgreSQL + Redis + MinIO**
+**PostgreSQL + PostGIS + Redis + MinIO**
 
 Những công nghệ chưa được chốt như ORM, migration framework, database administration tool hoặc backup tooling không thuộc tài liệu này.

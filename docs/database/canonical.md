@@ -1901,7 +1901,7 @@ Canonical v3.6 đã đủ điều kiện làm **trusted source trực tiếp** c
 ```text
 LV1 — Conceptual ERD
 → LV2 — Logical model
-→ LV3 — Physical candidate
+→ LV3 — Physical model
 ```
 
 Các mục `[OPEN]` không chặn LV1 conceptual vì ownership và boundary đã rõ; chúng chỉ cần được chốt trước migration hoặc trước khi triển khai workflow tương ứng.

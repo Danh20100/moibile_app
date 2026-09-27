@@ -1,61 +1,55 @@
-# TrọƠi Database Foundation
+# Tr??i Database Foundation
 
-`docs/database/` là nơi duy nhất chứa **database design documentation** của TrọƠi.
+`docs/database/` l? ngu?n t?i li?u ch?nh th?c cho database design c?a Tr??i.
 
-Mọi ERD, logical model và physical candidate trong khu vực này phải xuất phát từ cùng một business truth: [`canonical.md`](./canonical.md).
+M?i ERD, logical model, physical model v? schema reference trong khu v?c n?y ph?i tu?n theo c?ng m?t business truth: [`canonical.md`](./canonical.md).
 
-## Trusted source
-
-[`canonical.md`](./canonical.md) là **Trusted Source duy nhất cho Product & Domain Model**.
-
-Nó chốt:
-
-- product scope và ranh giới MVP;
-- domain ownership;
-- cardinality chính;
-- state machine và lifecycle;
-- source-of-truth rule;
-- cross-domain invariants;
-- phân loại `CURRENT / OPEN / FUTURE`.
-
-Một thiết kế phía dưới mâu thuẫn với nội dung `[FROZEN]` phải được sửa lại. Không “fix” canonical bằng cách âm thầm đổi schema.
-
-## Design flow
+## Authority chain
 
 ```text
-canonical.md
-    ↓
-ERD LV1 — Conceptual
-    ↓ review / freeze
-ERD LV2 — Logical
-    ↓ review / freeze
-ERD LV3 — Physical Candidate
-    ↓ review
-PostgreSQL schema / migrations
+Canonical v3.6 ? TRUSTED SOURCE
+    ?
+ERD LV1 ? Conceptual ? REVIEWED / FROZEN
+    ?
+ERD LV2 ? Logical ? REVIEWED / FROZEN
+    ?
+ERD LV3 ? Physical ? REVIEWED / FROZEN
+    ?
+Validated PostgreSQL/PostGIS reference DDL
+    ?
+Migration / backend implementation
 ```
+
+Level th?p h?n kh?ng ???c t? thay ??i business meaning ?? `[FROZEN]` ? level cao h?n.
 
 ## Structure
 
 ```text
 docs/database/
-├── README.md
-├── canonical.md
-├── tech-stack.md
-└── erd/
-    └── README.md
+??? README.md
+??? canonical.md
+??? tech-stack.md
+??? erd/
+?   ??? README.md
+?   ??? trooi-erd-lv1-conceptual.json
+?   ??? trooi-erd-lv2-logical.json
+?   ??? trooi-erd-lv3-physical.json
+?   ??? tests/
+?       ??? trooi-schema-lv3-smoke.sql
+??? schema/
+    ??? trooi-schema-lv3.sql
 ```
 
-### `canonical.md`
+## Responsibilities
 
-Business/domain authority. Không phải ERD, không phải schema, không phải implementation note.
+- `canonical.md`: Product & Domain Model authority; ownership, lifecycle, invariant v? `CURRENT / OPEN / FUTURE` boundary.
+- `erd/trooi-erd-lv1-conceptual.json`: conceptual domain topology.
+- `erd/trooi-erd-lv2-logical.json`: logical entities, relationships v? policy boundary.
+- `erd/trooi-erd-lv3-physical.json`: physical database contract cho PostgreSQL/PostGIS.
+- `schema/trooi-schema-lv3.sql`: executable reference DDL ???c render t? LV3; kh?ng ph?i migration baseline.
+- `tech-stack.md`: vai tr? c?a PostgreSQL/PostGIS, Redis v? MinIO; kh?ng s? h?u business semantics.
 
-### `tech-stack.md`
-
-Chỉ mô tả trách nhiệm công nghệ của PostgreSQL, Redis và MinIO. Tài liệu này không sở hữu entity, cardinality hay lifecycle.
-
-### `erd/`
-
-Workspace cho LV1/LV2/LV3 mới được dựng trực tiếp từ canonical.
+Lucid ch? l? review/visual surface. Repository JSON l? versioned ERD artifact.
 
 ## Current state
 
@@ -63,21 +57,19 @@ Workspace cho LV1/LV2/LV3 mới được dựng trực tiếp từ canonical.
 Canonical v3.6          FROZEN / TRUSTED
 ERD LV1                 REVIEWED / FROZEN
 ERD LV2                 REVIEWED / FROZEN
-ERD LV3                 DRAFT_REVIEW — physical JSON + executable SQL + data-backed Lucid ready
-Executable schema       candidate only — not a migration
+ERD LV3                 REVIEWED / FROZEN
+PostgreSQL/PostGIS DDL  VALIDATED REFERENCE ? not a migration
 ORM / migration tooling unselected
 Migrations              not started
 ```
 
-Các policy `[OPEN]` trong canonical không chặn LV1 nếu ownership/boundary đã rõ. Tuy nhiên, một policy `[OPEN]` phải được chốt trước khi nó ảnh hưởng tới migration hoặc workflow được implement.
-
 ## Working rules
 
-1. Đi từ LV1 xuống LV3, không đi ngược từ SQL lên domain.
-2. Mỗi level chỉ thêm mức chi tiết phù hợp với trách nhiệm của nó.
-3. Level thấp hơn không được silently thêm business semantics mới.
-4. Không dùng ERD/snapshot cũ làm input cho lần rebuild này.
-5. Feature `[FUTURE]` không được xuất hiện trong core model hiện tại nếu canonical chưa đổi trạng thái.
-6. Khi thay đổi một invariant `[FROZEN]`, cập nhật canonical trước rồi propagate xuống ERD/schema.
+1. ?i t? Canonical ? LV1 ? LV2 ? LV3 ? schema/backend; kh?ng suy ng??c business truth t? SQL.
+2. M?i level ch? th?m m?c chi ti?t thu?c tr?ch nhi?m c?a level ??.
+3. `[OPEN]` policy kh?ng ???c t? ??ng ? t?ng database/code.
+4. `[FUTURE]` capability kh?ng ???c xu?t hi?n trong current core model khi Canonical ch?a ??i tr?ng th?i.
+5. Khi thay ??i invariant `[FROZEN]`, c?p nh?t authority cao h?n tr??c r?i propagate xu?ng to?n chain.
+6. Schema reference ph?i ti?p t?c pass validator, smoke test v? PostgreSQL catalog parity tr??c khi d?ng l?m migration input.
 
-Bắt đầu dựng ERD tại [`erd/README.md`](./erd/README.md).
+Xem chi ti?t ERD t?i [`erd/README.md`](./erd/README.md).

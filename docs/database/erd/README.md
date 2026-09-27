@@ -1,90 +1,45 @@
-# TrọƠi ERD Workspace
+# Tr??i ERD Foundation
 
-Thư mục này dùng để dựng và version-control ERD của TrọƠi từ **Canonical Product & Domain Freeze v3.6**.
+Th? m?c n?y version-control chu?i ERD ?? review/freeze c?a Tr??i t? **Canonical Product & Domain Freeze v3.6**.
 
-Nguồn duy nhất để dựng ERD mới là [`../canonical.md`](../canonical.md). Không dùng snapshot hoặc ERD cũ để suy ngược business model.
-
-## Build order
+## Authority
 
 ```text
 Canonical v3.6
-→ LV1 Conceptual
-→ review / freeze
-→ LV2 Logical
-→ review / freeze
-→ LV3 Physical Candidate
-→ review
-→ database implementation
+? LV1 Conceptual
+? LV2 Logical
+? LV3 Physical
+? PostgreSQL/PostGIS reference DDL
 ```
 
-Không bỏ qua level. Một level thấp hơn không được thay đổi meaning của level cao hơn.
+Kh?ng level n?o ???c thay ??i meaning c?a level cao h?n. Lucid kh?ng ph?i source of truth; JSON trong repository l? artifact ???c version-control.
 
-## Current ERD status
+## Status
 
 ```text
-LV1 Conceptual          REVIEWED / FROZEN
-LV2 Logical             REVIEWED / FROZEN
-LV3 Physical Candidate  DRAFT_REVIEW — JSON + PostgreSQL/PostGIS SQL + data-backed Lucid ready
+LV1 Conceptual  REVIEWED / FROZEN
+LV2 Logical     REVIEWED / FROZEN
+LV3 Physical    REVIEWED / FROZEN
 ```
 
-## LV1 — Conceptual
+## LV1 ? Conceptual
 
-Mục tiêu: trả lời **domain nào tồn tại, ai sở hữu gì, lifecycle chính chạy như thế nào và cardinality cốt lõi là gì**.
+LV1 tr? l?i domain n?o t?n t?i, ownership ch?nh, lifecycle ch?nh v? cardinality c?t l?i. LV1 kh?ng s? h?u datatype, index, nullable hay PostgreSQL-specific detail.
 
-Không đưa datatype, index, nullable hay PostgreSQL-specific detail vào LV1.
-
-Backbone từ canonical:
+Backbone:
 
 ```text
-USER
-→ ORGANIZATION
-→ PROPERTY
-→ ROOM
-
-ROOM
-├── LISTING
-├── TENANCY
-└── INCIDENT
-
-TENANCY
-├── TENANCY_PARTICIPANT
-├── TENANCY_TERMS
-├── DEPOSIT
-└── BILLING_CYCLE
-
-BILLING_CYCLE
-→ CHARGE
-
-PAYMENT
-├── TENANCY
-├── CHARGE
-├── DEPOSIT
-└── RECEIPT
-
-INCIDENT
-→ INCIDENT_EVENT
+USER ? ORGANIZATION ? PROPERTY ? ROOM
+ROOM ? LISTING / TENANCY / INCIDENT
+TENANCY ? PARTICIPANT / TERMS / DEPOSIT / BILLING_CYCLE
+BILLING_CYCLE ? CHARGE
+PAYMENT ? ALLOCATION / DEPOSIT APPLICATION / RECEIPT
+INCIDENT ? INCIDENT_EVENT
 ```
 
-Cardinality tối thiểu phải thể hiện:
+## LV2 ? Logical
 
-```text
-USER 0..N ORGANIZATION
-ORGANIZATION exactly 1 primary owner/operator USER
-ORGANIZATION 0..N PROPERTY
-PROPERTY exactly 1 ORGANIZATION
-
-ROOM max 1 current LISTING
-ROOM max 1 non-terminal TENANCY
-
-PAYMENT 0..N RECEIPT historical
-PAYMENT max 1 current/non-voided RECEIPT
-```
-
-## LV2 — Logical
-
-Mục tiêu: làm rõ entity/relationship cần để hiện thực capability và invariant.
-
-Các supporting/junction concept canonical yêu cầu xem xét ở LV2:
+LV2 l?m r? logical entities/relationships c?n ?? hi?n th?c capability v? invariant, g?m supporting concepts nh?:
 
 ```text
 PAYMENT_ALLOCATION
@@ -99,47 +54,47 @@ TRUST_REPORT
 NOTIFICATION
 ```
 
-LV2 phải giữ nguyên ownership đã chốt; supporting entity không được trở thành nguồn business truth thứ hai.
+Supporting entity kh?ng tr? th?nh ngu?n business truth th? hai.
 
-Hai `>> UPSTREAM-RECONCILE` debt được giữ nguyên trong LV2 frozen và chỉ xử lý trong vòng reconciliation sau khi LV3 đã review xong.
+C?c chi ti?t policy ch?a ch?t v?n n?m trong `openPolicies`; v? d? authoritative owner/vocabulary cho Room/property type filter, Charge over-allocation v? Review multiplicity.
 
-## LV3 — Physical Candidate
+## LV3 ? Physical
 
-Mục tiêu: ánh xạ logical model sang PostgreSQL-oriented design:
+LV3 ?nh x? logical model sang PostgreSQL/PostGIS:
 
 ```text
 columns / datatypes
 PK / FK
 nullability
-unique constraints
-check constraints
-indexes
+CHECK / UNIQUE
+indexes / partial indexes / GiST
 transaction-sensitive guards
 ```
 
-LV3 vẫn là **candidate để review**, chưa phải migration. ORM/migration tooling chưa được chọn; `docs/database/schema/trooi-schema-lv3.sql` là executable DDL candidate để validation/review, không phải migration baseline.
+`trooi-erd-lv3-physical.json` l? physical contract ?? **REVIEWED / FROZEN**.
 
-## Invariants phải luôn nhìn thấy khi review ERD
+`../schema/trooi-schema-lv3.sql` l? validated executable reference DDL, kh?ng ph?i migration baseline. ORM/migration tooling ch?a ???c ch?n.
 
-- `USER` không có global landlord/tenant role.
-- Room operational state tách khỏi archive lifecycle.
-- `Listing = PUBLISHED` chỉ hợp lệ khi Room `VACANT`, Room/Property đều active.
-- Mỗi Room tối đa một current non-archived Listing.
-- Mỗi Room tối đa một non-terminal Tenancy: `DRAFT | ACTIVE | ENDING`.
-- Khi Tenancy còn `ENDING`, MVP không tạo Draft Tenancy tiếp theo; pre-rental interest đi qua Inquiry.
-- Terms luôn versioned; Billing Cycle giữ Terms provenance.
-- Billing scope hiện tại chỉ `RENT / ELECTRICITY / WATER`.
-- Payment thuộc đúng một Tenancy; allocation/application không cross-Tenancy.
-- Deposit requirement thuộc Terms; Deposit fulfillment/settlement thuộc Deposit.
-- Receipt chỉ sinh từ confirmed Payment và không overwrite history.
-- Room/Property archive bị chặn khi còn Incident mở.
-- Dashboard, history projection và notification không phải source of truth.
+## Review invariants
 
-Danh sách đầy đủ nằm trong canonical; README này chỉ là checklist làm việc nhanh.
+- `USER` kh?ng c? global landlord/tenant role.
+- Room operational state t?ch kh?i archive lifecycle.
+- Published Listing ch? h?p l? v?i VACANT active Room d??i active Property.
+- M?i Room t?i ?a m?t current non-archived Listing.
+- M?i Room t?i ?a m?t non-terminal Tenancy (`DRAFT | ACTIVE | ENDING`).
+- Khi Tenancy c?n `ENDING`, pre-rental interest ?i qua Inquiry; kh?ng t?o Draft Tenancy k? ti?p.
+- Terms versioned; Billing Cycle gi? Terms provenance.
+- Billing scope current ch? `RENT / ELECTRICITY / WATER`.
+- Payment thu?c ??ng m?t Tenancy; allocation/application kh?ng cross-Tenancy.
+- Deposit requirement thu?c Terms; fulfillment/settlement thu?c Deposit.
+- Cumulative Deposit settlement kh?ng ???c v??t cumulative applied amount ?? th?c nh?n.
+- Receipt ch? sinh t? confirmed Payment v? gi? history khi void/reissue.
+- Room/Property archive b? ch?n khi c?n Incident m?.
+- Dashboard, history projection v? notification kh?ng ph?i source of truth.
 
-## Snapshot naming
+Danh s?ch business invariant ??y ?? n?m trong [`../canonical.md`](../canonical.md).
 
-Khi từng level được tạo lại và review, dùng tên:
+## Frozen artifact names
 
 ```text
 trooi-erd-lv1-conceptual.json
@@ -147,13 +102,4 @@ trooi-erd-lv2-logical.json
 trooi-erd-lv3-physical.json
 ```
 
-Nếu visual tool được dùng để collaboration, JSON trong repository phải là snapshot review/versioning phù hợp, không được xem là nguồn domain cao hơn canonical.
-
-## Gate
-
-Chỉ chuyển level khi level hiện tại:
-
-1. bám đúng canonical;
-2. không còn mâu thuẫn ownership/cardinality/lifecycle;
-3. không đưa feature `[FUTURE]` vào core model;
-4. đã được review trước khi downstream artifact được tạo.
+B?t k? thay ??i n?o sau freeze ph?i ?i l?i ??ng authority chain v? review gate t??ng ?ng.

@@ -514,9 +514,3 @@ CREATE INDEX ix_notifications_recipient_created ON notifications (recipient_user
 -- GUARD review_author_identity: Review author Participant belongs to Review Tenancy and links author User.
 -- GUARD receipt_replacement: Replacement Receipt belongs to same Payment and predecessor is VOIDED.
 -- Reconciliation debt
--- UPSTREAM_RECONCILE deposit_event_amount_single_owner: >> UPSTREAM-RECONCILE: Deposit Event amount ownership.
--- UPSTREAM_RECONCILE review_property_historical_target_upstream: >> UPSTREAM-RECONCILE: Review historical Property target semantics.
--- UPSTREAM_RECONCILE room_property_type_search_filter: >> UPSTREAM-RECONCILE: Canonical Search/Map requires Room/property type filter but owner/vocabulary is unresolved.
--- UPSTREAM_RECONCILE charge_overallocation_policy: >> UPSTREAM-RECONCILE: Charge over-allocation across Payments remains OPEN.
--- UPSTREAM_RECONCILE review_multiplicity_policy: >> UPSTREAM-RECONCILE: Review multiplicity per Participant/Tenancy remains OPEN.
--- DOC_RECONCILE tech_stack_postgis: >> DOC-RECONCILE: tech-stack.md must reflect frozen PostGIS requirement after ERD3 cleanup.
