@@ -61,6 +61,10 @@ def _column_map(table: dict) -> dict[str, dict]:
 
 
 def _validate_sources(contract: dict, errors: list[str]) -> None:
+    if contract.get("status") != "REVIEWED_FROZEN":
+        errors.append(
+            f"LV3 status must be REVIEWED_FROZEN, got {contract.get('status')!r}"
+        )
     source = contract.get("source", {})
     for name in ("lv1", "lv2"):
         status = source.get(name, {}).get("status")

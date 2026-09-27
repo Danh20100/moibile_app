@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "title": "TrọƠi — ERD LV3 Physical Candidate — PostgreSQL/PostGIS",
   "level": "LV3_PHYSICAL",
-  "status": "DRAFT_REVIEW",
+  "status": "REVIEWED_FROZEN",
   "source": {
     "canonicalVersion": "v3.6",
     "lv1": {

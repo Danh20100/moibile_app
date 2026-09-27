@@ -68,7 +68,7 @@ def build_valid_contract(lv2):
     return {
         "schemaVersion": "1.0",
         "level": "LV3_PHYSICAL",
-        "status": "DRAFT_REVIEW",
+        "status": "REVIEWED_FROZEN",
         "source": {
             "canonicalVersion": "v3.6",
             "lv1": {
@@ -203,6 +203,16 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "transaction" in error.lower()
+                for error in validate_contract(self.lv2, contract)
+            )
+        )
+
+    def test_rejects_non_frozen_lv3_status(self):
+        contract = copy.deepcopy(self.contract)
+        contract["status"] = "DRAFT_REVIEW"
+        self.assertTrue(
+            any(
+                "lv3" in error.lower() and "reviewed_frozen" in error.lower()
                 for error in validate_contract(self.lv2, contract)
             )
         )
