@@ -242,6 +242,26 @@
       }
     },
     {
+      "id": "terms_used_by_billing_cycle",
+      "from": "tenancy_terms",
+      "to": "billing_cycle",
+      "label": "applied version",
+      "cardinality": {
+        "from": "0..N billing cycles may use one TENANCY_TERMS version",
+        "to": "exactly 1 applied TENANCY_TERMS version per BILLING_CYCLE"
+      }
+    },
+    {
+      "id": "terms_owns_deposit_requirement",
+      "from": "tenancy_terms",
+      "to": "deposit",
+      "label": "requirement provenance",
+      "cardinality": {
+        "from": "versioned requirement provenance",
+        "to": "unspecified"
+      }
+    },
+    {
       "id": "tenancy_has_deposit",
       "from": "tenancy",
       "to": "deposit",
