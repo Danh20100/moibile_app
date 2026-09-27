@@ -163,6 +163,7 @@ PROPERTY: ACTIVE | ARCHIVED; archive blockers are guarded workflow, not unrestri
 ROOM operational_state: VACANT | OCCUPIED | MAINTENANCE | INACTIVE
 ROOM record_lifecycle: ACTIVE | ARCHIVED
 ROOM does not own rent price; OCCUPIED → MAINTENANCE and OCCUPIED → INACTIVE are invalid
+ROOM archive requires INACTIVE plus no non-terminal Tenancy plus no open Incident
 ```
 
 - [ ] **Step 3: Correct Listing and Tenancy documentation**
@@ -173,10 +174,13 @@ Pin these semantics:
 LISTING: DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED
 publish requires VACANT active Room under active Property
 Room leaving VACANT synchronously unpublishes current Listing
+at most one current/non-archived Listing per Room
 TENANCY: DRAFT | ACTIVE | ENDING | ENDED | CANCELLED
 DRAFT → ACTIVE | CANCELLED
 ACTIVE → ENDING
 ENDING → ACTIVE | ENDED
+at most one non-terminal Tenancy per Room
+no next DRAFT Tenancy while current Tenancy is ENDING
 participant is distinct from USER and USER link is optional
 terms are first-class/versioned; acknowledgement is version-specific
 confirmed checkout atomically ends Tenancy and returns Room to VACANT
@@ -193,7 +197,7 @@ Payment → DepositPaymentApplication → Deposit
 Payment → Receipt
 ```
 
-Remove `applyPaymentOutcome()` and mutable cycle paid/outstanding fields as authoritative truth. Describe them only as possible derived/read projections. Receipt must not be described as the Payment record.
+Remove `applyPaymentOutcome()` and mutable cycle paid/outstanding fields as authoritative truth. Describe them only as possible derived/read projections. Receipt must not be described as the Payment record. State that only confirmed Payment counts, Receipt is issued only from confirmed Payment, allocation/application cannot cross Tenancy, and allocation + deposit application total cannot exceed Payment amount.
 
 - [ ] **Step 5: Correct Incident and Trust documentation**
 
@@ -343,12 +347,12 @@ test('ORGANIZATION contract carries the primary owner reference', () => {
   // organization contract must expose a primary-owner concept/reference
 });
 
-test('ORGANIZATION does not invent a frozen lifecycle absent from ERD3', () => {
-  // old active | inactive | archived OrganizationStatus is forbidden as source-of-truth contract
+test('old OrganizationStatus active inactive archived is not treated as ERD3 source truth', () => {
+  // ERD3 freezes primary ownership but does not freeze the old generic organization lifecycle
 });
 ```
 
-Expected on old backend: FAIL for all three because `UserRole`, optional `role`, missing primary owner, and invented OrganizationStatus are present.
+Expected on old backend: FAIL because `UserRole`, optional `role`, missing primary owner, and the pre-ERD3 `OrganizationStatus` contract are present.
 
 - [ ] **Step 2: Run Identity/Organization tests to verify semantic RED**
 
@@ -365,6 +369,7 @@ Expected: FAIL only on the three named semantic assertions; no import/path/synta
 Pin these assertions:
 
 ```ts
+test('PROPERTY lifecycle is ACTIVE ARCHIVED only', ...);
 test('PROPERTY exposes both operational and public location concepts', ...);
 test('ROOM separates operational state from record lifecycle', ...);
 test('ROOM operational states are VACANT OCCUPIED MAINTENANCE INACTIVE only', ...);
@@ -372,9 +377,10 @@ test('ROOM record lifecycle is ACTIVE ARCHIVED only', ...);
 test('ROOM contract does not own base rent price', ...);
 test('old OCCUPIED to MAINTENANCE transition is not allowed', ...);
 test('room archival is not represented as a direct operational-state transition', ...);
+test('room archive guard requires INACTIVE and blocks nonterminal tenancy or open incident', ...);
 ```
 
-Use case-insensitive semantic token checks where naming style is not frozen. Do not force a particular file split or enum implementation.
+Use case-insensitive semantic token checks where naming style is not frozen. The archive-guard test is allowed to remain RED until the later transaction-guard plan; it must not prescribe ORM or folder structure.
 
 - [ ] **Step 4: Run Property/Room tests to verify semantic RED**
 
@@ -425,10 +431,11 @@ test('LISTING no longer uses hidden or rented states', ...);
 test('LISTING does not duplicate Property ownership beside Room ownership', ...);
 test('publishing is coupled to Room vacancy and active Property eligibility', ...);
 test('Room leaving VACANT has an explicit synchronous unpublish workflow', ...);
+test('Room has at most one current non-archived Listing', ...);
 test('listing status change has a first-class event/history concept', ...);
 ```
 
-For the last three, inspect the current Listing/Room orchestration source for semantic evidence without requiring a future folder layout. The old backend should fail because publish only checks record existence, Listing stores `propertyId`, and no status-event/synchronous unpublish concept exists.
+For orchestration/guard assertions, inspect the current Listing/Room source tree for semantic evidence without requiring a future folder layout. The old backend should fail because publish only checks record existence, Listing stores `propertyId`, and no status-event/synchronous unpublish/current-listing guard exists.
 
 - [ ] **Step 2: Verify Listing tests are RED for semantics**
 
@@ -452,10 +459,12 @@ test('TENANCY does not embed tenantId as participant truth', ...);
 test('TenancyParticipant is a first-class concept with optional USER link', ...);
 test('TenancyTerms is first-class and versioned rather than embedded mutable terms', ...);
 test('Terms acknowledgement is version-specific', ...);
+test('Room has at most one non-terminal Tenancy', ...);
+test('ENDING tenancy blocks creation of a next DRAFT tenancy for the Room', ...);
 test('checkout workflow couples ENDING to ENDED with Room becoming VACANT', ...);
 ```
 
-Do not assert one table/module per concept; search the Tenancy bounded-context source tree for the concepts.
+Do not assert one table/module per concept; search the Tenancy bounded-context source tree for the concepts. The max-one/nonterminal and checkout atomicity assertions may remain RED until transaction-safe implementation exists.
 
 - [ ] **Step 4: Verify Tenancy tests are RED for semantics**
 
@@ -465,7 +474,7 @@ Run:
 pnpm exec tsx --test tests/conformance/erd3/tenancy.contract.test.ts
 ```
 
-Expected: FAIL on old direct `tenantId`, embedded `terms`, missing CANCELLED/participant/versioning/checkout orchestration, and old direct ACTIVE→ENDED transition.
+Expected: FAIL on old direct `tenantId`, embedded `terms`, missing CANCELLED/participant/versioning/checkout orchestration/room guard, and old direct ACTIVE→ENDED transition.
 
 - [ ] **Step 5: Run typecheck**
 
@@ -504,15 +513,18 @@ Pin these assertions:
 
 ```ts
 test('current charge types are RENT ELECTRICITY WATER only', ...);
-test('Payment is a first-class actual-inflow concept belonging to one Tenancy', ...);
-test('Payment allocation and deposit application are distinct first-class concepts', ...);
-test('Receipt is evidence attached to Payment and uses ISSUED VOIDED lifecycle', ...);
+test('Payment is a first-class actual-inflow concept belonging to exactly one Tenancy', ...);
+test('PaymentAllocation and DepositPaymentApplication are distinct first-class concepts', ...);
+test('allocation and deposit application cannot cross Tenancy', ...);
+test('allocation plus deposit application cannot exceed Payment amount', ...);
+test('confirmed Payment is corrected by void reverse plus a new Payment rather than destructive edit', ...);
+test('Receipt is evidence attached to confirmed Payment and uses ISSUED VOIDED lifecycle', ...);
 test('Receipt is not the payment record', ...);
-test('billing source of truth does not mutate paidAmount/outstanding via applyPaymentOutcome', ...);
+test('billing source of truth does not mutate paidAmount outstanding via applyPaymentOutcome', ...);
 test('deposit requirement is separated from deposit fulfillment and settlement', ...);
 ```
 
-The tests may inspect the combined Billing/Receipt/source tree because the future bounded-context folder name is not frozen. They must not require a `finance/` directory.
+The tests may inspect the combined Billing/Receipt/source tree because the future bounded-context folder name is not frozen. They must not require a `finance/` directory. Amount-cap/cross-tenancy/correction assertions may initially be semantic/static RED checks and must be replaced with behavioral transaction/concurrency tests during the persistence-guards plan.
 
 - [ ] **Step 2: Verify Finance tests are RED**
 
@@ -533,7 +545,7 @@ const categories = ['ELECTRICAL', 'PLUMBING', 'ACCESS_SECURITY', 'ROOM_FACILITY'
 const statuses = ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'REJECTED', 'CLOSED'];
 ```
 
-Tests must reject old `processing` and `need_more_information`, require `REJECTED`, require reopen `RESOLVED → IN_PROGRESS`, and require an append-only IncidentEvent/history concept.
+Tests must reject old `processing` and `need_more_information`, require `REJECTED`, require `REJECTED` and `CLOSED` to be terminal, require reopen `RESOLVED → IN_PROGRESS`, and require an append-only IncidentEvent/history concept.
 
 - [ ] **Step 4: Verify Incident tests are RED**
 
@@ -552,7 +564,7 @@ Expected: FAIL on the old lifecycle/category/history model.
 ```ts
 test('TrustReport target is exactly Listing or Review', ...);
 test('TrustReport is distinct from Incident', ...);
-test('review/trust concepts do not become public personal-rating authority', ...);
+test('trust/review source does not expose a public personal landlord-rating contract', ...);
 ```
 
 `future-open-boundary.static.test.ts`:
@@ -563,7 +575,7 @@ test('CSV Excel import is not registered or documented as current core', ...);
 test('OPEN policies remain explicitly unresolved rather than assigned a boolean/default choice', ...);
 ```
 
-For OPEN policy testing, assert preserved `[OPEN]` markers/wording and absence of explicit policy constants/defaults; do **not** assert `public` or `authenticated` as the answer.
+For the public-rating assertion, inspect only exported/current trust contracts and docs for personal landlord/user score/rating fields; do not forbid private review content or Property/rental-experience review. For OPEN policy testing, assert preserved `[OPEN]` markers/wording and absence of explicit policy constants/defaults; do **not** assert `public` or `authenticated` as the answer.
 
 - [ ] **Step 6: Verify Trust/scope tests are RED only where old code still violates scope**
 
@@ -665,7 +677,7 @@ Trust
 FUTURE/OPEN boundary
 ```
 
-Do not call a guard/concurrency invariant implemented if the current test only proves concept ownership. Mark deeper transaction/concurrency verification for the later persistence-guards plan.
+Do not call a guard/concurrency invariant implemented if the current test only proves concept ownership or source-level intent. Mark deeper transaction/concurrency verification for the later persistence-guards plan.
 
 - [ ] **Step 6: Update the conformance README with baseline rules**
 
