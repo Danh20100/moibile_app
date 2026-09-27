@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "title": "Tr??i ? ERD LV3 Physical ? REVIEWED FROZEN ? PostgreSQL/PostGIS",
+  "title": "TrọƠi — ERD LV3 Physical — REVIEWED FROZEN — PostgreSQL/PostGIS",
   "level": "LV3_PHYSICAL",
   "status": "REVIEWED_FROZEN",
   "source": {
@@ -12,8 +12,7 @@
     "lv2": {
       "path": "docs/database/erd/trooi-erd-lv2-logical.json",
       "status": "REVIEWED_FROZEN"
-    },
-    "spec": "docs/superpowers/specs/2026-09-27-database-erd-lv3-physical-design.md"
+    }
   },
   "platform": {
     "database": "PostgreSQL",

@@ -13,9 +13,6 @@
       "path": "docs/database/erd/trooi-erd-lv1-conceptual.json",
       "requiredStatus": "REVIEWED_FROZEN",
       "observedStatus": "REVIEWED_FROZEN"
-    },
-    "spec": {
-      "path": "docs/superpowers/specs/2026-09-27-database-erd-lv2-logical-design.md"
     }
   },
   "zones": [
