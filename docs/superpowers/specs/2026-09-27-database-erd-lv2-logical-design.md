@@ -57,6 +57,18 @@ Mọi `*_id` trong spec là **logical key/reference**, không ngầm quyết đ�
 LV2 không được tạo business truth thứ hai chỉ để tiện query.
 
 Read model, Dashboard, Operational History projection và Notification delivery không được thay thế authoritative domain entities.
+
+### 3.1 Deferred upstream reconciliation marker
+
+Các clarification/delta phát hiện ở LV2 nhưng **chưa được promote ngược lên Canonical/LV1** phải được đánh dấu bằng:
+
+```text
+>> UPSTREAM-RECONCILE: <reason / candidate change>
+```
+
+Marker `>>` không tạo business truth mới và không thay đổi authority chain. Nếu marker chưa được resolve, nó phải được carry forward vào artifact LV2/LV3 tương ứng để không thất lạc review debt.
+
+Sau khi ERD LV1, LV2 và LV3 đều hoàn tất review, chạy một vòng reconciliation cleanup. Với từng marker, team phải chọn một trong ba kết quả: promote upstream nếu đó là business semantics; giữ ở lower layer nếu chỉ là logical/physical detail; hoặc reject. Sau cleanup, baseline cuối không được còn marker `>>`.
 ## 4. Logical entity inventory
 
 LV2 giữ nguyên 18 backbone entities của LV1:
@@ -544,6 +556,7 @@ Append-only deposit history.
 deposit_event_id
 deposit_id
 event_type: RECEIVED | REFUNDED | RETAINED
+amount
 occurred_at
 payment_application_id?
 settlement_id?
@@ -562,7 +575,9 @@ REFUNDED | RETAINED
 → no DEPOSIT_PAYMENT_APPLICATION provenance
 ```
 
-`DEPOSIT_EVENT` does not duplicate monetary amount. `RECEIVED` amount is owned by the linked `DEPOSIT_PAYMENT_APPLICATION.applied_amount`; `REFUNDED` and `RETAINED` amounts are owned by the linked `DEPOSIT_SETTLEMENT.refunded_amount` and `retained_amount` respectively.
+`DEPOSIT_EVENT.amount` is retained to stay aligned with Canonical v3.6. It is not independently editable: `RECEIVED.amount` must equal the linked `DEPOSIT_PAYMENT_APPLICATION.applied_amount`; `REFUNDED.amount` must equal the linked `DEPOSIT_SETTLEMENT.refunded_amount`; and `RETAINED.amount` must equal the linked `DEPOSIT_SETTLEMENT.retained_amount`.
+
+>> UPSTREAM-RECONCILE: After ERD LV3 review, reconsider whether `DEPOSIT_EVENT.amount` should be removed so monetary amount has a single owner in Application/Settlement. Canonical v3.6 currently implies an event amount, so LV2 does not make that upstream change now.
 
 Refunded/Retained are settlement outcomes, not Deposit state values.
 
@@ -641,6 +656,8 @@ AND author USER is linked to an eligible TENANCY_PARTICIPANT
 Review target remains Property/Rental Experience, not a personal landlord rating.
 
 `REVIEW.property_id` is the authoritative Property/Rental Experience target captured at Review creation time. It is not a live derived reference to the Room's current Property. Subsequent Room/Property reassignment does not automatically retarget existing Reviews. Correction of an erroneous target, if required, must be an explicit audited action — never a cascade from Room/Property changes.
+
+>> UPSTREAM-RECONCILE: This historical-target clarification is currently defined at LV2 only. After ERD LV3 review, decide whether it should be promoted into the Canonical/LV1 invariant set or remain a lower-layer interpretation consistent with the existing Review target relationship.
 
 LV2 does not introduce a `REVIEW_TARGET_CORRECTION_EVENT`; correction audit belongs to the cross-cutting Technical Audit concern rather than a second business source-of-truth entity.
 
@@ -820,8 +837,8 @@ LV3 must be able to implement these logical constraints without changing their m
 21. Receipt is derived from confirmed Payment and has max one current/non-voided record per Payment.
 22. Deposit requirement truth belongs to Terms.
 23. Deposit state is derived, not authoritative mutable input.
-24. RECEIVED Deposit Event provenance is a Deposit Payment Application; its monetary amount is owned only by `DEPOSIT_PAYMENT_APPLICATION.applied_amount`, not duplicated on DEPOSIT_EVENT.
-25. REFUNDED/RETAINED Deposit Event provenance is a Deposit Settlement; monetary outcome is owned only by `DEPOSIT_SETTLEMENT.refunded_amount` / `retained_amount`, not duplicated on DEPOSIT_EVENT.
+24. RECEIVED Deposit Event provenance is a Deposit Payment Application; `DEPOSIT_EVENT.amount` must equal the linked `DEPOSIT_PAYMENT_APPLICATION.applied_amount`.
+25. REFUNDED/RETAINED Deposit Event provenance is a Deposit Settlement; `REFUNDED.amount` must equal `DEPOSIT_SETTLEMENT.refunded_amount`, and `RETAINED.amount` must equal `DEPOSIT_SETTLEMENT.retained_amount`.
 26. Open Incident blocks Room/Property archive.
 27. Trust Report targets exactly one Listing or Review.
 28. Trust Report does not auto-remove content.
