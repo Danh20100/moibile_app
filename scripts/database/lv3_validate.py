@@ -27,6 +27,13 @@ REQUIRED_UPSTREAM_MARKERS = {
 REQUIRED_DOC_MARKERS = {"tech_stack_postgis"}
 REQUIRED_COLUMN_KEYS = {"name", "logicalAttribute", "type", "nullable", "primaryKey"}
 
+APPROVED_PHYSICAL_DECOMPOSITIONS = {
+    ("PROPERTY", "operational_location"): {
+        "operational_address_text",
+        "operational_location",
+    },
+}
+
 
 def _table_map(contract: dict) -> dict[str, dict]:
     return {
@@ -177,7 +184,19 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
                     f"mapping {attribute['name']!r}"
                 )
                 continue
-            if len(mapped_columns) != 1:
+            approved_decomposition = APPROVED_PHYSICAL_DECOMPOSITIONS.get(
+                (logical_name, attribute["name"])
+            )
+            if approved_decomposition is not None:
+                mapped_names = {column["name"] for column in mapped_columns}
+                if mapped_names != approved_decomposition:
+                    errors.append(
+                        f"table {table.get('name')} physical decomposition for "
+                        f"{attribute['name']!r} must be exactly "
+                        f"{sorted(approved_decomposition)}"
+                    )
+                    continue
+            elif len(mapped_columns) != 1:
                 errors.append(
                     f"table {table.get('name')} must map LV2 attribute "
                     f"{attribute['name']!r} exactly once"
@@ -186,7 +205,10 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
 
             if (
                 attribute.get("presence") == "required"
-                and mapped_columns[0].get("nullable") is not False
+                and any(
+                    column.get("nullable") is not False
+                    for column in mapped_columns
+                )
             ):
                 errors.append(
                     f"table {table.get('name')} nullability does not preserve "

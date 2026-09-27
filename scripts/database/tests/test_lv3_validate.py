@@ -28,13 +28,23 @@ def build_valid_contract(lv2):
         columns = []
         checks = []
         for i, attribute in enumerate(entity["attributes"]):
-            columns.append({
+            column = {
                 "name": attribute["name"],
                 "logicalAttribute": attribute["name"],
                 "type": physical_type(attribute["name"]),
                 "nullable": attribute["presence"] != "required",
                 "primaryKey": i == 0,
-            })
+            }
+            if (
+                entity["name"] == "PROPERTY"
+                and attribute["name"] == "operational_location"
+            ):
+                address_column = copy.deepcopy(column)
+                address_column["name"] = "operational_address_text"
+                address_column["type"] = "text"
+                columns.append(address_column)
+                column["type"] = "geography(Point,4326)"
+            columns.append(column)
             values = attribute.get("values")
             if values:
                 literals = ",".join(f"'{value}'" for value in values)
@@ -283,6 +293,36 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
         self.assertTrue(
             any("nullability" in error.lower() for error in errors)
         )
+
+    def test_accepts_approved_property_location_decomposition(self):
+        property_table = next(
+            table
+            for table in self.contract["tables"]
+            if table["logicalEntity"] == "PROPERTY"
+        )
+        mapped_names = {
+            column["name"]
+            for column in property_table["columns"]
+            if column["logicalAttribute"] == "operational_location"
+        }
+        self.assertEqual(
+            {"operational_address_text", "operational_location"},
+            mapped_names,
+        )
+        self.assertEqual([], validate_contract(self.lv2, self.contract))
+
+    def test_rejects_undeclared_duplicate_attribute_mapping(self):
+        contract = copy.deepcopy(self.contract)
+        user_table = next(
+            table
+            for table in contract["tables"]
+            if table["logicalEntity"] == "USER"
+        )
+        duplicate = copy.deepcopy(user_table["columns"][0])
+        duplicate["name"] = "user_id_duplicate"
+        user_table["columns"].append(duplicate)
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(any("exactly once" in error.lower() for error in errors))
 
     def test_rejects_missing_frozen_vocabulary_check(self):
         contract = copy.deepcopy(self.contract)
