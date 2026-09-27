@@ -1,166 +1,141 @@
 # Project Context
 
-Status: Current product context for backend implementation
+Status: Current product/domain context below Canonical v3.7 / frozen ERD3 authority.
 
-## 1. Product Definition
+## 1. Product definition
 
-TrọƠi là **sổ vận hành thuê trọ theo từng phòng/tài sản**. Sản phẩm giúp chủ nhà, chủ trọ và người vận hành lưu trữ, theo dõi và đối chiếu các thông tin quan trọng trong suốt quá trình thuê: người thuê ở mức cần thiết, giá thuê, tiền cọc, phụ phí, công nợ, biên nhận hoặc bản ghi thanh toán, sự cố và lịch sử xử lý.
+TrọƠi is a rental-lifecycle platform centered on a structured operational record for rental assets and rental relationships. Search/discovery may exist as a supporting surface, but operational ownership remains separated from public discovery projections.
 
-TrọƠi không bắt đầu từ mục tiêu xây một marketplace ba bên hoàn chỉnh. Điểm vào của sản phẩm là một lớp dữ liệu vận hành rõ ràng theo từng phòng hoặc tài sản cho thuê.
+The backend must preserve business facts across the room lifecycle: room state, rental relationship, agreed terms, receivable obligations, actual payments, deposit handling, incidents, evidence/history and controlled trust flows.
 
-## 2. Problem Being Solved
+## 2. Authority
 
-Nhiều chủ trọ và người vận hành vẫn quản lý thông tin bằng giấy tờ, Excel, Zalo, ảnh chụp màn hình chuyển khoản hoặc trí nhớ cá nhân. Các dữ liệu quan trọng vì vậy dễ bị phân tán, khó đối chiếu và khó theo dõi xuyên suốt vòng đời thuê.
+This document is not the highest domain authority. Read and apply:
 
-Sau khi người thuê vào ở, các vấn đề lặp lại mới xuất hiện thường xuyên: thu tiền thuê, ghi nhận tiền cọc, theo dõi phụ phí, xử lý công nợ, lưu biên nhận, báo sự cố, cập nhật trạng thái phòng và xem lại lịch sử khi có tranh cãi hoặc cần xác minh thông tin vận hành.
+`docs/database/canonical-v3.7.md` → ERD LV1 → ERD LV2 → ERD LV3 → validated PostgreSQL/PostGIS reference DDL → this project context → module docs → implementation.
 
-TrọƠi giải quyết phần vận hành sau thuê bằng cách tạo một nguồn dữ liệu có cấu trúc theo từng phòng/tài sản thay vì tiếp tục phân tán thông tin qua nhiều công cụ rời rạc.
+If this document conflicts with a frozen invariant, this document must be corrected.
 
-## 3. Product Positioning
+## 3. Actors and identity
 
-Lõi định vị của TrọƠi là **post-rental operations** — vận hành sau khi phòng hoặc tài sản đã được đưa vào sử dụng.
+`USER` means digital identity only. The current model does **not** assign a global `owner`, `operator` or `tenant` business role to a User.
 
-Tìm phòng, đăng phòng, listing, discovery và map có thể là điểm chạm hỗ trợ trước khi tenancy bắt đầu, nhưng không được dùng để định nghĩa TrọƠi như một search-first marketplace.
+A person may simultaneously browse, participate in a tenancy, have participated in a former tenancy, and operate an Organization through the relationships that actually establish those facts.
 
-Giá trị khác biệt mà backend phải bảo vệ là khả năng giữ hồ sơ vận hành, lifecycle và lịch sử theo từng phòng/tài sản đủ rõ để các bên có thể theo dõi và đối chiếu theo thời gian.
+Current relationship concepts include:
 
-## 4. Actors
+- `ORGANIZATION.primary_owner_user_id` for the MVP workspace owner reference;
+- `TENANCY_PARTICIPANT` for rental participation, with optional linkage to a User;
+- resource- and relationship-based authorization rather than a global User business role.
 
-### Payer
+Advanced organization team/member delegation is FUTURE unless Canonical is revised.
 
-Payer là chủ nhà, chủ trọ hoặc bên chịu chi phí vận hành và quyết định có trả subscription cho TrọƠi hay không.
+## 4. Current domain ownership
 
-### Operator
+### USER
+Digital identity. No global landlord/tenant/operator role.
 
-Operator là người trực tiếp thực hiện công việc vận hành hằng ngày. Operator có thể là chủ trọ, người thân, quản lý khu trọ hoặc nhân viên vận hành.
+### ORGANIZATION
+Rental operating workspace. A User may participate in zero or more Organizations; the MVP model freezes one primary owner/operator reference per Organization.
 
-### Tenant User
+### PROPERTY
+Property identity, `ACTIVE | ARCHIVED` lifecycle, operational address/location and a separate public-location projection boundary. Archive is a guarded workflow, not an unrestricted status patch.
 
-Tenant user là người thuê đang tham gia vào một rental context hợp lệ. Tenant có thể xem thông tin được phép, xem hoặc xác nhận biên nhận khi flow yêu cầu, báo sự cố và xem lịch sử phù hợp với quyền của mình.
+### ROOM
+Rental-unit identity plus two independent dimensions:
 
-### Future Service Partner
+- `operational_state = VACANT | OCCUPIED | MAINTENANCE | INACTIVE`
+- `record_lifecycle = ACTIVE | ARCHIVED`
 
-Future service partner là đối tác dịch vụ vận hành phòng trọ ở các phase sau. Nhóm này không phải một actor cần được kích hoạt đầy đủ trong MVP.
+Room does not own agreed rent price. Archive requires `INACTIVE`, no non-terminal Tenancy and no open Incident.
 
-Một người thật có thể đồng thời là payer và operator, nhưng các role business vẫn phải được phân biệt trong architecture.
+### LISTING
+Public discovery projection of a Room. Lifecycle:
 
-## 5. Economic Roles
+`DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`
 
-Các actor không đồng nghĩa với nhau về mặt kinh tế.
+Publishing requires a VACANT active Room under an active Property. When a Room leaves `VACANT`, the current Listing is synchronously unpublished. A Room has at most one current/non-archived Listing.
 
-- **Payer** quyết định trả tiền cho sản phẩm và đánh giá hiệu quả kinh tế của TrọƠi.
-- **Operator** tạo và duy trì dữ liệu vận hành hằng ngày.
-- **Tenant user** không phải nguồn thu chính của MVP nhưng tạo dữ liệu tương tác và dữ liệu đối chiếu có giá trị.
-- **Future service partner** chỉ trở thành một lớp kinh tế đáng kể khi TrọƠi có đủ dữ liệu sự cố và quy trình kiểm soát chất lượng.
+### TENANCY
+Rental relationship for one Room. Lifecycle:
 
-Việc phân biệt role giúp tránh thiết kế sai theo hướng tenant-first hoặc marketplace-first trong khi mô hình doanh thu ban đầu vẫn là subscription từ phía chủ trọ/người vận hành.
+`DRAFT → ACTIVE`, `DRAFT → CANCELLED`, `ACTIVE → ENDING`, `ENDING → ACTIVE`, `ENDING → ENDED`.
 
-## 6. Core Domain
+A Room has at most one non-terminal Tenancy (`DRAFT | ACTIVE | ENDING`). A next draft cannot be created while the current Tenancy is `ENDING`.
 
-Core domain của TrọƠi xoay quanh một chuỗi vận hành theo tài sản thuê:
+### TENANCY_PARTICIPANT
+Participation is distinct from User identity. An active Tenancy has exactly one active `PRIMARY` participant and zero or more active `OCCUPANT` participants. Participant linkage to `USER` is optional.
 
-**Organization → Property → Room → Tenancy → Billing → Receipt**
+### TENANCY_TERMS
+Versioned agreed terms. Terms own rent, deposit requirement, dates, billing rules, utility rules and minimum-rental conditions. Terms acknowledgements are version-specific. Financial changes apply from the next billing boundary; MVP does not prorate.
 
-Các capability liên quan bổ sung context nhưng không làm thay đổi ownership của chuỗi trên:
+### BILLING_CYCLE / CHARGE
+Receivable obligations. Current charge types are exactly:
 
-- `identity-access` xác định identity và access context;
-- `incident` quản lý lifecycle sự cố gắn với room và, khi cần, tenancy context;
-- `listing` tạo public projection từ room/property cho discovery;
-- `onboarding` điều phối nhập dữ liệu ban đầu nhưng không giữ ownership của domain data sau khi tạo;
-- `subscription` quyết định entitlement ở mức product;
-- `audit-trust` ghi nhận business fact và history mà không chiếm ownership của source lifecycle.
+`RENT | ELECTRICITY | WATER`
 
-## 7. MVP Scope
+### PAYMENT
+Actual money inflow belonging to exactly one Tenancy. Only confirmed Payment counts as received money. Sources are `MANUAL_CASH | MANUAL_TRANSFER | GATEWAY`; verification is `USER_RECORDED | PROVIDER_VERIFIED`.
 
-MVP tập trung vào các capability sau:
+Payment allocation uses `Payment → PaymentAllocation → Charge`. Deposit funding uses `Payment → DepositPaymentApplication → Deposit`. Allocation/application facts cannot cross Tenancy and their combined amount cannot exceed `Payment.amount`.
 
-- hồ sơ phòng/tài sản;
-- thông tin người thuê ở mức thật sự cần cho vận hành;
-- giá thuê, tiền cọc, tiện ích/phụ phí và các điều khoản nền;
-- theo dõi khoản phải thu và công nợ theo kỳ;
-- biên nhận hoặc bản ghi thanh toán phục vụ đối chiếu;
-- ticket sự cố với mô tả, phân loại, attachment khi có, trạng thái và lịch sử xử lý;
-- dashboard vận hành cơ bản, ví dụ số phòng đang hoạt động, khoản chưa thu và sự cố chưa xử lý;
-- lớp người thuê tối giản để xem thông tin được phép, xem/đối chiếu biên nhận và báo sự cố;
-- onboarding hỗ trợ bằng template, bulk input và CSV/Excel khi phù hợp;
-- audit/history cho các business fact quan trọng;
-- subscription từ phía chủ trọ/người vận hành là logic doanh thu ban đầu.
+Confirmed Payment is corrected by void/reverse plus a new Payment rather than destructive mutation. Unallocated Payment policy remains OPEN where Canonical says OPEN.
 
-MVP được giữ hẹp có chủ đích để kiểm chứng xem chủ trọ có sẵn sàng dùng và trả phí cho một công cụ vận hành thay thế quy trình thủ công hay không.
+### RECEIPT
+Evidence derived from an eligible confirmed Payment. Lifecycle `ISSUED | VOIDED`; zero or more historical receipts may exist, with at most one current receipt. Receipt is not the Payment record.
 
-## 8. Non-goals
+### DEPOSIT
+Deposit requirement belongs to Terms. Deposit fulfillment/holding/settlement belongs to Deposit and its application/event/settlement records. Refund is outbound money movement, not a negative Payment.
 
-MVP không được giả định có sẵn:
+### INCIDENT
+Problem lifecycle with categories:
 
-- marketplace đối tác dịch vụ vận hành mở hoặc không kiểm soát;
-- dịch vụ pháp lý hoặc cơ chế phán quyết tranh chấp;
-- cam kết kết quả về tiền cọc, chi phí hoặc ai đúng/sai giữa các bên;
-- hệ thống thanh toán hoàn chỉnh chạy toàn bộ settlement trong nền tảng;
-- AI/OCR như dependency bắt buộc của core flow;
-- TrọƠi trực tiếp bảo đảm chất lượng sửa chữa/bảo trì ngoài đời thực;
-- một hệ sinh thái ba bên được kích hoạt đồng thời ngay từ MVP;
-- public rating như cơ chế trust mặc định.
+`ELECTRICAL | PLUMBING | ACCESS_SECURITY | ROOM_FACILITY | APPLIANCE | OTHER`
 
-Nếu một capability nằm ngoài phạm vi này được đề xuất, nó phải được xác nhận bằng scope hoặc spec mới trước khi implementation coi đó là requirement.
+Lifecycle:
 
-## 9. Product Phases
+- `REPORTED → ACKNOWLEDGED | REJECTED | CLOSED`
+- `ACKNOWLEDGED → IN_PROGRESS | REJECTED`
+- `IN_PROGRESS → RESOLVED | CLOSED`
+- `RESOLVED → CLOSED | IN_PROGRESS`
 
-### MVP — Sổ vận hành thuê trọ
+`REJECTED` and `CLOSED` are terminal. `INCIDENT_EVENT` is append-only history.
 
-Tập trung vào room/asset profile, tenant context cần thiết, công nợ, biên nhận, ticket sự cố, lịch sử xử lý, dashboard cơ bản, onboarding và lớp người thuê tối giản.
+### REVIEW / TRUST_REPORT / NOTIFICATION
+Review and Trust are separate from Incident. TrustReport targets exactly one Listing or Review. Public-person rating is not implied by this model. Notification is a side-effect capability and never owns source business state.
 
-### Phase 2 — Controlled Tenant & Partner Activation
+## 5. CURRENT capabilities
 
-Lớp người thuê có thể đầy đủ hơn. Incident flow được cải tiến. Partner discovery và kết nối curated với đối tác đã xác minh chỉ được thử nghiệm ở phạm vi hẹp khi có đủ dữ liệu ticket thật.
+CURRENT includes the frozen capabilities around user/organization/property/room, listing/search/map/basic filters/inquiry, tenant portal, tenancy/participants/terms/acknowledgement/notice, deposit, billing/charge/utility, payment/allocation/payment claim, receipt, incident/event/history, dashboard/read model, notification, review and trust reporting.
 
-### Phase 3 — Controlled Marketplace & Deeper Operations
+CURRENT does not mean every backend implementation is complete today; it means the capability belongs to the frozen current model.
 
-Có thể bổ sung thanh toán trong nền tảng, system-generated receipt, AI/OCR nếu nhu cầu thật chứng minh cần thiết, gói bảo trì định kỳ, marketplace dịch vụ có kiểm soát và dashboard/analytics nâng cao.
+## 6. OPEN policy discipline
 
-### Long-term
+Canonical `[OPEN]` items remain unresolved. Examples include Trust Report login policy and Payment unallocated handling. Lower layers must not silently close them through route guards, DTO defaults, persistence choices or comments presented as decisions.
 
-Có thể mở rộng sang căn hộ dịch vụ, chung cư mini và các mô hình tài sản cho thuê lớn hơn, nhưng mọi mở rộng phải giữ được operational record làm nền tảng dữ liệu chính.
+## 7. FUTURE capabilities
 
-## 10. Domain Vocabulary
+FUTURE includes Subscription/Pricing/Quota, CSV/Excel import, advanced organization team/delegation, room assets, extra charge types, partner marketplace, AI/OCR, messaging, saved search, OTA integrations, proration and public ratings.
 
-- **Organization:** phạm vi vận hành cấp cao nhất của một chủ nhà hoặc đơn vị quản lý.
-- **Property:** tài sản hoặc khu trọ ở cấp địa điểm.
-- **Room:** đơn vị cho thuê cốt lõi và operational anchor.
-- **Tenancy:** một kỳ thuê cụ thể giữa room và tenant context.
-- **Billing:** khoản phải thu, charge và trạng thái công nợ theo kỳ của tenancy.
-- **Receipt:** bản ghi thanh toán/biên nhận phục vụ đối chiếu vận hành.
-- **Incident:** sự cố phát sinh trong quá trình vận hành và lifecycle xử lý của nó.
-- **Listing:** public projection của room/property phục vụ discovery; không phải operational record.
-- **Onboarding:** flow nhập và xác nhận dữ liệu ban đầu trước khi dữ liệu trở thành domain data.
-- **Subscription:** capability/entitlement của organization đối với sản phẩm TrọƠi.
-- **Audit:** business history dùng để truy vết; không phải nguồn business rule thay thế module gốc.
-- **Reference:** cách một bounded context chỉ tới resource thuộc bounded context khác mà không lấy ownership của resource đó.
+Existing pre-ERD3 code for a FUTURE capability is scaffolding only; its existence does not promote that capability into current core.
 
-## 11. Architectural Mental Model
+## 8. Architectural model
 
-TrọƠi sử dụng **Contract-first + persistence-agnostic business flows**.
+TrọƠi uses contract-first domain design. Business ownership, lifecycle and invariants are defined before persistence details. PostgreSQL/PostGIS is the target physical platform, but runtime migration/ORM work follows domain convergence.
 
-Business flow, lifecycle, ownership và invariant phải được hiểu trước persistence hoặc infrastructure cụ thể.
+Cross-context collaboration must use explicit references, decisions, events and read models. A context must not duplicate another context's authoritative business truth simply for convenience.
 
-Mỗi bounded context chỉ được biết những gì cần cho trách nhiệm của mình. Khi dữ liệu chưa có nguồn có thẩm quyền, trạng thái đúng của hệ thống là **chưa biết**, không phải một placeholder giả.
+## 9. Reading order
 
-Cross-module collaboration ưu tiên reference, decision và event. Một module không được đọc internal representation của module khác rồi tự dựng lại business rule của module đó.
+1. `docs/database/canonical-v3.7.md`
+2. `docs/database/erd/README.md`
+3. ERD LV1 / LV2 / LV3 artifacts
+4. `docs/database/schema/trooi-schema-lv3.sql`
+5. `docs/PROJECT_CONTEXT.md`
+6. `docs/USE_CASES.md`
+7. `docs/SYSTEM_CONTEXT.md`
+8. target module docs
+9. implementation/tests
 
-State của room, tenancy, billing, receipt, incident, listing và subscription là các state khác nhau dù có thể liên quan trong cùng một user journey.
-
-## 12. Reading Order for Agents
-
-Trước khi implementation một flow, agent đọc theo thứ tự:
-
-1. root `README.md`;
-2. `docs/PROJECT_CONTEXT.md`;
-3. `docs/USE_CASES.md`;
-4. `docs/SYSTEM_CONTEXT.md`;
-5. `README.md` của target module;
-6. `ARCHITECTURE.md` của target module;
-7. README/ARCHITECTURE của các collaborator được use case tham chiếu;
-8. implementation hiện có.
-
-Project-level docs giải thích **vì sao và khi nào** các module phối hợp. Module-level docs vẫn là authority cho ownership, state và invariant cục bộ.
-
-Nếu hai tầng tài liệu mâu thuẫn, implementation phải dừng ở điểm mâu thuẫn đó và làm rõ architecture trước khi tự chọn một cách hiểu.
+When a lower layer conflicts with frozen authority, change the lower layer.
