@@ -61,11 +61,11 @@ Workspace cho LV1/LV2/LV3 mới được dựng trực tiếp từ canonical.
 
 ```text
 Canonical v3.6          FROZEN / TRUSTED
-ERD LV1                 chưa dựng lại
-ERD LV2                 chưa dựng lại
-ERD LV3                 chưa dựng lại
-Executable schema       chưa bắt đầu
-Migrations              chưa bắt đầu
+ERD LV1                 REVIEWED / FROZEN
+ERD LV2                 design approved; snapshot pending/review
+ERD LV3                 not started
+Executable schema       not started
+Migrations              not started
 ```
 
 Các policy `[OPEN]` trong canonical không chặn LV1 nếu ownership/boundary đã rõ. Tuy nhiên, một policy `[OPEN]` phải được chốt trước khi nó ảnh hưởng tới migration hoặc workflow được implement.

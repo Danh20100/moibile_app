@@ -19,6 +19,14 @@ Canonical v3.6
 
 Không bỏ qua level. Một level thấp hơn không được thay đổi meaning của level cao hơn.
 
+## Current ERD status
+
+```text
+LV1 Conceptual          REVIEWED / FROZEN
+LV2 Logical             ACTIVE — design approved; snapshot/review in progress
+LV3 Physical Candidate  NOT STARTED
+```
+
 ## LV1 — Conceptual
 
 Mục tiêu: trả lời **domain nào tồn tại, ai sở hữu gì, lifecycle chính chạy như thế nào và cardinality cốt lõi là gì**.
