@@ -7,7 +7,7 @@ Hiện tại thư mục này chưa chứa schema, migration hay seed executable.
 ## Authority
 
 ```text
-docs/database/canonical.md
+docs/database/canonical-v3.7.md
         ↓
 docs/database/erd/ — LV1 → LV2 → LV3
         ↓

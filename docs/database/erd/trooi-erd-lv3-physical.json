@@ -1,10 +1,14 @@
 {
   "schemaVersion": "1.0",
-  "title": "TrọƠi — ERD LV3 Physical — REVIEWED FROZEN — PostgreSQL/PostGIS",
+  "title": "TrọƠi — ERD LV3 Physical — Canonical v3.7 — REVIEWED FROZEN — PostgreSQL/PostGIS",
   "level": "LV3_PHYSICAL",
   "status": "REVIEWED_FROZEN",
   "source": {
-    "canonicalVersion": "v3.6",
+    "canonicalVersion": "v3.7",
+    "canonical": {
+      "path": "docs/database/canonical-v3.7.md",
+      "version": "v3.7"
+    },
     "lv1": {
       "path": "docs/database/erd/trooi-erd-lv1-conceptual.json",
       "status": "REVIEWED_FROZEN"

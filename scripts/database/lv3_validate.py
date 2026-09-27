@@ -23,6 +23,7 @@ REQUIRED_POST_LV3_OPEN_POLICIES = {
     "Charge over-allocation across multiple Payments targeting one Charge",
     "Review multiplicity per eligible Participant/Tenancy",
 }
+CANONICAL_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_COLUMN_KEYS = {"name", "logicalAttribute", "type", "nullable", "primaryKey"}
 
 APPROVED_PHYSICAL_DECOMPOSITIONS = {
@@ -57,7 +58,7 @@ def _column_map(table: dict) -> dict[str, dict]:
     }
 
 
-def _validate_sources(contract: dict, errors: list[str]) -> None:
+def _validate_sources(lv2: dict, contract: dict, errors: list[str]) -> None:
     if contract.get("status") != "REVIEWED_FROZEN":
         errors.append(
             f"LV3 status must be REVIEWED_FROZEN, got {contract.get('status')!r}"
@@ -69,8 +70,11 @@ def _validate_sources(contract: dict, errors: list[str]) -> None:
             errors.append(
                 f"source {name} must be REVIEWED_FROZEN, got {status!r}"
             )
-    if source.get("canonicalVersion") != "v3.6":
-        errors.append("canonical source must remain v3.6")
+    canonical = source.get("canonical", {})
+    if source.get("canonicalVersion") != "v3.7" or canonical.get("version") != "v3.7":
+        errors.append("canonical source must be v3.7")
+    if lv2.get("source", {}).get("canonical", {}).get("version") != "v3.7":
+        errors.append("LV2 canonical source must be v3.7")
 
 
 def _validate_markers(contract: dict, errors: list[str]) -> None:
@@ -85,6 +89,31 @@ def _validate_open_policies(contract: dict, errors: list[str]) -> None:
     if missing:
         errors.append(
             "missing post-LV3 OPEN policies: " + ", ".join(sorted(missing))
+        )
+
+    canonical_path = contract.get("source", {}).get("canonical", {}).get("path")
+    if not canonical_path:
+        errors.append("canonical v3.7 must declare post-LV3 OPEN policies")
+        return
+
+    path = Path(canonical_path)
+    if not path.is_absolute():
+        path = CANONICAL_ROOT / path
+    try:
+        canonical = path.read_text(encoding="utf-8")
+    except OSError:
+        errors.append("canonical v3.7 must declare post-LV3 OPEN policies")
+        return
+
+    missing = {
+        policy
+        for policy in REQUIRED_POST_LV3_OPEN_POLICIES
+        if f"{policy}: **[OPEN]**." not in canonical
+    }
+    if missing:
+        errors.append(
+            "canonical v3.7 must declare post-LV3 OPEN policies: "
+            + ", ".join(sorted(missing))
         )
 
 
@@ -283,7 +312,7 @@ def validate_contract(
     sql_text: str | None = None,
 ) -> list[str]:
     errors: list[str] = []
-    _validate_sources(lv3, errors)
+    _validate_sources(lv2, lv3, errors)
     _validate_tables(lv2, lv3, errors)
     _validate_references(lv3, errors)
     _validate_checks(lv3, errors)

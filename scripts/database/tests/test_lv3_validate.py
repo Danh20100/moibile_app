@@ -1,5 +1,6 @@
 import copy
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -70,7 +71,11 @@ def build_valid_contract(lv2):
         "level": "LV3_PHYSICAL",
         "status": "REVIEWED_FROZEN",
         "source": {
-            "canonicalVersion": "v3.6",
+            "canonicalVersion": "v3.7",
+            "canonical": {
+                "path": str(ROOT / "docs/database/canonical-v3.7.md"),
+                "version": "v3.7",
+            },
             "lv1": {
                 "path": str(LV1_PATH),
                 "status": "REVIEWED_FROZEN",
@@ -165,6 +170,28 @@ class LV3ValidatorTests(unittest.TestCase):
             any("room/property type" in error.lower() for error in errors)
         )
 
+    def test_rejects_open_policy_not_declared_by_canonical_source(self):
+        contract = copy.deepcopy(self.contract)
+        contract["source"]["canonicalVersion"] = "v3.7"
+        contract["source"]["canonical"] = {
+            "path": "docs/database/canonical-v3.7.md",
+            "version": "v3.7",
+        }
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".md"
+        ) as canonical:
+            canonical.write("# Canonical v3.7\n")
+            canonical.flush()
+            contract["source"]["canonical"]["path"] = canonical.name
+            errors = validate_contract(self.lv2, contract)
+
+        self.assertTrue(
+            any(
+                "canonical v3.7 must declare" in error.lower()
+                for error in errors
+            )
+        )
+
 
     def test_rejects_open_policy_vocabulary_freeze(self):
         contract = copy.deepcopy(self.contract)
@@ -250,7 +277,9 @@ class LV3ValidatorTests(unittest.TestCase):
 class LV3RepositoryContractTests(unittest.TestCase):
     def test_repository_lv3_contract_matches_frozen_lv2(self):
         lv3_path = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+        lv1_path = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
         lv2 = load_lv2()
+        lv1 = json.loads(lv1_path.read_text(encoding="utf-8"))
         lv3 = json.loads(lv3_path.read_text(encoding="utf-8"))
         errors = validate_contract(lv2, lv3)
         self.assertEqual([], errors)
@@ -259,6 +288,9 @@ class LV3RepositoryContractTests(unittest.TestCase):
             "REVIEWED_FROZEN",
             lv3["source"]["lv2"]["status"],
         )
+        self.assertEqual("v3.7", lv1["source"]["version"])
+        self.assertEqual("v3.7", lv2["source"]["canonical"]["version"])
+        self.assertEqual("v3.7", lv3["source"]["canonicalVersion"])
         self.assertEqual([], lv3.get("reconciliationMarkers", []))
         self.assertIn(
             "Search/Map room/property type authoritative owner and vocabulary",
