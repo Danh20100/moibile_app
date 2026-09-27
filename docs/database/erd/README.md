@@ -24,7 +24,7 @@ Không bỏ qua level. Một level thấp hơn không được thay đổi meani
 ```text
 LV1 Conceptual          REVIEWED / FROZEN
 LV2 Logical             REVIEWED / FROZEN
-LV3 Physical Candidate  NOT STARTED
+LV3 Physical Candidate  DRAFT_REVIEW — JSON + PostgreSQL/PostGIS SQL + data-backed Lucid ready
 ```
 
 ## LV1 — Conceptual
@@ -117,7 +117,7 @@ indexes
 transaction-sensitive guards
 ```
 
-LV3 vẫn là **candidate để review**, chưa phải migration.
+LV3 vẫn là **candidate để review**, chưa phải migration. ORM/migration tooling chưa được chọn; `docs/database/schema/trooi-schema-lv3.sql` là executable DDL candidate để validation/review, không phải migration baseline.
 
 ## Invariants phải luôn nhìn thấy khi review ERD
 

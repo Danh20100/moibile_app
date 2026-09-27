@@ -63,8 +63,9 @@ Workspace cho LV1/LV2/LV3 mới được dựng trực tiếp từ canonical.
 Canonical v3.6          FROZEN / TRUSTED
 ERD LV1                 REVIEWED / FROZEN
 ERD LV2                 REVIEWED / FROZEN
-ERD LV3                 not started
-Executable schema       not started
+ERD LV3                 DRAFT_REVIEW — physical JSON + executable SQL + data-backed Lucid ready
+Executable schema       candidate only — not a migration
+ORM / migration tooling unselected
 Migrations              not started
 ```
 
