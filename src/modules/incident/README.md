@@ -1,92 +1,30 @@
-# Incident
+# incident
 
-Folder `incident` chứa các chức năng liên quan đến **ticket sự cố và lịch sử xử lý sự cố** trong TrọƠi.
+> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and current code.
 
-## Folder này dùng để làm gì?
+## Purpose
 
-Folder này quản lý toàn bộ vòng đời một sự cố phát sinh tại room.
+`incident` owns the problem lifecycle for a Room and append-only IncidentEvent history.
 
-Nó chịu trách nhiệm cho:
+## Categories
 
-- tạo incident/ticket;
-- category và description;
-- reporter;
-- attachment references;
-- trạng thái xử lý;
-- người tiếp nhận/xử lý khi có;
-- timeline và các mốc thời gian quan trọng.
+`ELECTRICAL | PLUMBING | ACCESS_SECURITY | ROOM_FACILITY | APPLIANCE | OTHER`
 
-```mermaid
-flowchart LR
-    Reporter["Tenant / Operator"] --> Incident["Incident"]
-    Incident --> Room["room"]
-    Incident --> Timeline["Timeline"]
-    Incident --> Audit["audit-trust"]
-```
+## Lifecycle
 
-## Chức năng chính
+- `REPORTED → ACKNOWLEDGED | REJECTED | CLOSED`
+- `ACKNOWLEDGED → IN_PROGRESS | REJECTED`
+- `IN_PROGRESS → RESOLVED | CLOSED`
+- `RESOLVED → CLOSED | IN_PROGRESS`
 
-### Create Incident
+`REJECTED` and `CLOSED` are terminal.
 
-Tenant hoặc operator có thể tạo ticket gắn với đúng room.
+## Invariants
 
-```mermaid
-flowchart TD
-    Report["Report Issue"] --> Detail["Category + Description"]
-    Detail --> Attachment["Images / Videos"]
-    Attachment --> Ticket["Incident Created"]
-```
+- meaningful history is append-only through IncidentEvent;
+- a Room with an open Incident cannot be archived;
+- Incident is distinct from TrustReport/moderation.
 
-### Incident Lifecycle
+## Known pre-ERD3 code drift
 
-```mermaid
-stateDiagram-v2
-    [*] --> New
-    New --> Acknowledged
-    Acknowledged --> Processing
-    Processing --> NeedMoreInformation
-    NeedMoreInformation --> Processing
-    Processing --> Resolved
-    Resolved --> Closed
-```
-
-State của incident tách hoàn toàn khỏi `room.status`.
-
-### Timeline
-
-Mỗi thay đổi quan trọng được ghi theo thời gian để hai bên theo dõi quá trình xử lý.
-
-```mermaid
-flowchart LR
-    Created["Created"] --> Acknowledged["Acknowledged"] --> Processing["Processing"] --> Resolved["Resolved"] --> Closed["Closed"]
-```
-
-## Quan hệ với các module khác
-
-```mermaid
-flowchart LR
-    Room["room"] --> Incident["incident"]
-    IA["identity-access"] --> Incident
-    Incident --> Audit["audit-trust"]
-```
-
-- `room`: room phát sinh sự cố;
-- `identity-access`: xác định reporter và quyền truy cập;
-- `audit-trust`: lưu vết thay đổi và lịch sử quan trọng.
-
-## Không thuộc folder này
-
-- sửa chữa thực tế;
-- marketplace đối tác dịch vụ;
-- báo giá của partner;
-- room lifecycle;
-- public review/rating.
-
-## Tóm tắt
-
-```mermaid
-flowchart LR
-    Report["Report"] --> Ticket["Incident"] --> Status["Tracking"] --> Timeline["History"] --> Close["Closed"]
-```
-
-`incident` tập trung vào: **báo sự cố → ticket → trạng thái xử lý → timeline → đóng sự cố**.
+Current code uses free-form categories plus `processing` / `need_more_information`, lacks `REJECTED`, lacks reopen from `RESOLVED`, and has no first-class append-only IncidentEvent model.
