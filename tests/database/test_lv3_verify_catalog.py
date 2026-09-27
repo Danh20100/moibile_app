@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scripts.database.lv3_verify_catalog import expected_catalog, verify_catalog
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
 
 

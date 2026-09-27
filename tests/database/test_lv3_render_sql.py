@@ -5,7 +5,7 @@ from pathlib import Path
 
 from scripts.database.lv3_render_sql import render_sql
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
 
 

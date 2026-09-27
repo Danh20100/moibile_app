@@ -28,17 +28,19 @@ Level thấp hơn không được tự thay đổi business meaning đã `[FROZE
 docs/database/
 ├── README.md
 ├── canonical-v3.7.md
+├── archive/
+│   └── canonical-v3.6.md
 ├── tech-stack.md
 ├── erd/
 │   ├── README.md
 │   ├── trooi-erd-lv1-conceptual.json
 │   ├── trooi-erd-lv2-logical.json
-│   ├── trooi-erd-lv3-physical.json
-│   └── tests/
-│       └── trooi-schema-lv3-smoke.sql
+│   └── trooi-erd-lv3-physical.json
 └── schema/
     └── trooi-schema-lv3.sql
 ```
+
+Verification assets live in [`../../tests/database/`](../../tests/database/); SQL smoke coverage is the only nested test area.
 
 ## Responsibilities
 

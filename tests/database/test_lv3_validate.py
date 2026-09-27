@@ -6,7 +6,7 @@ from pathlib import Path
 
 from scripts.database.lv3_validate import validate_contract
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 LV1_PATH = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
 LV2_PATH = ROOT / "docs/database/erd/trooi-erd-lv2-logical.json"
 
