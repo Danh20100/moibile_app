@@ -646,6 +646,7 @@ Các guard bắt buộc:
 | Receipt issue | Payment phải confirmed/non-invalid theo receipt rule |
 | Utility provenance | Connection thuộc Tenancy Room; utility type match; readings thuộc cùng Connection |
 | Deposit event | provenance đúng loại + amount bằng source Application/Settlement |
+| Deposit settlement amount cap | lock Deposit + applications + settlements; cumulative refunded + retained không được vượt cumulative applied amount đã thực nhận |
 | Open Incident archive blocker | archive transaction phải re-check open Incident |
 | Review eligibility | Tenancy ENDED + eligible Participant/User link |
 | Review historical Property target | capture target tại create; không cascade theo Room reassignment |

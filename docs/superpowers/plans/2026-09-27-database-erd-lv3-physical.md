@@ -110,6 +110,8 @@ Expected: FAIL because `trooi-erd-lv3-physical.json` does not exist.
 
 Use snake_case plural table names and exact columns/types/nullability from the spec. Every FK includes referenced table/column and explicit `onDelete: NO ACTION`. Represent `CHECK`, ordinary `UNIQUE`, partial/regular/GiST indexes, and transaction guards as separate machine-readable collections. Carry Charge over-allocation and Review multiplicity as OPEN/reconciliation metadata only: do not add a Charge-side allocation cap and do not add `UNIQUE (tenancy_id, author_participant_id)` on reviews.
 
+Carry `deposit_settlement_amount_cap` as a required transaction guard: cumulative `refunded_amount + retained_amount` for one Deposit must not exceed cumulative `deposit_payment_applications.applied_amount` for that Deposit. Do not encode it as a row-local CHECK or trigger in the LV3 baseline.
+
 - [ ] **Step 4: Verify the real contract**
 
 Run: `python scripts/database/lv3_validate.py docs/database/erd/trooi-erd-lv2-logical.json docs/database/erd/trooi-erd-lv3-physical.json`
@@ -198,7 +200,7 @@ Expected: PASS.
 
 - [ ] **Step 5: Write the smoke SQL with positive and negative cases**
 
-Assert PostGIS exists and all 29 tables exist. Cover second current Listing, second non-terminal Tenancy, second active PRIMARY and second ISSUED Receipt; invalid Trust Report target combinations; invalid Deposit Event provenance; Payment replacement self-reference/predecessor/unique-predecessor rules; Receipt replacement self-reference/predecessor rules; RENT Charge carrying utility fields; meter-reading fields without a Utility Connection; Tenancy Notice acknowledgement actor/time mismatch; Payment Claim reviewer/time mismatch. Valid alternatives must succeed. Do not test a Charge-side over-allocation cap or Review multiplicity UNIQUE because both remain OPEN. Use savepoints/exception blocks so expected failures do not abort the full run.
+Assert PostGIS exists and all 29 tables exist. Cover second current Listing, second non-terminal Tenancy, second active PRIMARY and second ISSUED Receipt; invalid Trust Report target combinations; invalid Deposit Event provenance; Payment replacement self-reference/predecessor/unique-predecessor rules; Receipt replacement self-reference/predecessor rules; RENT Charge carrying utility fields; meter-reading fields without a Utility Connection; Tenancy Notice acknowledgement actor/time mismatch; Payment Claim reviewer/time mismatch. Valid alternatives must succeed. Do not test a Charge-side over-allocation cap or Review multiplicity UNIQUE because both remain OPEN. The Deposit settlement cumulative cap is a transaction-service guard, so schema-only smoke must not claim database enforcement; validator/contract tests must require the guard declaration, and backend persistence work must implement a locked aggregate check before settlement writes. Use savepoints/exception blocks so expected failures do not abort the full run.
 
 - [ ] **Step 6: Start a disposable PostGIS validation container**
 

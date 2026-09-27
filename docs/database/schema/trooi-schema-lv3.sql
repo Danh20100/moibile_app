@@ -505,6 +505,7 @@ CREATE INDEX ix_notifications_recipient_created ON notifications (recipient_user
 -- GUARD receipt_issue: Receipt may only be issued from eligible confirmed Payment.
 -- GUARD utility_provenance: Utility Connection belongs to Tenancy Room, type matches Charge, readings share Connection.
 -- GUARD deposit_event_provenance_amount: Deposit Event provenance type and amount must match Application/Settlement.
+-- GUARD deposit_settlement_amount_cap: Cumulative Deposit Settlement refunded+retained amount may not exceed cumulative Deposit Payment Application amount for the same Deposit.
 -- GUARD open_incident_archive_blocker: Archive transaction rechecks open Incident.
 -- GUARD review_eligibility: Review requires ENDED Tenancy and eligible linked Participant/User.
 -- GUARD review_historical_property_target: Review captures historical Property target and does not cascade on reassignment.

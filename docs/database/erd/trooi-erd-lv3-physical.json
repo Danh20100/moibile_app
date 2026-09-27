@@ -3113,6 +3113,11 @@
       "enforcement": "transaction"
     },
     {
+      "id": "deposit_settlement_amount_cap",
+      "description": "Cumulative Deposit Settlement refunded+retained amount may not exceed cumulative Deposit Payment Application amount for the same Deposit.",
+      "enforcement": "transaction"
+    },
+    {
       "id": "open_incident_archive_blocker",
       "description": "Archive transaction rechecks open Incident.",
       "enforcement": "transaction"

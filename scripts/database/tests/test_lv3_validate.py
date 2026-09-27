@@ -85,7 +85,17 @@ def build_valid_contract(lv2):
             "extensions": ["postgis"],
         },
         "tables": tables,
-        "transactionGuards": [],
+        "transactionGuards": [
+            {
+                "id": "deposit_settlement_amount_cap",
+                "description": (
+                    "Cumulative Deposit Settlement refunded+retained amount may "
+                    "not exceed cumulative Deposit Payment Application amount "
+                    "for the same Deposit."
+                ),
+                "enforcement": "transaction",
+            }
+        ],
         "openPolicies": list(lv2["openPolicies"]) + [
             "Charge over-allocation across multiple Payments targeting one Charge",
             "Review multiplicity per eligible Participant/Tenancy",
@@ -323,6 +333,37 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
         user_table["columns"].append(duplicate)
         errors = validate_contract(self.lv2, contract)
         self.assertTrue(any("exactly once" in error.lower() for error in errors))
+
+    def test_rejects_missing_deposit_settlement_amount_cap_guard(self):
+        contract = copy.deepcopy(self.contract)
+        contract["transactionGuards"] = [
+            guard
+            for guard in contract["transactionGuards"]
+            if guard["id"] != "deposit_settlement_amount_cap"
+        ]
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any(
+                "deposit_settlement_amount_cap" in error
+                for error in errors
+            )
+        )
+
+    def test_rejects_deposit_settlement_cap_without_transaction_enforcement(self):
+        contract = copy.deepcopy(self.contract)
+        guard = next(
+            guard
+            for guard in contract["transactionGuards"]
+            if guard["id"] == "deposit_settlement_amount_cap"
+        )
+        guard["enforcement"] = "database_check"
+        errors = validate_contract(self.lv2, contract)
+        self.assertTrue(
+            any(
+                "transaction enforcement" in error.lower()
+                for error in errors
+            )
+        )
 
     def test_rejects_missing_frozen_vocabulary_check(self):
         contract = copy.deepcopy(self.contract)

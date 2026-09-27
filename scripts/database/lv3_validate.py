@@ -25,6 +25,7 @@ REQUIRED_UPSTREAM_MARKERS = {
     "review_multiplicity_policy",
 }
 REQUIRED_DOC_MARKERS = {"tech_stack_postgis"}
+REQUIRED_TRANSACTION_GUARDS = {"deposit_settlement_amount_cap"}
 REQUIRED_COLUMN_KEYS = {"name", "logicalAttribute", "type", "nullable", "primaryKey"}
 
 APPROVED_PHYSICAL_DECOMPOSITIONS = {
@@ -250,6 +251,20 @@ def _validate_references(contract: dict, errors: list[str]) -> None:
                 )
 
 
+def _validate_transaction_guards(contract: dict, errors: list[str]) -> None:
+    guards = contract.get("transactionGuards", [])
+    by_id = {guard.get("id"): guard for guard in guards if guard.get("id")}
+    for guard_id in REQUIRED_TRANSACTION_GUARDS:
+        guard = by_id.get(guard_id)
+        if guard is None:
+            errors.append(f"missing required transaction guard {guard_id}")
+            continue
+        if guard.get("enforcement") != "transaction":
+            errors.append(
+                f"transaction guard {guard_id} must use transaction enforcement"
+            )
+
+
 def _validate_checks(contract: dict, errors: list[str]) -> None:
     for table in contract.get("tables", []):
         for check in table.get("checks", []):
@@ -272,6 +287,7 @@ def validate_contract(
     _validate_tables(lv2, lv3, errors)
     _validate_references(lv3, errors)
     _validate_checks(lv3, errors)
+    _validate_transaction_guards(lv3, errors)
     _validate_markers(lv3, errors)
     return errors
 
