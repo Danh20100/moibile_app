@@ -691,10 +691,12 @@ LV3 không được biến `[OPEN]` policy thành accidental database truth.
 Các field vẫn dùng generic `text/jsonb` hoặc nullable representation cho tới khi policy được chốt, gồm:
 
 - Payment unallocated handling;
+- Charge over-allocation across multiple Payments targeting one Charge;
 - Payment Claim evidence/confirmation permission/status vocabulary;
 - Deposit requirement change after partially held;
 - Review minimum occupancy/edit/moderation/rating dimensions;
 - Review target correction authority;
+- Review multiplicity per eligible Participant/Tenancy;
 - Trust Report login/rate-limit/moderation/evidence policy;
 - Notification channels/category/delivery vocabulary.
 
@@ -716,6 +718,14 @@ LV3 phát hiện thêm một gap từ Canonical Search/Map:
 nhưng LV1/LV2 hiện không có authoritative owner/attribute/vocabulary cho type.
 LV3 không tự invent enum hoặc Listing-only projection. Sau ERD3 phải quyết định owner,
 vocabulary và propagation trước khi executable schema/migration được freeze.
+```
+
+Additional LV3 policy gaps discovered during plan review:
+
+```text
+>> UPSTREAM-RECONCILE: Charge over-allocation policy. Canonical/LV2 cap allocations from the Payment side, but do not define whether the sum of allocations received by one Charge may exceed Charge.amount. Keep this OPEN in LV3; do not add a Charge-side cap until reconciliation decides reject / unallocated credit / explicit overpayment behavior.
+
+>> UPSTREAM-RECONCILE: Review multiplicity per eligible Participant/Tenancy. Canonical/LV2 define verified Review eligibility but do not freeze whether one eligible Participant may create at most one Review for one Tenancy. Keep this OPEN in LV3; do not add UNIQUE (tenancy_id, author_participant_id) until reconciliation decides multiplicity/edit/versioning semantics.
 ```
 
 Documentation drift marker:
@@ -745,7 +755,7 @@ Master ERD bắt buộc:
 - không dùng domain container làm source schema;
 - không thêm loose table rectangle để thay data-backed entity.
 
-Three >> UPSTREAM-RECONCILE markers and one >> DOC-RECONCILE marker stay as notes outside the master ERD; notes do not participate in schema export.
+Five >> UPSTREAM-RECONCILE markers and one >> DOC-RECONCILE marker stay as notes outside the master ERD; notes do not participate in schema export.
 
 Auxiliary Lucid pages/views có thể được tạo để review Financial/Rental/Trust dễ hơn, nhưng:
 
@@ -790,7 +800,7 @@ Trước khi đưa LV3 cho review, phải có fresh evidence cho các check sau:
 2. Physical inventory có đúng 29 baseline tables; không có `[FUTURE]` table.
 3. Mọi LV2 attribute được map sang physical column hoặc physical decomposition được giải thích rõ.
 4. Mọi FK column trỏ đúng target và nullability phù hợp LV2 presence.
-5. Frozen vocabulary có CHECK; OPEN vocabulary không bị invent.
+5. Frozen vocabulary có CHECK; OPEN vocabulary/policy không bị invent, đặc biệt không thêm Charge over-allocation cap hoặc Review multiplicity UNIQUE trước reconciliation.
 6. Partial uniqueness cover current Listing, nonterminal Tenancy, active PRIMARY và current Receipt.
 7. PostGIS location columns và GiST Published-Listing index tồn tại.
 8. SQL candidate apply thành công trên disposable PostgreSQL + PostGIS environment.
