@@ -65,6 +65,39 @@ PostgreSQL + PostGIS
 23 transaction guards
 17 OPEN policies
 ```
+## 2.1 Documentation vs implementation naming boundary
+
+`LV1`, `LV2`, and `LV3` are documentation/design-level labels only. They exist to distinguish Canonical/ERD review layers and may remain in `docs/` authority filenames, design prose, review notes, and references to the frozen contract.
+
+Implementation artifacts must use semantic/runtime names, not ERD-level names. For all executable or runtime-facing implementation work, the case-insensitive tokens `lv1`, `lv2`, and `lv3` are prohibited in:
+
+- source-code filenames and directory names;
+- class, type, interface, function, method, variable, constant, provider, and module identifiers;
+- migration filenames and migration identifiers;
+- SQL implementation filenames outside the documentation authority tree;
+- test filenames, test-suite identifiers, and fixture names;
+- script filenames and package-script command names;
+- configuration keys, environment-variable names, cache keys, metric names, and log event names.
+
+Use semantic names such as `physical_contract`, `initial_schema`, `schema_contract`, `catalog_parity`, or domain/aggregate names instead. The implementation must not leak ERD review-level numbering into runtime vocabulary.
+
+This rule also applies to existing non-documentation validation tooling before persistence implementation begins. The current pre-implementation names under `scripts/database/` and `tests/database/` that contain `lv1`, `lv2`, or `lv3` must be renamed to neutral semantic names while preserving behavior, imports, test coverage, and authority references. For example:
+
+```text
+scripts/database/lv3_validate.py              -> scripts/database/physical_contract_validate.py
+scripts/database/lv3_render_sql.py            -> scripts/database/physical_contract_render_sql.py
+scripts/database/lv3_render_lucid.py          -> scripts/database/physical_contract_render_lucid.py
+scripts/database/lv3_verify_catalog.py        -> scripts/database/physical_contract_verify_catalog.py
+scripts/database/lv3_catalog.sql              -> scripts/database/physical_contract_catalog.sql
+tests/database/test_lv3_validate.py            -> tests/database/test_physical_contract_validate.py
+tests/database/test_lv3_render_sql.py          -> tests/database/test_physical_contract_render_sql.py
+tests/database/test_lv3_render_lucid.py        -> tests/database/test_physical_contract_render_lucid.py
+tests/database/test_lv3_verify_catalog.py      -> tests/database/test_physical_contract_verify_catalog.py
+tests/database/sql/trooi-schema-lv3-smoke.sql -> tests/database/sql/schema-smoke.sql
+```
+
+The authority files under `docs/database/` keep their existing level-labelled filenames because they are documentation/design artifacts, not runtime implementation names.
+
 ## 3. Verified repository baseline
 
 At the start of this design pass:
@@ -164,10 +197,10 @@ Recommended shape:
 database/
 ├── README.md
 ├── migrations/
-│   ├── 000001_lv3_baseline.ts
+│   ├── 000001_initial_schema.ts
 │   └── sql/
-│       ├── 000001_lv3_baseline.up.sql
-│       └── 000001_lv3_baseline.down.sql
+│       ├── 000001_initial_schema.up.sql
+│       └── 000001_initial_schema.down.sql
 └── seeds/
 ```
 
@@ -181,7 +214,7 @@ Creation rule:
 4. apply it to an empty PostGIS database;
 5. run smoke and `pg_catalog` parity checks.
 
-Once shared, `000001` is history. A future schema change requires a new migration after an upstream Canonical/LV1/LV2/LV3 change; old migration content must not be silently rewritten.
+Once shared, `000001_initial_schema` is history. A future schema change requires a new migration after an upstream Canonical/LV1/LV2/LV3 change; old migration content must not be silently rewritten.
 ## 8. PostgreSQL type boundary
 
 Persistence mappings must be explicit and testable.
@@ -413,12 +446,13 @@ Testing must prove both schema fidelity and runtime behavior.
 
 ### Contract and migration tests
 
-- existing LV3 validator remains green;
+- the physical-contract validator remains green after its neutral naming cleanup;
 - fresh database migration applies from zero;
 - migrated catalog matches LV3 PK/FK/CHECK/UNIQUE/index inventory;
 - PostGIS extension and GiST behavior are present;
 - existing schema smoke suite passes against migrated schema;
 - baseline migration is not dependent on mutable docs at runtime.
+- a static implementation-naming audit fails if non-documentation executable/runtime paths, filenames, source identifiers, script commands, config keys, cache keys, metrics, or log-event names contain case-insensitive `lv1`, `lv2`, or `lv3`.
 
 ### Repository integration tests
 
@@ -504,6 +538,7 @@ FUTURE-only modules may keep scaffold code for compilation/history, but this pha
 
 In scope:
 
+- pre-implementation neutral naming cleanup for non-documentation code/scripts/tests that still contain `lv1`, `lv2`, or `lv3`;
 - PostgreSQL/PostGIS connection and configuration;
 - immutable migration baseline from frozen LV3;
 - typed query/persistence layer;
@@ -536,7 +571,7 @@ This phase is complete only when all of the following are true:
 - the backend regression suite remains green after Canonical/LV3 reconciliation; tests that encode stale pre-freeze semantics are updated to the frozen authority rather than preserved as authority;
 - the baseline database 45/45 frozen-contract suite remains green alongside the new persistence tests;
 - TypeScript typecheck remains green;
-- LV3 validator, schema smoke, and catalog parity remain green;
+- physical-contract validation, schema smoke, and catalog parity remain green;
 - current persisted business state no longer depends on in-memory Maps;
 - all 23 frozen transaction guards have real integration coverage;
 - aggregate-sensitive guards have race tests proving safe behavior under concurrency;
@@ -544,7 +579,8 @@ This phase is complete only when all of the following are true:
 - Redis can be flushed or become unavailable without losing authoritative business state;
 - Redis failure does not roll back successful PostgreSQL business writes;
 - no OPEN policy is silently closed;
-- no FUTURE capability is introduced into current physical persistence.
+- no FUTURE capability is introduced into current physical persistence;
+- no non-documentation executable/runtime artifact contains `lv1`, `lv2`, or `lv3` in its path, filename, source identifier, command, config key, cache key, metric, or log-event name.
 
 Completion claims require fresh test evidence from the branch, not assumptions based on earlier runs.
 ## 21. OPEN-policy preservation checklist
