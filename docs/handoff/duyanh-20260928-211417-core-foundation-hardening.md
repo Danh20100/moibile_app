@@ -5,7 +5,7 @@
 **Repository:** `onsra520/TroOi-Project`  
 **Branch:** `backend/core-foundations`  
 **Handoff baseline HEAD:** `20f4d62ed0c997f0538b904a80eab01e4f139614`  
-**Status:** PLAN READY FOR OWNER REVIEW — implementation is not authorized until the owner approves the implementation plan.
+**Status:** EXECUTED — F0–F5 complete; runtime evidence in `docs/audits/2026-09-28-erd3-conformance-red-baseline.md` (implementation SHA `2fe64ff`, CI run `36446469729` success).
 
 ## Mission
 
