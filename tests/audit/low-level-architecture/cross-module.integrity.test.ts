@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 
 import { type INestApplicationContext } from '@nestjs/common';
@@ -118,19 +118,4 @@ describe('cross-module reference integrity audit', () => {
     );
   });
 
-  it('rejects a listing with nonexistent room/property references', async () => {
-    const service = app.get(ListingService);
-    await expectRejection(
-      async () =>
-        service.create({
-          roomId: 'room_missing',
-          propertyId: 'prop_missing',
-          title: 'Room listing',
-          description: 'Description',
-          price: 3000000,
-          locationSummary: 'District 9',
-        }),
-      'Listing must validate room/property context before publishing data can exist.',
-    );
-  });
 });

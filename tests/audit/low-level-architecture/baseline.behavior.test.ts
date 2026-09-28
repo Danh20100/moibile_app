@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { BadRequestException } from '@nestjs/common';
@@ -98,28 +98,26 @@ describe('low-level architecture baseline behavior', () => {
     assert.equal((await service.updateStatus(incident.id, { status: 'closed' })).status, 'closed');
   });
 
-  it('publishes only listings in published state', async () => {
+  it('exposes public listings only while their state is published', async () => {
     const service = new ListingService();
-    const listing = await service.create({
+    const listing = await service.createDraft({
       roomId: 'room_1',
-      propertyId: 'prop_1',
-      title: 'Room 101',
-      description: 'Public room description',
-      price: 3_500_000,
-      locationSummary: 'Thu Duc City',
+      publicTitle: 'Room 101',
+      publicDescription: 'Public room description',
+      publicPriceProjection: '3500000.00',
+      publicLocationProjection: { latitude: 10.77, longitude: 106.69 },
     });
 
-    assert.deepEqual(await service.findPublic(), []);
-
-    await service.updateStatus(listing.id, { status: 'published' });
-    assert.equal((await service.findPublic()).length, 1);
-
-    await service.updateStatus(listing.id, { status: 'hidden' });
-    assert.deepEqual(await service.findPublic(), []);
-
-    await service.updateStatus(listing.id, { status: 'published' });
-    await service.updateStatus(listing.id, { status: 'rented' });
-    assert.deepEqual(await service.findPublic(), []);
+    assert.deepEqual(await service.findPublished(), []);
+    const transition = {
+      reasonCode: 'LANDLORD_MANUAL',
+      actorType: 'USER',
+      trigger: 'COMMAND',
+    };
+    await service.transition(listing.id, 'published', transition);
+    assert.equal((await service.findPublished()).length, 1);
+    await service.transition(listing.id, 'unpublished', transition);
+    assert.deepEqual(await service.findPublished(), []);
   });
 
   it('reconciles an exact billing payment from upcoming to paid', async () => {
