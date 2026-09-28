@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { readRepoFile, readRepoFiles } from './support/source';
+import { readRepoFiles } from './support/source';
 
 test('USER contract has no global business role', () => {
   const source = readRepoFiles([
@@ -16,14 +16,4 @@ test('USER contract has no global business role', () => {
   assert.doesNotMatch(source, /['"](?:owner|operator|tenant|platform_admin)['"]/);
   assert.doesNotMatch(source, /\bCreateInvitationDto\b|\bAcceptInvitationDto\b/);
   assert.doesNotMatch(source, /identity-access\/invitations|\binvitations\b/);
-});
-
-test('ORGANIZATION contract carries the primary owner reference', () => {
-  const source = readRepoFile('src/modules/organization/contracts/index.ts');
-  assert.match(source, /primary[_A-Za-z]*owner[_A-Za-z]*user|primaryOwnerUserId/i);
-});
-
-test('old OrganizationStatus active inactive archived is not treated as ERD3 source truth', () => {
-  const source = readRepoFile('src/modules/organization/contracts/index.ts');
-  assert.doesNotMatch(source, /\bOrganizationStatus\b/);
 });

@@ -2,11 +2,25 @@
 
 Purpose: bridge the frozen Canonical v3.7 / ERD3 model and backend implementation semantics.
 
-## Initial state
+## Core rebuild status (H0–H6)
 
-This suite is intentionally **RED** against the pre-ERD3 backend contracts. A failing test is useful only when it identifies a known semantic mismatch.
+Focused core boundaries are runtime-verified **GREEN**:
 
-Import errors, bad paths, syntax errors, missing fixtures or broken test helpers are test-suite defects and are not acceptable RED evidence.
+- authority / documentation
+- identity
+- organization
+- property / room
+- FUTURE runtime boundary (`SubscriptionModule` / `OnboardingModule` absent from `AppModule`)
+
+Remaining product-contract suites are intentionally **RED** until later waves:
+
+- listing
+- tenancy
+- finance
+- incident
+- trust
+
+See `docs/audits/2026-09-28-erd3-conformance-red-baseline.md` for exact failing test names and owners.
 
 ## Test style
 
@@ -32,9 +46,9 @@ Lower-level docs, code and old tests must change when they conflict with frozen 
 - A frozen invariant must **not** be deleted or weakened merely to make the suite green.
 - A deliberate invariant change requires changing the higher Canonical/ERD authority first, then updating conformance.
 - Source-level evidence does not prove concurrency safety. Guards such as payment caps, one-non-terminal-tenancy-per-Room, Listing/Room coordination and checkout atomicity require later transaction/concurrency verification.
-- Authority/documentation tests are expected to be GREEN before the domain rebuild starts.
-- Product-contract tests are expected to be RED until their owning bounded-context rebuild lands.
+- Authority/documentation tests are expected to be GREEN before and after the core rebuild.
+- Product-contract tests outside Identity/Organization/Property/Room remain RED until their owning bounded-context rebuild lands.
 
 ## Execution note
 
-The baseline audit distinguishes **source-inspected expected RED** from **runtime-verified RED**. Do not label a test runtime-verified until `pnpm test:conformance:erd3` has actually executed in a checkout with dependencies installed.
+Do not label a test runtime-verified until `pnpm test:conformance:erd3` has actually executed in a checkout with dependencies installed.

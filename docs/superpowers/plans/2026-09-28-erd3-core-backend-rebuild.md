@@ -46,7 +46,7 @@
 - Modify: `src/modules/identity-access/services/identity-access.service.ts`
 - Modify: `src/modules/identity-access/controllers/identity-access.controller.ts`
 - Modify or delete obsolete assertions in: `tests/audit/low-level-architecture/*.test.ts`
-- Strengthen: `tests/conformance/erd3/identity-organization.contract.test.ts`
+- Strengthen: `tests/conformance/erd3/identity.contract.test.ts`
 
 **Interfaces:**
 - Produces `UserReference { userId: string }`.
@@ -57,14 +57,14 @@
 
 - [ ] **Step 1: Strengthen the failing conformance test**
 
-In `tests/conformance/erd3/identity-organization.contract.test.ts`, ensure the User assertion checks all current identity-access contract/DTO/controller source and fails if it contains exported/current `UserRole`, `role?: UserRole`, or invitation role vocabulary `owner|operator|tenant|platform_admin`.
+In `tests/conformance/erd3/identity.contract.test.ts`, ensure the User assertion checks all current identity-access contract/DTO/controller source and fails if it contains exported/current `UserRole`, `role?: UserRole`, or invitation role vocabulary `owner|operator|tenant|platform_admin`.
 
 - [ ] **Step 2: Run the identity conformance file and verify RED**
 
 Run:
 
 ```bash
-pnpm exec tsx --test tests/conformance/erd3/identity-organization.contract.test.ts
+pnpm exec tsx --test tests/conformance/erd3/identity.contract.test.ts
 ```
 
 Expected: User-role assertion FAILS against the current contract. Organization assertions may still fail for Task 2.
@@ -104,7 +104,7 @@ Remove or rewrite only tests that require the deleted invitation/global-role con
 Run:
 
 ```bash
-pnpm exec tsx --test tests/conformance/erd3/identity-organization.contract.test.ts
+pnpm exec tsx --test tests/conformance/erd3/identity.contract.test.ts
 pnpm typecheck
 ```
 
@@ -113,7 +113,7 @@ Expected: User-role assertion PASS; Organization assertions remain RED until Tas
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/modules/identity-access tests/conformance/erd3/identity-organization.contract.test.ts tests/audit/low-level-architecture
+git add src/modules/identity-access tests/conformance/erd3/identity.contract.test.ts tests/audit/low-level-architecture
 git commit -m "refactor: align identity with ERD3 digital identity"
 ```
 
@@ -164,7 +164,7 @@ Use `OrganizationService` directly.
 Run:
 
 ```bash
-pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/conformance/erd3/identity-organization.contract.test.ts
+pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/conformance/erd3/organization.contract.test.ts
 ```
 
 Expected: FAIL because current Organization lacks primary owner and still owns old status semantics.
@@ -186,7 +186,7 @@ Controller summaries must describe a rental operating workspace, not legal-compa
 Run:
 
 ```bash
-pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/conformance/erd3/identity-organization.contract.test.ts
+pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/conformance/erd3/organization.contract.test.ts
 pnpm typecheck
 ```
 
@@ -195,7 +195,7 @@ Expected: all Identity/Organization conformance assertions PASS; typecheck PASS.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/modules/organization tests/core/organization.behavior.test.ts tests/conformance/erd3/identity-organization.contract.test.ts tests/audit/low-level-architecture
+git add src/modules/organization tests/core/organization.behavior.test.ts tests/conformance/erd3/organization.contract.test.ts tests/audit/low-level-architecture
 git commit -m "refactor: align organization ownership with ERD3"
 ```
 
@@ -516,7 +516,8 @@ pnpm exec tsx --test \
   tests/core/organization.behavior.test.ts \
   tests/core/property.behavior.test.ts \
   tests/core/room.behavior.test.ts \
-  tests/conformance/erd3/identity-organization.contract.test.ts \
+  tests/conformance/erd3/identity.contract.test.ts \
+  tests/conformance/erd3/organization.contract.test.ts \
   tests/conformance/erd3/property-room.lifecycle.test.ts \
   tests/conformance/erd3/future-open-boundary.static.test.ts
 ```

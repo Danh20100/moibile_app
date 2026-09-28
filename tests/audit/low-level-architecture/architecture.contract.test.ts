@@ -47,16 +47,15 @@ describe('architecture contract audit', () => {
     const service = new RoomService();
     const created = await service.create({
       propertyId: 'prop_1',
-      roomNumber: '101',
-      basePrice: 3_500_000,
+      nameOrLabel: '101',
     });
 
-    created.status = 'archived';
+    created.operationalState = 'occupied';
     const reread = await service.findById(created.id);
 
     assert.equal(
-      reread.status,
-      'draft',
+      reread.operationalState,
+      'vacant',
       'A returned object must not be a mutable alias to the module-owned state.',
     );
   });
@@ -130,7 +129,10 @@ describe('architecture contract audit', () => {
     const properties = new PropertyService(organizations);
     const rooms = new RoomService(properties);
     const onboarding = new OnboardingService(properties, rooms);
-    const organization = await organizations.create({ name: 'Organization A' });
+    const organization = await organizations.create({
+      name: 'Organization A',
+      primaryOwnerUserId: 'user_owner_a',
+    });
 
     const batch = await onboarding.validateAndPreview({
       organizationId: organization.id,
@@ -169,7 +171,10 @@ describe('architecture contract audit', () => {
     const properties = new PropertyService(organizations);
     const rooms = new RoomService(properties);
     const onboarding = new OnboardingService(properties, rooms);
-    const organization = await organizations.create({ name: 'Organization B' });
+    const organization = await organizations.create({
+      name: 'Organization B',
+      primaryOwnerUserId: 'user_owner_b',
+    });
     const batch = await onboarding.validateAndPreview({
       organizationId: organization.id,
       propertyName: 'Property B',
@@ -204,7 +209,9 @@ describe('architecture contract audit', () => {
     const createdProperty = await propertiesA.create({
       organizationId: 'org_reference',
       name: 'Isolated Property',
-      address: 'Address',
+      operationalAddressText: 'Address',
+      operationalLocation: { latitude: 21.0, longitude: 105.0 },
+      publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
     });
     await assert.rejects(propertiesB.findById(createdProperty.id), NotFoundException);
 
@@ -212,8 +219,7 @@ describe('architecture contract audit', () => {
     const roomsB = new RoomService();
     const createdRoom = await roomsA.create({
       propertyId: 'prop_reference',
-      roomNumber: 'A-101',
-      basePrice: 3_000_000,
+      nameOrLabel: 'A-101',
     });
     await assert.rejects(roomsB.findById(createdRoom.id), NotFoundException);
   });

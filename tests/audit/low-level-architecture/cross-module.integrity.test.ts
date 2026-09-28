@@ -11,7 +11,6 @@ import { ListingService } from '../../../src/modules/listing/services/listing.se
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
-import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 async function expectRejection(action: () => Promise<unknown>, message: string): Promise<void> {
   let rejected = false;
@@ -38,7 +37,13 @@ describe('cross-module reference integrity audit', () => {
     const service = app.get(PropertyService);
     await expectRejection(
       async () =>
-        service.create({ organizationId: 'org_missing', name: 'Property', address: 'Address' }),
+        service.create({
+          organizationId: 'org_missing',
+          name: 'Property',
+          operationalAddressText: 'Address',
+          operationalLocation: { latitude: 21.0, longitude: 105.0 },
+          publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
+        }),
       'Property must validate its organization scope before accepting the reference.',
     );
   });
@@ -47,7 +52,7 @@ describe('cross-module reference integrity audit', () => {
     const service = app.get(RoomService);
     await expectRejection(
       async () =>
-        service.create({ propertyId: 'prop_missing', roomNumber: 'A-101', basePrice: 3000000 }),
+        service.create({ propertyId: 'prop_missing', nameOrLabel: 'A-101' }),
       'Room must validate its property reference.',
     );
   });
@@ -126,15 +131,6 @@ describe('cross-module reference integrity audit', () => {
           locationSummary: 'District 9',
         }),
       'Listing must validate room/property context before publishing data can exist.',
-    );
-  });
-
-  it('rejects a subscription assignment for a nonexistent organization', async () => {
-    const service = app.get(SubscriptionService);
-    await expectRejection(
-      async () =>
-        service.assignPlan({ organizationId: 'org_missing', plan: 'starter', durationDays: 30 }),
-      'Subscription must validate its organization reference.',
     );
   });
 });

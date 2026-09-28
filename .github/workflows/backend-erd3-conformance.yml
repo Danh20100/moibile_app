@@ -36,8 +36,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Focused Identity and Organization boundary conformance
-        run: pnpm exec tsx --test tests/conformance/erd3/identity-organization.contract.test.ts
+      - name: Focused Identity boundary conformance
+        run: pnpm exec tsx --test tests/conformance/erd3/identity.contract.test.ts
 
       - name: Database validators
         run: python -m unittest discover -s tests/database -p 'test_*.py'

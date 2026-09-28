@@ -7,15 +7,19 @@ import {
 } from '@nestjs/common';
 
 import { PropertyService } from '../../property/services/property.service';
-import { RoomProfile, RoomStatus } from '../contracts';
-import { CreateRoomDto, UpdateRoomDto, UpdateRoomStatusDto } from '../dto';
+import {
+  RoomArchiveBlockers,
+  RoomOperationalState,
+  RoomOperationalTransitionCause,
+  RoomProfile,
+} from '../contracts';
+import { CreateRoomDto, UpdateRoomDto } from '../dto';
 
-const VALID_TRANSITIONS: Record<RoomStatus, RoomStatus[]> = {
-  draft: ['vacant'],
-  vacant: ['occupied', 'maintenance', 'archived'],
-  occupied: ['vacant', 'maintenance'],
-  maintenance: ['vacant'],
-  archived: [],
+const MANUAL_TRANSITIONS: Record<RoomOperationalState, RoomOperationalState[]> = {
+  vacant: ['maintenance', 'inactive'],
+  occupied: [],
+  maintenance: ['vacant', 'inactive'],
+  inactive: ['vacant'],
 };
 
 @Injectable()
@@ -28,7 +32,10 @@ export class RoomService {
 
   async create(dto: CreateRoomDto): Promise<RoomProfile> {
     if (this.propertyService) {
-      await this.propertyService.findById(dto.propertyId);
+      const property = await this.propertyService.findById(dto.propertyId);
+      if (property.lifecycleStatus === 'archived') {
+        throw new BadRequestException('Cannot create Room under an archived Property');
+      }
     }
 
     const id = `room_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -36,16 +43,14 @@ export class RoomService {
     const room: RoomProfile = {
       id,
       propertyId: dto.propertyId,
-      roomNumber: dto.roomNumber,
-      basePrice: dto.basePrice,
-      area: dto.area,
-      maxOccupants: dto.maxOccupants,
-      status: 'draft',
+      nameOrLabel: dto.nameOrLabel,
+      operationalState: 'vacant',
+      recordLifecycle: 'active',
       createdAt: now,
       updatedAt: now,
     };
-    this.rooms.set(id, room);
-    return { ...room };
+    this.rooms.set(id, structuredClone(room));
+    return structuredClone(room);
   }
 
   async findById(id: string): Promise<RoomProfile> {
@@ -53,47 +58,105 @@ export class RoomService {
     if (!room) {
       throw new NotFoundException(`Không tìm thấy room với id: ${id}`);
     }
-    return { ...room };
+    return structuredClone(room);
   }
 
   async findByPropertyId(propertyId?: string): Promise<RoomProfile[]> {
     const all = Array.from(this.rooms.values());
-    if (!propertyId) {
-      return all.map((r) => ({ ...r }));
-    }
-    return all.filter((r) => r.propertyId === propertyId).map((r) => ({ ...r }));
+    const filtered = propertyId ? all.filter((r) => r.propertyId === propertyId) : all;
+    return filtered.map((r) => structuredClone(r));
   }
 
   async update(id: string, dto: UpdateRoomDto): Promise<RoomProfile> {
     const room = await this.findById(id);
     const updated: RoomProfile = {
       ...room,
-      roomNumber: dto.roomNumber ?? room.roomNumber,
-      basePrice: dto.basePrice ?? room.basePrice,
-      area: dto.area ?? room.area,
-      maxOccupants: dto.maxOccupants ?? room.maxOccupants,
+      nameOrLabel: dto.nameOrLabel ?? room.nameOrLabel,
       updatedAt: new Date().toISOString(),
     };
-    this.rooms.set(id, updated);
-    return { ...updated };
+    this.rooms.set(id, structuredClone(updated));
+    return structuredClone(updated);
   }
 
-  async updateStatus(id: string, dto: UpdateRoomStatusDto): Promise<RoomProfile> {
+  async transitionOperationalState(
+    id: string,
+    nextState: RoomOperationalState,
+    cause: RoomOperationalTransitionCause,
+  ): Promise<RoomProfile> {
     const room = await this.findById(id);
-    const allowed = VALID_TRANSITIONS[room.status];
 
-    if (!allowed.includes(dto.status)) {
+    if (room.recordLifecycle === 'archived') {
+      throw new BadRequestException('Archived Room rejects all operational transitions');
+    }
+
+    if (!this.isAllowedTransition(room.operationalState, nextState, cause)) {
       throw new BadRequestException(
-        `Không thể chuyển trạng thái phòng từ '${room.status}' sang '${dto.status}'. Chuyển đổi hợp lệ: [${allowed.join(', ')}]`,
+        `Invalid Room operational transition ${room.operationalState} -> ${nextState} with cause ${cause}`,
       );
+    }
+
+    if (
+      cause === 'manual' &&
+      room.operationalState === 'inactive' &&
+      nextState === 'vacant' &&
+      this.propertyService
+    ) {
+      const property = await this.propertyService.findById(room.propertyId);
+      if (property.lifecycleStatus === 'archived') {
+        throw new BadRequestException(
+          'Cannot reactivate inactive Room to vacant under an archived Property',
+        );
+      }
     }
 
     const updated: RoomProfile = {
       ...room,
-      status: dto.status,
+      operationalState: nextState,
       updatedAt: new Date().toISOString(),
     };
-    this.rooms.set(id, updated);
-    return { ...updated };
+    this.rooms.set(id, structuredClone(updated));
+    return structuredClone(updated);
+  }
+
+  async archive(id: string, blockers: RoomArchiveBlockers): Promise<RoomProfile> {
+    const room = await this.findById(id);
+
+    if (room.recordLifecycle === 'archived') {
+      throw new BadRequestException('Room is already archived');
+    }
+    if (room.operationalState !== 'inactive') {
+      throw new BadRequestException('Room archive requires operationalState=inactive');
+    }
+    if (blockers.hasNonTerminalTenancy) {
+      throw new BadRequestException('Room archive blocked by non-terminal tenancy');
+    }
+    if (blockers.hasOpenIncident) {
+      throw new BadRequestException('Room archive blocked by open incident');
+    }
+
+    const archived: RoomProfile = {
+      ...room,
+      recordLifecycle: 'archived',
+      updatedAt: new Date().toISOString(),
+    };
+    this.rooms.set(id, structuredClone(archived));
+    return structuredClone(archived);
+  }
+
+  private isAllowedTransition(
+    current: RoomOperationalState,
+    next: RoomOperationalState,
+    cause: RoomOperationalTransitionCause,
+  ): boolean {
+    if (cause === 'manual') {
+      return MANUAL_TRANSITIONS[current].includes(next);
+    }
+    if (cause === 'tenancy_activated') {
+      return current === 'vacant' && next === 'occupied';
+    }
+    if (cause === 'checkout_confirmed') {
+      return current === 'occupied' && next === 'vacant';
+    }
+    return false;
   }
 }

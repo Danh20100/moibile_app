@@ -1,6 +1,6 @@
 # billing
 
-> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
 
 ## Purpose
 

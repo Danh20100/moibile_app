@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { RoomProfile } from '../contracts';
-import { CreateRoomDto, UpdateRoomDto, UpdateRoomStatusDto } from '../dto';
+import { CreateRoomDto, UpdateRoomDto, UpdateRoomOperationalStateDto } from '../dto';
 import { RoomService } from '../services/room.service';
 
 @ApiTags('Room')
@@ -11,43 +11,45 @@ export class RoomController {
   constructor(private readonly roomService: RoomService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Tạo phòng mới thuộc property (trạng thái ban đầu là draft)' })
-  @ApiResponse({ status: 201, description: 'Phòng đã được tạo thành công' })
+  @ApiOperation({ summary: 'Tao Room moi (vacant + active)' })
+  @ApiResponse({ status: 201, description: 'Room da duoc tao thanh cong' })
   async create(@Body() dto: CreateRoomDto): Promise<RoomProfile> {
     return this.roomService.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách các phòng (có thể lọc theo propertyId)' })
-  @ApiQuery({ name: 'propertyId', required: false, description: 'Lọc theo Property ID' })
-  @ApiResponse({ status: 200, description: 'Danh sách phòng' })
+  @ApiOperation({ summary: 'Lay danh sach Room (co the loc theo propertyId)' })
+  @ApiQuery({ name: 'propertyId', required: false, description: 'Loc theo Property ID' })
+  @ApiResponse({ status: 200, description: 'Danh sach Room' })
   async findByPropertyId(@Query('propertyId') propertyId?: string): Promise<RoomProfile[]> {
     return this.roomService.findByPropertyId(propertyId);
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Lấy thông tin chi tiết một phòng' })
-  @ApiResponse({ status: 200, description: 'Thông tin phòng' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy phòng' })
+  @ApiOperation({ summary: 'Lay thong tin chi tiet Room' })
+  @ApiResponse({ status: 200, description: 'Thong tin Room' })
+  @ApiResponse({ status: 404, description: 'Khong tim thay Room' })
   async findById(@Param('id') id: string): Promise<RoomProfile> {
     return this.roomService.findById(id);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Cập nhật thông tin phòng (số phòng, giá, diện tích)' })
-  @ApiResponse({ status: 200, description: 'Thông tin phòng đã được cập nhật' })
+  @ApiOperation({ summary: 'Cap nhat nameOrLabel cua Room' })
+  @ApiResponse({ status: 200, description: 'Thong tin Room da duoc cap nhat' })
   async update(@Param('id') id: string, @Body() dto: UpdateRoomDto): Promise<RoomProfile> {
     return this.roomService.update(id, dto);
   }
 
-  @Patch(':id/status')
-  @ApiOperation({ summary: 'Cập nhật trạng thái phòng (tuân theo room lifecycle transition)' })
-  @ApiResponse({ status: 200, description: 'Trạng thái phòng đã được cập nhật' })
-  @ApiResponse({ status: 400, description: 'Chuyển đổi trạng thái không hợp lệ' })
-  async updateStatus(
+  @Patch(':id/operational-state')
+  @ApiOperation({
+    summary: 'Chuyen operational state bang cause=manual (khong cho HTTP gia mao tenancy/checkout)',
+  })
+  @ApiResponse({ status: 200, description: 'Operational state da duoc cap nhat' })
+  @ApiResponse({ status: 400, description: 'Chuyen doi operational state khong hop le' })
+  async updateOperationalState(
     @Param('id') id: string,
-    @Body() dto: UpdateRoomStatusDto,
+    @Body() dto: UpdateRoomOperationalStateDto,
   ): Promise<RoomProfile> {
-    return this.roomService.updateStatus(id, dto);
+    return this.roomService.transitionOperationalState(id, dto.operationalState, 'manual');
   }
 }

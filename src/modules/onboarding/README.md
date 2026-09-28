@@ -1,6 +1,6 @@
 # onboarding
 
-> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
 
 ## Current scope
 
@@ -10,7 +10,7 @@ Manual orchestration that helps create CURRENT Organization/Property/Room data m
 
 CSV/Excel import, bulk-import product scope and import-specific parsing/templates are **FUTURE** under Canonical v3.7.
 
-The existence of pre-ERD3 preview/confirm scaffolding does not promote CSV/Excel import into current core.
+The existence of pre-ERD3 preview/confirm scaffolding does not promote spreadsheet import into the frozen present-core authority.
 
 ## Ownership rule
 

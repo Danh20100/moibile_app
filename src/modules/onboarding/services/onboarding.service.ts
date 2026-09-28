@@ -75,17 +75,16 @@ export class OnboardingService {
     const createdProperty = await this.propertyService.create({
       organizationId: batch.organizationId,
       name: batch.propertyName,
-      address: batch.propertyAddress,
+      operationalAddressText: batch.propertyAddress,
+      operationalLocation: { latitude: 0, longitude: 0 },
+      publicLocationProjection: { latitude: 0, longitude: 0 },
     });
 
     const createdRoomIds: string[] = [];
     for (const r of batch.rooms) {
       const room = await this.roomService.create({
         propertyId: createdProperty.id,
-        roomNumber: r.roomNumber,
-        basePrice: r.basePrice,
-        area: r.area,
-        maxOccupants: r.maxOccupants,
+        nameOrLabel: r.roomNumber,
       });
       createdRoomIds.push(room.id);
     }

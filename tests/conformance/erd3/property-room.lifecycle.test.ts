@@ -16,6 +16,17 @@ test('PROPERTY exposes both operational and public location concepts', () => {
   ]);
   assert.match(source, /operational.*location|operationalLocation/is);
   assert.match(source, /public.*location|publicLocation/is);
+  assert.match(source, /operationalAddressText/);
+  assert.match(source, /publicLocationProjection/);
+});
+
+test('PROPERTY archive blockers are an internal service seam only', () => {
+  const contracts = readRepoFile('src/modules/property/contracts/index.ts');
+  const dto = readRepoFile('src/modules/property/dto/index.ts');
+  const controller = readRepoFile('src/modules/property/controllers/property.controller.ts');
+  assert.match(contracts, /\bPropertyArchiveBlockers\b/);
+  assert.doesNotMatch(dto, /\bPropertyArchiveBlockers\b|\bhasNonTerminalTenancy\b/);
+  assert.doesNotMatch(controller, /\barchive\b|\bPropertyArchiveBlockers\b/);
 });
 
 test('ROOM separates operational state from record lifecycle', () => {
@@ -74,4 +85,20 @@ test('room archive guard requires INACTIVE and blocks nonterminal tenancy or ope
   assert.ok(source.includes('inactive'), 'room archive flow must require INACTIVE');
   assert.ok(source.includes('tenancy'), 'room archive flow must account for non-terminal tenancy');
   assert.ok(source.includes('incident'), 'room archive flow must account for open incident');
+});
+
+test('ROOM operational transitions are cause-aware', () => {
+  const source = readRepoFile('src/modules/room/services/room.service.ts');
+  assert.match(source, /tenancy_activated/);
+  assert.match(source, /checkout_confirmed/);
+  assert.match(source, /transitionOperationalState/);
+});
+
+test('ROOM HTTP surface uses manual operational-state route only', () => {
+  const controller = readRepoFile('src/modules/room/controllers/room.controller.ts');
+  const dto = readRepoFile('src/modules/room/dto/index.ts');
+  assert.match(controller, /operational-state/);
+  assert.match(controller, /'manual'/);
+  assert.doesNotMatch(controller, /:id\/status/);
+  assert.doesNotMatch(dto, /tenancy_activated|checkout_confirmed/);
 });

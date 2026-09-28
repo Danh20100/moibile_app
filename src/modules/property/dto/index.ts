@@ -1,72 +1,79 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
-import type { PropertyStatus } from '../contracts';
+export class GeoPointDto {
+  @ApiProperty({ description: 'Latitude', example: 21.0285, minimum: -90, maximum: 90 })
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number;
+
+  @ApiProperty({ description: 'Longitude', example: 105.8542, minimum: -180, maximum: 180 })
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number;
+}
 
 export class CreatePropertyDto {
-  @ApiProperty({ description: 'ID của organization sở hữu tài sản', example: 'org_12345' })
+  @ApiProperty({ description: 'ID of owning Organization workspace', example: 'org_12345' })
   @IsString()
   @IsNotEmpty()
   organizationId!: string;
 
-  @ApiProperty({ description: 'Tên khu trọ / tài sản', example: 'Nhà trọ 12 ngõ 80 Cầu Giấy' })
+  @ApiProperty({ description: 'Property / khu tro name', example: 'Nha tro 12 ngo 80 Cau Giay' })
   @IsString()
   @IsNotEmpty()
   name!: string;
 
-  @ApiProperty({ description: 'Địa chỉ cụ thể', example: 'Số 12, Ngõ 80 Đường Cầu Giấy' })
+  @ApiProperty({
+    description: 'Operational address text',
+    example: 'So 12, Ngo 80 Duong Cau Giay',
+  })
   @IsString()
   @IsNotEmpty()
-  address!: string;
+  operationalAddressText!: string;
 
-  @ApiPropertyOptional({ description: 'Phường / Xã', example: 'Dịch Vọng' })
-  @IsOptional()
-  @IsString()
-  ward?: string;
+  @ApiProperty({ description: 'Operational geospatial point', type: GeoPointDto })
+  @ValidateNested()
+  @Type(() => GeoPointDto)
+  operationalLocation!: GeoPointDto;
 
-  @ApiPropertyOptional({ description: 'Quận / Huyện', example: 'Cầu Giấy' })
-  @IsOptional()
-  @IsString()
-  district?: string;
-
-  @ApiPropertyOptional({ description: 'Tỉnh / Thành phố', example: 'Hà Nội' })
-  @IsOptional()
-  @IsString()
-  city?: string;
+  @ApiProperty({ description: 'Public location projection', type: GeoPointDto })
+  @ValidateNested()
+  @Type(() => GeoPointDto)
+  publicLocationProjection!: GeoPointDto;
 }
 
 export class UpdatePropertyDto {
-  @ApiPropertyOptional({ description: 'Tên khu trọ', example: 'Nhà trọ Cầu Giấy Cơ sở 1' })
+  @ApiPropertyOptional({ description: 'Property / khu tro name' })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Địa chỉ' })
+  @ApiPropertyOptional({ description: 'Operational address text' })
   @IsOptional()
   @IsString()
-  address?: string;
+  operationalAddressText?: string;
 
-  @ApiPropertyOptional({ description: 'Phường / Xã' })
+  @ApiPropertyOptional({ description: 'Operational geospatial point', type: GeoPointDto })
   @IsOptional()
-  @IsString()
-  ward?: string;
+  @ValidateNested()
+  @Type(() => GeoPointDto)
+  operationalLocation?: GeoPointDto;
 
-  @ApiPropertyOptional({ description: 'Quận / Huyện' })
+  @ApiPropertyOptional({ description: 'Public location projection', type: GeoPointDto })
   @IsOptional()
-  @IsString()
-  district?: string;
-
-  @ApiPropertyOptional({ description: 'Tỉnh / Thành phố' })
-  @IsOptional()
-  @IsString()
-  city?: string;
-
-  @ApiPropertyOptional({
-    description: 'Trạng thái tài sản',
-    enum: ['active', 'archived'],
-    example: 'active',
-  })
-  @IsOptional()
-  @IsIn(['active', 'archived'])
-  status?: PropertyStatus;
+  @ValidateNested()
+  @Type(() => GeoPointDto)
+  publicLocationProjection?: GeoPointDto;
 }
