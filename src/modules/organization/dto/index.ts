@@ -26,5 +26,6 @@ export class UpdateOrganizationDto {
   })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   name?: string;
 }

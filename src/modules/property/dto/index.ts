@@ -58,11 +58,13 @@ export class UpdatePropertyDto {
   @ApiPropertyOptional({ description: 'Property / khu tro name' })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   name?: string;
 
   @ApiPropertyOptional({ description: 'Operational address text' })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   operationalAddressText?: string;
 
   @ApiPropertyOptional({ description: 'Operational geospatial point', type: GeoPointDto })

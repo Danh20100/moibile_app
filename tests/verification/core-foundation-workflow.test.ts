@@ -41,6 +41,22 @@ test('Core Foundation hard gates exist and cannot be tolerated failures', () => 
   }
 });
 
+test('Core Foundation hard gate script covers every completed core boundary', () => {
+  const script: string = JSON.parse(readRepoFile('package.json')).scripts['test:core-foundation'];
+  for (const file of [
+    'tests/core/organization.behavior.test.ts',
+    'tests/core/property.behavior.test.ts',
+    'tests/core/room.behavior.test.ts',
+    'tests/conformance/erd3/identity.contract.test.ts',
+    'tests/conformance/erd3/organization.contract.test.ts',
+    'tests/conformance/erd3/property-room.lifecycle.test.ts',
+    'tests/conformance/erd3/future-open-boundary.static.test.ts',
+    'tests/core/dto-boundary.validation.test.ts',
+  ]) {
+    assert.ok(script.split(/\s+/).includes(file), `test:core-foundation must run ${file}`);
+  }
+});
+
 test('hard gates run before any baseline-classified suite', () => {
   const firstBaselined = indexOfStep((s) => /test:domain-contract:junit/.test(s.body), 'domain-contract JUnit run');
   for (const [label, pattern] of HARD_GATES) {

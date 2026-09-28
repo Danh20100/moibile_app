@@ -17,6 +17,7 @@ export class UpdateRoomDto {
   @ApiPropertyOptional({ description: 'Room name or label', example: 'Phong 201' })
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   nameOrLabel?: string;
 }
 
