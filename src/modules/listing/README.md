@@ -1,93 +1,24 @@
-# Listing
+# listing
 
-Folder `listing` chứa các chức năng liên quan đến **tin đăng phòng và discovery/map** trong TrọƠi.
+> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and current code.
 
-## Folder này dùng để làm gì?
+## Purpose
 
-Folder này quản lý cách một room được đưa ra bên ngoài để người thuê có thể tìm và xem thông tin.
+Listing is the public discovery projection of a Room. It is not the operational Room record and must not duplicate Property ownership as a second source of truth.
 
-Nó chịu trách nhiệm cho:
+## Current ERD3 lifecycle
 
-- listing profile;
-- nội dung public của tin đăng;
-- giá thuê, cọc và phụ phí được publish;
-- media references;
-- location dùng cho discovery/map;
-- trạng thái publish của listing.
+`DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`
 
-```mermaid
-flowchart LR
-    Room["room"] --> Listing["Listing"]
-    Property["property"] --> Location["Location"]
-    Location --> Listing
-    Listing --> Discovery["Discovery / Map"]
-```
+## Invariants
 
-## Chức năng chính
+- publishing requires a `VACANT`, active Room under an active Property;
+- a Room has at most one current/non-archived Listing;
+- when Room leaves `VACANT`, the current Listing is synchronously unpublished;
+- Room archive archives related Listings;
+- status transitions append first-class ListingStatusEvent history;
+- Property is derived through Room ownership rather than duplicated as independent Listing ownership.
 
-### Listing Content
+## Known pre-ERD3 code drift
 
-Quản lý nội dung được phép hiển thị public như:
-
-- tiêu đề/mô tả;
-- giá thuê;
-- cọc;
-- phụ phí;
-- media;
-- vị trí;
-- trạng thái còn trống hay không.
-
-### Listing Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Draft
-    Draft --> Published
-    Published --> Hidden
-    Hidden --> Published
-    Published --> Rented
-    Rented --> [*]
-```
-
-Listing state không phải room state.
-
-### Map / Discovery
-
-```mermaid
-flowchart LR
-    Property["Property Location"] --> Listing["Listing"] --> Map["Map"]
-    Listing --> Search["Discovery"]
-```
-
-Map/discovery sử dụng dữ liệu vị trí của property/listing nhưng không sở hữu hồ sơ vận hành nội bộ của room.
-
-## Quan hệ với các module khác
-
-```mermaid
-flowchart LR
-    Property["property"] --> Listing["listing"]
-    Room["room"] --> Listing
-    Listing --> Audit["audit-trust"]
-```
-
-- `property`: cung cấp location nền;
-- `room`: resource được publish;
-- `audit-trust`: lưu vết thay đổi quan trọng khi cần.
-
-## Không thuộc folder này
-
-- room operational history;
-- tenancy lifecycle;
-- billing và receipt;
-- incident;
-- marketplace dịch vụ;
-- logic vận hành sau khi tenant đã vào ở.
-
-## Tóm tắt
-
-```mermaid
-flowchart LR
-    Room["Room"] --> Listing["Listing"] --> Publish["Publish"] --> Discovery["Search / Map"]
-```
-
-`listing` tập trung vào: **room public information → publish lifecycle → discovery/map**.
+Current code uses `hidden` / `rented`, stores `propertyId` beside `roomId`, checks only record existence during publish, and has no ListingStatusEvent or synchronous vacancy-unpublish workflow.

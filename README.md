@@ -1,41 +1,49 @@
 # TrọƠi
 
-TrọƠi là **sổ vận hành thuê trọ theo từng phòng/tài sản** dành cho chủ nhà, chủ trọ và người vận hành. Lõi sản phẩm nằm ở giai đoạn sau khi phòng được đưa vào vận hành: ghi nhận người thuê ở mức cần thiết, giá thuê, tiền cọc, phụ phí, công nợ, biên nhận hoặc bản ghi thanh toán, sự cố và lịch sử xử lý. TrọƠi không được định vị chủ yếu như một ứng dụng tìm phòng hay marketplace.
+TrọƠi is a rental-lifecycle platform whose backend source of truth is the frozen Canonical v3.7 / ERD3 model. Product prose, module documentation, DTOs, services and tests are implementation layers below that authority.
 
-## Product Orientation
+## Domain authority
 
-- **Core:** hồ sơ vận hành theo phòng/tài sản và các workflow sau thuê.
-- **Primary payer (landlord/owner):** chủ nhà, chủ trọ hoặc bên chịu chi phí vận hành.
-- **Operator:** người trực tiếp vận hành hằng ngày; có thể là chủ trọ, người thân, quản lý khu trọ hoặc nhân viên vận hành.
-- **Secondary user (tenant):** người thuê tham gia xem thông tin được phép, đối chiếu biên nhận và báo sự cố; không phải nguồn thu chính của MVP.
-- **Future layer:** mạng lưới đối tác dịch vụ vận hành có kiểm soát ở Phase 2 trở đi.
+Read in this order before changing backend domain behavior:
 
-Listing, discovery và map có thể tồn tại như bề mặt hỗ trợ cho hành trình thuê, nhưng **không phải lõi định vị của TrọƠi**.
+1. `docs/database/canonical-v3.7.md`
+2. `docs/database/erd/README.md`
+3. `docs/database/erd/trooi-erd-lv1-conceptual.json`
+4. `docs/database/erd/trooi-erd-lv2-logical.json`
+5. `docs/database/erd/trooi-erd-lv3-physical.json`
+6. `docs/database/schema/trooi-schema-lv3.sql`
+7. `docs/PROJECT_CONTEXT.md`
+8. `docs/USE_CASES.md`
+9. `docs/SYSTEM_CONTEXT.md`
+10. target module `README.md` / `ARCHITECTURE.md`
+11. implementation and tests
 
-## Backend Documentation Model
+If a lower-level document or implementation conflicts with a frozen invariant, the lower-level artifact is wrong and must change. ERD3 is not weakened to preserve pre-freeze behavior.
 
-Tài liệu backend được chia thành hai tầng:
+## Current domain shape
 
-1. **Project-level context** giải thích TrọƠi là gì, use case nào quan trọng và các bounded context phối hợp ra sao.
-2. **Module-level documentation** giải thích ownership, lifecycle, invariant và boundary của từng module.
+The CURRENT backend model distinguishes identity, workspace, property/room state, discovery, tenancy, financial obligations, actual money inflow, deposit handling, incidents and trust history.
 
-Một implementation chỉ được xem là phù hợp khi đúng cả hai tầng.
+Key ownership boundaries:
 
-## Reading Order for Humans and Agents
+- `USER` is digital identity. There is no global landlord/tenant/operator role.
+- `ORGANIZATION` is the rental operating workspace and has one primary owner reference in the MVP model.
+- `PROPERTY` and `ROOM` own operational asset identity and lifecycle.
+- `LISTING` is a discovery projection, not the operational room record.
+- `TENANCY`, `TENANCY_PARTICIPANT` and versioned `TENANCY_TERMS` are distinct concepts.
+- `BILLING_CYCLE` / `CHARGE` represent receivable obligations.
+- `PAYMENT` represents actual money inflow.
+- `RECEIPT` is evidence issued from an eligible confirmed Payment; it is not the Payment record.
+- `DEPOSIT` owns deposit fulfillment/holding/settlement facts.
+- `INCIDENT` owns the problem lifecycle and `INCIDENT_EVENT` is append-only history.
+- `TRUST_REPORT` targets Listing or Review and does not become a public rating mechanism.
 
-Đọc theo thứ tự sau trước khi sửa hoặc thêm implementation:
+## Scope discipline
 
-1. `README.md`
-2. [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md)
-3. [`docs/USE_CASES.md`](docs/USE_CASES.md)
-4. [`docs/SYSTEM_CONTEXT.md`](docs/SYSTEM_CONTEXT.md)
-5. `src/modules/<target-module>/README.md`
-6. `src/modules/<target-module>/ARCHITECTURE.md`
-7. tài liệu của các module liên quan trong use case đang triển khai
-8. implementation hiện có
+Canonical items marked `[OPEN]` remain unresolved until the authority itself resolves them. Implementation must not silently choose a policy through DTO defaults, guards, migrations or convenience constants.
 
-Các module hiện tại nằm trong [`src/modules/`](src/modules/).
+Canonical items marked `[FUTURE]` are not current-core requirements. In particular, Subscription/Pricing/Quota and CSV/Excel import are FUTURE even if pre-ERD3 scaffolding still exists in the repository.
 
-## Current Backend Direction
+## Backend direction
 
-Backend ưu tiên **Contract-first + persistence-agnostic business flows**: business flow, ownership và boundary được xác định trước persistence hoặc infrastructure cụ thể. Dữ liệu chưa có nguồn có thẩm quyền thì vẫn được coi là chưa biết; không tạo placeholder chỉ để làm flow trông hoàn chỉnh.
+The rework is contract-first and PostgreSQL/PostGIS-targeted. Runtime persistence and migrations are intentionally deferred until domain contracts converge with the frozen physical model. The current post-ERD3 reconciliation design is documented at `docs/superpowers/specs/2026-09-28-erd3-backend-reconciliation-design.md`.

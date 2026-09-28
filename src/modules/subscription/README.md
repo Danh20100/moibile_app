@@ -1,103 +1,17 @@
-# Subscription
+# subscription
 
-Folder `subscription` chứa các chức năng liên quan đến **gói sử dụng TrọƠi và quyền tính năng theo subscription**.
+> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and current code.
 
-## Folder này dùng để làm gì?
+## Scope classification
 
-Folder này xác định organization đang sử dụng gói nào và được phép dùng những capability nào của sản phẩm.
+Subscription / Pricing / Quota is **FUTURE**, not CURRENT core authority.
 
-Nó chịu trách nhiệm cho:
+The existing Nest module is pre-ERD3 scaffolding. Its presence in the repository must not be interpreted as a frozen current requirement or as justification to gate current domain behavior behind plan entitlements.
 
-- plan reference;
-- subscription lifecycle ở mức sản phẩm;
-- feature entitlements;
-- usage/limit metadata khi cần;
-- kiểm tra quyền dùng feature theo subscription.
+## Current rule
 
-```mermaid
-flowchart LR
-    Org["organization"] --> Subscription["Subscription"]
-    Subscription --> Plan["Plan"]
-    Plan --> Entitlements["Entitlements"]
-    Entitlements --> Features["Product Features"]
-```
+No ERD3 CURRENT invariant depends on subscription state. Do not add schema, migrations, guards or domain defaults that promote this module into current core without an authority update.
 
-## Chức năng chính
+## Rebuild note
 
-### Plan
-
-Plan mô tả tập entitlement mà một organization có thể sử dụng.
-
-```mermaid
-flowchart TD
-    Plan["Plan"]
-    Plan --> E1["Room limits"]
-    Plan --> E2["Tenant features"]
-    Plan --> E3["Dashboard / Export"]
-    Plan --> E4["Manager / Multi-location features"]
-```
-
-Tên gói và pricing thương mại có thể thay đổi; module tập trung vào capability thay vì rải logic theo tên gói.
-
-### Subscription Lifecycle
-
-Subscription liên kết organization với plan đang sử dụng và trạng thái sử dụng hiện tại.
-
-```mermaid
-flowchart LR
-    Organization["Organization"] --> Subscription["Subscription"] --> Plan["Plan"]
-```
-
-### Entitlement Check
-
-Các module khác có thể kiểm tra một capability trước khi thực hiện feature có giới hạn theo gói.
-
-```mermaid
-flowchart LR
-    Module["Feature Module"] --> Check["Entitlement Check"] --> Subscription["subscription"]
-    Subscription --> Allow["Allow"]
-    Subscription --> Deny["Deny"]
-```
-
-Ví dụ capability có thể gồm:
-
-```text
-TENANT_LAYER
-MULTI_PROPERTY
-DATA_EXPORT
-ADVANCED_DASHBOARD
-MANAGER_ACCESS
-```
-
-Tên entitlement cuối cùng sẽ được chốt khi feature packaging được triển khai.
-
-## Quan hệ với các module khác
-
-```mermaid
-flowchart LR
-    Org["organization"] --> Subscription["subscription"]
-    IA["identity-access"] --> Subscription
-    Subscription --> Room["room"]
-    Subscription --> Listing["listing"]
-    Subscription --> Onboarding["onboarding"]
-```
-
-`subscription` cung cấp entitlement; module nghiệp vụ vẫn sở hữu business logic của feature tương ứng.
-
-## Không thuộc folder này
-
-- tiền thuê giữa landlord và tenant;
-- billing cycle của room;
-- receipt;
-- payment gateway;
-- settlement ngân hàng;
-- business logic của room, tenancy, incident hoặc listing.
-
-## Tóm tắt
-
-```mermaid
-flowchart LR
-    Organization["Organization"] --> Subscription["Subscription"] --> Entitlement["Entitlements"] --> Feature["Feature Access"]
-```
-
-`subscription` tập trung vào: **organization → subscription → plan → entitlement → feature access**.
+During reconciliation this module may be removed from the active AppModule surface or isolated as future scaffolding. Backward compatibility for its unpublished pre-ERD3 API is not required.
