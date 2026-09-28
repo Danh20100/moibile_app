@@ -7,7 +7,7 @@
 **Baseline HEAD:** `a7f49cd7e611066abdb1d43d39cd9d8cb2cd8626`  
 **Authority:** `docs/database/canonical-v3.7.md` → reviewed/frozen ERD LV1 → ERD LV2 → ERD LV3 → validated PostgreSQL/PostGIS reference DDL  
 **Parent reconciliation design:** `docs/superpowers/specs/2026-09-28-erd3-backend-reconciliation-design.md`  
-**Predecessor handoff:** Core H0–H6 freeze recorded by `docs/audits/2026-09-28-erd3-conformance-red-baseline.md`
+**Predecessor evidence:** Core H0–H6 freeze recorded by `docs/audits/2026-09-28-erd3-conformance-red-baseline.md`
 
 ## 1. Purpose
 
@@ -34,24 +34,27 @@ Wave B is complete only when all of the following are true:
 
 1. Listing lifecycle is exactly `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED` and old `hidden` / `rented` semantics are gone.
 2. Listing references Room as its authoritative operational parent; it does not duplicate `propertyId` as ownership truth.
-3. Listing publish validates VACANT active Room under active Property.
-4. Room leaving VACANT synchronously unpublishes a current PUBLISHED Listing.
-5. A Room has at most one current non-archived Listing.
-6. Listing lifecycle transitions append first-class `ListingStatusEvent` history.
-7. Inquiry remains a separate discovery/contact bridge and is not a prerequisite for Tenancy.
-8. Tenancy lifecycle is exactly `DRAFT | ACTIVE | ENDING | ENDED | CANCELLED` with the frozen transition graph.
-9. A Room has at most one non-terminal Tenancy, where non-terminal is `DRAFT | ACTIVE | ENDING`.
-10. A Room with an `ENDING` Tenancy cannot receive a next DRAFT Tenancy in MVP.
-11. `TenancyParticipant` is distinct from User and may exist without a linked User.
-12. Activation requires exactly one active PRIMARY participant.
-13. `TenancyTerms` is first-class and versioned; old embedded mutable terms are removed.
-14. `TermsAcknowledgement` points to one Terms version and satisfies the frozen same-Tenancy / linked-user consistency rule.
-15. `TenancyNotice` records communication without creating legal-effect semantics.
-16. Confirmed checkout performs `ENDING → ENDED` and Room `OCCUPIED → VACANT` as one cross-domain command boundary.
-17. Checkout does not automatically republish a Listing.
-18. Listing and Tenancy conformance tests are GREEN; remaining expected RED is limited to named later waves.
-19. No `[OPEN]` policy is silently resolved.
-20. No Wave C/D/E/persistence capability is pulled into Wave B for convenience.
+3. Listing creation is rejected for an archived Room or a Room under an archived Property.
+4. Listing publish validates VACANT active Room under active Property.
+5. Room leaving VACANT synchronously unpublishes a current PUBLISHED Listing.
+6. All public Room commands that can leave VACANT pass through the Wave B cross-domain orchestration boundary; no client path may bypass synchronous Listing invalidation.
+7. A Room has at most one current non-archived Listing.
+8. Listing lifecycle transitions append first-class `ListingStatusEvent` history.
+9. Inquiry remains a separate discovery/contact bridge and is not a prerequisite for Tenancy.
+10. Tenancy lifecycle is exactly `DRAFT | ACTIVE | ENDING | ENDED | CANCELLED` with the frozen transition graph.
+11. Tenancy creation is rejected for an archived Room or a Room under an archived Property.
+12. A Room has at most one non-terminal Tenancy, where non-terminal is `DRAFT | ACTIVE | ENDING`.
+13. A Room with an `ENDING` Tenancy cannot receive a next DRAFT Tenancy in MVP.
+14. `TenancyParticipant` is distinct from User and may exist without a linked User.
+15. Activation requires exactly one active PRIMARY participant.
+16. `TenancyTerms` is first-class and versioned; old embedded mutable terms are removed.
+17. `TermsAcknowledgement` points to one Terms version and satisfies the frozen same-Tenancy / linked-user consistency rule.
+18. `TenancyNotice` records communication without creating legal-effect semantics.
+19. Confirmed checkout performs `ENDING → ENDED` and Room `OCCUPIED → VACANT` as one cross-domain command boundary.
+20. Checkout does not automatically republish a Listing.
+21. Listing and Tenancy conformance tests are GREEN; remaining expected RED is limited to named later waves.
+22. No `[OPEN]` policy is silently resolved.
+23. No Wave C/D/E/persistence capability is pulled into Wave B for convenience.
 
 ## 3. Current Baseline
 
@@ -103,6 +106,8 @@ Room-leaves-VACANT → Listing unpublish coordination
 
 It may update module contracts, DTOs, services, controllers, Nest module wiring, focused behavior tests, ERD3 conformance tests, module docs, and the conformance audit where required by observed runtime evidence.
 
+It may modify the Room controller/module wiring only where required to ensure public Room commands that leave `VACANT` cannot bypass Listing invalidation. Room's already-frozen local FSM remains owned by the core H6 boundary and must not be redesigned.
+
 ### 4.2 OUT
 
 Wave B does not implement or redesign:
@@ -135,8 +140,10 @@ Wave B also does not change frozen database ownership, cardinality, checks, inde
 - USER remains digital identity only. Do not introduce a global landlord / tenant role.
 - Listing is discovery projection; Room is operational truth.
 - Listing owns no second authoritative Property relationship.
+- Archived Property blocks creation/publish of Listing and creation of Tenancy beneath its Rooms.
+- Archived Room blocks new Listing and new Tenancy creation.
 - Search/Map room/property type owner and vocabulary remains `[OPEN]`; Wave B must not define it.
-- Inquiry `status` has no frozen closed vocabulary in the current physical contract. Wave B must not invent a closed lifecycle for it.
+- Inquiry `status` has no frozen closed vocabulary in the current logical/physical contract. Wave B must not invent a closed lifecycle for it.
 - Listing status-event `actor_type`, `trigger`, and extensible reason-code details must not be promoted to a new closed vocabulary unless already frozen by authority.
 - Tenancy participant replacement policy must preserve history; Wave B must not invent destructive PRIMARY replacement semantics.
 - Notice acknowledgement means view/acknowledge only; it is not legal-effect confirmation.
@@ -184,6 +191,10 @@ Public price is monetary data. The Wave B contract must avoid introducing floati
 
 `publicLocationProjection` is the public-safe projection. Exact Property operational location must not leak into Listing public APIs.
 
+A new Listing may be created only for a Room whose record lifecycle is active and whose parent Property is active. Creation does **not** additionally require the Room to be VACANT; vacancy is a publish-time requirement. This avoids inventing a stronger creation rule than the frozen authority.
+
+A current non-archived Listing may have its public content edited without creating a parallel Listing. `ARCHIVED` remains terminal and is not reopened through content update.
+
 ### 6.2 Listing Publish Eligibility
 
 A publish command succeeds only when:
@@ -193,8 +204,11 @@ Listing is DRAFT or UNPUBLISHED
 Room.recordLifecycle = ACTIVE
 Room.operationalState = VACANT
 Property.lifecycleStatus = ACTIVE
-Listing required public projection fields are valid
+Listing required physical fields are present
+publicPriceProjection >= 0
 ```
+
+Wave B does not invent additional content-moderation or non-empty-text policy beyond the frozen/current validation authority.
 
 On success:
 
@@ -250,6 +264,8 @@ MODERATION
 
 They may be used where applicable, but Wave B does not assert that this list is a permanently closed enum because the authority explicitly leaves reason-code expansion below the conceptual layer.
 
+`actorType` and `trigger` remain opaque text at this wave unless an already-frozen lower-level authority supplies exact values. DTOs/tests must not advertise a newly invented closed enum.
+
 ### 6.5 Inquiry
 
 Inquiry is a contact bridge from a Listing toward a possible rental relationship.
@@ -275,7 +291,7 @@ Inquiry is never required to create Tenancy
 
 Wave B does not turn Inquiry into booking, reservation, viewing appointment, realtime chat, hold, or future-tenancy reservation.
 
-Because the frozen authority does not define a closed Inquiry status vocabulary, Wave B must not invent one. It may preserve `status` as an opaque field only to the extent needed by the frozen entity shape; no new status FSM is created in this wave.
+Because the frozen authority does not define a closed Inquiry status vocabulary, Wave B must not invent one. The domain/DTO may carry `status` as opaque text because the frozen entity requires the field, but Wave B adds no status FSM, default status meaning, or enum documentation that would silently create policy.
 
 ### 6.6 Tenancy
 
@@ -314,7 +330,11 @@ endReason?
 
 The old `tenantId` and embedded `terms` fields are removed from Tenancy itself.
 
-End reason is only recorded on confirmed completion of the ending workflow and uses the frozen neutral vocabulary:
+A new DRAFT Tenancy may be created only for a Room whose record lifecycle is active and whose parent Property is active, with no other non-terminal Tenancy for that Room. Wave B does not add a stronger operational-state creation rule beyond the frozen authority; Room vacancy is revalidated for activation.
+
+`startedAt` remains an optional lifecycle timestamp in the frozen shape. Wave B must not claim a new product policy for its exact timing beyond preserving a coherent transition history. The implementation plan may set it on first activation as an implementation convention only if tests/docs label that convention below frozen business semantics.
+
+End reason is recorded on confirmed completion of the ending workflow and uses the frozen neutral vocabulary:
 
 ```text
 TERM_ENDED
@@ -338,7 +358,7 @@ ENDING
 
 Historical `ENDED` / `CANCELLED` Tenancies are unlimited over time.
 
-Creation of a new DRAFT is rejected while any non-terminal Tenancy exists, including `ENDING`.
+Creation of a new DRAFT is rejected while any **other** non-terminal Tenancy exists, including `ENDING`.
 
 Inquiry remains the mechanism for pre-rental interest while a Room is still occupied / ending. Wave B does not add pre-leasing semantics.
 
@@ -403,6 +423,8 @@ old versions are immutable historical facts
 new terms create a new version; they do not overwrite prior versions
 ```
 
+The authority does not require version numbers to be contiguous; Wave B must not invent that constraint.
+
 The JSON rule/arrangement fields stay opaque unless their internal vocabulary is already frozen elsewhere. Wave B does not invent pricing-rule schemas.
 
 Financial changes requested during an active billing period become effective at the next cycle boundary. Wave B stores provenance/effective boundary only; Wave C owns BillingCycle application.
@@ -431,6 +453,8 @@ A participant without a linked User cannot create a User-backed acknowledgement 
 
 Acknowledgement is version-specific. There is no tenancy-level `termsAccepted = true` shortcut.
 
+Wave B does not invent an additional one-acknowledgement-per-participant/version uniqueness rule because the frozen physical contract does not define one.
+
 ### 6.11 TenancyNotice
 
 Frozen physical facts:
@@ -450,7 +474,7 @@ The acknowledgement pair is all-or-none.
 
 Notice records communication such as move-out / non-renewal / ending reminders. Wave B does not claim legal validity or adjudication.
 
-The Canonical does not freeze a closed `noticeType` vocabulary here, so Wave B must not invent one as a domain authority decision.
+The Canonical does not freeze a closed `noticeType` vocabulary here, so Wave B must not invent one as a domain authority decision. The DTO may carry opaque text but must not advertise a closed enum or default legal meaning.
 
 ## 7. Cross-Domain Orchestration
 
@@ -481,6 +505,7 @@ load Property through Room
 validate Listing transition
 validate Room VACANT + ACTIVE
 validate Property ACTIVE
+validate only frozen/physical Listing requirements
 publish Listing
 append ListingStatusEvent
 ```
@@ -511,6 +536,8 @@ then transition Room
 
 The implementation must avoid a state in which the command reports success while Room is non-VACANT and Listing remains PUBLISHED.
 
+All **public** Room operations that can leave `VACANT` must invoke the coordinator. `RoomService.transitionOperationalState()` may remain an internal local-FSM primitive, but controllers and other public application paths must not call it in a way that bypasses Listing invalidation.
+
 In the in-memory Wave B scaffold, this is proved by deterministic command tests and prevalidation; production atomicity/locking remains the persistence lane responsibility.
 
 ### 7.4 Tenancy Activation
@@ -522,7 +549,7 @@ Tenancy = DRAFT
 Room operationalState = VACANT
 Room recordLifecycle = ACTIVE
 Property lifecycleStatus = ACTIVE
-no competing non-terminal Tenancy for the Room
+no other non-terminal Tenancy for the Room
 exactly one active PRIMARY participant
 ```
 
@@ -532,9 +559,10 @@ Activation then causes:
 current PUBLISHED Listing → UNPUBLISHED, if present
 append ListingStatusEvent(reason = ROOM_OCCUPIED)
 Tenancy DRAFT → ACTIVE
-startedAt recorded
 Room VACANT → OCCUPIED with cause tenancy_activated
 ```
+
+If the implementation records `startedAt` on first activation, that remains an implementation convention below the frozen lifecycle meaning and must not be treated as a new owner policy.
 
 This is one application command boundary. Wave B must not expose a client route that can set Room to OCCUPIED independently.
 
@@ -565,7 +593,7 @@ Then, as one application command boundary:
 
 ```text
 Tenancy ENDING → ENDED
-endedAt recorded
+endedAt recorded as checkout history timestamp
 endReason recorded
 Room OCCUPIED → VACANT with cause checkout_confirmed
 ```
@@ -641,7 +669,7 @@ invalid frozen vocabulary value
 
 Error messages may be implementation-facing and do not become domain authority.
 
-No error path may partially mutate an in-memory multi-entity command after a later validation fails. Cross-domain commands must validate all known preconditions before the first mutation. Where a later unexpected runtime failure could still cause partial state in the in-memory scaffold, tests/documentation must not claim database-grade atomicity; Task 17/persistence transactions are the final guarantee.
+No error path may partially mutate an in-memory multi-entity command after a known precondition fails. Cross-domain commands must validate all known preconditions before the first mutation. Where a later unexpected runtime failure could still cause partial state in the in-memory scaffold, tests/documentation must not claim database-grade atomicity; Task 17/persistence transactions are the final guarantee.
 
 ## 11. Testing Strategy
 
@@ -653,20 +681,23 @@ Add runtime behavior coverage for:
 
 ```text
 Listing lifecycle
+Listing create ancestor guards
 single-current-Listing guard
 publish eligibility
 ListingStatusEvent append-only history
-Inquiry independence
+Inquiry independence and opaque status boundary
 Tenancy FSM
+Tenancy create ancestor guard
 one-non-terminal-Tenancy guard
 Participant PRIMARY/OCCUPANT rules
 Terms versioning / immutability
 TermsAcknowledgement consistency
 Notice acknowledgement pair
 activation → Listing unpublish + Room OCCUPIED
-Room leaves VACANT → Listing UNPUBLISHED
+manual Room leaves VACANT → Listing UNPUBLISHED
 checkout → Tenancy ENDED + Room VACANT
 no auto-republish on checkout
+public Room paths cannot bypass coordinator
 ```
 
 ### Existing ERD3 conformance files
@@ -776,7 +807,7 @@ Execution must STOP and escalate instead of inventing behavior if it encounters:
 - conflict among Canonical, frozen ERDs, validated SQL, and approved Wave B spec;
 - a request to define Search/Map room/property type ownership or vocabulary;
 - a request to add viewing appointment, booking, reservation, future Draft Tenancy, or hold semantics;
-- need to define a closed Inquiry status vocabulary not present in authority;
+- a requirement for a closed/default Inquiry status policy not already frozen by authority;
 - need to define a new closed ListingStatusEvent actor/trigger vocabulary not present in authority;
 - need to define legal validity/effect for TenancyNotice;
 - need to select a participant replacement policy beyond preserving history and the one-active-PRIMARY invariant;
@@ -808,8 +839,10 @@ The database application-wiring gate remains blocked until the required backend 
 - Listing and Tenancy old contracts are replaced, not adapted.
 - Cross-domain causality is explicit and command-driven.
 - A narrow orchestration seam coordinates Listing / Room / Tenancy instead of introducing bidirectional service ownership.
+- Public Room commands that leave VACANT must route through the orchestration seam.
+- Listing/Tenancy creation respects archived ancestor guards without inventing extra operational-state creation rules.
 - Checkout never auto-republishes Listing.
-- Inquiry remains independent of Tenancy creation and receives no invented booking semantics.
+- Inquiry remains independent of Tenancy creation and receives no invented booking/status lifecycle semantics.
 - Opaque/non-frozen vocabularies remain opaque.
 - Monetary values use an exact representation compatible with the approved persistence design.
 - Final transaction/locking guarantees remain owned by the PostgreSQL persistence lane.
