@@ -44,7 +44,7 @@ Baseline immediately before this root handoff file was added:
 7cdbaba98751cbf5e6547e2f0eccc9fc99f43471
 ```
 
-That baseline commit only added the detailed handoff plan. Verify the current branch HEAD before editing because this `HANDOFF.md` commit is newer and other agents may have advanced the branch.
+That baseline commit only added the detailed handoff plan. Verify the current branch HEAD before editing because this handoff document commit is newer and other agents may have advanced the branch.
 
 Read recent commits before implementation:
 
@@ -69,7 +69,7 @@ If the branch is different, **STOP** and switch/resolve before implementation.
 Read these files before changing code:
 
 ```text
-1. HANDOFF.md                                   ← this file
+1. docs/handoff/duyanh-20260928-204322-erd3-core-backend-rebuild.md    ← this file
 2. docs/database/canonical-v3.7.md             ← highest product/domain authority
 3. docs/database/erd/README.md
 4. docs/database/erd/trooi-erd-lv1-conceptual.json
