@@ -29,7 +29,7 @@ This document describes behavior and ownership across bounded contexts. It does 
 4. Create Rooms under the Property.
 5. Each Room starts from the valid current Room contract, with separate operational state and record lifecycle.
 
-**Boundary:** CSV/Excel import is FUTURE. Existing onboarding code may orchestrate current manual creation only where it does not promote bulk/import semantics into current authority.
+**Boundary:** Spreadsheet bulk import remains FUTURE. Existing onboarding code may orchestrate manual Property/Room creation only where it does not promote bulk/import semantics into frozen present authority.
 
 ## UC-03 Publish a Room Listing
 

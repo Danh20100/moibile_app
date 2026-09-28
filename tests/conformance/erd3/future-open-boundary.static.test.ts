@@ -8,6 +8,11 @@ test('Subscription Pricing Quota is not registered as current core', () => {
   assert.doesNotMatch(source, /\bSubscriptionModule\b/);
 });
 
+test('Onboarding bulk import scaffolding is not registered as current core', () => {
+  const source = readRepoFile('src/app.module.ts');
+  assert.doesNotMatch(source, /\bOnboardingModule\b/);
+});
+
 test('CSV Excel import is not documented as current core', () => {
   const source = readRepoFiles([
     'README.md',
