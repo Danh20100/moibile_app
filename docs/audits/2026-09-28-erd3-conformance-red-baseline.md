@@ -3,8 +3,8 @@
 **Status:** RUNTIME-VERIFIED core freeze after H0–H6  
 **Authority:** Canonical v3.7 → frozen ERD LV1 → LV2 → LV3 → validated PostgreSQL/PostGIS reference DDL  
 **Suite:** `tests/conformance/erd3/`  
-**Commit SHA tested (pre-H6 docs commit):** `b51d1c7` plus pending H6 doc/README phrase fixes  
-**Final freeze SHA:** recorded in the H6 commit that updates this file  
+**Commit SHA tested (pre-H6 docs commit):** `b51d1c7`  
+**Final freeze SHA:** `fbf616066a4a53132b784d6215b67d4cdb164b63`  
 **CI run / artifact:** not available in this local agent checkout; commands below were executed locally
 
 ## H6 focused core gate
