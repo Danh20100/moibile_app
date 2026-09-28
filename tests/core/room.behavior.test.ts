@@ -263,15 +263,19 @@ test('archived parent blocks inactive->vacant', async () => {
 });
 
 test('HTTP cannot impersonate tenancy/check-out causes', () => {
-  const controller = readRepoFiles([
+  const roomController = readRepoFiles([
     'src/modules/room/controllers/room.controller.ts',
-    'src/modules/room/dto/index.ts',
   ]);
-  assert.match(controller, /operational-state/);
-  assert.match(controller, /'cause'|\"manual\"|'manual'/);
+  const lifecycleRoute = readRepoFiles([
+    'src/modules/rental-lifecycle/controllers/rental-lifecycle.controller.ts',
+    'src/modules/rental-lifecycle/dto/index.ts',
+  ]);
+  assert.doesNotMatch(roomController, /operational-state/);
+  assert.match(lifecycleRoute, /rooms\/:id\/operational-state/);
+  assert.match(lifecycleRoute, /transitionRoomManually/);
   assert.doesNotMatch(
-    controller,
-    /UpdateRoomOperationalStateDto[\s\S]*tenancy_activated|checkout_confirmed/,
+    lifecycleRoute,
+    /TransitionRoomManuallyDto[\s\S]*tenancy_activated|checkout_confirmed/,
   );
-  assert.doesNotMatch(controller, /@IsIn\(\[[^\]]*(tenancy_activated|checkout_confirmed)/);
+  assert.doesNotMatch(lifecycleRoute, /@IsIn\(\[[^\]]*(tenancy_activated|checkout_confirmed)/);
 });

@@ -12,6 +12,7 @@ import { OrganizationModule } from './modules/organization';
 import { PropertyModule } from './modules/property';
 import { ReceiptModule } from './modules/receipt';
 import { RoomModule } from './modules/room';
+import { RentalLifecycleModule } from './modules/rental-lifecycle';
 import { TenancyModule } from './modules/tenancy';
 
 @Module({
@@ -25,6 +26,7 @@ import { TenancyModule } from './modules/tenancy';
     IdentityAccessModule,
     IncidentModule,
     ListingModule,
+    RentalLifecycleModule,
     AuditTrustModule,
   ],
   controllers: [HealthController],

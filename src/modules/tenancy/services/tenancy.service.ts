@@ -111,17 +111,21 @@ export class TenancyService {
     endReason: TenancyEndReason,
     occurredAt: string,
   ): Promise<TenancyProfile> {
-    if (!END_REASONS.has(endReason)) {
-      throw new BadRequestException('Invalid neutral Tenancy end reason');
-    }
+    await this.assertCanCompleteCheckout(id, endReason);
     const tenancy = await this.findById(id);
-    await this.assertTransition(id, 'ended');
     return this.store({
       ...tenancy,
       status: 'ended',
       endedAt: occurredAt,
       endReason,
     });
+  }
+
+  async assertCanCompleteCheckout(id: string, endReason: TenancyEndReason): Promise<void> {
+    if (!END_REASONS.has(endReason)) {
+      throw new BadRequestException('Invalid neutral Tenancy end reason');
+    }
+    await this.assertTransition(id, 'ended');
   }
 
   private async assertNoCompetingNonTerminal(tenancy: TenancyProfile): Promise<void> {

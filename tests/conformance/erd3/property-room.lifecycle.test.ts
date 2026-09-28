@@ -94,11 +94,14 @@ test('ROOM operational transitions are cause-aware', () => {
   assert.match(source, /transitionOperationalState/);
 });
 
-test('ROOM HTTP surface uses manual operational-state route only', () => {
-  const controller = readRepoFile('src/modules/room/controllers/room.controller.ts');
-  const dto = readRepoFile('src/modules/room/dto/index.ts');
-  assert.match(controller, /operational-state/);
-  assert.match(controller, /'manual'/);
-  assert.doesNotMatch(controller, /:id\/status/);
+test('ROOM HTTP operational-state route is owned by the lifecycle boundary', () => {
+  const roomController = readRepoFile('src/modules/room/controllers/room.controller.ts');
+  const lifecycleController = readRepoFile(
+    'src/modules/rental-lifecycle/controllers/rental-lifecycle.controller.ts',
+  );
+  const dto = readRepoFile('src/modules/rental-lifecycle/dto/index.ts');
+  assert.doesNotMatch(roomController, /operational-state/);
+  assert.match(lifecycleController, /rooms\/:id\/operational-state/);
+  assert.match(lifecycleController, /transitionRoomManually/);
   assert.doesNotMatch(dto, /tenancy_activated|checkout_confirmed/);
 });

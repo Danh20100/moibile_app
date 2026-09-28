@@ -63,8 +63,8 @@ test('ENDING tenancy blocks creation of a next DRAFT tenancy for the Room', () =
 
 test('checkout workflow couples ENDING to ENDED with Room becoming VACANT', () => {
   const source = readRepoFiles([
+    'src/modules/rental-lifecycle/services/rental-lifecycle.coordinator.ts',
     'src/modules/tenancy/services/tenancy.service.ts',
-    'src/modules/room/services/room.service.ts',
   ]).toLowerCase();
   assert.ok(source.includes('checkout'), 'checkout must be an explicit workflow');
   assert.ok(source.includes('ending') && source.includes('ended'), 'checkout must end an ENDING tenancy');

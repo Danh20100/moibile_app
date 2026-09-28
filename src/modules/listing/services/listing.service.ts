@@ -134,6 +134,20 @@ export class ListingService {
     return (this.statusEvents.get(listingId) ?? []).map((event) => structuredClone(event));
   }
 
+  async archiveAllForRoom(
+    roomId: string,
+    eventFactory: (listing: ListingProfile) => ListingTransitionEventInput,
+  ): Promise<ListingProfile[]> {
+    const listing = await this.findCurrentByRoomId(roomId);
+    if (!listing) {
+      return [];
+    }
+    if (listing.status === 'published') {
+      throw new BadRequestException('Published Listing must be unpublished before archival');
+    }
+    return [await this.transition(listing.id, 'archived', eventFactory(listing))];
+  }
+
   private assertPrice(value: string): void {
     if (!isNumeric18Scale2NonNegative(value)) {
       throw new BadRequestException('publicPriceProjection must fit non-negative numeric(18,2)');
