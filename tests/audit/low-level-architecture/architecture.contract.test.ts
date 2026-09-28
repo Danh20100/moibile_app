@@ -47,16 +47,15 @@ describe('architecture contract audit', () => {
     const service = new RoomService();
     const created = await service.create({
       propertyId: 'prop_1',
-      roomNumber: '101',
-      basePrice: 3_500_000,
+      nameOrLabel: '101',
     });
 
-    created.status = 'archived';
+    created.operationalState = 'occupied';
     const reread = await service.findById(created.id);
 
     assert.equal(
-      reread.status,
-      'draft',
+      reread.operationalState,
+      'vacant',
       'A returned object must not be a mutable alias to the module-owned state.',
     );
   });
@@ -220,8 +219,7 @@ describe('architecture contract audit', () => {
     const roomsB = new RoomService();
     const createdRoom = await roomsA.create({
       propertyId: 'prop_reference',
-      roomNumber: 'A-101',
-      basePrice: 3_000_000,
+      nameOrLabel: 'A-101',
     });
     await assert.rejects(roomsB.findById(createdRoom.id), NotFoundException);
   });

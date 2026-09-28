@@ -13,25 +13,32 @@ import { SubscriptionService } from '../../../src/modules/subscription/services/
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 
 describe('low-level architecture baseline behavior', () => {
-  it('enforces the room lifecycle state machine', async () => {
+  it('enforces the room operational-state machine', async () => {
     const service = new RoomService();
     const room = await service.create({
       propertyId: 'prop_1',
-      roomNumber: '101',
-      basePrice: 3_500_000,
+      nameOrLabel: '101',
     });
 
-    assert.equal(room.status, 'draft');
-    assert.equal((await service.updateStatus(room.id, { status: 'vacant' })).status, 'vacant');
-    assert.equal((await service.updateStatus(room.id, { status: 'occupied' })).status, 'occupied');
+    assert.equal(room.operationalState, 'vacant');
+    assert.equal(room.recordLifecycle, 'active');
     assert.equal(
-      (await service.updateStatus(room.id, { status: 'maintenance' })).status,
+      (await service.transitionOperationalState(room.id, 'maintenance', 'manual')).operationalState,
       'maintenance',
     );
-    assert.equal((await service.updateStatus(room.id, { status: 'vacant' })).status, 'vacant');
-    assert.equal((await service.updateStatus(room.id, { status: 'archived' })).status, 'archived');
-
-    await assert.rejects(service.updateStatus(room.id, { status: 'vacant' }), BadRequestException);
+    assert.equal(
+      (await service.transitionOperationalState(room.id, 'vacant', 'manual')).operationalState,
+      'vacant',
+    );
+    assert.equal(
+      (await service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated'))
+        .operationalState,
+      'occupied',
+    );
+    await assert.rejects(
+      service.transitionOperationalState(room.id, 'maintenance', 'manual'),
+      BadRequestException,
+    );
   });
 
   it('enforces the tenancy lifecycle state machine', async () => {

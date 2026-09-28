@@ -10,15 +10,14 @@ import { CreateRoomDto } from '../../../src/modules/room/dto';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 
 describe('request and business boundary validation audit', () => {
-  it('rejects a negative room price at the DTO boundary', async () => {
+  it('rejects an empty room label at the DTO boundary', async () => {
     const dto = plainToInstance(CreateRoomDto, {
       propertyId: 'prop_1',
-      roomNumber: '101',
-      basePrice: -1,
+      nameOrLabel: '',
     });
 
     const errors = await validate(dto);
-    assert.ok(errors.some((error) => error.property === 'basePrice'));
+    assert.ok(errors.some((error) => error.property === 'nameOrLabel'));
   });
 
   it('rejects an empty billing charge collection at the DTO boundary', async () => {

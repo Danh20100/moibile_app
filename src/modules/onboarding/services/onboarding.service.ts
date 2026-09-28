@@ -84,10 +84,7 @@ export class OnboardingService {
     for (const r of batch.rooms) {
       const room = await this.roomService.create({
         propertyId: createdProperty.id,
-        roomNumber: r.roomNumber,
-        basePrice: r.basePrice,
-        area: r.area,
-        maxOccupants: r.maxOccupants,
+        nameOrLabel: r.roomNumber,
       });
       createdRoomIds.push(room.id);
     }

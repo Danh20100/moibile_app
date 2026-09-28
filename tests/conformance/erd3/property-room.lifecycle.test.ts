@@ -86,3 +86,19 @@ test('room archive guard requires INACTIVE and blocks nonterminal tenancy or ope
   assert.ok(source.includes('tenancy'), 'room archive flow must account for non-terminal tenancy');
   assert.ok(source.includes('incident'), 'room archive flow must account for open incident');
 });
+
+test('ROOM operational transitions are cause-aware', () => {
+  const source = readRepoFile('src/modules/room/services/room.service.ts');
+  assert.match(source, /tenancy_activated/);
+  assert.match(source, /checkout_confirmed/);
+  assert.match(source, /transitionOperationalState/);
+});
+
+test('ROOM HTTP surface uses manual operational-state route only', () => {
+  const controller = readRepoFile('src/modules/room/controllers/room.controller.ts');
+  const dto = readRepoFile('src/modules/room/dto/index.ts');
+  assert.match(controller, /operational-state/);
+  assert.match(controller, /'manual'/);
+  assert.doesNotMatch(controller, /:id\/status/);
+  assert.doesNotMatch(dto, /tenancy_activated|checkout_confirmed/);
+});

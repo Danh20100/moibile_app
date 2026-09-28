@@ -1,4 +1,11 @@
-export type RoomStatus = 'draft' | 'vacant' | 'occupied' | 'maintenance' | 'archived';
+export type RoomOperationalState = 'vacant' | 'occupied' | 'maintenance' | 'inactive';
+
+export type RoomRecordLifecycle = 'active' | 'archived';
+
+export type RoomOperationalTransitionCause =
+  | 'manual'
+  | 'tenancy_activated'
+  | 'checkout_confirmed';
 
 export interface RoomReference {
   roomId: string;
@@ -7,11 +14,14 @@ export interface RoomReference {
 export interface RoomProfile {
   id: string;
   propertyId: string;
-  roomNumber: string;
-  basePrice: number;
-  area?: number;
-  maxOccupants?: number;
-  status: RoomStatus;
+  nameOrLabel: string;
+  operationalState: RoomOperationalState;
+  recordLifecycle: RoomRecordLifecycle;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RoomArchiveBlockers {
+  hasNonTerminalTenancy: boolean;
+  hasOpenIncident: boolean;
 }

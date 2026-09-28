@@ -53,7 +53,7 @@ describe('cross-module reference integrity audit', () => {
     const service = app.get(RoomService);
     await expectRejection(
       async () =>
-        service.create({ propertyId: 'prop_missing', roomNumber: 'A-101', basePrice: 3000000 }),
+        service.create({ propertyId: 'prop_missing', nameOrLabel: 'A-101' }),
       'Room must validate its property reference.',
     );
   });
