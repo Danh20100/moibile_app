@@ -3,7 +3,6 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 
 import { PropertyService } from '../../property/services/property.service';
@@ -27,15 +26,13 @@ export class RoomService {
   private readonly rooms = new Map<string, RoomProfile>();
 
   constructor(
-    @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
+    @Inject(PropertyService) private readonly propertyService: PropertyService,
   ) {}
 
   async create(dto: CreateRoomDto): Promise<RoomProfile> {
-    if (this.propertyService) {
-      const property = await this.propertyService.findById(dto.propertyId);
-      if (property.lifecycleStatus === 'archived') {
-        throw new BadRequestException('Cannot create Room under an archived Property');
-      }
+    const property = await this.propertyService.findById(dto.propertyId);
+    if (property.lifecycleStatus === 'archived') {
+      throw new BadRequestException('Cannot create Room under an archived Property');
     }
 
     const id = `room_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -98,8 +95,7 @@ export class RoomService {
     if (
       cause === 'manual' &&
       room.operationalState === 'inactive' &&
-      nextState === 'vacant' &&
-      this.propertyService
+      nextState === 'vacant'
     ) {
       const property = await this.propertyService.findById(room.propertyId);
       if (property.lifecycleStatus === 'archived') {

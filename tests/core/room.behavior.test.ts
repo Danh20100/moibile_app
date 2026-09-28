@@ -1,34 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { OPTIONAL_DEPS_METADATA } from '@nestjs/common/constants';
 
 import type { RoomOperationalTransitionCause } from '../../src/modules/room/contracts';
 import { RoomService } from '../../src/modules/room/services/room.service';
-import { PropertyService } from '../../src/modules/property/services/property.service';
 import { readRepoFiles } from '../conformance/erd3/support/source';
+import { createActiveProperty, createCoreFoundationHarness } from './support/core-foundation.harness';
 
-async function createActiveProperty(properties: PropertyService): Promise<string> {
-  const property = await properties.create({
-    organizationId: 'org_1',
-    name: 'Property A',
-    operationalAddressText: 'Address A',
-    operationalLocation: { latitude: 21.0, longitude: 105.0 },
-    publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
-  });
-  return property.id;
+async function roomFixture() {
+  const harness = createCoreFoundationHarness();
+  const propertyId = await createActiveProperty(harness);
+  return { service: harness.roomService, properties: harness.propertyService, propertyId };
 }
 
+test('RoomService declares PropertyService as a required dependency', () => {
+  assert.deepEqual(Reflect.getMetadata(OPTIONAL_DEPS_METADATA, RoomService) ?? [], []);
+});
+
+test('room creation rejects a missing parent property', async () => {
+  const { service } = await roomFixture();
+  await assert.rejects(service.create({ propertyId: 'prop_missing', nameOrLabel: '101' }), NotFoundException);
+});
+
 test('new room vacant + active', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   assert.equal(room.operationalState, 'vacant');
   assert.equal(room.recordLifecycle, 'active');
 });
 
 test('no room-owned rent/basePrice/area/maxOccupants truth', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   assert.equal('basePrice' in room, false);
   assert.equal('rent' in room, false);
   assert.equal('area' in room, false);
@@ -42,23 +47,23 @@ test('no room-owned rent/basePrice/area/maxOccupants truth', async () => {
 });
 
 test('all manual transitions above', async () => {
-  const service = new RoomService();
+  const { service, propertyId } = await roomFixture();
 
-  const vacantToMaintenance = await service.create({ propertyId: 'prop_1', nameOrLabel: 'A' });
+  const vacantToMaintenance = await service.create({ propertyId, nameOrLabel: 'A' });
   assert.equal(
     (await service.transitionOperationalState(vacantToMaintenance.id, 'maintenance', 'manual'))
       .operationalState,
     'maintenance',
   );
 
-  const vacantToInactive = await service.create({ propertyId: 'prop_1', nameOrLabel: 'B' });
+  const vacantToInactive = await service.create({ propertyId, nameOrLabel: 'B' });
   assert.equal(
     (await service.transitionOperationalState(vacantToInactive.id, 'inactive', 'manual'))
       .operationalState,
     'inactive',
   );
 
-  const maintenanceToVacant = await service.create({ propertyId: 'prop_1', nameOrLabel: 'C' });
+  const maintenanceToVacant = await service.create({ propertyId, nameOrLabel: 'C' });
   await service.transitionOperationalState(maintenanceToVacant.id, 'maintenance', 'manual');
   assert.equal(
     (await service.transitionOperationalState(maintenanceToVacant.id, 'vacant', 'manual'))
@@ -66,7 +71,7 @@ test('all manual transitions above', async () => {
     'vacant',
   );
 
-  const maintenanceToInactive = await service.create({ propertyId: 'prop_1', nameOrLabel: 'D' });
+  const maintenanceToInactive = await service.create({ propertyId, nameOrLabel: 'D' });
   await service.transitionOperationalState(maintenanceToInactive.id, 'maintenance', 'manual');
   assert.equal(
     (await service.transitionOperationalState(maintenanceToInactive.id, 'inactive', 'manual'))
@@ -74,7 +79,7 @@ test('all manual transitions above', async () => {
     'inactive',
   );
 
-  const inactiveToVacant = await service.create({ propertyId: 'prop_1', nameOrLabel: 'E' });
+  const inactiveToVacant = await service.create({ propertyId, nameOrLabel: 'E' });
   await service.transitionOperationalState(inactiveToVacant.id, 'inactive', 'manual');
   assert.equal(
     (await service.transitionOperationalState(inactiveToVacant.id, 'vacant', 'manual'))
@@ -84,8 +89,8 @@ test('all manual transitions above', async () => {
 });
 
 test('vacant->occupied manual rejected', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await assert.rejects(
     service.transitionOperationalState(room.id, 'occupied', 'manual'),
     BadRequestException,
@@ -93,8 +98,8 @@ test('vacant->occupied manual rejected', async () => {
 });
 
 test('vacant->occupied tenancy_activated accepted', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   const occupied = await service.transitionOperationalState(
     room.id,
     'occupied',
@@ -104,8 +109,8 @@ test('vacant->occupied tenancy_activated accepted', async () => {
 });
 
 test('occupied->vacant manual rejected', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated');
   await assert.rejects(
     service.transitionOperationalState(room.id, 'vacant', 'manual'),
@@ -114,8 +119,8 @@ test('occupied->vacant manual rejected', async () => {
 });
 
 test('occupied->vacant checkout_confirmed accepted', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated');
   const vacated = await service.transitionOperationalState(
     room.id,
@@ -126,14 +131,14 @@ test('occupied->vacant checkout_confirmed accepted', async () => {
 });
 
 test('occupied->maintenance rejected for every cause', async () => {
-  const service = new RoomService();
+  const { service, propertyId } = await roomFixture();
   const causes: RoomOperationalTransitionCause[] = [
     'manual',
     'tenancy_activated',
     'checkout_confirmed',
   ];
   for (const cause of causes) {
-    const room = await service.create({ propertyId: 'prop_1', nameOrLabel: `m-${cause}` });
+    const room = await service.create({ propertyId, nameOrLabel: `m-${cause}` });
     await service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated');
     await assert.rejects(
       service.transitionOperationalState(room.id, 'maintenance', cause),
@@ -143,14 +148,14 @@ test('occupied->maintenance rejected for every cause', async () => {
 });
 
 test('occupied->inactive rejected for every cause', async () => {
-  const service = new RoomService();
+  const { service, propertyId } = await roomFixture();
   const causes: RoomOperationalTransitionCause[] = [
     'manual',
     'tenancy_activated',
     'checkout_confirmed',
   ];
   for (const cause of causes) {
-    const room = await service.create({ propertyId: 'prop_1', nameOrLabel: `i-${cause}` });
+    const room = await service.create({ propertyId, nameOrLabel: `i-${cause}` });
     await service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated');
     await assert.rejects(
       service.transitionOperationalState(room.id, 'inactive', cause),
@@ -172,8 +177,8 @@ test('archive not an operational state', async () => {
 });
 
 test('archive requires inactive', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await assert.rejects(
     service.archive(room.id, { hasNonTerminalTenancy: false, hasOpenIncident: false }),
     BadRequestException,
@@ -181,8 +186,8 @@ test('archive requires inactive', async () => {
 });
 
 test('archive blockers enforced', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await service.transitionOperationalState(room.id, 'inactive', 'manual');
 
   await assert.rejects(
@@ -196,8 +201,8 @@ test('archive blockers enforced', async () => {
 });
 
 test('eligible archive sets recordLifecycle archived', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await service.transitionOperationalState(room.id, 'inactive', 'manual');
   const archived = await service.archive(room.id, {
     hasNonTerminalTenancy: false,
@@ -208,8 +213,8 @@ test('eligible archive sets recordLifecycle archived', async () => {
 });
 
 test('archived room rejects all operational transitions', async () => {
-  const service = new RoomService();
-  const room = await service.create({ propertyId: 'prop_1', nameOrLabel: '101' });
+  const { service, propertyId } = await roomFixture();
+  const room = await service.create({ propertyId, nameOrLabel: '101' });
   await service.transitionOperationalState(room.id, 'inactive', 'manual');
   await service.archive(room.id, { hasNonTerminalTenancy: false, hasOpenIncident: false });
 
@@ -224,9 +229,7 @@ test('archived room rejects all operational transitions', async () => {
 });
 
 test('archived parent blocks create', async () => {
-  const properties = new PropertyService();
-  const rooms = new RoomService(properties);
-  const propertyId = await createActiveProperty(properties);
+  const { service: rooms, properties, propertyId } = await roomFixture();
   await properties.archive(propertyId, {
     hasNonTerminalTenancy: false,
     hasPublishedListing: false,
@@ -242,9 +245,7 @@ test('archived parent blocks create', async () => {
 });
 
 test('archived parent blocks inactive->vacant', async () => {
-  const properties = new PropertyService();
-  const rooms = new RoomService(properties);
-  const propertyId = await createActiveProperty(properties);
+  const { service: rooms, properties, propertyId } = await roomFixture();
   const room = await rooms.create({ propertyId, nameOrLabel: '101' });
   await rooms.transitionOperationalState(room.id, 'inactive', 'manual');
   await properties.archive(propertyId, {

@@ -16,6 +16,7 @@ import { OrganizationService } from '../../../src/modules/organization/services/
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
 import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
+import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
 function injectVerifier(service: IdentityAccessService, verifier: GoogleIdTokenVerifier): void {
   Object.defineProperty(service, 'verifier', {
@@ -44,9 +45,10 @@ describe('architecture contract audit', () => {
   });
 
   it('does not allow callers to mutate room state outside the lifecycle boundary', async () => {
-    const service = new RoomService();
+    const harness = createCoreFoundationHarness();
+    const service = harness.roomService;
     const created = await service.create({
-      propertyId: 'prop_1',
+      propertyId: await createActiveProperty(harness),
       nameOrLabel: '101',
     });
 
@@ -204,28 +206,20 @@ describe('architecture contract audit', () => {
   });
 
   it('keeps independent property and room service instances isolated', async () => {
-    const propertiesA = new PropertyService();
-    const propertiesB = new PropertyService();
-    const createdProperty = await propertiesA.create({
-      organizationId: 'org_reference',
-      name: 'Isolated Property',
-      operationalAddressText: 'Address',
-      operationalLocation: { latitude: 21.0, longitude: 105.0 },
-      publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
-    });
-    await assert.rejects(propertiesB.findById(createdProperty.id), NotFoundException);
+    const harnessA = createCoreFoundationHarness();
+    const harnessB = createCoreFoundationHarness();
+    const createdPropertyId = await createActiveProperty(harnessA);
+    await assert.rejects(harnessB.propertyService.findById(createdPropertyId), NotFoundException);
 
-    const roomsA = new RoomService();
-    const roomsB = new RoomService();
-    const createdRoom = await roomsA.create({
-      propertyId: 'prop_reference',
+    const createdRoom = await harnessA.roomService.create({
+      propertyId: createdPropertyId,
       nameOrLabel: 'A-101',
     });
-    await assert.rejects(roomsB.findById(createdRoom.id), NotFoundException);
+    await assert.rejects(harnessB.roomService.findById(createdRoom.id), NotFoundException);
   });
 
   it('still reports missing resources with the expected Nest exception type', async () => {
-    const service = new PropertyService();
+    const service = createCoreFoundationHarness().propertyService;
     await assert.rejects(service.findById('missing'), NotFoundException);
   });
 });

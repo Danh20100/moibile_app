@@ -8,15 +8,16 @@ import { IncidentService } from '../../../src/modules/incident/services/incident
 import { ListingService } from '../../../src/modules/listing/services/listing.service';
 import { OnboardingService } from '../../../src/modules/onboarding/services/onboarding.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
-import { RoomService } from '../../../src/modules/room/services/room.service';
 import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
+import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
 describe('low-level architecture baseline behavior', () => {
   it('enforces the room operational-state machine', async () => {
-    const service = new RoomService();
+    const harness = createCoreFoundationHarness();
+    const service = harness.roomService;
     const room = await service.create({
-      propertyId: 'prop_1',
+      propertyId: await createActiveProperty(harness),
       nameOrLabel: '101',
     });
 

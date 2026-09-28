@@ -3,7 +3,6 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 
 import { OrganizationService } from '../../organization/services/organization.service';
@@ -40,15 +39,11 @@ export class PropertyService {
   private readonly properties = new Map<string, PropertyProfile>();
 
   constructor(
-    @Optional()
-    @Inject(OrganizationService)
-    private readonly organizationService?: OrganizationService,
+    @Inject(OrganizationService) private readonly organizationService: OrganizationService,
   ) {}
 
   async create(dto: CreatePropertyDto): Promise<PropertyProfile> {
-    if (this.organizationService) {
-      await this.organizationService.findById(dto.organizationId);
-    }
+    await this.organizationService.findById(dto.organizationId);
 
     assertValidPoint(dto.operationalLocation, 'operationalLocation');
     assertValidPoint(dto.publicLocationProjection, 'publicLocationProjection');
