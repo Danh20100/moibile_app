@@ -106,3 +106,26 @@ export class ListingTransitionContextDto {
   @IsObject()
   metadata?: Record<string, unknown>;
 }
+
+export class CreateInquiryDto {
+  @ApiProperty({ description: 'Listing ID' })
+  @IsString()
+  @IsNotEmpty()
+  listingId!: string;
+
+  @ApiPropertyOptional({ description: 'Sender User ID when the sender has an account' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  senderUserId?: string;
+
+  @ApiProperty({ description: 'Contact intent or message' })
+  @IsString()
+  @IsNotEmpty()
+  contactIntentOrMessage!: string;
+
+  @ApiProperty({ description: 'Opaque Inquiry status; no Wave B lifecycle is defined' })
+  @IsString()
+  @IsNotEmpty()
+  status!: string;
+}

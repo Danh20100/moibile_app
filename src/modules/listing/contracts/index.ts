@@ -52,3 +52,19 @@ export interface ListingTransitionEventInput {
   occurredAt?: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface Inquiry {
+  id: string;
+  listingId: string;
+  senderUserId?: string;
+  contactIntentOrMessage: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface CreateInquiryInput {
+  listingId: string;
+  senderUserId?: string;
+  contactIntentOrMessage: string;
+  status: string;
+}
