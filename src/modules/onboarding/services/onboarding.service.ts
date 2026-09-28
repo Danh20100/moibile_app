@@ -75,7 +75,9 @@ export class OnboardingService {
     const createdProperty = await this.propertyService.create({
       organizationId: batch.organizationId,
       name: batch.propertyName,
-      address: batch.propertyAddress,
+      operationalAddressText: batch.propertyAddress,
+      operationalLocation: { latitude: 0, longitude: 0 },
+      publicLocationProjection: { latitude: 0, longitude: 0 },
     });
 
     const createdRoomIds: string[] = [];

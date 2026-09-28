@@ -38,7 +38,13 @@ describe('cross-module reference integrity audit', () => {
     const service = app.get(PropertyService);
     await expectRejection(
       async () =>
-        service.create({ organizationId: 'org_missing', name: 'Property', address: 'Address' }),
+        service.create({
+          organizationId: 'org_missing',
+          name: 'Property',
+          operationalAddressText: 'Address',
+          operationalLocation: { latitude: 21.0, longitude: 105.0 },
+          publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
+        }),
       'Property must validate its organization scope before accepting the reference.',
     );
   });

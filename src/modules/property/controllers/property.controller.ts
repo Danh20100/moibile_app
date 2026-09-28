@@ -11,16 +11,16 @@ export class PropertyController {
   constructor(private readonly propertyService: PropertyService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Tạo tài sản / khu trọ mới' })
-  @ApiResponse({ status: 201, description: 'Tài sản đã được tạo thành công' })
+  @ApiOperation({ summary: 'Tao Property / khu tro moi' })
+  @ApiResponse({ status: 201, description: 'Property da duoc tao thanh cong' })
   async create(@Body() dto: CreatePropertyDto): Promise<PropertyProfile> {
     return this.propertyService.create(dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách các tài sản (có thể lọc theo organizationId)' })
-  @ApiQuery({ name: 'organizationId', required: false, description: 'Lọc theo Organization ID' })
-  @ApiResponse({ status: 200, description: 'Danh sách tài sản' })
+  @ApiOperation({ summary: 'Lay danh sach Property (co the loc theo organizationId)' })
+  @ApiQuery({ name: 'organizationId', required: false, description: 'Loc theo Organization ID' })
+  @ApiResponse({ status: 200, description: 'Danh sach Property' })
   async findByOrganizationId(
     @Query('organizationId') organizationId?: string,
   ): Promise<PropertyProfile[]> {
@@ -28,16 +28,18 @@ export class PropertyController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Lấy thông tin chi tiết của một tài sản' })
-  @ApiResponse({ status: 200, description: 'Thông tin tài sản' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy tài sản' })
+  @ApiOperation({ summary: 'Lay thong tin chi tiet Property' })
+  @ApiResponse({ status: 200, description: 'Thong tin Property' })
+  @ApiResponse({ status: 404, description: 'Khong tim thay Property' })
   async findById(@Param('id') id: string): Promise<PropertyProfile> {
     return this.propertyService.findById(id);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Cập nhật thông tin tài sản' })
-  @ApiResponse({ status: 200, description: 'Thông tin tài sản đã được cập nhật' })
+  @ApiOperation({
+    summary: 'Cap nhat ten / dia chi / location projection (khong doi lifecycle)',
+  })
+  @ApiResponse({ status: 200, description: 'Thong tin Property da duoc cap nhat' })
   async update(@Param('id') id: string, @Body() dto: UpdatePropertyDto): Promise<PropertyProfile> {
     return this.propertyService.update(id, dto);
   }

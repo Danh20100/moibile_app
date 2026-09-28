@@ -16,6 +16,17 @@ test('PROPERTY exposes both operational and public location concepts', () => {
   ]);
   assert.match(source, /operational.*location|operationalLocation/is);
   assert.match(source, /public.*location|publicLocation/is);
+  assert.match(source, /operationalAddressText/);
+  assert.match(source, /publicLocationProjection/);
+});
+
+test('PROPERTY archive blockers are an internal service seam only', () => {
+  const contracts = readRepoFile('src/modules/property/contracts/index.ts');
+  const dto = readRepoFile('src/modules/property/dto/index.ts');
+  const controller = readRepoFile('src/modules/property/controllers/property.controller.ts');
+  assert.match(contracts, /\bPropertyArchiveBlockers\b/);
+  assert.doesNotMatch(dto, /\bPropertyArchiveBlockers\b|\bhasNonTerminalTenancy\b/);
+  assert.doesNotMatch(controller, /\barchive\b|\bPropertyArchiveBlockers\b/);
 });
 
 test('ROOM separates operational state from record lifecycle', () => {

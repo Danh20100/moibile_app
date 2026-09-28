@@ -210,7 +210,9 @@ describe('architecture contract audit', () => {
     const createdProperty = await propertiesA.create({
       organizationId: 'org_reference',
       name: 'Isolated Property',
-      address: 'Address',
+      operationalAddressText: 'Address',
+      operationalLocation: { latitude: 21.0, longitude: 105.0 },
+      publicLocationProjection: { latitude: 21.0, longitude: 105.0 },
     });
     await assert.rejects(propertiesB.findById(createdProperty.id), NotFoundException);
 

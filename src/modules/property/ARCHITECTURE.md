@@ -9,6 +9,7 @@ Property owns identity, `ACTIVE | ARCHIVED` lifecycle, operational address/locat
 ## Invariants
 
 - archive is a command/workflow with blockers, not a generic status patch;
+- blocker booleans are an internal service seam only; HTTP clients must not supply them as authoritative truth;
 - archived Property prevents invalid child reactivation;
 - Room ownership is by reference; Property does not absorb Room operational state;
 - operational location and public projection are intentionally separate privacy/data concerns.
@@ -16,7 +17,3 @@ Property owns identity, `ACTIVE | ARCHIVED` lifecycle, operational address/locat
 ## Persistence target
 
 LV3 uses PostgreSQL/PostGIS geography fields for operational/public location. Runtime ORM/migration tooling remains undecided until domain convergence.
-
-## Rebuild note
-
-The current service stores one address object and directly patches status. ERD3 conformance should remain RED until the location split and guarded archive workflow exist.
