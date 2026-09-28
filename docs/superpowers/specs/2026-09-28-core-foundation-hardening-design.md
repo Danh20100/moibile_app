@@ -89,7 +89,7 @@ The current audit records local runtime evidence and an earlier freeze point, wh
 
 ## 4. Chosen approach
 
-Use a stable test reporter plus an exact expected-failure allowlist, combined with independent hard gates for the completed core foundation.
+Use a stable test reporter plus an exact expected-failure baseline, combined with independent hard gates for the completed core foundation.
 
 This is intentionally narrower than building a custom verification platform.
 
@@ -134,15 +134,49 @@ The work is split into F0–F5.
 
 Replace reporter-dependent grep heuristics with deterministic classification.
 
-The test command used for classification must force a stable machine-parsable reporter, preferably Node's TAP reporter.
+The classified test commands must force Node's TAP reporter so the verifier consumes a stable protocol rather than the default human reporter.
 
-Expected downstream failing test names must live in a committed allowlist owned by the verification layer. The classifier compares the observed failure set with the expected set using exact normalized test names.
+Use one small reusable verifier script:
+
+```text
+scripts/verify-expected-test-failures.mjs
+```
+
+It accepts a TAP result file plus the process exit code and compares the observed failing test names with one committed baseline file:
+
+```text
+tests/conformance/expected-domain-contract-failures.json
+```
+
+The baseline JSON is an array of objects with this exact semantic shape:
+
+```json
+[
+  {
+    "test": "exact test name",
+    "owner": "Listing / Tenancy",
+    "reason": "not rebuilt in the current Core Foundation package"
+  }
+]
+```
+
+`test` is the exact normalized test title used for set comparison. `owner` and `reason` are mandatory metadata for handoff and audit traceability.
+
+The verifier must compare sets, not counts. It must report the three useful diffs separately:
+
+```text
+unexpected failures
+missing expected failures
+matched expected failures
+```
+
+It must also validate that TAP completion metadata is present and internally consistent. A nonzero process exit code is accepted only when valid TAP proves that the exact expected set failed.
 
 The classifier must distinguish:
 
 ```text
 suite completed with expected failures
-suite unexpectedly fully green
+suite unexpectedly fully green while baseline is non-empty
 suite failed with a new test failure
 suite failed because of syntax/import/harness/command error
 ```
@@ -172,6 +206,8 @@ The existing TypeScript typecheck and database validators remain hard gates.
 Google identity verifier regression must also be run as a hard gate before the baseline-classified full suites.
 
 No `continue-on-error` is allowed for these completed boundaries.
+
+For the two baseline-classified suites, the workflow may capture a nonzero test-process exit code without aborting the shell, but only long enough to pass the TAP file and captured exit code to the verifier. The verifier's result determines the CI step result.
 
 ### F2 — Required parent dependency wiring
 
@@ -226,13 +262,13 @@ Required order:
 2. pnpm typecheck
 3. frozen database validators
 4. Google identity verifier regression
-5. full domain-contract suite through exact baseline classifier
-6. full repository suite through exact baseline classifier
+5. full domain-contract suite with TAP + exact baseline verifier
+6. full repository suite with TAP + exact baseline verifier
 ```
 
 The completed Core Foundation must have zero accepted failures.
 
-Only explicitly allowlisted downstream domain-contract failures may remain.
+Only explicitly baselined downstream domain-contract failures may remain.
 
 ### F5 — Re-freeze evidence
 
@@ -278,7 +314,7 @@ Finance
 Incident / Trust
 ```
 
-Identity, Organization, Property, Room, CURRENT/FUTURE runtime boundary, typecheck, database validators, or Google identity failures must never be allowlisted.
+Identity, Organization, Property, Room, CURRENT/FUTURE runtime boundary, typecheck, database validators, or Google identity failures must never be baselined.
 
 When a later wave makes an expected failing test pass, that wave must remove the test from the expected-failure baseline in the same change. A stale expected-failure entry is itself a CI failure.
 
@@ -286,11 +322,13 @@ When a later wave makes an expected failing test pass, that wave must remove the
 
 The full repository suite must not be treated as "allowed to fail" merely because the domain-contract suite still has known failures.
 
-Its observed failure set must also be classified.
+Its observed failure set must also be classified by the same verifier and the same expected-failure baseline.
 
-Accepted full-suite failures must map to the same committed downstream expected-failure set. Any failure from another test family is unexpected and fails CI.
+Accepted full-suite failures must therefore be the same named downstream domain-contract failures. Any failure from another test family is unexpected and fails CI.
 
 This prevents unrelated regression failures from being hidden behind known domain-contract gaps.
+
+If the full suite wraps or prefixes a test title differently from the focused domain-contract invocation, normalization must be deterministic and covered by verifier tests; fuzzy/substring matching is forbidden.
 
 ## 8. Error handling and fail-closed behavior
 
@@ -301,14 +339,15 @@ The following conditions fail CI:
 ```text
 stable reporter cannot run
 classifier cannot parse test output
+TAP completion metadata is missing or inconsistent
 expected-failure baseline file is malformed
-observed failure has no exact allowlist entry
-allowlist entry is no longer observed
+observed failure has no exact baseline entry
+baseline entry is no longer observed
 focused core test fails
 typecheck fails
 database validator fails
 Google verifier regression fails
-full repository suite has a non-allowlisted failure
+full repository suite has a non-baselined failure
 ```
 
 A command failure without valid test-result structure must be treated as an infrastructure/harness failure, never as an expected product RED.
@@ -317,18 +356,20 @@ A command failure without valid test-result structure must be treated as an infr
 
 Implementation follows TDD packet-by-packet.
 
-F0 tests must prove the classifier accepts only exact-set equality and rejects:
+F0 verifier tests must use TAP fixtures representing actual Node 24 output and prove exact-set behavior for:
 
 ```text
-new unexpected failure
-missing expected failure
-malformed/unparseable result
-fully green suite while expected baseline is non-empty
+exact expected set -> pass
+new unexpected failure -> fail
+missing expected failure -> fail
+malformed/unparseable result -> fail
+inconsistent TAP totals -> fail
+fully green suite while expected baseline is non-empty -> fail
 ```
 
-F1 must be verified by the workflow configuration and a real CI run.
+F1 must be verified by workflow configuration plus a real GitHub Actions run.
 
-F2 must include behavior proving orphan Property and Room creation is rejected even in direct service-based tests with normal construction paths.
+F2 must include behavior proving orphan Property and Room creation is rejected through normal direct-service construction with required parent dependencies.
 
 F3 must include validator-level tests proving omitted optional values remain valid and supplied empty strings are invalid.
 
@@ -336,14 +377,14 @@ F4/F5 require observed runtime evidence; source inspection is not completion evi
 
 ## 10. Files expected to change
 
-Exact paths may be refined by the implementation plan, but scope is expected around:
+The implementation plan may refine exact test/helper placement, but scope is expected around:
 
 ```text
 .github/workflows/backend-erd3-conformance.yml
-package.json                          # only if a stable reporter/helper script entry is needed
-scripts/ or tests/support/            # baseline classifier/helper, if needed
-tests/conformance/...                 # expected-failure baseline and classifier coverage
-tests/core/...                        # dependency/DTO regression coverage
+package.json                                      # only if a helper script entry is useful
+scripts/verify-expected-test-failures.mjs
+tests/conformance/expected-domain-contract-failures.json
+tests/support/ or tests/core/                     # verifier fixtures/tests and domain regressions
 src/modules/organization/dto/index.ts
 src/modules/property/dto/index.ts
 src/modules/property/services/property.service.ts
@@ -375,7 +416,8 @@ turn expected downstream RED into broad ignored failures
 Core Foundation Hardening is complete only when all conditions are simultaneously true:
 
 ```text
-[PASS] stable exact failure-set classification exists
+[PASS] stable TAP + exact failure-set verification exists
+[PASS] expected-failure baseline carries exact test/owner/reason metadata
 [PASS] complete Core Foundation verification is an independent CI hard gate
 [PASS] PropertyService requires OrganizationService
 [PASS] RoomService requires PropertyService
@@ -384,7 +426,7 @@ Core Foundation Hardening is complete only when all conditions are simultaneousl
 [PASS] typecheck passes
 [PASS] frozen database validators pass
 [PASS] Google identity regression passes
-[PASS] full domain-contract suite contains only exact allowlisted downstream failures
+[PASS] full domain-contract suite contains only exact baselined downstream failures
 [PASS] full repository suite contains only the same accepted downstream failures
 [PASS] GitHub Actions workflow concludes success
 [PASS] fresh runtime evidence is recorded against the final tested SHA/run/artifact
