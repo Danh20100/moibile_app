@@ -5,6 +5,7 @@ WITH trooi_tables AS (
     WHERE n.nspname = 'public'
       AND c.relkind = 'r'
       AND c.relname <> 'spatial_ref_sys'
+      AND c.relname <> 'schema_migrations'
 ), constraints AS (
     SELECT con.conname, con.contype
     FROM pg_constraint con
