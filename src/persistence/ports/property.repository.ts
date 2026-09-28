@@ -1,11 +1,11 @@
 import type { GeoPoint } from './geography';
 
 export interface PropertyRecord {
-  property_id: string; organization_id: string; name: string; lifecycle_status: string;
-  operational_address_text: string; operational_location: GeoPoint; public_location_projection: GeoPoint;
+  propertyId: string; organizationId: string; name: string; lifecycleStatus: string;
+  operationalAddressText: string; operationalLocation: GeoPoint; publicLocationProjection: GeoPoint;
 }
 export interface RoomRecord {
-  room_id: string; property_id: string; name_or_label: string; operational_state: string; record_lifecycle: string;
+  roomId: string; propertyId: string; nameOrLabel: string; operationalState: string; recordLifecycle: string;
 }
 export interface CreatePropertyInput extends PropertyRecord {}
 export interface CreateRoomInput extends RoomRecord {}

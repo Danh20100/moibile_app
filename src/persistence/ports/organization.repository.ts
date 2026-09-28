@@ -1,4 +1,4 @@
-export interface OrganizationRecord { organization_id: string; primary_owner_user_id: string; name: string }
+export interface OrganizationRecord { organizationId: string; primaryOwnerUserId: string; name: string }
 export interface CreateOrganizationInput extends OrganizationRecord {}
 export interface OrganizationRepository {
   createOrganization(input: CreateOrganizationInput): Promise<void>;

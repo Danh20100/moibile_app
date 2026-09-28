@@ -2,17 +2,17 @@ import type { GeoPoint } from './geography';
 import type { DecimalString, JsonValue, TimestampString } from './repositories';
 
 export interface ListingRecord {
-  listing_id: string; room_id: string; status: string; public_title: string; public_description: string;
-  public_price_projection: DecimalString; public_location_projection: GeoPoint;
+  listingId: string; roomId: string; status: string; publicTitle: string; publicDescription: string;
+  publicPriceProjection: DecimalString; publicLocationProjection: GeoPoint;
 }
 export interface ListingStatusEventRecord {
-  listing_status_event_id: string; listing_id: string; from_status: string; to_status: string;
-  reason_code: string; actor_type: string; actor_user_id: string | null; trigger: string;
-  occurred_at: TimestampString; metadata: JsonValue | null;
+  listingStatusEventId: string; listingId: string; fromStatus: string; toStatus: string;
+  reasonCode: string; actorType: string; actorUserId: string | null; trigger: string;
+  occurredAt: TimestampString; metadata: JsonValue | null;
 }
 export interface InquiryRecord {
-  inquiry_id: string; listing_id: string; sender_user_id: string | null;
-  contact_intent_or_message: string; status: string; created_at: TimestampString;
+  inquiryId: string; listingId: string; senderUserId: string | null;
+  contactIntentOrMessage: string; status: string; createdAt: TimestampString;
 }
 export interface CreateListingInput extends ListingRecord {}
 export interface CreateListingStatusEventInput extends ListingStatusEventRecord {}
