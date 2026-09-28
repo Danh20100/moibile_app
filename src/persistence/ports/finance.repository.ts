@@ -19,11 +19,11 @@ export interface FinanceRepository {
   insertUtilityConnection(input: UtilityConnectionRecord): Promise<void>; findUtilityConnection(id: string): Promise<UtilityConnectionRecord | undefined>;
   insertMeterReading(input: MeterReadingRecord): Promise<void>; findMeterReading(id: string): Promise<MeterReadingRecord | undefined>;
   insertPayment(input: PaymentRecord): Promise<void>; findPayment(id: string): Promise<PaymentRecord | undefined>; updatePayment(input: PaymentRecord): Promise<void>; lockPayment(id: string): Promise<void>;
-  insertPaymentAllocation(input: PaymentAllocationRecord): Promise<void>; findPaymentAllocations(paymentId: string): Promise<PaymentAllocationRecord[]>; sumPaymentCommittedAmount(paymentId: string): Promise<DecimalString>;
+  insertPaymentAllocation(input: PaymentAllocationRecord): Promise<void>; findPaymentAllocations(paymentId: string): Promise<PaymentAllocationRecord[]>; sumPaymentCommittedAmount(paymentId: string): Promise<DecimalString>; paymentHasCapacity(paymentId:string, additionalAmount:DecimalString):Promise<boolean>;
   insertPaymentClaim(input: PaymentClaimRecord): Promise<void>; findPaymentClaim(id: string): Promise<PaymentClaimRecord | undefined>; updatePaymentClaim(input: PaymentClaimRecord): Promise<void>;
   insertReceipt(input: ReceiptRecord): Promise<void>; findReceipt(id: string): Promise<ReceiptRecord | undefined>; updateReceipt(input: ReceiptRecord): Promise<void>;
   insertDeposit(input: DepositRecord): Promise<void>; findDeposit(id: string): Promise<DepositRecord | undefined>; lockDeposit(id: string): Promise<void>;
   insertDepositPaymentApplication(input: DepositPaymentApplicationRecord): Promise<void>; findDepositPaymentApplications(depositId: string): Promise<DepositPaymentApplicationRecord[]>; sumDepositFundedAmount(depositId: string): Promise<DecimalString>;
-  insertDepositSettlement(input: DepositSettlementRecord): Promise<void>; findDepositSettlements(depositId: string): Promise<DepositSettlementRecord[]>; sumDepositSettledAmount(depositId: string): Promise<DecimalString>;
+  insertDepositSettlement(input: DepositSettlementRecord): Promise<void>; findDepositSettlements(depositId: string): Promise<DepositSettlementRecord[]>; sumDepositSettledAmount(depositId: string): Promise<DecimalString>; depositHasCapacity(depositId:string, refundedAmount:DecimalString, retainedAmount:DecimalString):Promise<boolean>;
   insertDepositEvent(input: DepositEventRecord): Promise<void>; findDepositEvents(depositId: string): Promise<DepositEventRecord[]>;
 }
