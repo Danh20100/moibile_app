@@ -1,6 +1,6 @@
 # Wave B Listing + Tenancy Reconciliation Design
 
-**Status:** Design for review — implementation plan and implementation are blocked until this written spec is approved  
+**Status:** APPROVED FOR IMPLEMENTATION — owner approved 2026-09-28
 **Date:** 2026-09-28  
 **Repository:** `onsra520/TroOi-Project`  
 **Target branch:** `backend/core-foundations`  
