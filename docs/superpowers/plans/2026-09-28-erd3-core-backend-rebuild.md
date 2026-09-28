@@ -4,7 +4,7 @@
 
 **Goal:** Rebuild the current Identity/Organization/Property/Room backend contracts and services so they conform to Canonical v3.7 / frozen ERD3 without introducing migrations, persistence tooling, or unfrozen product features.
 
-**Architecture:** Keep the current NestJS modular-monolith and in-memory service adapters while replacing pre-ERD3 business contracts with the frozen domain model. Domain contracts become authoritative first; controllers/DTOs follow those contracts; cross-context archive checks are represented as explicit service-level guard inputs until the later persistence/transaction-guard stage can supply authoritative locked data. This plan deliberately does not add PostgreSQL adapters or resolve authorization policy beyond removing invalid global business-role semantics.
+**Architecture:** Keep the current NestJS modular-monolith and in-memory service adapters while replacing pre-ERD3 business contracts with the frozen domain model. Domain contracts become authoritative first; controllers/DTOs follow those contracts; cross-context archive checks are represented as explicit service-level guard inputs until the later persistence/transaction-guard stage can supply authoritative locked data. Room occupancy transitions carry an explicit business cause so generic HTTP status changes cannot impersonate tenancy activation or checkout. This plan deliberately does not add PostgreSQL adapters or resolve authorization policy beyond removing invalid global business-role semantics.
 
 **Tech Stack:** NestJS 12, TypeScript 6, Node `node:test` via `tsx`, class-validator/class-transformer, existing in-memory services.
 
@@ -21,6 +21,8 @@
 - Room has separate `operationalState = VACANT | OCCUPIED | MAINTENANCE | INACTIVE` and `recordLifecycle = ACTIVE | ARCHIVED`.
 - Room does not own agreed rent/base price.
 - Direct `OCCUPIED → MAINTENANCE` and `OCCUPIED → INACTIVE` transitions are invalid.
+- `VACANT → OCCUPIED` is a tenancy-activation effect; `OCCUPIED → VACANT` is a confirmed-checkout effect. Neither is a generic manual Room status change.
+- Archived Property blocks new Room creation and Room reactivation.
 - Room archive requires `INACTIVE`, no non-terminal Tenancy, and no open Incident.
 - Do not claim transaction/concurrency safety in this plan. Persistence-safe guards are a later stage.
 - Existing tests that encode pre-ERD3 semantics may be rewritten or deleted in the same task that removes the obsolete contract; preserve still-valid engineering tests.
@@ -30,8 +32,8 @@
 
 1. **Identity leakage:** no exported/current contract, DTO, controller, or service may continue to encode owner/operator/tenant/platform-admin as a global User role.
 2. **Mutable ownership/lifecycle:** primary Organization owner and Property/Room archive lifecycle must not be writable through generic patch DTOs.
-3. **Room state coupling:** occupied rooms must not be manually moved to maintenance/inactive; archive must remain separate from operational-state changes.
-4. **Unfrozen fields:** Room agreed/base rent and stale Organization lifecycle/description fields must not survive as authoritative core-domain truth merely for backward compatibility.
+3. **Room state coupling:** generic/manual Room commands must not fake tenancy activation or checkout, and occupied rooms must not move directly to maintenance/inactive.
+4. **Ancestor lifecycle:** an archived Property must block child Room creation/reactivation even before persistence transactions exist.
 5. **False completeness:** in-memory guard seams may prove rule ownership, but this plan must not claim concurrency-safe enforcement or authoritative cross-context reads before persistence/other domains are rebuilt.
 
 ---
@@ -150,7 +152,7 @@ Create `tests/core/organization.behavior.test.ts` with tests that assert:
 
 ```text
 create() stores primaryOwnerUserId
-update() can rename but cannot replace primary owner through UpdateOrganizationDto
+update() can rename but cannot replace primary owner even if an untyped extra field is supplied
 returned Organization has no status field
 returned Organization has no description field
 ```
@@ -188,7 +190,7 @@ pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/conformance/
 pnpm typecheck
 ```
 
-Expected: both Organization conformance assertions PASS; typecheck PASS.
+Expected: all Identity/Organization conformance assertions PASS; typecheck PASS.
 
 - [ ] **Step 7: Commit**
 
@@ -256,6 +258,7 @@ operationalLocation and publicLocationProjection are stored independently
 update can change public projection without rewriting operational location
 archive rejects when any blocker is true
 archive succeeds only when all blockers are false
+repeated archive rejects because ARCHIVED is terminal
 archived Property cannot be unarchived through generic update
 ```
 
@@ -275,7 +278,7 @@ Use the exact interfaces above. Represent GeoPoint in the in-memory domain as la
 
 - [ ] **Step 4: Implement PropertyService lifecycle rules**
 
-Create starts `lifecycleStatus: 'active'`. `update()` changes only allowed presentation/location values. `archive()` throws `BadRequestException` when any blocker is true and otherwise transitions `active → archived`; repeated archive remains rejected or idempotent according to the existing service convention chosen in the failing test, but no reactivation path is added.
+Create starts `lifecycleStatus: 'active'`. `update()` changes only allowed presentation/location values. `archive()` requires current lifecycle `active`, throws `BadRequestException` when any blocker is true, and otherwise transitions `active → archived`. A second archive attempt throws because `ARCHIVED` is terminal. No reactivation method is added.
 
 - [ ] **Step 5: Keep HTTP archive orchestration closed for now**
 
@@ -301,7 +304,7 @@ git commit -m "refactor: align property lifecycle and location with ERD3"
 
 ---
 
-### Task 4: Rebuild Room dual-state lifecycle and remove room-owned rent truth
+### Task 4: Rebuild Room dual-state lifecycle and enforce transition causes
 
 **Files:**
 - Modify: `src/modules/room/contracts/index.ts`
@@ -318,6 +321,7 @@ git commit -m "refactor: align property lifecycle and location with ERD3"
 ```ts
 export type RoomOperationalState = 'vacant' | 'occupied' | 'maintenance' | 'inactive';
 export type RoomRecordLifecycle = 'active' | 'archived';
+export type RoomOperationalTransitionCause = 'manual' | 'tenancy_activated' | 'checkout_confirmed';
 
 export interface RoomProfile {
   id: string;
@@ -337,9 +341,9 @@ export interface RoomArchiveBlockers {
 
 - `CreateRoomDto` contains `propertyId`, `nameOrLabel` only.
 - `UpdateRoomDto` contains `nameOrLabel?` only.
-- `UpdateRoomOperationalStateDto` contains only the four operational states.
-- `transitionOperationalState(id, nextState)` owns pure Room FSM validation.
-- `archive(id, blockers)` owns archive preconditions but is not transaction-safe in this in-memory stage.
+- `UpdateRoomOperationalStateDto` exposes manual target states only: `'vacant' | 'maintenance' | 'inactive'`.
+- `transitionOperationalState(id: string, nextState: RoomOperationalState, cause: RoomOperationalTransitionCause): Promise<RoomProfile>` owns Room FSM and cause validation.
+- `archive(id: string, blockers: RoomArchiveBlockers): Promise<RoomProfile>` owns archive preconditions but is not transaction-safe in this in-memory stage.
 
 - [ ] **Step 1: Write failing Room behavior tests**
 
@@ -347,21 +351,26 @@ export interface RoomArchiveBlockers {
 
 ```text
 new Room starts operationalState=vacant and recordLifecycle=active
-Room has no basePrice/rent field
-VACANT→OCCUPIED valid
-VACANT→MAINTENANCE valid
-VACANT→INACTIVE valid
-OCCUPIED→VACANT valid as the state transition later used by checkout orchestration
-OCCUPIED→MAINTENANCE invalid
-OCCUPIED→INACTIVE invalid
-MAINTENANCE→VACANT and MAINTENANCE→INACTIVE valid
-INACTIVE→VACANT valid
+Room has no basePrice/rent/area/maxOccupants authoritative fields
+manual VACANT→MAINTENANCE valid
+manual VACANT→INACTIVE valid
+manual MAINTENANCE→VACANT valid
+manual MAINTENANCE→INACTIVE valid
+manual INACTIVE→VACANT valid
+manual VACANT→OCCUPIED invalid
+VACANT→OCCUPIED valid only with cause=tenancy_activated
+manual OCCUPIED→VACANT invalid
+OCCUPIED→VACANT valid only with cause=checkout_confirmed
+OCCUPIED→MAINTENANCE invalid for every cause
+OCCUPIED→INACTIVE invalid for every cause
 archive is not an operational-state transition
 archive rejects unless operationalState=inactive
 archive rejects with non-terminal tenancy blocker
 archive rejects with open incident blocker
 archive sets recordLifecycle=archived when eligible
-archived Room cannot reactivate or change operational state
+archived Room rejects every operational transition
+Room creation under archived Property rejects
+INACTIVE→VACANT reactivation under archived Property rejects
 ```
 
 - [ ] **Step 2: Run Room tests and verify RED**
@@ -372,38 +381,48 @@ Run:
 pnpm exec tsx --test tests/core/room.behavior.test.ts tests/conformance/erd3/property-room.lifecycle.test.ts
 ```
 
-Expected: FAIL on old draft/basePrice/single-status/invalid-transition behavior.
+Expected: FAIL on old draft/basePrice/single-status/invalid-transition behavior and missing parent-lifecycle guards.
 
 - [ ] **Step 3: Replace Room contract/DTOs**
 
 Use the exact interfaces above. Remove `RoomStatus`, `basePrice`, `area`, `maxOccupants`, and direct archived operational state from the current core contract. Those unfrozen fields must not survive merely for compatibility.
 
-- [ ] **Step 4: Implement pure operational FSM**
+- [ ] **Step 4: Implement cause-aware operational FSM**
 
-Use these transitions exactly:
+Allowed transitions are exactly:
 
 ```text
-vacant      → occupied | maintenance | inactive
-occupied    → vacant
-maintenance → vacant | inactive
-inactive    → vacant
+manual:
+  vacant      → maintenance | inactive
+  maintenance → vacant | inactive
+  inactive    → vacant
+
+tenancy_activated:
+  vacant      → occupied
+
+checkout_confirmed:
+  occupied    → vacant
 ```
 
-If `recordLifecycle === 'archived'`, reject every operational transition.
+Every other state/cause pair throws `BadRequestException`. If `recordLifecycle === 'archived'`, reject every operational transition.
 
-- [ ] **Step 5: Implement guarded archive service command**
+- [ ] **Step 5: Enforce active-parent guard**
+
+On `create()`, when `PropertyService` is available, require parent `lifecycleStatus === 'active'`. Before `inactive → vacant`, re-read the parent Property and reject reactivation if it is archived. Do not create a cached duplicate of Property lifecycle truth in Room.
+
+- [ ] **Step 6: Implement guarded archive service command**
 
 `archive(id, blockers)` requires current `operationalState === 'inactive'`, `hasNonTerminalTenancy === false`, and `hasOpenIncident === false`; then set `recordLifecycle = 'archived'`. Do not archive Listings here yet; Listing synchronization belongs to the next rebuild plan and persistence transaction safety belongs to the later guard plan.
 
-- [ ] **Step 6: Update controller surface**
+- [ ] **Step 7: Update controller surface**
 
-Replace stale `PATCH /rooms/:id/status` semantics with `PATCH /rooms/:id/operational-state`. Do not expose archive via a client-supplied blocker DTO in this task. Update Swagger copy so no route claims Room owns rent/price.
+Replace stale `PATCH /rooms/:id/status` with `PATCH /rooms/:id/operational-state`. Controller calls the service with `cause = 'manual'`, so HTTP clients cannot directly set occupancy or confirm checkout. Future Tenancy orchestration uses the two non-manual causes through the service boundary. Do not expose archive via a client-supplied blocker DTO in this task. Update Swagger copy so no route claims Room owns rent/price.
 
-- [ ] **Step 7: Rewrite obsolete tests**
+- [ ] **Step 8: Rewrite obsolete tests**
 
 Delete/rewrite any old test that requires Room `draft`, `archived` as an operational status, `basePrice`, or `OCCUPIED→MAINTENANCE`. Keep tests for missing Property references, defensive copies, and invalid transition rejection where still valid.
 
-- [ ] **Step 8: Verify Task 4**
+- [ ] **Step 9: Verify Task 4**
 
 Run:
 
@@ -414,7 +433,7 @@ pnpm typecheck
 
 Expected: Property/Room conformance file PASS in full; typecheck PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 git add src/modules/room tests/core/room.behavior.test.ts tests/conformance/erd3/property-room.lifecycle.test.ts tests/audit/low-level-architecture
@@ -565,7 +584,7 @@ This plan is complete only when:
 [PASS] USER has no global business role/current role-assignment invitation surface.
 [PASS] Organization carries one immutable primary owner reference and no stale status lifecycle.
 [PASS] Property has separate operational/public location and guarded ACTIVE→ARCHIVED lifecycle.
-[PASS] Room has dual operational/record state, no room-owned rent, and correct ERD3 FSM.
+[PASS] Room has dual operational/record state, no room-owned rent, cause-aware occupancy transitions, and active-parent guards.
 [PASS] Subscription and batch onboarding are not registered as CURRENT runtime modules.
 [PASS] focused core behavior tests.
 [PASS] focused ERD3 conformance for core domains.
