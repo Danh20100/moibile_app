@@ -1,72 +1,29 @@
 import type { DateString, DecimalString, TimestampString } from './repositories';
 
-export interface BillingCycleRecord { billing_cycle_id: string; tenancy_id: string; tenancy_terms_id: string; period_start: DateString; period_end: DateString }
-export interface ChargeRecord {
-  charge_id: string; billing_cycle_id: string; charge_type: string; amount: DecimalString;
-  utility_connection_id: string | null; start_meter_reading_id: string | null; end_meter_reading_id: string | null;
-}
-export interface UtilityConnectionRecord { utility_connection_id: string; room_id: string; utility_type: string; source_or_provider: string; meter_identifier: string | null }
-export interface MeterReadingRecord { meter_reading_id: string; utility_connection_id: string; reading_value: DecimalString; recorded_at: TimestampString; recorded_by_user_id: string | null }
-export interface PaymentRecord {
-  payment_id: string; tenancy_id: string; amount: DecimalString; source: string; verification: string;
-  confirmed_at: TimestampString; voided_or_reversed_at: TimestampString | null;
-  correction_note: string | null; replacement_payment_id: string | null;
-}
-export interface PaymentAllocationRecord { payment_allocation_id: string; payment_id: string; charge_id: string; allocated_amount: DecimalString }
-export interface PaymentClaimRecord {
-  payment_claim_id: string; tenancy_id: string; submitted_by_user_id: string;
-  submitted_by_participant_id: string | null; claimed_amount: DecimalString;
-  evidence_reference: string | null; status: string; submitted_at: TimestampString;
-  reviewed_by_user_id: string | null; reviewed_at: TimestampString | null; resulting_payment_id: string | null;
-}
-export interface ReceiptRecord { receipt_id: string; payment_id: string; status: string; issued_at: TimestampString; voided_at: TimestampString | null; replacement_receipt_id: string | null }
-export interface DepositRecord { deposit_id: string; tenancy_id: string }
-export interface DepositPaymentApplicationRecord { deposit_payment_application_id: string; payment_id: string; deposit_id: string; applied_amount: DecimalString; applied_at: TimestampString }
-export interface DepositSettlementRecord { deposit_settlement_id: string; deposit_id: string; refunded_amount: DecimalString; retained_amount: DecimalString; reason_or_note: string; acted_by_user_id: string; settled_at: TimestampString }
-export interface DepositEventRecord { deposit_event_id: string; deposit_id: string; event_type: string; amount: DecimalString; occurred_at: TimestampString; payment_application_id: string | null; settlement_id: string | null }
-
-export interface CreateBillingCycleInput extends BillingCycleRecord {}
-export interface CreateChargeInput extends ChargeRecord {}
-export interface CreateUtilityConnectionInput extends UtilityConnectionRecord {}
-export interface CreateMeterReadingInput extends MeterReadingRecord {}
-export interface CreatePaymentInput extends PaymentRecord {}
-export interface CreatePaymentAllocationInput extends PaymentAllocationRecord {}
-export interface CreatePaymentClaimInput extends PaymentClaimRecord {}
-export interface CreateReceiptInput extends ReceiptRecord {}
-export interface CreateDepositInput extends DepositRecord {}
-export interface CreateDepositPaymentApplicationInput extends DepositPaymentApplicationRecord {}
-export interface CreateDepositSettlementInput extends DepositSettlementRecord {}
-export interface CreateDepositEventInput extends DepositEventRecord {}
+export interface BillingCycleRecord { billingCycleId: string; tenancyId: string; tenancyTermsId: string; periodStart: DateString; periodEnd: DateString }
+export interface ChargeRecord { chargeId: string; billingCycleId: string; chargeType: string; amount: DecimalString; utilityConnectionId: string | null; startMeterReadingId: string | null; endMeterReadingId: string | null }
+export interface UtilityConnectionRecord { utilityConnectionId: string; roomId: string; utilityType: string; sourceOrProvider: string; meterIdentifier: string | null }
+export interface MeterReadingRecord { meterReadingId: string; utilityConnectionId: string; readingValue: DecimalString; recordedAt: TimestampString; recordedByUserId: string | null }
+export interface PaymentRecord { paymentId: string; tenancyId: string; amount: DecimalString; source: string; verification: string; confirmedAt: TimestampString; voidedOrReversedAt: TimestampString | null; correctionNote: string | null; replacementPaymentId: string | null }
+export interface PaymentAllocationRecord { paymentAllocationId: string; paymentId: string; chargeId: string; allocatedAmount: DecimalString }
+export interface PaymentClaimRecord { paymentClaimId: string; tenancyId: string; submittedByUserId: string; submittedByParticipantId: string | null; claimedAmount: DecimalString; evidenceReference: string | null; status: string; submittedAt: TimestampString; reviewedByUserId: string | null; reviewedAt: TimestampString | null; resultingPaymentId: string | null }
+export interface ReceiptRecord { receiptId: string; paymentId: string; status: string; issuedAt: TimestampString; voidedAt: TimestampString | null; replacementReceiptId: string | null }
+export interface DepositRecord { depositId: string; tenancyId: string }
+export interface DepositPaymentApplicationRecord { depositPaymentApplicationId: string; paymentId: string; depositId: string; appliedAmount: DecimalString; appliedAt: TimestampString }
+export interface DepositSettlementRecord { depositSettlementId: string; depositId: string; refundedAmount: DecimalString; retainedAmount: DecimalString; reasonOrNote: string; actedByUserId: string; settledAt: TimestampString }
+export interface DepositEventRecord { depositEventId: string; depositId: string; eventType: string; amount: DecimalString; occurredAt: TimestampString; paymentApplicationId: string | null; settlementId: string | null }
 
 export interface FinanceRepository {
-  insertBillingCycle(input: CreateBillingCycleInput): Promise<void>;
-  findBillingCycle(billingCycleId: string): Promise<BillingCycleRecord | undefined>;
-  findBillingCyclesByTenancy(tenancyId: string): Promise<BillingCycleRecord[]>;
-  insertCharge(input: CreateChargeInput): Promise<void>;
-  findCharge(chargeId: string): Promise<ChargeRecord | undefined>;
-  insertUtilityConnection(input: CreateUtilityConnectionInput): Promise<void>;
-  findUtilityConnection(connectionId: string): Promise<UtilityConnectionRecord | undefined>;
-  insertMeterReading(input: CreateMeterReadingInput): Promise<void>;
-  findMeterReading(readingId: string): Promise<MeterReadingRecord | undefined>;
-  insertPayment(input: CreatePaymentInput): Promise<void>;
-  findPayment(paymentId: string): Promise<PaymentRecord | undefined>;
-  updatePayment(record: PaymentRecord): Promise<void>;
-  lockPayment(paymentId: string): Promise<void>;
-  insertPaymentAllocation(input: CreatePaymentAllocationInput): Promise<void>;
-  findPaymentAllocations(paymentId: string): Promise<PaymentAllocationRecord[]>;
-  insertPaymentClaim(input: CreatePaymentClaimInput): Promise<void>;
-  findPaymentClaim(claimId: string): Promise<PaymentClaimRecord | undefined>;
-  updatePaymentClaim(record: PaymentClaimRecord): Promise<void>;
-  insertReceipt(input: CreateReceiptInput): Promise<void>;
-  findReceipt(receiptId: string): Promise<ReceiptRecord | undefined>;
-  updateReceipt(record: ReceiptRecord): Promise<void>;
-  insertDeposit(input: CreateDepositInput): Promise<void>;
-  findDeposit(depositId: string): Promise<DepositRecord | undefined>;
-  lockDeposit(depositId: string): Promise<void>;
-  insertDepositPaymentApplication(input: CreateDepositPaymentApplicationInput): Promise<void>;
-  findDepositPaymentApplications(depositId: string): Promise<DepositPaymentApplicationRecord[]>;
-  insertDepositSettlement(input: CreateDepositSettlementInput): Promise<void>;
-  findDepositSettlements(depositId: string): Promise<DepositSettlementRecord[]>;
-  insertDepositEvent(input: CreateDepositEventInput): Promise<void>;
-  findDepositEvents(depositId: string): Promise<DepositEventRecord[]>;
+  insertBillingCycle(input: BillingCycleRecord): Promise<void>; findBillingCycle(id: string): Promise<BillingCycleRecord | undefined>; findBillingCyclesForTenancy(tenancyId: string): Promise<BillingCycleRecord[]>;
+  insertCharge(input: ChargeRecord): Promise<void>; findCharge(id: string): Promise<ChargeRecord | undefined>;
+  insertUtilityConnection(input: UtilityConnectionRecord): Promise<void>; findUtilityConnection(id: string): Promise<UtilityConnectionRecord | undefined>;
+  insertMeterReading(input: MeterReadingRecord): Promise<void>; findMeterReading(id: string): Promise<MeterReadingRecord | undefined>;
+  insertPayment(input: PaymentRecord): Promise<void>; findPayment(id: string): Promise<PaymentRecord | undefined>; updatePayment(input: PaymentRecord): Promise<void>; lockPayment(id: string): Promise<void>;
+  insertPaymentAllocation(input: PaymentAllocationRecord): Promise<void>; findPaymentAllocations(paymentId: string): Promise<PaymentAllocationRecord[]>; sumPaymentCommittedAmount(paymentId: string): Promise<DecimalString>;
+  insertPaymentClaim(input: PaymentClaimRecord): Promise<void>; findPaymentClaim(id: string): Promise<PaymentClaimRecord | undefined>; updatePaymentClaim(input: PaymentClaimRecord): Promise<void>;
+  insertReceipt(input: ReceiptRecord): Promise<void>; findReceipt(id: string): Promise<ReceiptRecord | undefined>; updateReceipt(input: ReceiptRecord): Promise<void>;
+  insertDeposit(input: DepositRecord): Promise<void>; findDeposit(id: string): Promise<DepositRecord | undefined>; lockDeposit(id: string): Promise<void>;
+  insertDepositPaymentApplication(input: DepositPaymentApplicationRecord): Promise<void>; findDepositPaymentApplications(depositId: string): Promise<DepositPaymentApplicationRecord[]>; sumDepositFundedAmount(depositId: string): Promise<DecimalString>;
+  insertDepositSettlement(input: DepositSettlementRecord): Promise<void>; findDepositSettlements(depositId: string): Promise<DepositSettlementRecord[]>; sumDepositSettledAmount(depositId: string): Promise<DecimalString>;
+  insertDepositEvent(input: DepositEventRecord): Promise<void>; findDepositEvents(depositId: string): Promise<DepositEventRecord[]>;
 }
