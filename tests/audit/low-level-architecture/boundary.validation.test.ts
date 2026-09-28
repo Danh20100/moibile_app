@@ -1,13 +1,11 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
 import { CreateBillingCycleDto } from '../../../src/modules/billing/dto';
 import { CreateRoomDto } from '../../../src/modules/room/dto';
-import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 
 describe('request and business boundary validation audit', () => {
   it('rejects an empty room label at the DTO boundary', async () => {
@@ -49,21 +47,4 @@ describe('request and business boundary validation audit', () => {
     );
   });
 
-  it('rejects a tenancy whose end date is earlier than its start date', async () => {
-    const service = new TenancyService();
-
-    await assert.rejects(
-      service.create({
-        roomId: 'room_1',
-        tenantId: 'tenant_1',
-        monthlyRent: 3_500_000,
-        depositAmount: 3_500_000,
-        paymentDueDay: 5,
-        startDate: '2026-10-01',
-        endDate: '2026-09-30',
-      }),
-      BadRequestException,
-      'A tenancy time range must not end before it starts.',
-    );
-  });
 });

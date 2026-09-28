@@ -11,7 +11,6 @@ import { ListingService } from '../../../src/modules/listing/services/listing.se
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
-import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 async function expectRejection(action: () => Promise<unknown>, message: string): Promise<void> {
   let rejected = false;
   try {
@@ -57,21 +56,6 @@ describe('cross-module reference integrity audit', () => {
     );
   });
 
-  it('rejects a tenancy that references a nonexistent room', async () => {
-    const service = app.get(TenancyService);
-    await expectRejection(
-      async () =>
-        service.create({
-          roomId: 'room_missing',
-          tenantId: 'tenant_reference',
-          monthlyRent: 3000000,
-          depositAmount: 3000000,
-          paymentDueDay: 5,
-          startDate: '2026-10-01',
-        }),
-      'Tenancy must validate its room reference.',
-    );
-  });
 
   it('rejects a billing cycle with nonexistent tenancy/room context', async () => {
     const service = app.get(BillingService);

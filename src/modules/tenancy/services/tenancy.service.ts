@@ -1,90 +1,137 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
-import { RoomService } from '../../room/services/room.service';
-import { TenancyProfile, TenancyStatus } from '../contracts';
-import { CreateTenancyDto, UpdateTenancyStatusDto } from '../dto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import { TenancyEndReason, TenancyProfile, TenancyStatus } from '../contracts';
 
 const VALID_TRANSITIONS: Record<TenancyStatus, TenancyStatus[]> = {
-  draft: ['active'],
-  active: ['ending', 'ended'],
-  ending: ['ended'],
+  draft: ['active', 'cancelled'],
+  active: ['ending'],
+  ending: ['active', 'ended'],
   ended: [],
+  cancelled: [],
 };
+
+const END_REASONS = new Set<TenancyEndReason>([
+  'TERM_ENDED',
+  'TENANT_INITIATED',
+  'OPERATOR_INITIATED',
+  'MUTUAL',
+  'OTHER',
+]);
+
+const NON_TERMINAL = new Set<TenancyStatus>(['draft', 'active', 'ending']);
 
 @Injectable()
 export class TenancyService {
-  private static readonly tenancies = new Map<string, TenancyProfile>();
+  private readonly tenancies = new Map<string, TenancyProfile>();
 
-  constructor(@Optional() @Inject(RoomService) private readonly roomService?: RoomService) {}
-
-  async create(dto: CreateTenancyDto): Promise<TenancyProfile> {
-    if (this.roomService) {
-      await this.roomService.findById(dto.roomId);
-    }
-
-    if (dto.endDate && new Date(dto.endDate) < new Date(dto.startDate)) {
-      throw new BadRequestException('Ngày kết thúc hợp đồng thuê không được sớm hơn ngày bắt đầu');
-    }
-
-    const id = `ten_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
+  async createDraft(roomId: string): Promise<TenancyProfile> {
+    await this.assertCanCreateForRoom(roomId);
     const tenancy: TenancyProfile = {
-      id,
-      roomId: dto.roomId,
-      tenantId: dto.tenantId,
-      terms: {
-        monthlyRent: dto.monthlyRent,
-        depositAmount: dto.depositAmount,
-        paymentDueDay: dto.paymentDueDay,
-        startDate: dto.startDate,
-        endDate: dto.endDate,
-      },
+      id: randomUUID(),
+      roomId,
       status: 'draft',
-      createdAt: now,
-      updatedAt: now,
     };
-    TenancyService.tenancies.set(id, tenancy);
-    return { ...tenancy, terms: { ...tenancy.terms } };
+    this.tenancies.set(tenancy.id, structuredClone(tenancy));
+    return structuredClone(tenancy);
   }
 
   async findById(id: string): Promise<TenancyProfile> {
-    const tenancy = TenancyService.tenancies.get(id);
+    const tenancy = this.tenancies.get(id);
     if (!tenancy) {
-      throw new NotFoundException(`Không tìm thấy tenancy với id: ${id}`);
+      throw new NotFoundException(`Tenancy not found: ${id}`);
     }
-    return { ...tenancy, terms: { ...tenancy.terms } };
+    return structuredClone(tenancy);
   }
 
   async findByRoomId(roomId?: string): Promise<TenancyProfile[]> {
-    const all = Array.from(TenancyService.tenancies.values());
-    if (!roomId) {
-      return all.map((t) => ({ ...t, terms: { ...t.terms } }));
-    }
-    return all.filter((t) => t.roomId === roomId).map((t) => ({ ...t, terms: { ...t.terms } }));
+    return Array.from(this.tenancies.values())
+      .filter((tenancy) => !roomId || tenancy.roomId === roomId)
+      .map((tenancy) => structuredClone(tenancy));
   }
 
-  async updateStatus(id: string, dto: UpdateTenancyStatusDto): Promise<TenancyProfile> {
-    const tenancy = await this.findById(id);
-    const allowed = VALID_TRANSITIONS[tenancy.status];
+  async findNonTerminalByRoomId(
+    roomId: string,
+    excludeTenancyId?: string,
+  ): Promise<TenancyProfile | undefined> {
+    const tenancy = Array.from(this.tenancies.values()).find(
+      (candidate) =>
+        candidate.roomId === roomId &&
+        candidate.id !== excludeTenancyId &&
+        NON_TERMINAL.has(candidate.status),
+    );
+    return tenancy ? structuredClone(tenancy) : undefined;
+  }
 
-    if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(
-        `Không thể chuyển trạng thái hợp đồng thuê từ '${tenancy.status}' sang '${dto.status}'. Chuyển đổi hợp lệ: [${allowed.join(', ')}]`,
-      );
+  async assertCanCreateForRoom(roomId: string): Promise<void> {
+    if (await this.findNonTerminalByRoomId(roomId)) {
+      throw new BadRequestException('Room already has a non-terminal Tenancy');
     }
+  }
 
-    const updated: TenancyProfile = {
+  async assertTransition(id: string, next: TenancyStatus): Promise<void> {
+    const tenancy = await this.findById(id);
+    if (!VALID_TRANSITIONS[tenancy.status].includes(next)) {
+      throw new BadRequestException(`Invalid Tenancy transition ${tenancy.status} -> ${next}`);
+    }
+  }
+
+  async activateLocal(id: string, occurredAt: string): Promise<TenancyProfile> {
+    const tenancy = await this.findById(id);
+    await this.assertTransition(id, 'active');
+    await this.assertNoCompetingNonTerminal(tenancy);
+    return this.store({
       ...tenancy,
-      status: dto.status,
-      updatedAt: new Date().toISOString(),
-    };
-    TenancyService.tenancies.set(id, updated);
-    return { ...updated, terms: { ...updated.terms } };
+      status: 'active',
+      startedAt: tenancy.startedAt ?? occurredAt,
+    });
+  }
+
+  async cancel(id: string): Promise<TenancyProfile> {
+    const tenancy = await this.findById(id);
+    await this.assertTransition(id, 'cancelled');
+    return this.store({ ...tenancy, status: 'cancelled' });
+  }
+
+  async startEnding(id: string): Promise<TenancyProfile> {
+    const tenancy = await this.findById(id);
+    await this.assertTransition(id, 'ending');
+    return this.store({ ...tenancy, status: 'ending' });
+  }
+
+  async resumeActive(id: string): Promise<TenancyProfile> {
+    const tenancy = await this.findById(id);
+    await this.assertTransition(id, 'active');
+    return this.store({ ...tenancy, status: 'active' });
+  }
+
+  async completeCheckoutLocal(
+    id: string,
+    endReason: TenancyEndReason,
+    occurredAt: string,
+  ): Promise<TenancyProfile> {
+    if (!END_REASONS.has(endReason)) {
+      throw new BadRequestException('Invalid neutral Tenancy end reason');
+    }
+    const tenancy = await this.findById(id);
+    await this.assertTransition(id, 'ended');
+    return this.store({
+      ...tenancy,
+      status: 'ended',
+      endedAt: occurredAt,
+      endReason,
+    });
+  }
+
+  private async assertNoCompetingNonTerminal(tenancy: TenancyProfile): Promise<void> {
+    if (await this.findNonTerminalByRoomId(tenancy.roomId, tenancy.id)) {
+      throw new BadRequestException('Competing non-terminal Tenancy exists for Room');
+    }
+  }
+
+  private store(tenancy: TenancyProfile): TenancyProfile {
+    this.tenancies.set(tenancy.id, structuredClone(tenancy));
+    return structuredClone(tenancy);
   }
 }

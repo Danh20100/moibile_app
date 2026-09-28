@@ -44,24 +44,19 @@ describe('low-level architecture baseline behavior', () => {
 
   it('enforces the tenancy lifecycle state machine', async () => {
     const service = new TenancyService();
-    const tenancy = await service.create({
-      roomId: 'room_1',
-      tenantId: 'tenant_1',
-      monthlyRent: 3_500_000,
-      depositAmount: 3_500_000,
-      paymentDueDay: 5,
-      startDate: '2026-10-01',
-    });
+    const tenancy = await service.createDraft('room_1');
 
     assert.equal(tenancy.status, 'draft');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'active' })).status, 'active');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'ending' })).status, 'ending');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'ended' })).status, 'ended');
-
-    await assert.rejects(
-      service.updateStatus(tenancy.id, { status: 'active' }),
-      BadRequestException,
+    assert.equal(
+      (await service.activateLocal(tenancy.id, '2026-10-01T00:00:00.000Z')).status,
+      'active',
     );
+    assert.equal((await service.startEnding(tenancy.id)).status, 'ending');
+    assert.equal(
+      (await service.completeCheckoutLocal(tenancy.id, 'MUTUAL', '2026-11-01T00:00:00.000Z')).status,
+      'ended',
+    );
+    await assert.rejects(service.resumeActive(tenancy.id), BadRequestException);
   });
 
   it('enforces the incident lifecycle state machine', async () => {
