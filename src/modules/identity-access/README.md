@@ -1,6 +1,6 @@
 # identity-access
 
-> Authority: `docs/database/canonical-v3.7.md` and frozen ERD3 override this module and its current code.
+> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
 
 ## Purpose
 
@@ -13,12 +13,9 @@ Business capability comes from explicit relationships such as Organization owner
 - authenticate/normalize supported identity proofs;
 - expose stable User reference;
 - support relationship/resource-based authorization plumbing;
-- do not own Organization, Property, Room, Tenancy or financial state.
+- do not own Organization, Property, Room, Tenancy or financial state;
+- no global `UserRole` / invitation role-assignment surface.
 
 ## Scope notes
 
 Advanced organization team/member delegation is FUTURE. Invitation scaffolding that assigns broad business roles must not be treated as current authority.
-
-## Known pre-ERD3 code drift
-
-Current contracts still expose `UserRole` and optional `UserProfile.role`. Those contracts are intentionally scheduled to break during the core rebuild.
