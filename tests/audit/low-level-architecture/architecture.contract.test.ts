@@ -130,7 +130,10 @@ describe('architecture contract audit', () => {
     const properties = new PropertyService(organizations);
     const rooms = new RoomService(properties);
     const onboarding = new OnboardingService(properties, rooms);
-    const organization = await organizations.create({ name: 'Organization A' });
+    const organization = await organizations.create({
+      name: 'Organization A',
+      primaryOwnerUserId: 'user_owner_a',
+    });
 
     const batch = await onboarding.validateAndPreview({
       organizationId: organization.id,
@@ -169,7 +172,10 @@ describe('architecture contract audit', () => {
     const properties = new PropertyService(organizations);
     const rooms = new RoomService(properties);
     const onboarding = new OnboardingService(properties, rooms);
-    const organization = await organizations.create({ name: 'Organization B' });
+    const organization = await organizations.create({
+      name: 'Organization B',
+      primaryOwnerUserId: 'user_owner_b',
+    });
     const batch = await onboarding.validateAndPreview({
       organizationId: organization.id,
       propertyName: 'Property B',

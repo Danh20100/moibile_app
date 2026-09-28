@@ -13,13 +13,12 @@ export class OrganizationService {
     const org: OrganizationProfile = {
       id,
       name: dto.name,
-      description: dto.description,
-      status: 'active',
+      primaryOwnerUserId: dto.primaryOwnerUserId,
       createdAt: now,
       updatedAt: now,
     };
-    this.organizations.set(id, org);
-    return org;
+    this.organizations.set(id, structuredClone(org));
+    return structuredClone(org);
   }
 
   async findById(id: string): Promise<OrganizationProfile> {
@@ -27,23 +26,23 @@ export class OrganizationService {
     if (!org) {
       throw new NotFoundException(`Không tìm thấy organization với id: ${id}`);
     }
-    return org;
+    return structuredClone(org);
   }
 
   async findAll(): Promise<OrganizationProfile[]> {
-    return Array.from(this.organizations.values());
+    return Array.from(this.organizations.values()).map((org) => structuredClone(org));
   }
 
   async update(id: string, dto: UpdateOrganizationDto): Promise<OrganizationProfile> {
     const org = await this.findById(id);
     const updated: OrganizationProfile = {
-      ...org,
+      id: org.id,
       name: dto.name ?? org.name,
-      description: dto.description ?? org.description,
-      status: dto.status ?? org.status,
+      primaryOwnerUserId: org.primaryOwnerUserId,
+      createdAt: org.createdAt,
       updatedAt: new Date().toISOString(),
     };
-    this.organizations.set(id, updated);
-    return updated;
+    this.organizations.set(id, structuredClone(updated));
+    return structuredClone(updated);
   }
 }
