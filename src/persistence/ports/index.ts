@@ -9,3 +9,4 @@ export * from './property.repository';
 export * from './repositories';
 export * from './tenancy.repository';
 export * from './trust.repository';
+export * from './transaction-manager';
