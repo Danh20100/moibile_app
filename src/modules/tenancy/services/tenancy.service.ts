@@ -102,6 +102,9 @@ export class TenancyService {
 
   async resumeActive(id: string): Promise<TenancyProfile> {
     const tenancy = await this.findById(id);
+    if (tenancy.status !== 'ending') {
+      throw new BadRequestException('Only an ENDING Tenancy can resume ACTIVE');
+    }
     await this.assertTransition(id, 'active');
     return this.store({ ...tenancy, status: 'active' });
   }

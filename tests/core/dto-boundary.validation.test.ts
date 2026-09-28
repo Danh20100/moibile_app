@@ -4,6 +4,7 @@ import test from 'node:test';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 
+import { CreateListingDto } from '../../src/modules/listing/dto';
 import { UpdateOrganizationDto } from '../../src/modules/organization/dto';
 import { UpdatePropertyDto } from '../../src/modules/property/dto';
 import { UpdateRoomDto } from '../../src/modules/room/dto';
@@ -36,3 +37,17 @@ for (const [label, dto, field] of TARGETS) {
     assert.deepEqual(errorsFor(dto, { [field]: 'Phong 201' }, field), []);
   });
 }
+
+test('CreateListingDto.publicLocationProjection is required', () => {
+  const errors = validateSync(
+    plainToInstance(CreateListingDto, {
+      roomId: 'room-a',
+      publicTitle: 'Room A',
+      publicDescription: 'Public description',
+      publicPriceProjection: '3500000.00',
+    }),
+  ).filter((error) => error.property === 'publicLocationProjection');
+
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].constraints?.isDefined);
+});

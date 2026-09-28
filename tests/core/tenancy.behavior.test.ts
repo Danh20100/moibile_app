@@ -96,6 +96,15 @@ test('startedAt is set on first activation and preserved by ENDING to ACTIVE', a
   assert.equal(resumed.startedAt, firstStart);
 });
 
+test('resume only returns an ENDING Tenancy to ACTIVE', async () => {
+  const service = new TenancyService();
+  const tenancy = await service.createDraft('room-a');
+
+  await assert.rejects(service.resumeActive(tenancy.id), BadRequestException);
+
+  assert.equal((await service.findById(tenancy.id)).status, 'draft');
+});
+
 test('checkout records one frozen neutral end reason only from ENDING', async () => {
   const service = new TenancyService();
   const tenancy = await service.createDraft('room-a');

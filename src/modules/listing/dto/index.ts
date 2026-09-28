@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsNotEmpty,
   IsNumber,
+  IsDefined,
   IsObject,
   IsOptional,
   IsString,
@@ -49,6 +50,7 @@ export class CreateListingDto {
   publicPriceProjection!: string;
 
   @ApiProperty({ type: PublicLocationProjectionDto })
+  @IsDefined()
   @ValidateNested()
   @Type(() => PublicLocationProjectionDto)
   publicLocationProjection!: PublicLocationProjectionDto;
