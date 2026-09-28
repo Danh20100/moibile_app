@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from scripts.database.lv3_verify_catalog import expected_catalog, verify_catalog
+from scripts.database.physical_contract_verify_catalog import expected_catalog, verify_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
@@ -13,7 +13,7 @@ def load_contract():
     return json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
-class LV3CatalogParityTests(unittest.TestCase):
+class PhysicalContractCatalogParityTests(unittest.TestCase):
     def setUp(self):
         self.contract = load_contract()
         self.catalog = expected_catalog(self.contract)

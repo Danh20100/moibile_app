@@ -33,13 +33,19 @@ const moduleDocs = [
 test('repository reading order places Canonical v3.7 and frozen ERDs before implementation docs', () => {
   const source = readRepoFile('README.md');
   const canonical = source.indexOf('docs/database/canonical-v3.7.md');
-  const lv1 = source.indexOf('trooi-erd-lv1-conceptual.json');
+  const conceptualContract = source.indexOf('trooi-erd-lv1-conceptual.json');
   const projectContext = source.indexOf('docs/PROJECT_CONTEXT.md');
   const implementation = source.indexOf('implementation and tests');
 
   assert.ok(canonical >= 0, 'README must reference Canonical v3.7');
-  assert.ok(lv1 > canonical, 'ERD LV1 must follow Canonical v3.7 in reading order');
-  assert.ok(projectContext > lv1, 'project context must come after frozen ERD authority');
+  assert.ok(
+    conceptualContract > canonical,
+    'ERD LV1 must follow Canonical v3.7 in reading order',
+  );
+  assert.ok(
+    projectContext > conceptualContract,
+    'project context must come after frozen ERD authority',
+  );
   assert.ok(implementation > projectContext, 'implementation must come after project/domain authority');
 });
 

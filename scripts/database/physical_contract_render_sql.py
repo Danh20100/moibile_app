@@ -89,14 +89,17 @@ def render_sql(contract: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 2:
-        print("usage: lv3_render_sql.py <contract.json> <output.sql>", file=sys.stderr)
+        print(
+            "usage: physical_contract_render_sql.py <contract.json> <output.sql>",
+            file=sys.stderr,
+        )
         return 2
     contract = json.loads(Path(args[0]).read_text(encoding="utf-8"))
     output = Path(args[1])
     output.parent.mkdir(parents=True, exist_ok=True)
     sql = render_sql(contract)
     output.write_text(sql, encoding="utf-8", newline="\n")
-    print(f"LV3 SQL rendered: {output}")
+    print(f"Physical contract SQL rendered: {output}")
     print(f"bytes={len(sql.encode('utf-8'))}")
     return 0
 

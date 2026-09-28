@@ -4,14 +4,14 @@ import json
 import unittest
 from pathlib import Path
 
-from scripts.database.lv3_render_lucid import build_lucid_payload
+from scripts.database.physical_contract_render_lucid import build_lucid_payload
 
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
 
 
-class LV3LucidRendererTests(unittest.TestCase):
+class PhysicalContractLucidRendererTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
@@ -104,7 +104,7 @@ class LV3LucidRendererTests(unittest.TestCase):
         )
 
 
-class LV3LucidCardinalityFinalReviewTests(unittest.TestCase):
+class PhysicalContractLucidCardinalityFinalReviewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))

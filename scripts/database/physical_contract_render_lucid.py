@@ -85,7 +85,7 @@ def _stable_json(payload: dict[str, Any]) -> str:
 def main(argv: list[str]) -> int:
     if len(argv) not in {2, 3}:
         print(
-            "usage: lv3_render_lucid.py CONTRACT_JSON [OUTPUT_JSON]",
+            "usage: physical_contract_render_lucid.py CONTRACT_JSON [OUTPUT_JSON]",
             file=sys.stderr,
         )
         return 2

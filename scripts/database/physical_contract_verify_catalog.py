@@ -49,17 +49,20 @@ def verify_catalog(contract: dict, catalog: dict) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 2:
-        print("usage: lv3_verify_catalog.py <contract.json> <catalog.json>", file=sys.stderr)
+        print(
+            "usage: physical_contract_verify_catalog.py <contract.json> <catalog.json>",
+            file=sys.stderr,
+        )
         return 2
     contract = json.loads(Path(args[0]).read_text(encoding="utf-8-sig"))
     catalog = json.loads(Path(args[1]).read_text(encoding="utf-8-sig"))
     errors = verify_catalog(contract, catalog)
     if errors:
-        print("LV3 PostgreSQL catalog parity: FAIL")
+        print("Physical contract PostgreSQL catalog parity: FAIL")
         for error in errors:
             print(f"- {error}")
         return 1
-    print("LV3 PostgreSQL catalog parity: PASS")
+    print("Physical contract PostgreSQL catalog parity: PASS")
     print(f"tables={len(catalog.get('tables', []))}")
     return 0
 

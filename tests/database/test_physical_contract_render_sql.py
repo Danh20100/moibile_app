@@ -3,7 +3,7 @@ import re
 import unittest
 from pathlib import Path
 
-from scripts.database.lv3_render_sql import render_sql
+from scripts.database.physical_contract_render_sql import render_sql
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
@@ -27,7 +27,7 @@ def rendered_sets(sql):
     return checks, uniques, indexes
 
 
-class LV3SQLRendererTests(unittest.TestCase):
+class PhysicalContractSQLRendererTests(unittest.TestCase):
     def setUp(self):
         self.contract = load_contract()
         self.sql = render_sql(self.contract)

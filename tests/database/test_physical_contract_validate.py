@@ -4,15 +4,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.database.lv3_validate import validate_contract
+from scripts.database.physical_contract_validate import validate_contract
 
 ROOT = Path(__file__).resolve().parents[2]
-LV1_PATH = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
-LV2_PATH = ROOT / "docs/database/erd/trooi-erd-lv2-logical.json"
+CONCEPTUAL_CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
+LOGICAL_CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv2-logical.json"
 
 
-def load_lv2():
-    return json.loads(LV2_PATH.read_text(encoding="utf-8"))
+def load_logical_contract():
+    return json.loads(LOGICAL_CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
 def physical_type(attribute_name):
@@ -23,9 +23,9 @@ def physical_type(attribute_name):
     return "text"
 
 
-def build_valid_contract(lv2):
+def build_valid_contract(logical_contract):
     tables = []
-    for entity in lv2["entities"]:
+    for entity in logical_contract["entities"]:
         columns = []
         checks = []
         for i, attribute in enumerate(entity["attributes"]):
@@ -77,11 +77,11 @@ def build_valid_contract(lv2):
                 "version": "v3.7",
             },
             "lv1": {
-                "path": str(LV1_PATH),
+                "path": str(CONCEPTUAL_CONTRACT_PATH),
                 "status": "REVIEWED_FROZEN",
             },
             "lv2": {
-                "path": str(LV2_PATH),
+                "path": str(LOGICAL_CONTRACT_PATH),
                 "status": "REVIEWED_FROZEN",
             },
         },
@@ -101,38 +101,38 @@ def build_valid_contract(lv2):
                 "enforcement": "transaction",
             }
         ],
-        "openPolicies": list(lv2["openPolicies"]),
+        "openPolicies": list(logical_contract["openPolicies"]),
         "openPolicyFreezes": [],
-        "excludedFuture": list(lv2["excludedFuture"]),
+        "excludedFuture": list(logical_contract["excludedFuture"]),
         "reconciliationMarkers": []
     }
 
 
-class LV3ValidatorTests(unittest.TestCase):
+class PhysicalContractValidatorTests(unittest.TestCase):
     def setUp(self):
-        self.lv2 = load_lv2()
-        self.contract = build_valid_contract(self.lv2)
+        self.logical_contract = load_logical_contract()
+        self.contract = build_valid_contract(self.logical_contract)
 
     def test_accepts_complete_contract(self):
-        self.assertEqual([], validate_contract(self.lv2, self.contract))
+        self.assertEqual([], validate_contract(self.logical_contract, self.contract))
 
-    def test_rejects_missing_lv2_entity(self):
+    def test_rejects_missing_logical_contract_entity(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"].pop()
         self.assertTrue(
             any(
                 "29" in error or "entity" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
-    def test_rejects_missing_lv2_attribute(self):
+    def test_rejects_missing_logical_contract_attribute(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"][1]["columns"].pop()
         self.assertTrue(
             any(
                 "attribute" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
@@ -146,7 +146,7 @@ class LV3ValidatorTests(unittest.TestCase):
             "uniqueConstraints": [],
             "indexes": [],
         })
-        self.assertTrue(validate_contract(self.lv2, contract))
+        self.assertTrue(validate_contract(self.logical_contract, contract))
 
     def test_rejects_any_reconciliation_marker(self):
         contract = copy.deepcopy(self.contract)
@@ -154,18 +154,18 @@ class LV3ValidatorTests(unittest.TestCase):
             "kind": "UPSTREAM_RECONCILE",
             "id": "stale_debt",
         }]
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any("reconciliation markers must be empty" in error.lower() for error in errors)
         )
 
 
-    def test_rejects_missing_post_lv3_open_policy(self):
+    def test_rejects_missing_post_physical_contract_open_policy(self):
         contract = copy.deepcopy(self.contract)
         contract["openPolicies"].remove(
             "Search/Map room/property type authoritative owner and vocabulary"
         )
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any("room/property type" in error.lower() for error in errors)
         )
@@ -183,7 +183,7 @@ class LV3ValidatorTests(unittest.TestCase):
             canonical.write("# Canonical v3.7\n")
             canonical.flush()
             contract["source"]["canonical"]["path"] = canonical.name
-            errors = validate_contract(self.lv2, contract)
+            errors = validate_contract(self.logical_contract, contract)
 
         self.assertTrue(
             any(
@@ -201,7 +201,7 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "open" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
@@ -215,27 +215,27 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "transaction" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
-    def test_rejects_non_frozen_lv3_status(self):
+    def test_rejects_non_frozen_physical_contract_status(self):
         contract = copy.deepcopy(self.contract)
         contract["status"] = "DRAFT_REVIEW"
         self.assertTrue(
             any(
-                "lv3" in error.lower() and "reviewed_frozen" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                "physical contract" in error.lower() and "reviewed_frozen" in error.lower()
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
-    def test_rejects_non_frozen_lv1_or_lv2(self):
+    def test_rejects_non_frozen_conceptual_contract_or_logical_contract(self):
         contract = copy.deepcopy(self.contract)
         contract["source"]["lv2"]["status"] = "DRAFT_REVIEW"
         self.assertTrue(
             any(
                 "reviewed_frozen" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
@@ -245,7 +245,7 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "column" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
@@ -259,7 +259,7 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "reference" in error.lower() or "foreign" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
@@ -269,54 +269,54 @@ class LV3ValidatorTests(unittest.TestCase):
         self.assertTrue(
             any(
                 "type" in error.lower()
-                for error in validate_contract(self.lv2, contract)
+                for error in validate_contract(self.logical_contract, contract)
             )
         )
 
 
-class LV3RepositoryContractTests(unittest.TestCase):
-    def test_repository_lv3_contract_matches_frozen_lv2(self):
-        lv3_path = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
-        lv1_path = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
-        lv2 = load_lv2()
-        lv1 = json.loads(lv1_path.read_text(encoding="utf-8"))
-        lv3 = json.loads(lv3_path.read_text(encoding="utf-8"))
-        errors = validate_contract(lv2, lv3)
+class PhysicalContractRepositoryContractTests(unittest.TestCase):
+    def test_repository_physical_contract_contract_matches_frozen_logical_contract(self):
+        physical_contract_path = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+        conceptual_contract_path = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
+        logical_contract = load_logical_contract()
+        conceptual_contract = json.loads(conceptual_contract_path.read_text(encoding="utf-8"))
+        physical_contract = json.loads(physical_contract_path.read_text(encoding="utf-8"))
+        errors = validate_contract(logical_contract, physical_contract)
         self.assertEqual([], errors)
-        self.assertEqual(29, len(lv3["tables"]))
+        self.assertEqual(29, len(physical_contract["tables"]))
         self.assertEqual(
             "REVIEWED_FROZEN",
-            lv3["source"]["lv2"]["status"],
+            physical_contract["source"]["lv2"]["status"],
         )
-        self.assertEqual("v3.7", lv1["source"]["version"])
-        self.assertEqual("v3.7", lv2["source"]["canonical"]["version"])
-        self.assertEqual("v3.7", lv3["source"]["canonicalVersion"])
-        self.assertEqual([], lv3.get("reconciliationMarkers", []))
+        self.assertEqual("v3.7", conceptual_contract["source"]["version"])
+        self.assertEqual("v3.7", logical_contract["source"]["canonical"]["version"])
+        self.assertEqual("v3.7", physical_contract["source"]["canonicalVersion"])
+        self.assertEqual([], physical_contract.get("reconciliationMarkers", []))
         self.assertIn(
             "Search/Map room/property type authoritative owner and vocabulary",
-            lv3["openPolicies"],
+            physical_contract["openPolicies"],
         )
         self.assertIn(
             "Charge over-allocation across multiple Payments targeting one Charge",
-            lv3["openPolicies"],
+            physical_contract["openPolicies"],
         )
         self.assertIn(
             "Review multiplicity per eligible Participant/Tenancy",
-            lv3["openPolicies"],
+            physical_contract["openPolicies"],
         )
 
 
-class LV3ValidatorFinalReviewTests(unittest.TestCase):
+class PhysicalContractValidatorFinalReviewTests(unittest.TestCase):
     def setUp(self):
-        self.lv2 = load_lv2()
-        self.contract = build_valid_contract(self.lv2)
+        self.logical_contract = load_logical_contract()
+        self.contract = build_valid_contract(self.logical_contract)
 
     def test_rejects_duplicate_logical_entity_as_extra_table(self):
         contract = copy.deepcopy(self.contract)
         duplicate = copy.deepcopy(contract["tables"][0])
         duplicate["name"] = f"{duplicate['name']}_duplicate"
         contract["tables"].append(duplicate)
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any(
                 "29" in error or "unique logicalentity" in error.lower()
@@ -327,7 +327,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
     def test_rejects_required_attribute_mapped_only_nullable(self):
         contract = copy.deepcopy(self.contract)
         contract["tables"][0]["columns"][0]["nullable"] = True
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any("nullability" in error.lower() for error in errors)
         )
@@ -347,7 +347,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
             {"operational_address_text", "operational_location"},
             mapped_names,
         )
-        self.assertEqual([], validate_contract(self.lv2, self.contract))
+        self.assertEqual([], validate_contract(self.logical_contract, self.contract))
 
     def test_rejects_undeclared_duplicate_attribute_mapping(self):
         contract = copy.deepcopy(self.contract)
@@ -359,7 +359,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
         duplicate = copy.deepcopy(user_table["columns"][0])
         duplicate["name"] = "user_id_duplicate"
         user_table["columns"].append(duplicate)
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(any("exactly once" in error.lower() for error in errors))
 
     def test_rejects_missing_deposit_settlement_amount_cap_guard(self):
@@ -369,7 +369,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
             for guard in contract["transactionGuards"]
             if guard["id"] != "deposit_settlement_amount_cap"
         ]
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any(
                 "deposit_settlement_amount_cap" in error
@@ -385,7 +385,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
             if guard["id"] == "deposit_settlement_amount_cap"
         )
         guard["enforcement"] = "database_check"
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any(
                 "transaction enforcement" in error.lower()
@@ -401,7 +401,7 @@ class LV3ValidatorFinalReviewTests(unittest.TestCase):
             if table["logicalEntity"] == "ROOM"
         )
         room_table["checks"] = []
-        errors = validate_contract(self.lv2, contract)
+        errors = validate_contract(self.logical_contract, contract)
         self.assertTrue(
             any("vocabulary" in error.lower() for error in errors)
         )

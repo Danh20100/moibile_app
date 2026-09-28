@@ -18,7 +18,7 @@ ALLOWED_TYPES = {
 }
 
 REQUIRED_TRANSACTION_GUARDS = {"deposit_settlement_amount_cap"}
-REQUIRED_POST_LV3_OPEN_POLICIES = {
+REQUIRED_POST_PHYSICAL_OPEN_POLICIES = {
     "Search/Map room/property type authoritative owner and vocabulary",
     "Charge over-allocation across multiple Payments targeting one Charge",
     "Review multiplicity per eligible Participant/Tenancy",
@@ -58,10 +58,10 @@ def _column_map(table: dict) -> dict[str, dict]:
     }
 
 
-def _validate_sources(lv2: dict, contract: dict, errors: list[str]) -> None:
+def _validate_sources(logical_contract: dict, contract: dict, errors: list[str]) -> None:
     if contract.get("status") != "REVIEWED_FROZEN":
         errors.append(
-            f"LV3 status must be REVIEWED_FROZEN, got {contract.get('status')!r}"
+            f"Physical contract status must be REVIEWED_FROZEN, got {contract.get('status')!r}"
         )
     source = contract.get("source", {})
     for name in ("lv1", "lv2"):
@@ -73,27 +73,27 @@ def _validate_sources(lv2: dict, contract: dict, errors: list[str]) -> None:
     canonical = source.get("canonical", {})
     if source.get("canonicalVersion") != "v3.7" or canonical.get("version") != "v3.7":
         errors.append("canonical source must be v3.7")
-    if lv2.get("source", {}).get("canonical", {}).get("version") != "v3.7":
-        errors.append("LV2 canonical source must be v3.7")
+    if logical_contract.get("source", {}).get("canonical", {}).get("version") != "v3.7":
+        errors.append("Logical contract canonical source must be v3.7")
 
 
 def _validate_markers(contract: dict, errors: list[str]) -> None:
     markers = contract.get("reconciliationMarkers", [])
     if markers:
-        errors.append("reconciliation markers must be empty after LV3 freeze")
+        errors.append("reconciliation markers must be empty after physical contract freeze")
 
 
 def _validate_open_policies(contract: dict, errors: list[str]) -> None:
     policies = set(contract.get("openPolicies", []))
-    missing = REQUIRED_POST_LV3_OPEN_POLICIES - policies
+    missing = REQUIRED_POST_PHYSICAL_OPEN_POLICIES - policies
     if missing:
         errors.append(
-            "missing post-LV3 OPEN policies: " + ", ".join(sorted(missing))
+            "missing post-freeze OPEN policies: " + ", ".join(sorted(missing))
         )
 
     canonical_path = contract.get("source", {}).get("canonical", {}).get("path")
     if not canonical_path:
-        errors.append("canonical v3.7 must declare post-LV3 OPEN policies")
+        errors.append("canonical v3.7 must declare post-freeze OPEN policies")
         return
 
     path = Path(canonical_path)
@@ -102,17 +102,17 @@ def _validate_open_policies(contract: dict, errors: list[str]) -> None:
     try:
         canonical = path.read_text(encoding="utf-8")
     except OSError:
-        errors.append("canonical v3.7 must declare post-LV3 OPEN policies")
+        errors.append("canonical v3.7 must declare post-freeze OPEN policies")
         return
 
     missing = {
         policy
-        for policy in REQUIRED_POST_LV3_OPEN_POLICIES
+        for policy in REQUIRED_POST_PHYSICAL_OPEN_POLICIES
         if f"{policy}: **[OPEN]**." not in canonical
     }
     if missing:
         errors.append(
-            "canonical v3.7 must declare post-LV3 OPEN policies: "
+            "canonical v3.7 must declare post-freeze OPEN policies: "
             + ", ".join(sorted(missing))
         )
 
@@ -145,10 +145,10 @@ def _validate_frozen_vocabulary(
         )
 
 
-def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
+def _validate_tables(logical_contract: dict, contract: dict, errors: list[str]) -> None:
     expected = {
         entity["name"]: entity
-        for entity in lv2.get("entities", [])
+        for entity in logical_contract.get("entities", [])
     }
     tables = contract.get("tables", [])
     actual = _logical_table_map(contract)
@@ -167,7 +167,7 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
         missing = sorted(set(expected) - set(actual))
         extra = sorted(set(actual) - set(expected))
         errors.append(
-            "physical entity set must match exact 29 LV2 entities; "
+            "physical entity set must match exact 29 logical entities; "
             f"missing={missing}, extra={extra}"
         )
 
@@ -210,7 +210,7 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
             ]
             if not mapped_columns:
                 errors.append(
-                    f"table {table.get('name')} is missing LV2 attribute "
+                    f"table {table.get('name')} is missing logical attribute "
                     f"mapping {attribute['name']!r}"
                 )
                 continue
@@ -228,7 +228,7 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
                     continue
             elif len(mapped_columns) != 1:
                 errors.append(
-                    f"table {table.get('name')} must map LV2 attribute "
+                    f"table {table.get('name')} must map logical attribute "
                     f"{attribute['name']!r} exactly once"
                 )
                 continue
@@ -242,7 +242,7 @@ def _validate_tables(lv2: dict, contract: dict, errors: list[str]) -> None:
             ):
                 errors.append(
                     f"table {table.get('name')} nullability does not preserve "
-                    f"required LV2 attribute {attribute['name']!r}"
+                    f"required logical attribute {attribute['name']!r}"
                 )
 
             _validate_frozen_vocabulary(
@@ -303,22 +303,22 @@ def _validate_checks(contract: dict, errors: list[str]) -> None:
                     "as row-local CHECK"
                 )
     if contract.get("openPolicyFreezes"):
-        errors.append("OPEN policy vocabulary/policy must not be frozen in LV3")
+        errors.append("OPEN policy vocabulary/policy must not be frozen in the physical contract")
 
 
 def validate_contract(
-    lv2: dict,
-    lv3: dict,
+    logical_contract: dict,
+    physical_contract: dict,
     sql_text: str | None = None,
 ) -> list[str]:
     errors: list[str] = []
-    _validate_sources(lv2, lv3, errors)
-    _validate_tables(lv2, lv3, errors)
-    _validate_references(lv3, errors)
-    _validate_checks(lv3, errors)
-    _validate_transaction_guards(lv3, errors)
-    _validate_open_policies(lv3, errors)
-    _validate_markers(lv3, errors)
+    _validate_sources(logical_contract, physical_contract, errors)
+    _validate_tables(logical_contract, physical_contract, errors)
+    _validate_references(physical_contract, errors)
+    _validate_checks(physical_contract, errors)
+    _validate_transaction_guards(physical_contract, errors)
+    _validate_open_policies(physical_contract, errors)
+    _validate_markers(physical_contract, errors)
     return errors
 
 
@@ -330,29 +330,29 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) not in {2, 3}:
         print(
-            "usage: lv3_validate.py <lv2.json> <lv3.json> [schema.sql]",
+            "usage: physical_contract_validate.py <logical.json> <physical.json> [schema.sql]",
             file=sys.stderr,
         )
         return 2
 
-    lv2 = _load_json(args[0])
-    lv3 = _load_json(args[1])
+    logical_contract = _load_json(args[0])
+    physical_contract = _load_json(args[1])
     sql_text = (
         Path(args[2]).read_text(encoding="utf-8")
         if len(args) == 3
         else None
     )
-    errors = validate_contract(lv2, lv3, sql_text)
+    errors = validate_contract(logical_contract, physical_contract, sql_text)
     if errors:
-        print("LV3 physical contract validation: FAIL")
+        print("Physical contract validation: FAIL")
         for error in errors:
             print(f"- {error}")
         return 1
 
-    print("LV3 physical contract validation: PASS")
+    print("Physical contract validation: PASS")
     print(
-        f"tables={len(lv3.get('tables', []))} "
-        f"reconciliation={len(lv3.get('reconciliationMarkers', []))}"
+        f"tables={len(physical_contract.get('tables', []))} "
+        f"reconciliation={len(physical_contract.get('reconciliationMarkers', []))}"
     )
     return 0
 
