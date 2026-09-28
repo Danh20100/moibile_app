@@ -1,10 +1,10 @@
 # HANDOFF — Wave B Listing + Tenancy Reconciliation
 
-**Recipient:** `duyanh`  
-**Created:** `2026-09-29 00:29:53 +07:00`  
-**Repository:** `onsra520/TroOi-Project`  
-**Branch:** `backend/core-foundations`  
-**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`  
+**Recipient:** `duyanh`
+**Created:** `2026-09-29 00:29:53 +07:00`
+**Repository:** `onsra520/TroOi-Project`
+**Branch:** `backend/core-foundations`
+**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`
 **Status:** `WAVE_B_FROZEN`
 
 ## Delivered

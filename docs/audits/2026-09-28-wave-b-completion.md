@@ -1,7 +1,7 @@
 # Wave B Completion Audit
 
-**Branch:** `backend/core-foundations`  
-**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`  
+**Branch:** `backend/core-foundations`
+**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`
 **Authority:** Canonical v3.7 -> frozen ERD -> approved Wave B spec -> implementation plan
 
 ## Commands and results
