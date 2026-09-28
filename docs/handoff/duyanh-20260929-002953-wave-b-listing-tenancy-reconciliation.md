@@ -4,7 +4,7 @@
 **Created:** `2026-09-29 00:29:53 +07:00`
 **Repository:** `onsra520/TroOi-Project`
 **Branch:** `backend/core-foundations`
-**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`
+**Runtime evidence SHA:** `7110f622fe1b678d2b10d1f0a75571d260c572fb`
 **Status:** `WAVE_B_FROZEN`
 
 ## Delivered
@@ -17,16 +17,17 @@
 
 ## Evidence
 
-- Focused Wave B + predecessor/conformance gate: PASS, 132/132.
+- Focused Wave B + predecessor/conformance + DTO gate: PASS, 146/146.
 - Typecheck: PASS. Database validators: PASS, 45/45. Google identity verifier: PASS, 9/9.
 - Full ERD3 conformance: 41/57 pass; 16 expected RED only in Wave C Finance (10) and Wave D Incident/Trust (6).
-- Full repository test: 215/231 pass; the same 16 expected later-wave RED only.
+- Full repository test: 217/233 pass; the same 16 expected later-wave RED only.
 
 See `docs/audits/2026-09-28-wave-b-completion.md` for exact commands, names, and classifications.
 
 ## Rulings
 
 - Five B3/B4 Tenancy conformance assertions removed in uncommitted work were restored because earlier runtime evidence had them GREEN; removing frozen-contract coverage was not valid B5 progress.
+- Final review fixes prevent a public DRAFT-to-ACTIVE resume bypass and reject Listing creation requests without a public location projection.
 - No OPEN policy was selected. No PostgreSQL, Redis, Finance, Incident, or Trust scope was pulled into Wave B.
 
 ## Next boundary

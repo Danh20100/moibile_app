@@ -1,19 +1,25 @@
 # Wave B Completion Audit
 
 **Branch:** `backend/core-foundations`
-**Runtime evidence SHA:** `e433aaced262e850eb597466050579842daf8d1f`
+**Runtime evidence SHA:** `7110f622fe1b678d2b10d1f0a75571d260c572fb`
 **Authority:** Canonical v3.7 -> frozen ERD -> approved Wave B spec -> implementation plan
 
 ## Commands and results
 
 | Command | Result |
 | --- | --- |
-| Focused Wave B + predecessor gate | PASS — 132/132 |
+| `pnpm exec tsx --test` focused Wave B + predecessor + DTO regression suite | PASS — 146/146 |
 | `pnpm typecheck` | PASS |
 | `python -m unittest discover -s tests/database -p "test_*.py"` | PASS — 45/45 |
 | `pnpm test:conformance:erd3` | EXPECTED RED — 41/57 pass; 16 later-wave failures only |
-| `pnpm test` | EXPECTED RED — 215/231 pass; 16 later-wave failures only |
+| `pnpm test` | EXPECTED RED — 217/233 pass; 16 later-wave failures only |
 | `pnpm exec tsx --test src/integrations/google-identity/google-id-token-verifier.spec.ts` | PASS — 9/9 |
+
+The focused test command was:
+
+```bash
+pnpm exec tsx --test tests/core/organization.behavior.test.ts tests/core/property.behavior.test.ts tests/core/room.behavior.test.ts tests/core/listing.behavior.test.ts tests/core/inquiry.behavior.test.ts tests/core/tenancy.behavior.test.ts tests/core/tenancy-support.behavior.test.ts tests/core/rental-lifecycle.behavior.test.ts tests/core/dto-boundary.validation.test.ts tests/conformance/erd3/identity.contract.test.ts tests/conformance/erd3/organization.contract.test.ts tests/conformance/erd3/property-room.lifecycle.test.ts tests/conformance/erd3/listing.contract.test.ts tests/conformance/erd3/tenancy.contract.test.ts tests/conformance/erd3/future-open-boundary.static.test.ts
+```
 
 ## GREEN boundaries
 
@@ -49,6 +55,7 @@
 
 - Restored five B3/B4 Tenancy conformance assertions that were removed from the uncommitted worktree: B4 evidence records them GREEN, so deleting frozen-contract coverage was not valid B5 progress.
 - The Room HTTP operational-state route moved to `RentalLifecycleController`; stale Room-controller assertions were updated to test the new non-bypass boundary.
+- Final review found and fixed two confirmed defects with RED→GREEN regressions: public resume now accepts only `ENDING -> ACTIVE`, and `CreateListingDto.publicLocationProjection` is required at the HTTP boundary.
 
 ## OPEN issues and next boundary
 
