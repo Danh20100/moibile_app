@@ -63,10 +63,10 @@ describe('cross-module reference integrity audit', () => {
       async () =>
         service.createCycle({
           tenancyId: 'ten_missing',
-          roomId: 'room_missing',
-          cycleMonth: '2026-10',
-          dueDate: '2026-10-05',
-          charges: [{ type: 'rent', description: 'Rent', amount: 3000000 }],
+          tenancyTermsId: 'terms_missing',
+          periodStart: '2026-10-01',
+          periodEnd: '2026-10-31',
+          charges: [{ type: 'RENT', amount: '3000000.00' }],
         }),
       'Billing must validate authoritative tenancy context before creating a receivable.',
     );
@@ -76,13 +76,7 @@ describe('cross-module reference integrity audit', () => {
     const service = app.get(ReceiptService);
     await expectRejection(
       async () =>
-        service.create({
-          billingCycleId: 'bill_missing',
-          tenancyId: 'ten_missing',
-          amount: 3000000,
-          paymentMethod: 'cash',
-          paidAt: '2026-10-04T10:30:00.000Z',
-        }),
+        service.issue('payment_missing'),
       'Receipt must validate the receivable context it references.',
     );
   });

@@ -1,81 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  ArrayMinSize,
-  IsArray,
-  IsDateString,
-  IsNotEmpty,
-  IsNumber,
-  IsPositive,
-  IsString,
-  Matches,
-  ValidateNested,
-} from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsIn, IsNotEmpty, IsString, Matches, ValidateNested } from 'class-validator';
+import type { ChargeType, PaymentSource, PaymentVerification } from '../contracts';
 
-export class BillingChargeDto {
-  @ApiProperty({
-    description: 'Loại phí (rent, electricity, water, internet, ...)',
-    example: 'rent',
-  })
-  @IsString()
-  @IsNotEmpty()
-  type!: string;
-
-  @ApiProperty({
-    description: 'Mô tả chi tiết khoản phí',
-    example: 'Tiền thuê phòng tháng 10/2026',
-  })
-  @IsString()
-  @IsNotEmpty()
-  description!: string;
-
-  @ApiProperty({ description: 'Số tiền (VNĐ)', example: 3500000 })
-  @Type(() => Number)
-  @IsNumber()
-  @IsPositive()
-  amount!: number;
-}
-
+const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
+export class CreateChargeDto { @IsIn(['RENT', 'ELECTRICITY', 'WATER']) type!: ChargeType; @Matches(MONEY) amount!: string; }
 export class CreateBillingCycleDto {
-  @ApiProperty({ description: 'ID kỳ thuê tương ứng', example: 'ten_12345' })
-  @IsString()
-  @IsNotEmpty()
-  tenancyId!: string;
-
-  @ApiProperty({ description: 'ID phòng', example: 'room_12345' })
-  @IsString()
-  @IsNotEmpty()
-  roomId!: string;
-
-  @ApiProperty({ description: 'Tháng của kỳ thu (YYYY-MM)', example: '2026-10' })
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
-    message: 'cycleMonth phải có định dạng YYYY-MM',
-  })
-  cycleMonth!: string;
-
-  @ApiProperty({ description: 'Hạn nộp tiền (YYYY-MM-DD)', example: '2026-10-05' })
-  @IsDateString()
-  dueDate!: string;
-
-  @ApiProperty({ description: 'Danh sách các khoản phí trong kỳ', type: [BillingChargeDto] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => BillingChargeDto)
-  charges!: BillingChargeDto[];
+  @IsString() @IsNotEmpty() tenancyId!: string;
+  @IsString() @IsNotEmpty() tenancyTermsId!: string;
+  @IsDateString() periodStart!: string;
+  @IsDateString() periodEnd!: string;
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CreateChargeDto) charges!: CreateChargeDto[];
 }
-
-export class ApplyPaymentOutcomeDto {
-  @ApiProperty({ description: 'Số tiền thanh toán được ghi nhận (VNĐ)', example: 3500000 })
-  @Type(() => Number)
-  @IsNumber()
-  @IsPositive()
-  amountPaid!: number;
-
-  @ApiProperty({ description: 'ID biên nhận xác nhận thanh toán', example: 'rcpt_12345' })
-  @IsString()
-  @IsNotEmpty()
-  receiptId!: string;
+export class RecordPaymentDto {
+  @IsString() @IsNotEmpty() tenancyId!: string;
+  @Matches(MONEY) amount!: string;
+  @IsIn(['MANUAL_CASH', 'MANUAL_TRANSFER', 'GATEWAY']) source!: PaymentSource;
+  @IsIn(['USER_RECORDED', 'PROVIDER_VERIFIED']) verification!: PaymentVerification;
+  @IsDateString() confirmedAt!: string;
 }
+export class ApplyAmountDto { @ApiProperty() @Matches(MONEY) amount!: string; @ApiProperty() @IsString() @IsNotEmpty() targetId!: string; }

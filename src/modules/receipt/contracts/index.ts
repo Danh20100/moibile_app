@@ -1,20 +1,10 @@
-export type ReceiptStatus = 'recorded' | 'confirmed';
-
-export interface ReceiptReference {
-  receiptId: string;
-}
+export type ReceiptStatus = 'ISSUED' | 'VOIDED';
 
 export interface ReceiptRecord {
   id: string;
-  billingCycleId: string;
-  tenancyId: string;
-  amount: number;
-  paymentMethod: string;
-  paidAt: string;
+  paymentId: string;
   status: ReceiptStatus;
-  note?: string;
-  confirmedBy?: string;
-  confirmedAt?: string;
-  createdAt: string;
-  updatedAt: string;
+  issuedAt: string;
+  voidedAt?: string;
+  replacementReceiptId?: string;
 }

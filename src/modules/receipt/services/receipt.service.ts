@@ -1,82 +1,26 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
-
+import { randomUUID } from 'node:crypto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { BillingService } from '../../billing/services/billing.service';
-import { TenancyService } from '../../tenancy/services/tenancy.service';
 import { ReceiptRecord } from '../contracts';
-import { ConfirmReceiptDto, CreateReceiptDto } from '../dto';
 
 @Injectable()
 export class ReceiptService {
-  private static readonly receipts = new Map<string, ReceiptRecord>();
+  private readonly receipts = new Map<string, ReceiptRecord>();
+  constructor(private readonly billingService: BillingService) {}
 
-  constructor(
-    @Optional() @Inject(BillingService) private readonly billingService?: BillingService,
-    @Optional() @Inject(TenancyService) private readonly tenancyService?: TenancyService,
-  ) {}
-
-  async create(dto: CreateReceiptDto): Promise<ReceiptRecord> {
-    if (this.billingService) {
-      await this.billingService.findById(dto.billingCycleId);
-    }
-    if (this.tenancyService) {
-      await this.tenancyService.findById(dto.tenancyId);
-    }
-
-    const id = `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
-    const receipt: ReceiptRecord = {
-      id,
-      billingCycleId: dto.billingCycleId,
-      tenancyId: dto.tenancyId,
-      amount: dto.amount,
-      paymentMethod: dto.paymentMethod,
-      paidAt: dto.paidAt,
-      status: 'recorded',
-      note: dto.note,
-      createdAt: now,
-      updatedAt: now,
-    };
-    ReceiptService.receipts.set(id, receipt);
-    return { ...receipt };
+  async issue(paymentId: string): Promise<ReceiptRecord> {
+    const payment = await this.billingService.findPaymentById(paymentId);
+    if (payment.voidedOrReversedAt) throw new BadRequestException('Receipt requires a non-voided confirmed Payment');
+    const current = Array.from(this.receipts.values()).find((value) => value.paymentId === paymentId && value.status === 'ISSUED');
+    if (current) throw new BadRequestException('Payment already has a current Receipt');
+    const value: ReceiptRecord = { id: randomUUID(), paymentId, status: 'ISSUED', issuedAt: new Date().toISOString() };
+    this.receipts.set(value.id, structuredClone(value));
+    const previous = Array.from(this.receipts.values()).find((candidate) => candidate.paymentId === paymentId && candidate.status === 'VOIDED' && !candidate.replacementReceiptId);
+    if (previous) this.receipts.set(previous.id, { ...previous, replacementReceiptId: value.id });
+    return structuredClone(value);
   }
 
-  async findById(id: string): Promise<ReceiptRecord> {
-    const receipt = ReceiptService.receipts.get(id);
-    if (!receipt) {
-      throw new NotFoundException(`Không tìm thấy receipt với id: ${id}`);
-    }
-    return { ...receipt };
-  }
-
-  async findByBillingCycleId(billingCycleId?: string): Promise<ReceiptRecord[]> {
-    const all = Array.from(ReceiptService.receipts.values());
-    if (!billingCycleId) {
-      return all.map((r) => ({ ...r }));
-    }
-    return all.filter((r) => r.billingCycleId === billingCycleId).map((r) => ({ ...r }));
-  }
-
-  async confirm(id: string, dto: ConfirmReceiptDto): Promise<ReceiptRecord> {
-    const receipt = await this.findById(id);
-    if (receipt.status === 'confirmed') {
-      throw new BadRequestException('Biên nhận này đã được xác nhận trước đó');
-    }
-
-    const updated: ReceiptRecord = {
-      ...receipt,
-      status: 'confirmed',
-      confirmedBy: dto.confirmedBy,
-      confirmedAt: new Date().toISOString(),
-      note: dto.note ? `${receipt.note ?? ''} [Xác nhận]: ${dto.note}`.trim() : receipt.note,
-      updatedAt: new Date().toISOString(),
-    };
-    ReceiptService.receipts.set(id, updated);
-    return { ...updated };
-  }
+  async findById(id: string): Promise<ReceiptRecord> { const value = this.receipts.get(id); if (!value) throw new NotFoundException(`Receipt not found: ${id}`); return structuredClone(value); }
+  async findByPaymentId(paymentId?: string): Promise<ReceiptRecord[]> { return Array.from(this.receipts.values()).filter((value) => !paymentId || value.paymentId === paymentId).map((value) => structuredClone(value)); }
+  async void(id: string): Promise<ReceiptRecord> { const value = await this.findById(id); if (value.status === 'VOIDED') throw new BadRequestException('Receipt is already voided'); const updated: ReceiptRecord = { ...value, status: 'VOIDED', voidedAt: new Date().toISOString() }; this.receipts.set(id, updated); return structuredClone(updated); }
 }

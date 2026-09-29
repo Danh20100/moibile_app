@@ -115,57 +115,21 @@ describe('low-level architecture baseline behavior', () => {
     assert.deepEqual(await service.findPublished(), []);
   });
 
-  it('reconciles an exact billing payment from upcoming to paid', async () => {
-    const service = new BillingService();
-    const cycle = await service.createCycle({
-      tenancyId: 'ten_1',
-      roomId: 'room_1',
-      cycleMonth: '2099-01',
-      dueDate: '2099-01-31',
-      charges: [
-        { type: 'rent', description: 'Monthly rent', amount: 3_500_000 },
-        { type: 'water', description: 'Water', amount: 100_000 },
-      ],
-    });
-
-    assert.equal(cycle.totalAmount, 3_600_000);
-    assert.equal(cycle.outstandingBalance, 3_600_000);
-    assert.equal(cycle.status, 'upcoming');
-
-    const partial = await service.applyPaymentOutcome(cycle.id, {
-      amountPaid: 1_000_000,
-      receiptId: 'rcpt_1',
-    });
-    assert.equal(partial.status, 'partial');
-    assert.equal(partial.outstandingBalance, 2_600_000);
-
-    const paid = await service.applyPaymentOutcome(cycle.id, {
-      amountPaid: 2_600_000,
-      receiptId: 'rcpt_2',
-    });
-    assert.equal(paid.status, 'paid');
-    assert.equal(paid.outstandingBalance, 0);
-    assert.equal(paid.paidAmount, paid.totalAmount);
+  it('keeps confirmed Payment separate from Billing Cycle obligation', async () => {
+    const service = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never);
+    const cycle = await service.createCycle({ tenancyId: 'ten_1', tenancyTermsId: 'terms_1', periodStart: '2099-01-01', periodEnd: '2099-01-31', charges: [{ type: 'RENT', amount: '3500000.00' }] });
+    const payment = await service.recordPayment({ tenancyId: 'ten_1', amount: '3500000.00', source: 'MANUAL_TRANSFER', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
+    const allocation = await service.allocatePayment(payment.id, cycle.charges[0]!.id, '3500000.00');
+    assert.equal(allocation.paymentId, payment.id);
+    assert.equal('paidAmount' in cycle, false);
   });
 
-  it('allows a receipt to be confirmed exactly once', async () => {
-    const service = new ReceiptService();
-    const receipt = await service.create({
-      billingCycleId: 'bill_1',
-      tenancyId: 'ten_1',
-      amount: 3_500_000,
-      paymentMethod: 'bank_transfer',
-      paidAt: '2026-10-04T10:30:00.000Z',
-    });
-
-    const confirmed = await service.confirm(receipt.id, { confirmedBy: 'operator_1' });
-    assert.equal(confirmed.status, 'confirmed');
-    assert.equal(confirmed.confirmedBy, 'operator_1');
-
-    await assert.rejects(
-      service.confirm(receipt.id, { confirmedBy: 'operator_2' }),
-      BadRequestException,
-    );
+  it('allows only one current issued Receipt per Payment', async () => {
+    const finance = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never);
+    const payment = await finance.recordPayment({ tenancyId: 'ten_1', amount: '1.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
+    const service = new ReceiptService(finance);
+    await service.issue(payment.id);
+    await assert.rejects(() => service.issue(payment.id), BadRequestException);
   });
 
   it('rejects duplicate room numbers in an onboarding batch', async () => {
