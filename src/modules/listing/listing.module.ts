@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
 
-import { PropertyModule } from '../property/property.module';
-import { RoomModule } from '../room/room.module';
+import { InquiryController } from './controllers/inquiry.controller';
 import { ListingController } from './controllers/listing.controller';
+import { InquiryService } from './services/inquiry.service';
 import { ListingService } from './services/listing.service';
 
 @Module({
-  imports: [RoomModule, PropertyModule],
-  controllers: [ListingController],
-  providers: [ListingService],
-  exports: [ListingService],
+  controllers: [ListingController, InquiryController],
+  providers: [ListingService, InquiryService],
+  exports: [ListingService, InquiryService],
 })
 export class ListingModule {}

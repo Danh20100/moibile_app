@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { OPTIONAL_DEPS_METADATA } from '@nestjs/common/constants';
 
 import type { PropertyArchiveBlockers } from '../../src/modules/property/contracts';
 import { CreatePropertyDto, UpdatePropertyDto } from '../../src/modules/property/dto';
 import { PropertyService } from '../../src/modules/property/services/property.service';
+import { createCoreFoundationHarness, createOrganization } from './support/core-foundation.harness';
 
 function createDto(overrides: Partial<CreatePropertyDto> = {}): CreatePropertyDto {
   return {
@@ -29,23 +31,41 @@ function clearBlockers(overrides: Partial<PropertyArchiveBlockers> = {}): Proper
   };
 }
 
+async function propertyFixture() {
+  const harness = createCoreFoundationHarness();
+  const organizationId = await createOrganization(harness);
+  return {
+    service: harness.propertyService,
+    dto: (overrides: Partial<CreatePropertyDto> = {}) => createDto({ organizationId, ...overrides }),
+  };
+}
+
+test('PropertyService declares OrganizationService as a required dependency', () => {
+  assert.deepEqual(Reflect.getMetadata(OPTIONAL_DEPS_METADATA, PropertyService) ?? [], []);
+});
+
+test('property creation rejects a missing parent organization', async () => {
+  const { service, dto } = await propertyFixture();
+  await assert.rejects(service.create(dto({ organizationId: 'org_missing' })), NotFoundException);
+});
+
 test('new property starts active', async () => {
-  const service = new PropertyService();
-  const created = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const created = await service.create(dto());
   assert.equal(created.lifecycleStatus, 'active');
 });
 
 test('operational and public locations are independent', async () => {
-  const service = new PropertyService();
-  const created = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const created = await service.create(dto());
   assert.deepEqual(created.operationalLocation, { latitude: 21.0285, longitude: 105.8542 });
   assert.deepEqual(created.publicLocationProjection, { latitude: 21.03, longitude: 105.85 });
   assert.notDeepEqual(created.operationalLocation, created.publicLocationProjection);
 });
 
 test('update public projection does not overwrite operational location', async () => {
-  const service = new PropertyService();
-  const created = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const created = await service.create(dto());
   const updated = await service.update(created.id, {
     publicLocationProjection: { latitude: 21.1, longitude: 105.9 },
   });
@@ -54,10 +74,10 @@ test('update public projection does not overwrite operational location', async (
 });
 
 test('coordinate validation rejects out-of-range latitude and longitude', async () => {
-  const service = new PropertyService();
+  const { service, dto } = await propertyFixture();
   await assert.rejects(
     service.create(
-      createDto({
+      dto({
         operationalLocation: { latitude: 91, longitude: 105 },
       }),
     ),
@@ -65,7 +85,7 @@ test('coordinate validation rejects out-of-range latitude and longitude', async 
   );
   await assert.rejects(
     service.create(
-      createDto({
+      dto({
         publicLocationProjection: { latitude: 21, longitude: 181 },
       }),
     ),
@@ -74,7 +94,7 @@ test('coordinate validation rejects out-of-range latitude and longitude', async 
 });
 
 test('archive rejects each blocker independently', async () => {
-  const service = new PropertyService();
+  const { service, dto } = await propertyFixture();
   const blockerKeys: (keyof PropertyArchiveBlockers)[] = [
     'hasNonTerminalTenancy',
     'hasPublishedListing',
@@ -84,7 +104,7 @@ test('archive rejects each blocker independently', async () => {
   ];
 
   for (const key of blockerKeys) {
-    const property = await service.create(createDto({ name: `Blocked by ${key}` }));
+    const property = await service.create(dto({ name: `Blocked by ${key}` }));
     await assert.rejects(
       service.archive(property.id, clearBlockers({ [key]: true })),
       BadRequestException,
@@ -95,22 +115,22 @@ test('archive rejects each blocker independently', async () => {
 });
 
 test('archive succeeds only when all blockers false', async () => {
-  const service = new PropertyService();
-  const property = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const property = await service.create(dto());
   const archived = await service.archive(property.id, clearBlockers());
   assert.equal(archived.lifecycleStatus, 'archived');
 });
 
 test('archived is terminal', async () => {
-  const service = new PropertyService();
-  const property = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const property = await service.create(dto());
   await service.archive(property.id, clearBlockers());
   await assert.rejects(service.archive(property.id, clearBlockers()), BadRequestException);
 });
 
 test('update cannot change lifecycle/unarchive', async () => {
-  const service = new PropertyService();
-  const property = await service.create(createDto());
+  const { service, dto } = await propertyFixture();
+  const property = await service.create(dto());
   await service.archive(property.id, clearBlockers());
 
   const updated = await service.update(property.id, {

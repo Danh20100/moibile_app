@@ -30,16 +30,17 @@ test('LISTING does not duplicate Property ownership beside Room ownership', () =
 });
 
 test('publishing is coupled to Room vacancy and active Property eligibility', () => {
-  const source = readRepoFile('src/modules/listing/services/listing.service.ts').toLowerCase();
+  const source = readRepoFile(
+    'src/modules/rental-lifecycle/services/rental-lifecycle.coordinator.ts',
+  ).toLowerCase();
   assert.ok(source.includes('vacant'), 'publish workflow must check Room VACANT');
   assert.ok(source.includes('active'), 'publish workflow must check active Room/Property lifecycle');
 });
 
 test('Room leaving VACANT has an explicit synchronous unpublish workflow', () => {
-  const source = readRepoFiles([
-    'src/modules/listing/services/listing.service.ts',
-    'src/modules/room/services/room.service.ts',
-  ]).toLowerCase();
+  const source = readRepoFile(
+    'src/modules/rental-lifecycle/services/rental-lifecycle.coordinator.ts',
+  ).toLowerCase();
   assert.ok(source.includes('unpublish'), 'Room/listing orchestration must expose an unpublish workflow');
   assert.ok(source.includes('vacant'), 'unpublish workflow must be coupled to Room VACANT semantics');
 });

@@ -1,81 +1,133 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsDefined,
+  IsObject,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
-import type { ListingStatus } from '../contracts';
+const NUMERIC_18_SCALE_2 = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
+export class PublicLocationProjectionDto {
+  @ApiProperty({ example: 10.77 })
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number;
+
+  @ApiProperty({ example: 106.69 })
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number;
+}
 export class CreateListingDto {
-  @ApiProperty({ description: 'ID phòng cần đăng tin', example: 'room_12345' })
+  @ApiProperty({ description: 'Parent Room ID', example: 'room_12345' })
   @IsString()
   @IsNotEmpty()
   roomId!: string;
 
-  @ApiProperty({ description: 'ID tài sản / khu trọ', example: 'prop_12345' })
+  @ApiProperty({ description: 'Public listing title' })
   @IsString()
   @IsNotEmpty()
-  propertyId!: string;
+  publicTitle!: string;
 
-  @ApiProperty({
-    description: 'Tiêu đề tin đăng công khai',
-    example: 'Phòng khép kín ban công thoáng mát gần ĐH Quốc Gia',
-  })
+  @ApiProperty({ description: 'Public listing description' })
   @IsString()
   @IsNotEmpty()
-  title!: string;
+  publicDescription!: string;
 
-  @ApiProperty({
-    description: 'Mô tả chi tiết phòng cho người thuê xem',
-    example: 'Đầy đủ điều hòa, nóng lạnh, giờ giấc tự do không chung chủ',
-  })
+  @ApiProperty({ description: 'Exact numeric(18,2)-compatible public price', example: '3500000.00' })
   @IsString()
-  @IsNotEmpty()
-  description!: string;
+  @Matches(NUMERIC_18_SCALE_2)
+  publicPriceProjection!: string;
 
-  @ApiProperty({ description: 'Giá niêm yết công khai (VNĐ)', example: 3500000 })
-  @Type(() => Number)
-  @IsNumber()
-  @IsPositive()
-  price!: number;
-
-  @ApiProperty({
-    description: 'Tóm tắt vị trí địa lý',
-    example: 'Ngõ 80 Cầu Giấy, Phường Dịch Vọng, Hà Nội',
-  })
-  @IsString()
-  @IsNotEmpty()
-  locationSummary!: string;
+  @ApiProperty({ type: PublicLocationProjectionDto })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => PublicLocationProjectionDto)
+  publicLocationProjection!: PublicLocationProjectionDto;
 }
 
 export class UpdateListingDto {
-  @ApiPropertyOptional({ description: 'Tiêu đề tin đăng' })
+  @ApiPropertyOptional({ description: 'Public listing title' })
   @IsOptional()
   @IsString()
-  title?: string;
-
-  @ApiPropertyOptional({ description: 'Mô tả tin đăng' })
+  @IsNotEmpty()
+  publicTitle?: string;
+  @ApiPropertyOptional({ description: 'Public listing description' })
   @IsOptional()
   @IsString()
-  description?: string;
+  @IsNotEmpty()
+  publicDescription?: string;
 
-  @ApiPropertyOptional({ description: 'Giá niêm yết (VNĐ)' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @IsPositive()
-  price?: number;
-
-  @ApiPropertyOptional({ description: 'Tóm tắt vị trí' })
+  @ApiPropertyOptional({ description: 'Exact numeric(18,2)-compatible public price' })
   @IsOptional()
   @IsString()
-  locationSummary?: string;
+  @Matches(NUMERIC_18_SCALE_2)
+  publicPriceProjection?: string;
+
+  @ApiPropertyOptional({ type: PublicLocationProjectionDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PublicLocationProjectionDto)
+  publicLocationProjection?: PublicLocationProjectionDto;
 }
 
-export class UpdateListingStatusDto {
-  @ApiProperty({
-    description: 'Trạng thái bài đăng',
-    enum: ['published', 'hidden', 'rented'],
-    example: 'published',
-  })
-  @IsIn(['published', 'hidden', 'rented'])
-  status!: ListingStatus;
+export class ListingTransitionContextDto {
+  @ApiProperty({ description: 'Transition reason code' })
+  @IsString()
+  @IsNotEmpty()
+  reasonCode!: string;
+
+  @ApiProperty({ description: 'Opaque actor type' })
+  @IsString()
+  @IsNotEmpty()
+  actorType!: string;
+
+  @ApiPropertyOptional({ description: 'Actor user ID when applicable' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  actorUserId?: string;
+
+  @ApiProperty({ description: 'Opaque transition trigger' })
+  @IsString()
+  @IsNotEmpty()
+  trigger!: string;
+
+  @ApiPropertyOptional({ description: 'Optional transition metadata' })
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
+export class CreateInquiryDto {
+  @ApiProperty({ description: 'Listing ID' })
+  @IsString()
+  @IsNotEmpty()
+  listingId!: string;
+
+  @ApiPropertyOptional({ description: 'Sender User ID when the sender has an account' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  senderUserId?: string;
+
+  @ApiProperty({ description: 'Contact intent or message' })
+  @IsString()
+  @IsNotEmpty()
+  contactIntentOrMessage!: string;
+
+  @ApiProperty({ description: 'Opaque Inquiry status; no Wave B lifecycle is defined' })
+  @IsString()
+  @IsNotEmpty()
+  status!: string;
 }

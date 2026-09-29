@@ -36,58 +36,57 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Focused Identity boundary conformance
-        run: pnpm exec tsx --test tests/conformance/erd3/identity.contract.test.ts
+      - name: Core Foundation hard gate
+        run: pnpm test:core-foundation
 
       - name: Database validators
         run: python -m unittest discover -s tests/database -p 'test_*.py'
 
-      - name: Full ERD3 conformance baseline
-        id: erd3
+      - name: Google identity verifier regression
+        run: pnpm exec tsx --test src/integrations/google-identity/google-id-token-verifier.spec.ts
+
+      - name: Domain-contract suite (JUnit)
+        id: domain_contract
         continue-on-error: true
         run: |
-          set -o pipefail
-          pnpm test:conformance:erd3 2>&1 | tee erd3-conformance.log
+          set +e
+          pnpm test:domain-contract:junit
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
 
-      - name: Assert full ERD3 baseline remains intentionally RED
-        run: |
-          if [ "${{ steps.erd3.outcome }}" = "success" ]; then
-            echo "::error::ERD3 conformance unexpectedly went fully green; reconcile the handoff baseline before proceeding."
-            exit 1
-          fi
-          if grep -Eq '^(not ok|# Subtest: not ok)|# fail [1-9][0-9]*' erd3-conformance.log; then
-            echo "Observed expected remaining product/domain RED conformance."
-            exit 0
-          fi
-          echo "::error::ERD3 command failed without an observable test failure."
-          exit 1
+      - name: Domain-contract exact baseline classification
+        run: >-
+          node scripts/verify-test-baseline.mjs
+          --junit domain-contract.junit.xml
+          --baseline tests/conformance/erd3/expected-failures.json
+          --suite domain-contract
+          --exit-code "${{ steps.domain_contract.outputs.exit_code }}"
 
-      - name: Full repository test baseline
+      - name: Full repository suite (JUnit)
         id: full_test
         continue-on-error: true
         run: |
-          set -o pipefail
-          pnpm test 2>&1 | tee full-test.log
+          set +e
+          pnpm test:full:junit
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
 
-      - name: Record expected full-test RED while ERD3 rebuild is incomplete
-        run: |
-          if [ "${{ steps.full_test.outcome }}" = "success" ]; then
-            echo "Full repository test suite is green."
-            exit 0
-          fi
-          if grep -Eq 'tests/conformance/erd3|ERD3|# fail [1-9][0-9]*|not ok' full-test.log; then
-            echo "Full repository tests remain RED; inspect the uploaded log before handoff to verify failures are confined to expected ERD3 gaps."
-            exit 0
-          fi
-          echo "::error::Full test command failed without recognizable test output."
-          exit 1
+      - name: Full repository exact baseline classification
+        run: >-
+          node scripts/verify-test-baseline.mjs
+          --junit full-test.junit.xml
+          --baseline tests/conformance/erd3/expected-failures.json
+          --suite full-repository
+          --exit-code "${{ steps.full_test.outputs.exit_code }}"
 
       - name: Upload runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: erd3-runtime-evidence-${{ github.sha }}
+          name: core-foundation-runtime-evidence-${{ github.sha }}
           path: |
-            erd3-conformance.log
-            full-test.log
-          if-no-files-found: warn
+            domain-contract.junit.xml
+            full-test.junit.xml
+          if-no-files-found: error

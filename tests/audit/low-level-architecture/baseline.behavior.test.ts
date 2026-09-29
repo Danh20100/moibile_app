@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { BadRequestException } from '@nestjs/common';
@@ -8,15 +8,16 @@ import { IncidentService } from '../../../src/modules/incident/services/incident
 import { ListingService } from '../../../src/modules/listing/services/listing.service';
 import { OnboardingService } from '../../../src/modules/onboarding/services/onboarding.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
-import { RoomService } from '../../../src/modules/room/services/room.service';
 import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
+import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
 describe('low-level architecture baseline behavior', () => {
   it('enforces the room operational-state machine', async () => {
-    const service = new RoomService();
+    const harness = createCoreFoundationHarness();
+    const service = harness.roomService;
     const room = await service.create({
-      propertyId: 'prop_1',
+      propertyId: await createActiveProperty(harness),
       nameOrLabel: '101',
     });
 
@@ -43,24 +44,19 @@ describe('low-level architecture baseline behavior', () => {
 
   it('enforces the tenancy lifecycle state machine', async () => {
     const service = new TenancyService();
-    const tenancy = await service.create({
-      roomId: 'room_1',
-      tenantId: 'tenant_1',
-      monthlyRent: 3_500_000,
-      depositAmount: 3_500_000,
-      paymentDueDay: 5,
-      startDate: '2026-10-01',
-    });
+    const tenancy = await service.createDraft('room_1');
 
     assert.equal(tenancy.status, 'draft');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'active' })).status, 'active');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'ending' })).status, 'ending');
-    assert.equal((await service.updateStatus(tenancy.id, { status: 'ended' })).status, 'ended');
-
-    await assert.rejects(
-      service.updateStatus(tenancy.id, { status: 'active' }),
-      BadRequestException,
+    assert.equal(
+      (await service.activateLocal(tenancy.id, '2026-10-01T00:00:00.000Z')).status,
+      'active',
     );
+    assert.equal((await service.startEnding(tenancy.id)).status, 'ending');
+    assert.equal(
+      (await service.completeCheckoutLocal(tenancy.id, 'MUTUAL', '2026-11-01T00:00:00.000Z')).status,
+      'ended',
+    );
+    await assert.rejects(service.resumeActive(tenancy.id), BadRequestException);
   });
 
   it('enforces the incident lifecycle state machine', async () => {
@@ -97,28 +93,26 @@ describe('low-level architecture baseline behavior', () => {
     assert.equal((await service.updateStatus(incident.id, { status: 'closed' })).status, 'closed');
   });
 
-  it('publishes only listings in published state', async () => {
+  it('exposes public listings only while their state is published', async () => {
     const service = new ListingService();
-    const listing = await service.create({
+    const listing = await service.createDraft({
       roomId: 'room_1',
-      propertyId: 'prop_1',
-      title: 'Room 101',
-      description: 'Public room description',
-      price: 3_500_000,
-      locationSummary: 'Thu Duc City',
+      publicTitle: 'Room 101',
+      publicDescription: 'Public room description',
+      publicPriceProjection: '3500000.00',
+      publicLocationProjection: { latitude: 10.77, longitude: 106.69 },
     });
 
-    assert.deepEqual(await service.findPublic(), []);
-
-    await service.updateStatus(listing.id, { status: 'published' });
-    assert.equal((await service.findPublic()).length, 1);
-
-    await service.updateStatus(listing.id, { status: 'hidden' });
-    assert.deepEqual(await service.findPublic(), []);
-
-    await service.updateStatus(listing.id, { status: 'published' });
-    await service.updateStatus(listing.id, { status: 'rented' });
-    assert.deepEqual(await service.findPublic(), []);
+    assert.deepEqual(await service.findPublished(), []);
+    const transition = {
+      reasonCode: 'LANDLORD_MANUAL',
+      actorType: 'USER',
+      trigger: 'COMMAND',
+    };
+    await service.transition(listing.id, 'published', transition);
+    assert.equal((await service.findPublished()).length, 1);
+    await service.transition(listing.id, 'unpublished', transition);
+    assert.deepEqual(await service.findPublished(), []);
   });
 
   it('reconciles an exact billing payment from upcoming to paid', async () => {

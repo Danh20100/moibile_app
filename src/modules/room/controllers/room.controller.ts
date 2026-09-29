@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { RoomProfile } from '../contracts';
-import { CreateRoomDto, UpdateRoomDto, UpdateRoomOperationalStateDto } from '../dto';
+import { CreateRoomDto, UpdateRoomDto } from '../dto';
 import { RoomService } from '../services/room.service';
 
 @ApiTags('Room')
@@ -40,16 +40,4 @@ export class RoomController {
     return this.roomService.update(id, dto);
   }
 
-  @Patch(':id/operational-state')
-  @ApiOperation({
-    summary: 'Chuyen operational state bang cause=manual (khong cho HTTP gia mao tenancy/checkout)',
-  })
-  @ApiResponse({ status: 200, description: 'Operational state da duoc cap nhat' })
-  @ApiResponse({ status: 400, description: 'Chuyen doi operational state khong hop le' })
-  async updateOperationalState(
-    @Param('id') id: string,
-    @Body() dto: UpdateRoomOperationalStateDto,
-  ): Promise<RoomProfile> {
-    return this.roomService.transitionOperationalState(id, dto.operationalState, 'manual');
-  }
 }

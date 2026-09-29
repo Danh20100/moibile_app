@@ -25,6 +25,10 @@
     "format:check": "prettier --no-error-on-unmatched-pattern --check \"src/**/*.ts\" \"*.{json,mjs}\" \".vscode/*.json\"",
     "test": "nest build && tsx --test src/**/*.spec.ts tests/**/*.test.ts",
     "test:conformance:erd3": "tsx --test tests/conformance/erd3/*.test.ts",
+    "test:core-foundation": "tsx --test tests/core/organization.behavior.test.ts tests/core/property.behavior.test.ts tests/core/room.behavior.test.ts tests/conformance/erd3/identity.contract.test.ts tests/conformance/erd3/organization.contract.test.ts tests/conformance/erd3/property-room.lifecycle.test.ts tests/conformance/erd3/future-open-boundary.static.test.ts tests/core/dto-boundary.validation.test.ts",
+    "test:domain-contract:junit": "node --import tsx --test --test-reporter=junit --test-reporter-destination=domain-contract.junit.xml \"tests/conformance/erd3/*.test.ts\"",
+    "test:full:junit": "nest build && node --import tsx --test --test-reporter=junit --test-reporter-destination=full-test.junit.xml \"src/**/*.spec.ts\" \"tests/**/*.test.ts\"",
+    "verify:test-baseline": "node scripts/verify-test-baseline.mjs",
     "test:google:live": "node --env-file=.env --import tsx tests/live/google-identity/google-id-token.live.ts"
   },
   "dependencies": {
