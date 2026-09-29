@@ -29,7 +29,7 @@ test('core rental adapters persist and read exact values', async () => {
     const propertyId = '30000000-0000-4000-8000-000000000001';
     const roomId = '40000000-0000-4000-8000-000000000001';
     const listingId = '50000000-0000-4000-8000-000000000001';
-    await identity.insertUser(userId);
+    await identity.ensureUser(userId);
     await organization.createOrganization({ organizationId, primaryOwnerUserId: userId, name: 'Exact organization' });
     await property.createProperty({
       propertyId, organizationId, name: 'Exact property', lifecycleStatus: 'ACTIVE',

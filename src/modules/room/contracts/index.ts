@@ -17,8 +17,6 @@ export interface RoomProfile {
   nameOrLabel: string;
   operationalState: RoomOperationalState;
   recordLifecycle: RoomRecordLifecycle;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface RoomArchiveBlockers {

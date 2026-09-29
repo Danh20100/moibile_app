@@ -7,8 +7,8 @@ import type { Database } from '../schema.types';
 export class PostgresIdentityRepository implements IdentityRepository {
   constructor(private readonly executor: Kysely<Database> | Transaction<Database>) {}
 
-  async insertUser(userId: string): Promise<void> {
-    try { await this.executor.insertInto('users').values({ user_id: userId }).execute(); }
+  async ensureUser(userId: string): Promise<void> {
+    try { await this.executor.insertInto('users').values({ user_id: userId }).onConflict((conflict) => conflict.column('user_id').doNothing()).execute(); }
     catch (error) { throw mapPostgresError(error); }
   }
 

@@ -17,8 +17,6 @@ export interface PropertyProfile {
   operationalAddressText: string;
   operationalLocation: GeoPoint;
   publicLocationProjection: GeoPoint;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface PropertyArchiveBlockers {

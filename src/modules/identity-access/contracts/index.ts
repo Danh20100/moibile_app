@@ -2,12 +2,12 @@ export interface UserReference {
   userId: string;
 }
 
-export interface UserProfile {
-  id: string;
-  externalSubject: string;
+export interface VerifiedPrincipal extends UserReference {
+  provider: 'google';
+  issuer: string;
+  subject: string;
   email?: string;
+  emailVerified?: boolean;
   name?: string;
   pictureUrl?: string;
-  createdAt: string;
-  updatedAt: string;
 }

@@ -29,7 +29,7 @@ async function transactionHarness() {
     executors.add(executor);
     return {
       identity: {
-        insertUser: async (userId) => {
+        ensureUser: async (userId) => {
           await executor.insertInto('users').values({ user_id: userId }).execute();
         },
         userExists: async (userId) =>
@@ -47,7 +47,7 @@ test('commits successful work and then runs afterCommit', async () => {
   try {
     let visibleAfterCommit = false;
     const result = await harness.manager.run(async ({ repositories, afterCommit }) => {
-      await repositories.identity.insertUser(userIds.committed);
+      await repositories.identity.ensureUser(userIds.committed);
       afterCommit(async () => { visibleAfterCommit = await harness.userExists(userIds.committed); });
       return 'business-result';
     });
@@ -64,7 +64,7 @@ test('rolls back thrown work and does not run afterCommit or retry', async () =>
     let effects = 0;
     await assert.rejects(harness.manager.run(async ({ repositories, afterCommit }) => {
       attempts += 1;
-      await repositories.identity.insertUser(userIds.rolledBack);
+      await repositories.identity.ensureUser(userIds.rolledBack);
       afterCommit(() => { effects += 1; });
       throw new Error('work failed');
     }), /work failed/);
@@ -79,7 +79,7 @@ test('routes afterCommit failures without changing the committed result', async 
   try {
     const failures: unknown[] = [];
     const result = await harness.manager.run(async ({ repositories, afterCommit }) => {
-      await repositories.identity.insertUser(userIds.effectFailure);
+      await repositories.identity.ensureUser(userIds.effectFailure);
       afterCommit(() => { throw new Error('effect failed'); }, (error) => failures.push(error));
       return 42;
     });
@@ -93,8 +93,8 @@ test('concurrent manager calls receive independent transactions', async () => {
   const harness = await transactionHarness();
   try {
     await Promise.all([
-      harness.manager.run(({ repositories }) => repositories.identity.insertUser(userIds.concurrentOne)),
-      harness.manager.run(({ repositories }) => repositories.identity.insertUser(userIds.concurrentTwo)),
+      harness.manager.run(({ repositories }) => repositories.identity.ensureUser(userIds.concurrentOne)),
+      harness.manager.run(({ repositories }) => repositories.identity.ensureUser(userIds.concurrentTwo)),
     ]);
     assert.equal(harness.executors.size, 2);
     assert.equal(await harness.userExists(userIds.concurrentOne), true);

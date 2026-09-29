@@ -6,6 +6,4 @@ export interface OrganizationProfile {
   id: string;
   name: string;
   primaryOwnerUserId: string;
-  createdAt: string;
-  updatedAt: string;
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Inject,
@@ -48,8 +49,7 @@ export class PropertyService {
     assertValidPoint(dto.operationalLocation, 'operationalLocation');
     assertValidPoint(dto.publicLocationProjection, 'publicLocationProjection');
 
-    const id = `prop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
+    const id = randomUUID();
     const property: PropertyProfile = {
       id,
       organizationId: dto.organizationId,
@@ -58,8 +58,6 @@ export class PropertyService {
       operationalAddressText: dto.operationalAddressText,
       operationalLocation: clonePoint(dto.operationalLocation),
       publicLocationProjection: clonePoint(dto.publicLocationProjection),
-      createdAt: now,
-      updatedAt: now,
     };
     this.properties.set(id, structuredClone(property));
     return structuredClone(property);
@@ -103,8 +101,6 @@ export class PropertyService {
       publicLocationProjection: dto.publicLocationProjection
         ? clonePoint(dto.publicLocationProjection)
         : clonePoint(prop.publicLocationProjection),
-      createdAt: prop.createdAt,
-      updatedAt: new Date().toISOString(),
     };
     this.properties.set(id, structuredClone(updated));
     return structuredClone(updated);
@@ -128,7 +124,6 @@ export class PropertyService {
     const archived: PropertyProfile = {
       ...prop,
       lifecycleStatus: 'archived',
-      updatedAt: new Date().toISOString(),
     };
     this.properties.set(id, structuredClone(archived));
     return structuredClone(archived);

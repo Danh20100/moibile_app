@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { OrganizationProfile } from '../contracts';
@@ -8,14 +9,11 @@ export class OrganizationService {
   private readonly organizations = new Map<string, OrganizationProfile>();
 
   async create(dto: CreateOrganizationDto): Promise<OrganizationProfile> {
-    const id = `org_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
+    const id = randomUUID();
     const org: OrganizationProfile = {
       id,
       name: dto.name,
       primaryOwnerUserId: dto.primaryOwnerUserId,
-      createdAt: now,
-      updatedAt: now,
     };
     this.organizations.set(id, structuredClone(org));
     return structuredClone(org);
@@ -39,8 +37,6 @@ export class OrganizationService {
       id: org.id,
       name: dto.name ?? org.name,
       primaryOwnerUserId: org.primaryOwnerUserId,
-      createdAt: org.createdAt,
-      updatedAt: new Date().toISOString(),
     };
     this.organizations.set(id, structuredClone(updated));
     return structuredClone(updated);

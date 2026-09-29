@@ -26,7 +26,7 @@ test('tenancy adapter preserves vocabulary, exact values, uniqueness, dates, and
     const tenancyId = '81000000-0000-4000-8000-000000000001';
     const participantId = '82000000-0000-4000-8000-000000000001';
     const termsId = '83000000-0000-4000-8000-000000000001';
-    await identity.insertUser(userId);
+    await identity.ensureUser(userId);
     await organizations.createOrganization({ organizationId: '21000000-0000-4000-8000-000000000001', primaryOwnerUserId: userId, name: 'Owner' });
     await properties.createProperty({
       propertyId: '31000000-0000-4000-8000-000000000001', organizationId: '21000000-0000-4000-8000-000000000001',

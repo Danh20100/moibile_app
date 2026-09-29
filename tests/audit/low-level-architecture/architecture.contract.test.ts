@@ -28,10 +28,12 @@ function injectVerifier(service: IdentityAccessService, verifier: GoogleIdTokenV
 
 describe('architecture contract audit', () => {
   it('does not infer a default business role during authentication', async () => {
-    const service = new IdentityAccessService();
+    const service = new IdentityAccessService({
+      run: async (work) => work({ repositories: { identity: { ensureUser: async () => undefined, userExists: async () => true } } as never, afterCommit: () => undefined }),
+    });
     injectVerifier(service, {
       async verify() {
-        return { subject: 'google-subject-1', email: 'user@example.com' };
+        return { issuer: 'https://accounts.google.com', subject: 'google-subject-1', email: 'user@example.com' };
       },
     });
 

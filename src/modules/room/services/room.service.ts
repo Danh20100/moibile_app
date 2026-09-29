@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Inject,
@@ -35,16 +36,13 @@ export class RoomService {
       throw new BadRequestException('Cannot create Room under an archived Property');
     }
 
-    const id = `room_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
+    const id = randomUUID();
     const room: RoomProfile = {
       id,
       propertyId: dto.propertyId,
       nameOrLabel: dto.nameOrLabel,
       operationalState: 'vacant',
       recordLifecycle: 'active',
-      createdAt: now,
-      updatedAt: now,
     };
     this.rooms.set(id, structuredClone(room));
     return structuredClone(room);
@@ -69,7 +67,6 @@ export class RoomService {
     const updated: RoomProfile = {
       ...room,
       nameOrLabel: dto.nameOrLabel ?? room.nameOrLabel,
-      updatedAt: new Date().toISOString(),
     };
     this.rooms.set(id, structuredClone(updated));
     return structuredClone(updated);
@@ -108,7 +105,6 @@ export class RoomService {
     const updated: RoomProfile = {
       ...room,
       operationalState: nextState,
-      updatedAt: new Date().toISOString(),
     };
     this.rooms.set(id, structuredClone(updated));
     return structuredClone(updated);
@@ -133,7 +129,6 @@ export class RoomService {
     const archived: RoomProfile = {
       ...room,
       recordLifecycle: 'archived',
-      updatedAt: new Date().toISOString(),
     };
     this.rooms.set(id, structuredClone(archived));
     return structuredClone(archived);

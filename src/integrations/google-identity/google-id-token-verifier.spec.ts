@@ -31,7 +31,7 @@ function clientWithPayload(
       assert.equal(options.idToken, expectedToken);
       assert.equal(options.audience, expectedAudience);
       return {
-        getPayload: () => payload,
+        getPayload: () => payload ? { iss: 'https://accounts.google.com', ...payload } : undefined,
       };
     },
   };
@@ -53,6 +53,7 @@ describe('GoogleAuthIdTokenVerifier', () => {
     const identity = await verifier.verify('valid-token');
 
     assert.deepEqual(identity, {
+      issuer: 'https://accounts.google.com',
       subject: 'google-subject',
       email: 'user@example.com',
       emailVerified: true,
@@ -68,6 +69,7 @@ describe('GoogleAuthIdTokenVerifier', () => {
     );
 
     assert.deepEqual(await verifier.verify('valid-token'), {
+      issuer: 'https://accounts.google.com',
       subject: 'google-subject',
     });
   });
@@ -82,6 +84,7 @@ describe('GoogleAuthIdTokenVerifier', () => {
     );
 
     assert.deepEqual(await verifier.verify('valid-token'), {
+      issuer: 'https://accounts.google.com',
       subject: 'google-subject',
       emailVerified: false,
     });
