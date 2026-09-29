@@ -106,7 +106,7 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('keeps confirmed Payment separate from Billing Cycle obligation', async () => {
-    const service = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never);
+    const service = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never, createCoreFoundationHarness().transactions);
     const cycle = await service.createCycle({ tenancyId: 'ten_1', tenancyTermsId: 'terms_1', periodStart: '2099-01-01', periodEnd: '2099-01-31', charges: [{ type: 'RENT', amount: '3500000.00' }] });
     const payment = await service.recordPayment({ tenancyId: 'ten_1', amount: '3500000.00', source: 'MANUAL_TRANSFER', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
     const allocation = await service.allocatePayment(payment.id, cycle.charges[0]!.id, '3500000.00');
@@ -115,9 +115,9 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('allows only one current issued Receipt per Payment', async () => {
-    const finance = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never);
+    const finance = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never, createCoreFoundationHarness().transactions);
     const payment = await finance.recordPayment({ tenancyId: 'ten_1', amount: '1.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
-    const service = new ReceiptService(finance);
+    const service = new ReceiptService(finance, createCoreFoundationHarness().transactions);
     await service.issue(payment.id);
     await assert.rejects(() => service.issue(payment.id), BadRequestException);
   });

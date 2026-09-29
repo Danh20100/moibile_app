@@ -5,6 +5,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { BillingService } from '../../src/modules/billing/services/billing.service';
 import { ReceiptService } from '../../src/modules/receipt/services/receipt.service';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 const tenancyLookup = {
   async findById(id: string) {
@@ -16,8 +17,9 @@ const tenancyLookup = {
 };
 
 function services() {
-  const finance = new BillingService(tenancyLookup as never);
-  const receipts = new ReceiptService(finance);
+  const transactions = createCoreTestTransactionManager();
+  const finance = new BillingService(tenancyLookup as never, transactions);
+  const receipts = new ReceiptService(finance, transactions);
   return { finance, receipts };
 }
 
@@ -155,6 +157,8 @@ test('receipt is evidence for confirmed payment and keeps issued/voided history'
 test('deposit settlement appends refunded and retained provenance events', async () => {
   const { finance } = services();
   const deposit = await finance.createDeposit('tenancy-a');
+  const payment = await finance.recordPayment({ tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: '2026-09-29T00:00:00.000Z' });
+  await finance.applyPaymentToDeposit(payment.id, deposit.id, '100.00');
   const settlement = await finance.settleDeposit(deposit.id, {
     refundedAmount: '70.00',
     retainedAmount: '30.00',
@@ -165,6 +169,6 @@ test('deposit settlement appends refunded and retained provenance events', async
   assert.equal(settlement.depositId, deposit.id);
   assert.deepEqual(
     (await finance.listDepositEvents(deposit.id)).map((event) => event.eventType),
-    ['REFUNDED', 'RETAINED'],
+    ['RECEIVED', 'REFUNDED', 'RETAINED'],
   );
 });
