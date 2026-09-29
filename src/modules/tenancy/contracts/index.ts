@@ -55,7 +55,7 @@ export interface TenancyTerms {
   effectiveFromCycleBoundary: string;
 }
 
-export interface CreateTenancyTermsInput extends Omit<TenancyTerms, 'id'> {}
+export type CreateTenancyTermsInput = Omit<TenancyTerms, 'id'>;
 
 export interface TermsAcknowledgement {
   id: string;
@@ -83,7 +83,7 @@ export interface TenancyNotice {
   acknowledgedAt?: string;
 }
 
-export interface IssueTenancyNoticeInput extends Omit<
+export type IssueTenancyNoticeInput = Omit<
   TenancyNotice,
   'id' | 'acknowledgedByUserId' | 'acknowledgedAt'
-> {}
+>;

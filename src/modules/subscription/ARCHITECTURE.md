@@ -13,6 +13,9 @@ This module is FUTURE scaffolding.
 - entitlement decisions must not be used to preserve this module as current scope;
 - no current schema/migration work should be derived from this module.
 
-## Reconciliation note
+## Task 17 ruling
 
-The active import of SubscriptionModule in `AppModule` is intentional RED evidence for the ERD3 scope-conformance suite. A later core-rebuild task decides how future scaffolding is isolated or removed.
+- Subscription is not a Task 17 persistence blocker.
+- `SubscriptionModule` is isolated from `AppModule` and current-core modules.
+- Its in-memory prototype state is FUTURE-only and is not current business authority.
+- Do not create a Subscription repository, table, or migration under the frozen 29-table contract.

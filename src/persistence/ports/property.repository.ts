@@ -7,8 +7,8 @@ export interface PropertyRecord {
 export interface RoomRecord {
   roomId: string; propertyId: string; nameOrLabel: string; operationalState: string; recordLifecycle: string;
 }
-export interface CreatePropertyInput extends PropertyRecord {}
-export interface CreateRoomInput extends RoomRecord {}
+export type CreatePropertyInput = PropertyRecord;
+export type CreateRoomInput = RoomRecord;
 export interface PropertyRepository {
   createProperty(input: CreatePropertyInput): Promise<void>;
   findProperty(propertyId: string): Promise<PropertyRecord | undefined>;

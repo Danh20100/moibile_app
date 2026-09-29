@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { OnboardingBatch } from '../contracts';
@@ -19,14 +19,6 @@ export class OnboardingController {
   @ApiResponse({ status: 400, description: 'Dữ liệu không hợp lệ hoặc trùng lặp số phòng' })
   async validateAndPreview(@Body() dto: CreateOnboardingBatchDto): Promise<OnboardingBatch> {
     return this.onboardingService.validateAndPreview(dto);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Xem chi tiết lô dữ liệu onboarding theo ID' })
-  @ApiResponse({ status: 200, description: 'Chi tiết lô dữ liệu' })
-  @ApiResponse({ status: 404, description: 'Không tìm thấy lô onboarding' })
-  async findById(@Param('id') id: string): Promise<OnboardingBatch> {
-    return this.onboardingService.findById(id);
   }
 
   @Post('confirm')

@@ -11,8 +11,8 @@ import { TenancyTermsService } from './tenancy-terms.service';
 @Injectable()
 export class TermsAcknowledgementService {
   constructor(
-    private readonly terms: TenancyTermsService,
-    private readonly participants: TenancyParticipantService,
+    @Inject(TenancyTermsService) private readonly terms: TenancyTermsService,
+    @Inject(TenancyParticipantService) private readonly participants: TenancyParticipantService,
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
   ) {}
 

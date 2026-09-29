@@ -31,19 +31,19 @@ describe('request and business boundary validation audit', () => {
     assert.ok(errors.some((error) => error.property === 'charges'));
   });
 
-  it('enforces the documented YYYY-MM billing cycleMonth format', async () => {
+  it('enforces ISO dates for the frozen billing period boundaries', async () => {
     const dto = plainToInstance(CreateBillingCycleDto, {
       tenancyId: 'ten_1',
-      roomId: 'room_1',
-      cycleMonth: 'not-a-month',
-      dueDate: '2026-10-05',
-      charges: [{ type: 'rent', description: 'Monthly rent', amount: 3_500_000 }],
+      tenancyTermsId: 'terms_1',
+      periodStart: 'not-a-date',
+      periodEnd: '2026-10-31',
+      charges: [{ type: 'RENT', amount: '3500000.00' }],
     });
 
     const errors = await validate(dto);
     assert.ok(
-      errors.some((error) => error.property === 'cycleMonth'),
-      'DTO documentation says YYYY-MM, so invalid month strings should be rejected.',
+      errors.some((error) => error.property === 'periodStart'),
+      'Frozen billing period boundaries must reject invalid ISO dates.',
     );
   });
 

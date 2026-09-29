@@ -65,7 +65,7 @@ describe('architecture contract audit', () => {
   });
 
   it('keeps audit history immutable when caller-owned metadata changes', async () => {
-    const service = new AuditTrustService();
+    const service = new AuditTrustService(createCoreFoundationHarness().transactions);
     const metadata: Record<string, unknown> = { reason: 'original' };
 
     const record = await service.recordFact({
@@ -129,7 +129,7 @@ describe('architecture contract audit', () => {
       propertyAddress: 'Address A',
       rooms: [{ roomNumber: '101', basePrice: 3_000_000 }],
     });
-    const confirmed = await onboarding.confirmBatch({ batchId: batch.id });
+    const confirmed = await onboarding.confirmBatch({ batchId: batch.id, organizationId: batch.organizationId, propertyName: batch.propertyName, propertyAddress: batch.propertyAddress, rooms: batch.rooms });
 
     assert.ok(confirmed.createdPropertyId);
     await assert.doesNotReject(properties.findById(confirmed.createdPropertyId));
@@ -137,7 +137,7 @@ describe('architecture contract audit', () => {
   });
 
   it('keeps an audit record immutable even if the returned record is modified', async () => {
-    const service = new AuditTrustService();
+    const service = new AuditTrustService(createCoreFoundationHarness().transactions);
     const record = await service.recordFact({
       actorId: 'actor_1',
       action: 'tenancy.ended',
@@ -168,7 +168,7 @@ describe('architecture contract audit', () => {
       propertyAddress: 'Address B',
       rooms: [{ roomNumber: '101', basePrice: 3_000_000 }],
     });
-    const confirmed = await onboarding.confirmBatch({ batchId: batch.id });
+    const confirmed = await onboarding.confirmBatch({ batchId: batch.id, organizationId: batch.organizationId, propertyName: batch.propertyName, propertyAddress: batch.propertyAddress, rooms: batch.rooms });
 
     assert.ok(confirmed.createdPropertyId);
     assert.equal(confirmed.createdPropertyId.startsWith('prop_onboard_'), false);
@@ -184,7 +184,7 @@ describe('architecture contract audit', () => {
     });
 
     await assert.rejects(
-      onboarding.confirmBatch({ batchId: batch.id }),
+      onboarding.confirmBatch({ batchId: batch.id, organizationId: batch.organizationId, propertyName: batch.propertyName, propertyAddress: batch.propertyAddress, rooms: batch.rooms }),
       InternalServerErrorException,
       'Confirmation must not instantiate destination services as an internal fallback.',
     );

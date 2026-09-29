@@ -9,7 +9,7 @@ import { TenancyService } from './tenancy.service';
 
 @Injectable()
 export class TenancyNoticeService {
-  constructor(private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
+  constructor(@Inject(TenancyService) private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async issue(input: IssueTenancyNoticeInput): Promise<TenancyNotice> {
     await this.tenancies.findById(input.tenancyId);

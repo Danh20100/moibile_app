@@ -5,12 +5,14 @@ import { TRANSACTION_MANAGER } from '../../persistence/ports/transaction-manager
 import { createDatabaseClient } from './database.client';
 import { loadDatabaseConfig } from './database.config';
 import { DATABASE_CLIENT } from './database.tokens';
+import { DatabaseLifecycleService } from './database-lifecycle.service';
 import { PostgresTransactionManager } from './postgres-transaction-manager';
 import { createRepositorySet } from './repositories/repository-set';
 import type { Database } from './schema.types';
 
 @Module({
   providers: [
+    DatabaseLifecycleService,
     {
       provide: DATABASE_CLIENT,
       useFactory: () => createDatabaseClient(loadDatabaseConfig(process.env)),

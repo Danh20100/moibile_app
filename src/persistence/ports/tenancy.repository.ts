@@ -24,11 +24,11 @@ export interface TenancyNoticeRecord {
   contentOrNote: string; issuedAt: TimestampString; acknowledgedByUserId: string | null;
   acknowledgedAt: TimestampString | null;
 }
-export interface CreateTenancyInput extends TenancyRecord {}
-export interface CreateTenancyParticipantInput extends TenancyParticipantRecord {}
-export interface CreateTenancyTermsInput extends TenancyTermsRecord {}
-export interface CreateTermsAcknowledgementInput extends TermsAcknowledgementRecord {}
-export interface CreateTenancyNoticeInput extends TenancyNoticeRecord {}
+export type CreateTenancyInput = TenancyRecord;
+export type CreateTenancyParticipantInput = TenancyParticipantRecord;
+export type CreateTenancyTermsInput = TenancyTermsRecord;
+export type CreateTermsAcknowledgementInput = TermsAcknowledgementRecord;
+export type CreateTenancyNoticeInput = TenancyNoticeRecord;
 export interface TenancyRepository {
   createTenancy(input: CreateTenancyInput): Promise<void>;
   findTenancy(tenancyId: string): Promise<TenancyRecord | undefined>;

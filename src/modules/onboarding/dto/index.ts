@@ -67,7 +67,7 @@ export class CreateOnboardingBatchDto {
   rooms!: OnboardingRoomItemDto[];
 }
 
-export class ConfirmOnboardingBatchDto {
+export class ConfirmOnboardingBatchDto extends CreateOnboardingBatchDto {
   @ApiProperty({
     description: 'ID lô onboarding cần xác nhận để sinh dữ liệu thật',
     example: 'batch_12345',

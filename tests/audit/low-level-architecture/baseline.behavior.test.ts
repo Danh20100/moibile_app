@@ -60,7 +60,7 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('enforces the incident lifecycle state machine', async () => {
-    const service = new IncidentService({ findById: async () => ({ id: 'room_1' }) } as never);
+    const service = new IncidentService({ findById: async () => ({ id: 'room_1' }) } as never, createCoreFoundationHarness().transactions);
     const incident = await service.create({
       roomId: 'room_1',
       reportedByUserId: 'tenant_1',
@@ -115,9 +115,10 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('allows only one current issued Receipt per Payment', async () => {
-    const finance = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never, createCoreFoundationHarness().transactions);
+    const transactions = createCoreFoundationHarness().transactions;
+    const finance = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never, transactions);
     const payment = await finance.recordPayment({ tenancyId: 'ten_1', amount: '1.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
-    const service = new ReceiptService(finance, createCoreFoundationHarness().transactions);
+    const service = new ReceiptService(finance, transactions);
     await service.issue(payment.id);
     await assert.rejects(() => service.issue(payment.id), BadRequestException);
   });

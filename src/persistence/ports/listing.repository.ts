@@ -14,9 +14,9 @@ export interface InquiryRecord {
   inquiryId: string; listingId: string; senderUserId: string | null;
   contactIntentOrMessage: string; status: string; createdAt: TimestampString;
 }
-export interface CreateListingInput extends ListingRecord {}
-export interface CreateListingStatusEventInput extends ListingStatusEventRecord {}
-export interface CreateInquiryInput extends InquiryRecord {}
+export type CreateListingInput = ListingRecord;
+export type CreateListingStatusEventInput = ListingStatusEventRecord;
+export type CreateInquiryInput = InquiryRecord;
 export interface ListingRepository {
   createListing(input: CreateListingInput): Promise<void>;
   findListing(listingId: string): Promise<ListingRecord | undefined>;

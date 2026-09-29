@@ -1,9 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Inject,
   Injectable,
   InternalServerErrorException,
-  NotFoundException,
   Optional,
 } from '@nestjs/common';
 
@@ -14,15 +14,13 @@ import { ConfirmOnboardingBatchDto, CreateOnboardingBatchDto } from '../dto';
 
 @Injectable()
 export class OnboardingService {
-  private readonly batches = new Map<string, OnboardingBatch>();
-
   constructor(
     @Optional() @Inject(PropertyService) private readonly propertyService?: PropertyService,
     @Optional() @Inject(RoomService) private readonly roomService?: RoomService,
   ) {}
 
   async validateAndPreview(dto: CreateOnboardingBatchDto): Promise<OnboardingBatch> {
-    const id = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const id = randomUUID();
     const now = new Date().toISOString();
 
     const roomNumbers = new Set<string>();
@@ -50,23 +48,11 @@ export class OnboardingService {
       createdAt: now,
       updatedAt: now,
     };
-    this.batches.set(id, batch);
-    return batch;
-  }
-
-  async findById(id: string): Promise<OnboardingBatch> {
-    const batch = this.batches.get(id);
-    if (!batch) {
-      throw new NotFoundException(`Không tìm thấy onboarding batch với id: ${id}`);
-    }
     return batch;
   }
 
   async confirmBatch(dto: ConfirmOnboardingBatchDto): Promise<OnboardingBatch> {
-    const batch = await this.findById(dto.batchId);
-    if (batch.status === 'confirmed') {
-      throw new BadRequestException('Batch này đã được xác nhận và khởi tạo trước đó');
-    }
+    const batch = { ...(await this.validateAndPreview(dto)), id: dto.batchId };
 
     if (!this.propertyService || !this.roomService) {
       throw new InternalServerErrorException('Onboarding destination services are unavailable');
@@ -96,7 +82,6 @@ export class OnboardingService {
       createdRoomIds,
       updatedAt: new Date().toISOString(),
     };
-    this.batches.set(dto.batchId, updated);
     return updated;
   }
 }

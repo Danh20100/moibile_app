@@ -15,7 +15,7 @@ const PARTICIPANT_ROLES = new Set<TenancyParticipantRole>(['PRIMARY', 'OCCUPANT'
 
 @Injectable()
 export class TenancyParticipantService {
-  constructor(private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
+  constructor(@Inject(TenancyService) private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async add(input: AddTenancyParticipantInput): Promise<TenancyParticipant> {
     await this.tenancies.findById(input.tenancyId);

@@ -12,7 +12,7 @@ const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 @Injectable()
 export class TenancyTermsService {
-  constructor(private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
+  constructor(@Inject(TenancyService) private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async createVersion(input: CreateTenancyTermsInput): Promise<TenancyTerms> {
     await this.tenancies.findById(input.tenancyId);

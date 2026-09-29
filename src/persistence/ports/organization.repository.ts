@@ -1,5 +1,5 @@
 export interface OrganizationRecord { organizationId: string; primaryOwnerUserId: string; name: string }
-export interface CreateOrganizationInput extends OrganizationRecord {}
+export type CreateOrganizationInput = OrganizationRecord;
 export interface OrganizationRepository {
   createOrganization(input: CreateOrganizationInput): Promise<void>;
   findOrganization(organizationId: string): Promise<OrganizationRecord | undefined>;
