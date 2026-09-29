@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { TenancyParticipantRecord } from '../../../persistence/ports/tenancy.repository';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 
 import {
   AddTenancyParticipantInput,
@@ -13,9 +15,7 @@ const PARTICIPANT_ROLES = new Set<TenancyParticipantRole>(['PRIMARY', 'OCCUPANT'
 
 @Injectable()
 export class TenancyParticipantService {
-  private readonly participants = new Map<string, TenancyParticipant>();
-
-  constructor(private readonly tenancies: TenancyService) {}
+  constructor(private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async add(input: AddTenancyParticipantInput): Promise<TenancyParticipant> {
     await this.tenancies.findById(input.tenancyId);
@@ -38,16 +38,16 @@ export class TenancyParticipantService {
       role: input.role,
       joinedAt: input.joinedAt,
     };
-    this.participants.set(participant.id, structuredClone(participant));
-    return structuredClone(participant);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.insertParticipant(this.toRecord(participant)));
+    return participant;
   }
 
   async findById(id: string): Promise<TenancyParticipant> {
-    const participant = this.participants.get(id);
+    const participant = await this.transactions.run(({ repositories }) => repositories.tenancy.findParticipant(id));
     if (!participant) {
       throw new NotFoundException(`Tenancy participant not found: ${id}`);
     }
-    return structuredClone(participant);
+    return this.fromRecord(participant);
   }
   async leaveOccupant(id: string, occurredAt: string): Promise<TenancyParticipant> {
     const participant = await this.findById(id);
@@ -58,8 +58,8 @@ export class TenancyParticipantService {
       throw new BadRequestException('Participant has already left');
     }
     const updated = { ...participant, leftAt: occurredAt };
-    this.participants.set(id, structuredClone(updated));
-    return structuredClone(updated);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.updateParticipant(this.toRecord(updated)));
+    return updated;
   }
 
   async linkUser(id: string, userId: string): Promise<TenancyParticipant> {
@@ -68,14 +68,13 @@ export class TenancyParticipantService {
       throw new BadRequestException('Participant already links a different User');
     }
     const updated = { ...participant, userId };
-    this.participants.set(id, structuredClone(updated));
-    return structuredClone(updated);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.updateParticipant(this.toRecord(updated)));
+    return updated;
   }
 
   async listActiveByTenancyId(tenancyId: string): Promise<TenancyParticipant[]> {
-    return Array.from(this.participants.values())
-      .filter((participant) => participant.tenancyId === tenancyId && !participant.leftAt)
-      .map((participant) => structuredClone(participant));
+    const records = await this.transactions.run(({ repositories }) => repositories.tenancy.findParticipantsByTenancy(tenancyId));
+    return records.filter((participant) => !participant.leftAt).map((participant) => this.fromRecord(participant));
   }
 
   async assertExactlyOneActivePrimary(tenancyId: string): Promise<void> {
@@ -86,5 +85,14 @@ export class TenancyParticipantService {
     if (activePrimaryCount !== 1) {
       throw new BadRequestException('Active Tenancy requires exactly one active PRIMARY participant');
     }
+  }
+
+  private toRecord(value: TenancyParticipant): TenancyParticipantRecord {
+    return { tenancyParticipantId: value.id, tenancyId: value.tenancyId, userId: value.userId ?? null, role: value.role, joinedAt: value.joinedAt, leftAt: value.leftAt ?? null };
+  }
+
+  private fromRecord(value: TenancyParticipantRecord): TenancyParticipant {
+    return { id: value.tenancyParticipantId, tenancyId: value.tenancyId, role: value.role as TenancyParticipantRole,
+      joinedAt: value.joinedAt, ...(value.userId ? { userId: value.userId } : {}), ...(value.leftAt ? { leftAt: value.leftAt } : {}) };
   }
 }

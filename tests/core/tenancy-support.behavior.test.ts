@@ -8,15 +8,17 @@ import { TenancyParticipantService } from '../../src/modules/tenancy/services/te
 import { TenancyTermsService } from '../../src/modules/tenancy/services/tenancy-terms.service';
 import { TermsAcknowledgementService } from '../../src/modules/tenancy/services/terms-acknowledgement.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 import { readRepoFile } from '../conformance/erd3/support/source';
 
 async function supportFixture() {
-  const tenancies = new TenancyService();
+  const transactions = createCoreTestTransactionManager();
+  const tenancies = new TenancyService(transactions);
   const tenancy = await tenancies.createDraft('room-a');
-  const participants = new TenancyParticipantService(tenancies);
-  const terms = new TenancyTermsService(tenancies);
-  const acknowledgements = new TermsAcknowledgementService(terms, participants);
-  const notices = new TenancyNoticeService(tenancies);
+  const participants = new TenancyParticipantService(tenancies, transactions);
+  const terms = new TenancyTermsService(tenancies, transactions);
+  const acknowledgements = new TermsAcknowledgementService(terms, participants, transactions);
+  const notices = new TenancyNoticeService(tenancies, transactions);
   return { tenancies, tenancy, participants, terms, acknowledgements, notices };
 }
 

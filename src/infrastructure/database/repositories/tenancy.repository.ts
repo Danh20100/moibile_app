@@ -23,6 +23,14 @@ export class PostgresTenancyRepository implements TenancyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findTenanciesByRoom(roomId?: string): Promise<TenancyRecord[]> {
+    try {
+      let query = this.tenancySelect();
+      if (roomId) query = query.where('room_id', '=', roomId);
+      return (await query.orderBy('tenancy_id').execute()).map((row) => this.mapTenancy(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async findNonterminalByRoom(roomId: string): Promise<TenancyRecord[]> {
     try {
       const rows = await this.tenancySelect().where('room_id', '=', roomId)
@@ -66,6 +74,22 @@ export class PostgresTenancyRepository implements TenancyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findParticipantsByTenancy(tenancyId: string): Promise<TenancyParticipantRecord[]> {
+    try {
+      const rows = await this.participantSelect().where('tenancy_id', '=', tenancyId)
+        .orderBy('tenancy_participant_id').execute();
+      return rows.map((row) => this.mapParticipant(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async updateParticipant(record: TenancyParticipantRecord): Promise<void> {
+    try {
+      await this.executor.updateTable('tenancy_participants').set({
+        user_id: record.userId, role: record.role, joined_at: record.joinedAt, left_at: record.leftAt,
+      }).where('tenancy_participant_id', '=', record.tenancyParticipantId).execute();
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async findActivePrimary(tenancyId: string): Promise<TenancyParticipantRecord | undefined> {
     try {
       const row = await this.participantSelect().where('tenancy_id', '=', tenancyId)
@@ -102,6 +126,13 @@ export class PostgresTenancyRepository implements TenancyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findTermsByTenancy(tenancyId: string): Promise<TenancyTermsRecord[]> {
+    try {
+      const rows = await this.termsSelect().where('tenancy_id', '=', tenancyId).orderBy('version').execute();
+      return rows.map((row) => this.mapTerms(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async insertAcknowledgement(input: CreateTermsAcknowledgementInput): Promise<void> {
     try {
       await this.executor.insertInto('terms_acknowledgements').values({
@@ -109,6 +140,20 @@ export class PostgresTenancyRepository implements TenancyRepository {
         tenancy_participant_id: input.tenancyParticipantId, user_id: input.userId,
         acknowledged_at: input.acknowledgedAt,
       }).execute();
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async findAcknowledgementsByTerms(termsId: string) {
+    try {
+      const rows = await this.executor.selectFrom('terms_acknowledgements').selectAll()
+        .where('tenancy_terms_id', '=', termsId).orderBy('terms_acknowledgement_id').execute();
+      return rows.map((row) => ({
+        termsAcknowledgementId: row.terms_acknowledgement_id,
+        tenancyTermsId: row.tenancy_terms_id,
+        tenancyParticipantId: row.tenancy_participant_id,
+        userId: row.user_id,
+        acknowledgedAt: row.acknowledged_at,
+      }));
     } catch (error) { throw mapPostgresError(error); }
   }
 
@@ -123,6 +168,31 @@ export class PostgresTenancyRepository implements TenancyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findNotice(noticeId: string) {
+    try {
+      const row = await this.noticeSelect().where('tenancy_notice_id', '=', noticeId).executeTakeFirst();
+      return row ? this.mapNotice(row) : undefined;
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async findNoticesByTenancy(tenancyId: string) {
+    try {
+      const rows = await this.noticeSelect().where('tenancy_id', '=', tenancyId)
+        .orderBy('tenancy_notice_id').execute();
+      return rows.map((row) => this.mapNotice(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async updateNotice(record: CreateTenancyNoticeInput): Promise<void> {
+    try {
+      await this.executor.updateTable('tenancy_notices').set({
+        notice_type: record.noticeType, issued_by_user_id: record.issuedByUserId,
+        content_or_note: record.contentOrNote, issued_at: record.issuedAt,
+        acknowledged_by_user_id: record.acknowledgedByUserId, acknowledged_at: record.acknowledgedAt,
+      }).where('tenancy_notice_id', '=', record.tenancyNoticeId).execute();
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   private tenancySelect() {
     return this.executor.selectFrom('tenancies').select(['tenancy_id', 'room_id', 'status', 'started_at', 'ended_at', 'end_reason']);
   }
@@ -134,6 +204,12 @@ export class PostgresTenancyRepository implements TenancyRepository {
       'tenancy_terms_id', 'tenancy_id', 'version', 'rent_amount', 'agreed_deposit_requirement',
       'term_start', 'term_end', 'billing_day_or_due_date_rule', 'electricity_arrangement',
       'water_arrangement', 'minimal_rental_conditions', 'effective_from_cycle_boundary',
+    ]);
+  }
+  private noticeSelect() {
+    return this.executor.selectFrom('tenancy_notices').select([
+      'tenancy_notice_id', 'tenancy_id', 'notice_type', 'issued_by_user_id', 'content_or_note',
+      'issued_at', 'acknowledged_by_user_id', 'acknowledged_at',
     ]);
   }
   private tenancyValues(record: TenancyRecord) {
@@ -162,6 +238,13 @@ export class PostgresTenancyRepository implements TenancyRepository {
       electricityArrangement: row.electricity_arrangement, waterArrangement: row.water_arrangement,
       minimalRentalConditions: row.minimal_rental_conditions,
       effectiveFromCycleBoundary: row.effective_from_cycle_boundary,
+    };
+  }
+  private mapNotice(row: { tenancy_notice_id: string; tenancy_id: string; notice_type: string; issued_by_user_id: string; content_or_note: string; issued_at: string; acknowledged_by_user_id: string | null; acknowledged_at: string | null }) {
+    return {
+      tenancyNoticeId: row.tenancy_notice_id, tenancyId: row.tenancy_id, noticeType: row.notice_type,
+      issuedByUserId: row.issued_by_user_id, contentOrNote: row.content_or_note, issuedAt: row.issued_at,
+      acknowledgedByUserId: row.acknowledged_by_user_id, acknowledgedAt: row.acknowledged_at,
     };
   }
 }

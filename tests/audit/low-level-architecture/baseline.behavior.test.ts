@@ -43,7 +43,7 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('enforces the tenancy lifecycle state machine', async () => {
-    const service = new TenancyService();
+    const service = new TenancyService(createCoreFoundationHarness().transactions);
     const tenancy = await service.createDraft('room_1');
 
     assert.equal(tenancy.status, 'draft');

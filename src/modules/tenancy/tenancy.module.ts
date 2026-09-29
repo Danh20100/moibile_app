@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../../infrastructure/database/database.module';
 
 import { TenancySupportController } from './controllers/tenancy-support.controller';
 import { TenancyController } from './controllers/tenancy.controller';
@@ -16,6 +17,7 @@ const SUPPORT_PROVIDERS = [
 ];
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [TenancyController, TenancySupportController],
   providers: [TenancyService, ...SUPPORT_PROVIDERS],
   exports: [TenancyService, ...SUPPORT_PROVIDERS],

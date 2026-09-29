@@ -4,10 +4,13 @@ import test from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 import { readRepoFile } from '../conformance/erd3/support/source';
 
+const createTenancyService = () => new TenancyService(createCoreTestTransactionManager());
+
 test('new local Tenancy is draft and owns only the Room relationship', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const tenancy = await service.createDraft('room-a');
   assert.equal(tenancy.roomId, 'room-a');
   assert.equal(tenancy.status, 'draft');
@@ -28,17 +31,17 @@ test('Tenancy contract removes embedded tenant and calendar/financial terms', ()
 });
 
 test('Tenancy local lifecycle follows the frozen graph', async () => {
-  const activePath = new TenancyService();
+  const activePath = createTenancyService();
   const tenancy = await activePath.createDraft('room-a');
   assert.equal((await activePath.activateLocal(tenancy.id, '2026-09-01T00:00:00.000Z')).status, 'active');
   assert.equal((await activePath.startEnding(tenancy.id)).status, 'ending');
   assert.equal((await activePath.resumeActive(tenancy.id)).status, 'active');
 
-  const cancelPath = new TenancyService();
+  const cancelPath = createTenancyService();
   const draft = await cancelPath.createDraft('room-b');
   assert.equal((await cancelPath.cancel(draft.id)).status, 'cancelled');
 
-  const checkoutPath = new TenancyService();
+  const checkoutPath = createTenancyService();
   const ending = await checkoutPath.createDraft('room-c');
   await checkoutPath.activateLocal(ending.id, '2026-09-01T00:00:00.000Z');
   await checkoutPath.startEnding(ending.id);
@@ -49,28 +52,28 @@ test('Tenancy local lifecycle follows the frozen graph', async () => {
 });
 
 test('ACTIVE cannot jump directly to ENDED', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const tenancy = await service.createDraft('room-a');
   await service.activateLocal(tenancy.id, '2026-09-01T00:00:00.000Z');
   await assert.rejects(service.assertTransition(tenancy.id, 'ended'), BadRequestException);
 });
 
 test('ENDED and CANCELLED are terminal', async () => {
-  const endedService = new TenancyService();
+  const endedService = createTenancyService();
   const ended = await endedService.createDraft('room-ended');
   await endedService.activateLocal(ended.id, '2026-09-01T00:00:00.000Z');
   await endedService.startEnding(ended.id);
   await endedService.completeCheckoutLocal(ended.id, 'TERM_ENDED', '2026-10-01T00:00:00.000Z');
   await assert.rejects(endedService.assertTransition(ended.id, 'active'), BadRequestException);
 
-  const cancelledService = new TenancyService();
+  const cancelledService = createTenancyService();
   const cancelled = await cancelledService.createDraft('room-cancelled');
   await cancelledService.cancel(cancelled.id);
   await assert.rejects(cancelledService.assertTransition(cancelled.id, 'active'), BadRequestException);
 });
 
 test('one non-terminal Tenancy per Room includes ENDING', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const first = await service.createDraft('room-a');
   await assert.rejects(service.createDraft('room-a'), BadRequestException);
   await service.activateLocal(first.id, '2026-09-01T00:00:00.000Z');
@@ -79,7 +82,7 @@ test('one non-terminal Tenancy per Room includes ENDING', async () => {
 });
 
 test('historical terminal Tenancy does not block a later draft', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const first = await service.createDraft('room-a');
   await service.cancel(first.id);
   const next = await service.createDraft('room-a');
@@ -87,7 +90,7 @@ test('historical terminal Tenancy does not block a later draft', async () => {
 });
 
 test('startedAt is set on first activation and preserved by ENDING to ACTIVE', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const tenancy = await service.createDraft('room-a');
   const firstStart = '2026-09-01T00:00:00.000Z';
   await service.activateLocal(tenancy.id, firstStart);
@@ -97,7 +100,7 @@ test('startedAt is set on first activation and preserved by ENDING to ACTIVE', a
 });
 
 test('resume only returns an ENDING Tenancy to ACTIVE', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const tenancy = await service.createDraft('room-a');
 
   await assert.rejects(service.resumeActive(tenancy.id), BadRequestException);
@@ -106,7 +109,7 @@ test('resume only returns an ENDING Tenancy to ACTIVE', async () => {
 });
 
 test('checkout records one frozen neutral end reason only from ENDING', async () => {
-  const service = new TenancyService();
+  const service = createTenancyService();
   const tenancy = await service.createDraft('room-a');
   assert.equal(tenancy.endReason, undefined);
   await service.activateLocal(tenancy.id, '2026-09-01T00:00:00.000Z');

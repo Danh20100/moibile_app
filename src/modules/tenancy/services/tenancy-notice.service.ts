@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { TenancyNoticeRecord } from '../../../persistence/ports/tenancy.repository';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 
 import { IssueTenancyNoticeInput, TenancyNotice } from '../contracts';
 import { TenancyService } from './tenancy.service';
 
 @Injectable()
 export class TenancyNoticeService {
-  private readonly notices = new Map<string, TenancyNotice>();
-
-  constructor(private readonly tenancies: TenancyService) {}
+  constructor(private readonly tenancies: TenancyService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async issue(input: IssueTenancyNoticeInput): Promise<TenancyNotice> {
     await this.tenancies.findById(input.tenancyId);
@@ -27,22 +27,21 @@ export class TenancyNoticeService {
       contentOrNote: input.contentOrNote,
       issuedAt: input.issuedAt,
     };
-    this.notices.set(notice.id, structuredClone(notice));
-    return structuredClone(notice);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.insertNotice(this.toRecord(notice)));
+    return notice;
   }
 
   async findById(id: string): Promise<TenancyNotice> {
-    const notice = this.notices.get(id);
+    const notice = await this.transactions.run(({ repositories }) => repositories.tenancy.findNotice(id));
     if (!notice) {
       throw new NotFoundException(`Tenancy notice not found: ${id}`);
     }
-    return structuredClone(notice);
+    return this.fromRecord(notice);
   }
 
   async listByTenancyId(tenancyId: string): Promise<TenancyNotice[]> {
-    return Array.from(this.notices.values())
-      .filter((notice) => notice.tenancyId === tenancyId)
-      .map((notice) => structuredClone(notice));
+    const records = await this.transactions.run(({ repositories }) => repositories.tenancy.findNoticesByTenancy(tenancyId));
+    return records.map((record) => this.fromRecord(record));
   }
 
   async acknowledge(id: string, userId: string, occurredAt: string): Promise<TenancyNotice> {
@@ -55,7 +54,19 @@ export class TenancyNoticeService {
       acknowledgedByUserId: userId,
       acknowledgedAt: occurredAt,
     };
-    this.notices.set(id, structuredClone(updated));
-    return structuredClone(updated);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.updateNotice(this.toRecord(updated)));
+    return updated;
+  }
+
+  private toRecord(value: TenancyNotice): TenancyNoticeRecord {
+    return { tenancyNoticeId: value.id, tenancyId: value.tenancyId, noticeType: value.noticeType, issuedByUserId: value.issuedByUserId,
+      contentOrNote: value.contentOrNote, issuedAt: value.issuedAt, acknowledgedByUserId: value.acknowledgedByUserId ?? null,
+      acknowledgedAt: value.acknowledgedAt ?? null };
+  }
+  private fromRecord(value: TenancyNoticeRecord): TenancyNotice {
+    return { id: value.tenancyNoticeId, tenancyId: value.tenancyId, noticeType: value.noticeType, issuedByUserId: value.issuedByUserId,
+      contentOrNote: value.contentOrNote, issuedAt: value.issuedAt,
+      ...(value.acknowledgedByUserId ? { acknowledgedByUserId: value.acknowledgedByUserId } : {}),
+      ...(value.acknowledgedAt ? { acknowledgedAt: value.acknowledgedAt } : {}) };
   }
 }

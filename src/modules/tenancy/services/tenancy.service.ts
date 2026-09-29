@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { TenancyRecord } from '../../../persistence/ports/tenancy.repository';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 
 import { TenancyEndReason, TenancyProfile, TenancyStatus } from '../contracts';
 
@@ -24,7 +26,7 @@ const NON_TERMINAL = new Set<TenancyStatus>(['draft', 'active', 'ending']);
 
 @Injectable()
 export class TenancyService {
-  private readonly tenancies = new Map<string, TenancyProfile>();
+  constructor(@Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async createDraft(roomId: string): Promise<TenancyProfile> {
     await this.assertCanCreateForRoom(roomId);
@@ -33,35 +35,31 @@ export class TenancyService {
       roomId,
       status: 'draft',
     };
-    this.tenancies.set(tenancy.id, structuredClone(tenancy));
-    return structuredClone(tenancy);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.createTenancy(this.toRecord(tenancy)));
+    return tenancy;
   }
 
   async findById(id: string): Promise<TenancyProfile> {
-    const tenancy = this.tenancies.get(id);
+    const tenancy = await this.transactions.run(({ repositories }) => repositories.tenancy.findTenancy(id));
     if (!tenancy) {
       throw new NotFoundException(`Tenancy not found: ${id}`);
     }
-    return structuredClone(tenancy);
+    return this.fromRecord(tenancy);
   }
 
   async findByRoomId(roomId?: string): Promise<TenancyProfile[]> {
-    return Array.from(this.tenancies.values())
-      .filter((tenancy) => !roomId || tenancy.roomId === roomId)
-      .map((tenancy) => structuredClone(tenancy));
+    const records = await this.transactions.run(({ repositories }) => repositories.tenancy.findTenanciesByRoom(roomId));
+    return records.map((record) => this.fromRecord(record));
   }
 
   async findNonTerminalByRoomId(
     roomId: string,
     excludeTenancyId?: string,
   ): Promise<TenancyProfile | undefined> {
-    const tenancy = Array.from(this.tenancies.values()).find(
-      (candidate) =>
-        candidate.roomId === roomId &&
-        candidate.id !== excludeTenancyId &&
-        NON_TERMINAL.has(candidate.status),
-    );
-    return tenancy ? structuredClone(tenancy) : undefined;
+    const records = await this.transactions.run(({ repositories }) => repositories.tenancy.findNonterminalByRoom(roomId));
+    const tenancy = records.map((record) => this.fromRecord(record))
+      .find((candidate) => candidate.id !== excludeTenancyId && NON_TERMINAL.has(candidate.status));
+    return tenancy;
   }
 
   async assertCanCreateForRoom(roomId: string): Promise<void> {
@@ -137,8 +135,18 @@ export class TenancyService {
     }
   }
 
-  private store(tenancy: TenancyProfile): TenancyProfile {
-    this.tenancies.set(tenancy.id, structuredClone(tenancy));
-    return structuredClone(tenancy);
+  private async store(tenancy: TenancyProfile): Promise<TenancyProfile> {
+    await this.transactions.run(({ repositories }) => repositories.tenancy.updateTenancy(this.toRecord(tenancy)));
+    return tenancy;
+  }
+
+  private toRecord(tenancy: TenancyProfile): TenancyRecord {
+    return { tenancyId: tenancy.id, roomId: tenancy.roomId, status: tenancy.status.toUpperCase(), startedAt: tenancy.startedAt ?? null, endedAt: tenancy.endedAt ?? null, endReason: tenancy.endReason ?? null };
+  }
+
+  private fromRecord(record: TenancyRecord): TenancyProfile {
+    return { id: record.tenancyId, roomId: record.roomId, status: record.status.toLowerCase() as TenancyStatus,
+      ...(record.startedAt ? { startedAt: record.startedAt } : {}), ...(record.endedAt ? { endedAt: record.endedAt } : {}),
+      ...(record.endReason ? { endReason: record.endReason as TenancyEndReason } : {}) };
   }
 }

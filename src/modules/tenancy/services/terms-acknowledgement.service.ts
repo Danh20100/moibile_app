@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import type { TermsAcknowledgementRecord } from '../../../persistence/ports/tenancy.repository';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 
 import { CreateTermsAcknowledgementInput, TermsAcknowledgement } from '../contracts';
 import { TenancyParticipantService } from './tenancy-participant.service';
@@ -8,11 +10,10 @@ import { TenancyTermsService } from './tenancy-terms.service';
 
 @Injectable()
 export class TermsAcknowledgementService {
-  private readonly acknowledgements = new Map<string, TermsAcknowledgement>();
-
   constructor(
     private readonly terms: TenancyTermsService,
     private readonly participants: TenancyParticipantService,
+    @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
   ) {}
 
   async acknowledge(input: CreateTermsAcknowledgementInput): Promise<TermsAcknowledgement> {
@@ -35,13 +36,19 @@ export class TermsAcknowledgementService {
       userId: input.userId,
       acknowledgedAt: input.acknowledgedAt,
     };
-    this.acknowledgements.set(acknowledgement.id, structuredClone(acknowledgement));
-    return structuredClone(acknowledgement);
+    await this.transactions.run(({ repositories }) => repositories.tenancy.insertAcknowledgement(this.toRecord(acknowledgement)));
+    return acknowledgement;
   }
 
   async listByTermsId(tenancyTermsId: string): Promise<TermsAcknowledgement[]> {
-    return Array.from(this.acknowledgements.values())
-      .filter((acknowledgement) => acknowledgement.tenancyTermsId === tenancyTermsId)
-      .map((acknowledgement) => structuredClone(acknowledgement));
+    const records = await this.transactions.run(({ repositories }) => repositories.tenancy.findAcknowledgementsByTerms(tenancyTermsId));
+    return records.map((record) => this.fromRecord(record));
+  }
+
+  private toRecord(value: TermsAcknowledgement): TermsAcknowledgementRecord {
+    return { termsAcknowledgementId: value.id, tenancyTermsId: value.tenancyTermsId, tenancyParticipantId: value.tenancyParticipantId, userId: value.userId, acknowledgedAt: value.acknowledgedAt };
+  }
+  private fromRecord(value: TermsAcknowledgementRecord): TermsAcknowledgement {
+    return { id: value.termsAcknowledgementId, tenancyTermsId: value.tenancyTermsId, tenancyParticipantId: value.tenancyParticipantId, userId: value.userId, acknowledgedAt: value.acknowledgedAt };
   }
 }
