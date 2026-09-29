@@ -1,11 +1,4 @@
 {
   "version": 1,
-  "expectedFailures": [
-    { "name": "Incident categories match frozen ERD3 set", "owner": "Wave D Incident/Trust", "reason": "Incident domain rebuild intentionally deferred to Wave D" },
-    { "name": "Incident lifecycle matches frozen ERD3 states", "owner": "Wave D Incident/Trust", "reason": "Incident domain rebuild intentionally deferred to Wave D" },
-    { "name": "REJECTED and CLOSED are terminal", "owner": "Wave D Incident/Trust", "reason": "Incident domain rebuild intentionally deferred to Wave D" },
-    { "name": "RESOLVED can reopen to IN_PROGRESS", "owner": "Wave D Incident/Trust", "reason": "Incident domain rebuild intentionally deferred to Wave D" },
-    { "name": "IncidentEvent is a first-class append-only history concept", "owner": "Wave D Incident/Trust", "reason": "Incident domain rebuild intentionally deferred to Wave D" },
-    { "name": "TrustReport target is exactly Listing or Review", "owner": "Wave D Incident/Trust", "reason": "Trust domain rebuild intentionally deferred to Wave D" }
-  ]
+  "expectedFailures": []
 }

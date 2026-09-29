@@ -1,85 +1,40 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  Optional,
-} from '@nestjs/common';
-
+import { randomUUID } from 'node:crypto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { RoomService } from '../../room/services/room.service';
-import { IncidentStatus, IncidentTicket } from '../contracts';
+import { IncidentEvent, IncidentStatus, IncidentTicket } from '../contracts';
 import { CreateIncidentDto, UpdateIncidentStatusDto } from '../dto';
 
 const VALID_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
-  reported: ['acknowledged'],
-  acknowledged: ['processing'],
-  processing: ['need_more_information', 'resolved'],
-  need_more_information: ['processing'],
-  resolved: ['closed'],
-  closed: [],
+  REPORTED: ['ACKNOWLEDGED', 'REJECTED'],
+  ACKNOWLEDGED: ['IN_PROGRESS', 'REJECTED'],
+  IN_PROGRESS: ['RESOLVED'],
+  RESOLVED: ['IN_PROGRESS', 'CLOSED'],
+  REJECTED: [],
+  CLOSED: [],
 };
 
 @Injectable()
 export class IncidentService {
-  private static readonly incidents = new Map<string, IncidentTicket>();
-
-  constructor(@Optional() @Inject(RoomService) private readonly roomService?: RoomService) {}
-
+  private readonly incidents = new Map<string, IncidentTicket>();
+  private readonly events: IncidentEvent[] = [];
+  constructor(private readonly roomService: RoomService) {}
   async create(dto: CreateIncidentDto): Promise<IncidentTicket> {
-    if (this.roomService) {
-      await this.roomService.findById(dto.roomId);
-    }
-
-    const id = `inc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const now = new Date().toISOString();
-    const incident: IncidentTicket = {
-      id,
-      roomId: dto.roomId,
-      reporterId: dto.reporterId,
-      title: dto.title,
-      description: dto.description,
-      category: dto.category,
-      status: 'reported',
-      createdAt: now,
-      updatedAt: now,
-    };
-    IncidentService.incidents.set(id, incident);
-    return { ...incident };
+    await this.roomService.findById(dto.roomId);
+    const value: IncidentTicket = { id: randomUUID(), ...dto, status: 'REPORTED', createdAt: new Date().toISOString() };
+    this.incidents.set(value.id, structuredClone(value));
+    this.appendEvent({ incidentId: value.id, eventType: 'STATUS_CHANGED', actorUserId: dto.reportedByUserId, toStatus: 'REPORTED', occurredAt: value.createdAt });
+    return structuredClone(value);
   }
-
-  async findById(id: string): Promise<IncidentTicket> {
-    const inc = IncidentService.incidents.get(id);
-    if (!inc) {
-      throw new NotFoundException(`Không tìm thấy incident với id: ${id}`);
-    }
-    return { ...inc };
-  }
-
-  async findByRoomId(roomId?: string): Promise<IncidentTicket[]> {
-    const all = Array.from(IncidentService.incidents.values());
-    if (!roomId) {
-      return all.map((i) => ({ ...i }));
-    }
-    return all.filter((i) => i.roomId === roomId).map((i) => ({ ...i }));
-  }
-
+  async findById(id: string): Promise<IncidentTicket> { const value = this.incidents.get(id); if (!value) throw new NotFoundException(`Incident not found: ${id}`); return structuredClone(value); }
+  async findByRoomId(roomId?: string): Promise<IncidentTicket[]> { return Array.from(this.incidents.values()).filter((value) => !roomId || value.roomId === roomId).map((value) => structuredClone(value)); }
   async updateStatus(id: string, dto: UpdateIncidentStatusDto): Promise<IncidentTicket> {
-    const incident = await this.findById(id);
-    const allowed = VALID_TRANSITIONS[incident.status];
-
-    if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(
-        `Không thể chuyển trạng thái sự cố từ '${incident.status}' sang '${dto.status}'. Chuyển đổi hợp lệ: [${allowed.join(', ')}]`,
-      );
-    }
-
-    const updated: IncidentTicket = {
-      ...incident,
-      status: dto.status,
-      resolutionNote: dto.note ?? incident.resolutionNote,
-      updatedAt: new Date().toISOString(),
-    };
-    IncidentService.incidents.set(id, updated);
-    return { ...updated };
+    const current = await this.findById(id); if (!VALID_TRANSITIONS[current.status].includes(dto.status)) throw new BadRequestException(`Invalid Incident transition ${current.status} -> ${dto.status}`);
+    const occurredAt = new Date().toISOString();
+    const updated: IncidentTicket = { ...current, status: dto.status, closureReason: dto.closureReason ?? current.closureReason, closedAt: ['CLOSED', 'REJECTED'].includes(dto.status) ? occurredAt : undefined };
+    this.incidents.set(id, structuredClone(updated));
+    this.appendEvent({ incidentId: id, eventType: 'STATUS_CHANGED', actorUserId: dto.actorUserId, note: dto.note, fromStatus: current.status, toStatus: dto.status, occurredAt });
+    return structuredClone(updated);
   }
+  async listEvents(incidentId: string): Promise<IncidentEvent[]> { return this.events.filter((value) => value.incidentId === incidentId).map((value) => structuredClone(value)); }
+  private appendEvent(input: Omit<IncidentEvent, 'id'>): void { this.events.push({ id: randomUUID(), ...structuredClone(input) }); }
 }

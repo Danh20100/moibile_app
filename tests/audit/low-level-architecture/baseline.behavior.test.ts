@@ -60,37 +60,27 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('enforces the incident lifecycle state machine', async () => {
-    const service = new IncidentService();
+    const service = new IncidentService({ findById: async () => ({ id: 'room_1' }) } as never);
     const incident = await service.create({
       roomId: 'room_1',
-      reporterId: 'tenant_1',
-      title: 'Water leak',
-      description: 'Water is leaking under the sink',
-      category: 'plumbing',
+      reportedByUserId: 'tenant_1',
+      category: 'PLUMBING',
     });
 
-    assert.equal(incident.status, 'reported');
+    assert.equal(incident.status, 'REPORTED');
     assert.equal(
-      (await service.updateStatus(incident.id, { status: 'acknowledged' })).status,
-      'acknowledged',
+      (await service.updateStatus(incident.id, { status: 'ACKNOWLEDGED' })).status,
+      'ACKNOWLEDGED',
     );
     assert.equal(
-      (await service.updateStatus(incident.id, { status: 'processing' })).status,
-      'processing',
+      (await service.updateStatus(incident.id, { status: 'IN_PROGRESS' })).status,
+      'IN_PROGRESS',
     );
     assert.equal(
-      (await service.updateStatus(incident.id, { status: 'need_more_information' })).status,
-      'need_more_information',
+      (await service.updateStatus(incident.id, { status: 'RESOLVED', note: 'Fixed' })).status,
+      'RESOLVED',
     );
-    assert.equal(
-      (await service.updateStatus(incident.id, { status: 'processing' })).status,
-      'processing',
-    );
-    assert.equal(
-      (await service.updateStatus(incident.id, { status: 'resolved', note: 'Fixed' })).status,
-      'resolved',
-    );
-    assert.equal((await service.updateStatus(incident.id, { status: 'closed' })).status, 'closed');
+    assert.equal((await service.updateStatus(incident.id, { status: 'CLOSED' })).status, 'CLOSED');
   });
 
   it('exposes public listings only while their state is published', async () => {

@@ -87,10 +87,8 @@ describe('cross-module reference integrity audit', () => {
       async () =>
         service.create({
           roomId: 'room_missing',
-          reporterId: 'actor_reference',
-          title: 'Leak',
-          description: 'Water leak',
-          category: 'plumbing',
+          reportedByUserId: 'actor_reference',
+          category: 'PLUMBING',
         }),
       'Incident must validate the room reference in its business context.',
     );
