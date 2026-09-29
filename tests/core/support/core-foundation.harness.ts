@@ -2,11 +2,13 @@ import { OrganizationService } from '../../../src/modules/organization/services/
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
 import { createCoreTestTransactionManager } from './in-memory-transaction-manager';
+import type { TransactionManager } from '../../../src/persistence/ports/transaction-manager';
 
 export interface CoreFoundationHarness {
   organizationService: OrganizationService;
   propertyService: PropertyService;
   roomService: RoomService;
+  transactions: TransactionManager;
 }
 
 export function createCoreFoundationHarness(): CoreFoundationHarness {
@@ -14,7 +16,7 @@ export function createCoreFoundationHarness(): CoreFoundationHarness {
   const organizationService = new OrganizationService(transactions);
   const propertyService = new PropertyService(organizationService, transactions);
   const roomService = new RoomService(propertyService, transactions);
-  return { organizationService, propertyService, roomService };
+  return { organizationService, propertyService, roomService, transactions };
 }
 
 export async function createOrganization(harness: CoreFoundationHarness): Promise<string> {

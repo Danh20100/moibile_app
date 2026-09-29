@@ -6,6 +6,9 @@ import { BadRequestException } from '@nestjs/common';
 import { isNumeric18Scale2NonNegative } from '../../src/common/domain/decimal-string';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
 import { readRepoFile } from '../conformance/erd3/support/source';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
+
+const listingService = () => new ListingService(createCoreTestTransactionManager());
 
 const publicLocationProjection = { latitude: 10.77, longitude: 106.69 };
 
@@ -28,7 +31,7 @@ function event(reasonCode = 'LANDLORD_MANUAL') {
   };
 }
 test('new local draft uses draft and roomId as its only ownership reference', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
 
   assert.equal(listing.status, 'draft');
@@ -47,7 +50,7 @@ test('ListingProfile declaration removes stale lifecycle and duplicate-history f
 });
 
 test('Listing local lifecycle follows the frozen transition graph', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
 
   assert.equal((await service.transition(listing.id, 'published', event())).status, 'published');
@@ -55,11 +58,11 @@ test('Listing local lifecycle follows the frozen transition graph', async () => 
   assert.equal((await service.transition(listing.id, 'published', event())).status, 'published');
 });
 test('draft and unpublished can archive while published cannot', async () => {
-  const draftService = new ListingService();
+  const draftService = listingService();
   const draft = await draftService.createDraft(draftInput('room-draft'));
   assert.equal((await draftService.transition(draft.id, 'archived', event())).status, 'archived');
 
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
   await service.transition(listing.id, 'published', event());
   await assert.rejects(service.transition(listing.id, 'archived', event()), BadRequestException);
@@ -68,7 +71,7 @@ test('draft and unpublished can archive while published cannot', async () => {
 });
 
 test('archived is terminal and content update rejects', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
   await service.transition(listing.id, 'archived', event());
 
@@ -80,12 +83,12 @@ test('archived is terminal and content update rejects', async () => {
 });
 
 test('at most one current non-archived Listing exists per Room', async () => {
-  const service = new ListingService();
+  const service = listingService();
   await service.createDraft(draftInput());
   await assert.rejects(service.createDraft(draftInput()), BadRequestException);
 });
 test('archived history allows a later current Listing for the same Room', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const first = await service.createDraft(draftInput());
   await service.transition(first.id, 'archived', event());
 
@@ -95,7 +98,7 @@ test('archived history allows a later current Listing for the same Room', async 
 });
 
 test('status transitions append immutable ListingStatusEvent history', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
   await service.transition(listing.id, 'published', event());
 
@@ -112,7 +115,7 @@ test('status transitions append immutable ListingStatusEvent history', async () 
   assert.equal(secondRead[1].reasonCode, 'ROOM_MAINTENANCE');
 });
 test('public query returns published public projection only', async () => {
-  const service = new ListingService();
+  const service = listingService();
   const listing = await service.createDraft(draftInput());
   assert.deepEqual(await service.findPublished(), []);
 

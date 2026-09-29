@@ -1,6 +1,6 @@
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 
-import type { CreateInquiryInput, CreateListingInput, CreateListingStatusEventInput, InquiryRecord, ListingRecord, ListingRepository } from '../../../persistence/ports/listing.repository';
+import type { CreateInquiryInput, CreateListingInput, CreateListingStatusEventInput, InquiryRecord, ListingRecord, ListingRepository, ListingStatusEventRecord } from '../../../persistence/ports/listing.repository';
 import { geoPoint, geographyLatitude, geographyLongitude, geographyPoint } from '../postgis';
 import { mapPostgresError } from '../postgres-error.mapper';
 import type { Database } from '../schema.types';
@@ -31,6 +31,11 @@ export class PostgresListingRepository implements ListingRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findPublishedListings(): Promise<ListingRecord[]> {
+    try { return (await this.listingSelect().where('status', '=', 'PUBLISHED').orderBy('listing_id').execute()).map((row) => this.mapListing(row)); }
+    catch (error) { throw mapPostgresError(error); }
+  }
+
   async updateListing(record: ListingRecord): Promise<void> {
     try {
       await this.executor.updateTable('listings').set({
@@ -52,6 +57,11 @@ export class PostgresListingRepository implements ListingRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findStatusEvents(listingId: string): Promise<ListingStatusEventRecord[]> {
+    try { return [...(await sql<ListingStatusEventRecord>`SELECT listing_status_event_id AS "listingStatusEventId",listing_id AS "listingId",from_status AS "fromStatus",to_status AS "toStatus",reason_code AS "reasonCode",actor_type AS "actorType",actor_user_id AS "actorUserId",trigger,occurred_at AS "occurredAt",metadata FROM listing_status_events WHERE listing_id=${listingId} ORDER BY occurred_at,listing_status_event_id`.execute(this.executor)).rows]; }
+    catch (error) { throw mapPostgresError(error); }
+  }
+
   async createInquiry(input: CreateInquiryInput): Promise<void> {
     try {
       await this.executor.insertInto('inquiries').values({
@@ -71,6 +81,11 @@ export class PostgresListingRepository implements ListingRepository {
         contactIntentOrMessage: row.contact_intent_or_message, status: row.status, createdAt: row.created_at,
       } : undefined;
     } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async findInquiriesByListing(listingId: string): Promise<InquiryRecord[]> {
+    try { return [...(await sql<InquiryRecord>`SELECT inquiry_id AS "inquiryId",listing_id AS "listingId",sender_user_id AS "senderUserId",contact_intent_or_message AS "contactIntentOrMessage",status,created_at AS "createdAt" FROM inquiries WHERE listing_id=${listingId} ORDER BY created_at,inquiry_id`.execute(this.executor)).rows]; }
+    catch (error) { throw mapPostgresError(error); }
   }
 
   private listingSelect() {

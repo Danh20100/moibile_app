@@ -84,7 +84,7 @@ describe('low-level architecture baseline behavior', () => {
   });
 
   it('exposes public listings only while their state is published', async () => {
-    const service = new ListingService();
+    const service = new ListingService(createCoreFoundationHarness().transactions);
     const listing = await service.createDraft({
       roomId: 'room_1',
       publicTitle: 'Room 101',

@@ -1,156 +1,23 @@
 import { randomUUID } from 'node:crypto';
-
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { isNumeric18Scale2NonNegative } from '../../../common/domain/decimal-string';
-import {
-  CreateListingInput,
-  ListingProfile,
-  ListingStatus,
-  ListingStatusEvent,
-  ListingTransitionEventInput,
-  UpdateListingContentInput,
-} from '../contracts';
-
-const VALID_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = {
-  draft: ['published', 'archived'],
-  published: ['unpublished'],
-  unpublished: ['published', 'archived'],
-  archived: [],
-};
-
+import type { JsonValue } from '../../../persistence/ports/repositories';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
+import { CreateListingInput, ListingProfile, ListingStatus, ListingStatusEvent, ListingTransitionEventInput, UpdateListingContentInput } from '../contracts';
+const VALID_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = { draft: ['published', 'archived'], published: ['unpublished'], unpublished: ['published', 'archived'], archived: [] };
+const profile = (row: Awaited<ReturnType<Parameters<Parameters<TransactionManager['run']>[0]>[0]['repositories']['listing']['findListing']>>): ListingProfile | undefined => row ? ({ id: row.listingId, roomId: row.roomId, status: row.status.toLowerCase() as ListingStatus, publicTitle: row.publicTitle, publicDescription: row.publicDescription, publicPriceProjection: row.publicPriceProjection, publicLocationProjection: structuredClone(row.publicLocationProjection) }) : undefined;
 @Injectable()
 export class ListingService {
-  private readonly listings = new Map<string, ListingProfile>();
-  private readonly statusEvents = new Map<string, ListingStatusEvent[]>();
-
-  async createDraft(input: CreateListingInput): Promise<ListingProfile> {
-    await this.assertCanCreateCurrent(input.roomId);
-    this.assertPrice(input.publicPriceProjection);
-    const listing: ListingProfile = {
-      id: randomUUID(),
-      roomId: input.roomId,
-      status: 'draft',
-      publicTitle: input.publicTitle,
-      publicDescription: input.publicDescription,
-      publicPriceProjection: input.publicPriceProjection,
-      publicLocationProjection: structuredClone(input.publicLocationProjection),
-    };
-    this.listings.set(listing.id, structuredClone(listing));
-    this.statusEvents.set(listing.id, []);
-    return structuredClone(listing);
-  }
-
-  async findById(id: string): Promise<ListingProfile> {
-    const listing = this.listings.get(id);
-    if (!listing) {
-      throw new NotFoundException(`Listing not found: ${id}`);
-    }
-    return structuredClone(listing);
-  }
-
-  async findCurrentByRoomId(roomId: string): Promise<ListingProfile | undefined> {
-    const listing = Array.from(this.listings.values()).find(
-      (candidate) => candidate.roomId === roomId && candidate.status !== 'archived',
-    );
-    return listing ? structuredClone(listing) : undefined;
-  }
-
-  async findPublished(): Promise<ListingProfile[]> {
-    return Array.from(this.listings.values())
-      .filter((listing) => listing.status === 'published')
-      .map((listing) => structuredClone(listing));
-  }
-
-  async updateContent(
-    id: string,
-    input: UpdateListingContentInput,
-  ): Promise<ListingProfile> {
-    const listing = await this.findById(id);
-    if (listing.status === 'archived') {
-      throw new BadRequestException('Archived Listing cannot be edited');
-    }
-    if (input.publicPriceProjection !== undefined) {
-      this.assertPrice(input.publicPriceProjection);
-    }
-
-    const updated: ListingProfile = {
-      ...listing,
-      publicTitle: input.publicTitle ?? listing.publicTitle,
-      publicDescription: input.publicDescription ?? listing.publicDescription,
-      publicPriceProjection: input.publicPriceProjection ?? listing.publicPriceProjection,
-      publicLocationProjection: input.publicLocationProjection
-        ? structuredClone(input.publicLocationProjection)
-        : structuredClone(listing.publicLocationProjection),
-    };
-    this.listings.set(id, structuredClone(updated));
-    return structuredClone(updated);
-  }
-
-  async assertCanCreateCurrent(roomId: string): Promise<void> {
-    if (await this.findCurrentByRoomId(roomId)) {
-      throw new BadRequestException('Room already has a current non-archived Listing');
-    }
-  }
-
-  async assertTransition(id: string, next: ListingStatus): Promise<void> {
-    const listing = await this.findById(id);
-    if (!VALID_TRANSITIONS[listing.status].includes(next)) {
-      throw new BadRequestException(`Invalid Listing transition ${listing.status} -> ${next}`);
-    }
-  }
-
-  async transition(
-    id: string,
-    next: ListingStatus,
-    event: ListingTransitionEventInput,
-  ): Promise<ListingProfile> {
-    const listing = await this.findById(id);
-    await this.assertTransition(id, next);
-
-    const updated: ListingProfile = { ...listing, status: next };
-    const statusEvent: ListingStatusEvent = {
-      id: randomUUID(),
-      listingId: id,
-      fromStatus: listing.status,
-      toStatus: next,
-      reasonCode: event.reasonCode,
-      actorType: event.actorType,
-      actorUserId: event.actorUserId,
-      trigger: event.trigger,
-      occurredAt: event.occurredAt ?? new Date().toISOString(),
-      metadata: event.metadata ? structuredClone(event.metadata) : undefined,
-    };
-
-    this.listings.set(id, structuredClone(updated));
-    const events = this.statusEvents.get(id) ?? [];
-    events.push(structuredClone(statusEvent));
-    this.statusEvents.set(id, events);
-    return structuredClone(updated);
-  }
-
-  async listStatusEvents(listingId: string): Promise<ListingStatusEvent[]> {
-    await this.findById(listingId);
-    return (this.statusEvents.get(listingId) ?? []).map((event) => structuredClone(event));
-  }
-
-  async archiveAllForRoom(
-    roomId: string,
-    eventFactory: (listing: ListingProfile) => ListingTransitionEventInput,
-  ): Promise<ListingProfile[]> {
-    const listing = await this.findCurrentByRoomId(roomId);
-    if (!listing) {
-      return [];
-    }
-    if (listing.status === 'published') {
-      throw new BadRequestException('Published Listing must be unpublished before archival');
-    }
-    return [await this.transition(listing.id, 'archived', eventFactory(listing))];
-  }
-
-  private assertPrice(value: string): void {
-    if (!isNumeric18Scale2NonNegative(value)) {
-      throw new BadRequestException('publicPriceProjection must fit non-negative numeric(18,2)');
-    }
-  }
+  constructor(@Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
+  async createDraft(input: CreateListingInput): Promise<ListingProfile> { await this.assertCanCreateCurrent(input.roomId); this.assertPrice(input.publicPriceProjection); const value: ListingProfile = { id: randomUUID(), roomId: input.roomId, status: 'draft', publicTitle: input.publicTitle, publicDescription: input.publicDescription, publicPriceProjection: input.publicPriceProjection, publicLocationProjection: structuredClone(input.publicLocationProjection) }; await this.transactions.run(({ repositories }) => repositories.listing.createListing({ listingId: value.id, roomId: value.roomId, status: 'DRAFT', publicTitle: value.publicTitle, publicDescription: value.publicDescription, publicPriceProjection: value.publicPriceProjection, publicLocationProjection: value.publicLocationProjection })); return value; }
+  async findById(id: string): Promise<ListingProfile> { const value = profile(await this.transactions.run(({ repositories }) => repositories.listing.findListing(id))); if (!value) throw new NotFoundException(`Listing not found: ${id}`); return value; }
+  async findCurrentByRoomId(roomId: string): Promise<ListingProfile | undefined> { return profile(await this.transactions.run(({ repositories }) => repositories.listing.findCurrentListingByRoom(roomId))); }
+  async findPublished(): Promise<ListingProfile[]> { return (await this.transactions.run(({ repositories }) => repositories.listing.findPublishedListings())).map((row) => profile(row)!); }
+  async updateContent(id: string, input: UpdateListingContentInput): Promise<ListingProfile> { if (input.publicPriceProjection !== undefined) this.assertPrice(input.publicPriceProjection); return this.transactions.run(async ({ repositories }) => { const row = await repositories.listing.findListing(id); if (!row) throw new NotFoundException(`Listing not found: ${id}`); if (row.status === 'ARCHIVED') throw new BadRequestException('Archived Listing cannot be edited'); const updated = { ...row, publicTitle: input.publicTitle ?? row.publicTitle, publicDescription: input.publicDescription ?? row.publicDescription, publicPriceProjection: input.publicPriceProjection ?? row.publicPriceProjection, publicLocationProjection: input.publicLocationProjection ?? row.publicLocationProjection }; await repositories.listing.updateListing(updated); return profile(updated)!; }); }
+  async assertCanCreateCurrent(roomId: string): Promise<void> { if (await this.findCurrentByRoomId(roomId)) throw new BadRequestException('Room already has a current non-archived Listing'); }
+  async assertTransition(id: string, next: ListingStatus): Promise<void> { const value = await this.findById(id); if (!VALID_TRANSITIONS[value.status].includes(next)) throw new BadRequestException(`Invalid Listing transition ${value.status} -> ${next}`); }
+  async transition(id: string, next: ListingStatus, event: ListingTransitionEventInput): Promise<ListingProfile> { return this.transactions.run(async ({ repositories }) => { const row = await repositories.listing.findListing(id); if (!row) throw new NotFoundException(`Listing not found: ${id}`); const current = row.status.toLowerCase() as ListingStatus; if (!VALID_TRANSITIONS[current].includes(next)) throw new BadRequestException(`Invalid Listing transition ${current} -> ${next}`); const updated = { ...row, status: next.toUpperCase() }; await repositories.listing.updateListing(updated); await repositories.listing.insertStatusEvent({ listingStatusEventId: randomUUID(), listingId: id, fromStatus: row.status, toStatus: updated.status, reasonCode: event.reasonCode, actorType: event.actorType, actorUserId: event.actorUserId ?? null, trigger: event.trigger, occurredAt: event.occurredAt ?? new Date().toISOString(), metadata: event.metadata as JsonValue ?? null }); return profile(updated)!; }); }
+  async listStatusEvents(listingId: string): Promise<ListingStatusEvent[]> { await this.findById(listingId); return (await this.transactions.run(({ repositories }) => repositories.listing.findStatusEvents(listingId))).map((row) => ({ id: row.listingStatusEventId, listingId: row.listingId, fromStatus: row.fromStatus.toLowerCase() as ListingStatus, toStatus: row.toStatus.toLowerCase() as ListingStatus, reasonCode: row.reasonCode, actorType: row.actorType, actorUserId: row.actorUserId ?? undefined, trigger: row.trigger, occurredAt: row.occurredAt, metadata: row.metadata as Record<string, unknown> ?? undefined })); }
+  async archiveAllForRoom(roomId: string, eventFactory: (listing: ListingProfile) => ListingTransitionEventInput): Promise<ListingProfile[]> { const value = await this.findCurrentByRoomId(roomId); if (!value) return []; if (value.status === 'published') throw new BadRequestException('Published Listing must be unpublished before archival'); return [await this.transition(value.id, 'archived', eventFactory(value))]; }
+  private assertPrice(value: string): void { if (!isNumeric18Scale2NonNegative(value)) throw new BadRequestException('publicPriceProjection must fit non-negative numeric(18,2)'); }
 }

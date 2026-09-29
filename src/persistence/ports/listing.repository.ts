@@ -21,8 +21,11 @@ export interface ListingRepository {
   createListing(input: CreateListingInput): Promise<void>;
   findListing(listingId: string): Promise<ListingRecord | undefined>;
   findCurrentListingByRoom(roomId: string): Promise<ListingRecord | undefined>;
+  findPublishedListings(): Promise<ListingRecord[]>;
   updateListing(record: ListingRecord): Promise<void>;
   insertStatusEvent(input: CreateListingStatusEventInput): Promise<void>;
+  findStatusEvents(listingId: string): Promise<ListingStatusEventRecord[]>;
   createInquiry(input: CreateInquiryInput): Promise<void>;
   findInquiry(inquiryId: string): Promise<InquiryRecord | undefined>;
+  findInquiriesByListing(listingId: string): Promise<InquiryRecord[]>;
 }

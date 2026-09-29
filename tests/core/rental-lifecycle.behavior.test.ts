@@ -22,7 +22,7 @@ async function lifecycleFixture() {
   const harness = createCoreFoundationHarness();
   const propertyId = await createActiveProperty(harness);
   const room = await harness.roomService.create({ propertyId, nameOrLabel: '101' });
-  const listings = new ListingService();
+  const listings = new ListingService(harness.transactions);
   const tenancies = new TenancyService();
   const participants = new TenancyParticipantService(tenancies);
   const coordinator = new RentalLifecycleCoordinator(

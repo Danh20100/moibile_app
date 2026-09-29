@@ -6,9 +6,11 @@ import { NotFoundException } from '@nestjs/common';
 import { InquiryService } from '../../src/modules/listing/services/inquiry.service';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
 import { readRepoFile } from '../conformance/erd3/support/source';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 async function fixture() {
-  const listings = new ListingService();
+  const transactions = createCoreTestTransactionManager();
+  const listings = new ListingService(transactions);
   const listing = await listings.createDraft({
     roomId: 'room-a',
     publicTitle: 'Room A',
@@ -16,12 +18,13 @@ async function fixture() {
     publicPriceProjection: '1000.00',
     publicLocationProjection: { latitude: 10.77, longitude: 106.69 },
   });
-  return { listings, listing, inquiries: new InquiryService(listings) };
+  return { listings, listing, inquiries: new InquiryService(listings, transactions) };
 }
 
 test('Inquiry requires an existing Listing', async () => {
-  const listings = new ListingService();
-  const inquiries = new InquiryService(listings);
+  const transactions = createCoreTestTransactionManager();
+  const listings = new ListingService(transactions);
+  const inquiries = new InquiryService(listings, transactions);
   await assert.rejects(
     inquiries.create({ listingId: 'missing', contactIntentOrMessage: 'Interested', status: 'new' }),
     NotFoundException,
