@@ -9,6 +9,7 @@ const financeSource = () =>
     'src/modules/billing/services/billing.service.ts',
     'src/modules/receipt/contracts/index.ts',
     'src/modules/receipt/services/receipt.service.ts',
+    'src/persistence/guards/finance-transaction-coordinator.ts',
   ]);
 
 test('current charge types are RENT ELECTRICITY WATER only', () => {
