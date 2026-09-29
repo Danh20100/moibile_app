@@ -37,6 +37,26 @@ export class PostgresPropertyRepository implements PropertyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findPropertiesByOrganization(organizationId?: string): Promise<PropertyRecord[]> {
+    try {
+      let query = this.executor.selectFrom('properties').select([
+        'property_id', 'organization_id', 'name', 'lifecycle_status', 'operational_address_text',
+        geographyLongitude('properties.operational_location').as('operational_longitude'),
+        geographyLatitude('properties.operational_location').as('operational_latitude'),
+        geographyLongitude('properties.public_location_projection').as('public_longitude'),
+        geographyLatitude('properties.public_location_projection').as('public_latitude'),
+      ]);
+      if (organizationId) query = query.where('organization_id', '=', organizationId);
+      const rows = await query.orderBy('property_id').execute();
+      return rows.map((row) => ({
+        propertyId: row.property_id, organizationId: row.organization_id, name: row.name,
+        lifecycleStatus: row.lifecycle_status, operationalAddressText: row.operational_address_text,
+        operationalLocation: geoPoint(row.operational_longitude, row.operational_latitude),
+        publicLocationProjection: geoPoint(row.public_longitude, row.public_latitude),
+      }));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async updateProperty(record: PropertyRecord): Promise<void> {
     try {
       await this.executor.updateTable('properties').set({

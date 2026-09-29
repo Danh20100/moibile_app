@@ -1,44 +1,37 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
-
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { OrganizationProfile } from '../contracts';
 import { CreateOrganizationDto, UpdateOrganizationDto } from '../dto';
 
 @Injectable()
 export class OrganizationService {
-  private readonly organizations = new Map<string, OrganizationProfile>();
+  constructor(@Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
   async create(dto: CreateOrganizationDto): Promise<OrganizationProfile> {
-    const id = randomUUID();
-    const org: OrganizationProfile = {
-      id,
-      name: dto.name,
-      primaryOwnerUserId: dto.primaryOwnerUserId,
-    };
-    this.organizations.set(id, structuredClone(org));
-    return structuredClone(org);
+    const value: OrganizationProfile = { id: randomUUID(), name: dto.name, primaryOwnerUserId: dto.primaryOwnerUserId };
+    await this.transactions.run(({ repositories }) => repositories.organization.createOrganization({ organizationId: value.id, name: value.name, primaryOwnerUserId: value.primaryOwnerUserId }));
+    return structuredClone(value);
   }
 
   async findById(id: string): Promise<OrganizationProfile> {
-    const org = this.organizations.get(id);
-    if (!org) {
-      throw new NotFoundException(`Không tìm thấy organization với id: ${id}`);
-    }
-    return structuredClone(org);
+    const row = await this.transactions.run(({ repositories }) => repositories.organization.findOrganization(id));
+    if (!row) throw new NotFoundException(`Không tìm thấy organization với id: ${id}`);
+    return { id: row.organizationId, name: row.name, primaryOwnerUserId: row.primaryOwnerUserId };
   }
 
   async findAll(): Promise<OrganizationProfile[]> {
-    return Array.from(this.organizations.values()).map((org) => structuredClone(org));
+    const rows = await this.transactions.run(({ repositories }) => repositories.organization.findOrganizations());
+    return rows.map((row) => ({ id: row.organizationId, name: row.name, primaryOwnerUserId: row.primaryOwnerUserId }));
   }
 
   async update(id: string, dto: UpdateOrganizationDto): Promise<OrganizationProfile> {
-    const org = await this.findById(id);
-    const updated: OrganizationProfile = {
-      id: org.id,
-      name: dto.name ?? org.name,
-      primaryOwnerUserId: org.primaryOwnerUserId,
-    };
-    this.organizations.set(id, structuredClone(updated));
-    return structuredClone(updated);
+    return this.transactions.run(async ({ repositories }) => {
+      const row = await repositories.organization.findOrganization(id);
+      if (!row) throw new NotFoundException(`Không tìm thấy organization với id: ${id}`);
+      const updated = { ...row, name: dto.name ?? row.name };
+      await repositories.organization.updateOrganization(updated);
+      return { id: updated.organizationId, name: updated.name, primaryOwnerUserId: updated.primaryOwnerUserId };
+    });
   }
 }

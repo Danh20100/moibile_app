@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { OrganizationService } from '../../src/modules/organization/services/organization.service';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 test('create stores primaryOwnerUserId', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const created = await service.create({
     name: 'An Cu Rental Workspace',
     primaryOwnerUserId: 'user_owner_1',
@@ -15,7 +16,7 @@ test('create stores primaryOwnerUserId', async () => {
 });
 
 test('update can rename', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const created = await service.create({
     name: 'Original Name',
     primaryOwnerUserId: 'user_owner_1',
@@ -27,7 +28,7 @@ test('update can rename', async () => {
 });
 
 test('untyped extra primaryOwnerUserId cannot replace owner', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const created = await service.create({
     name: 'Owned Workspace',
     primaryOwnerUserId: 'user_owner_1',
@@ -43,7 +44,7 @@ test('untyped extra primaryOwnerUserId cannot replace owner', async () => {
 });
 
 test('returned profile has no status', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const created = await service.create({
     name: 'Workspace',
     primaryOwnerUserId: 'user_owner_1',
@@ -53,7 +54,7 @@ test('returned profile has no status', async () => {
 });
 
 test('returned profile has no description', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const created = await service.create({
     name: 'Workspace',
     primaryOwnerUserId: 'user_owner_1',
@@ -63,7 +64,7 @@ test('returned profile has no description', async () => {
 });
 
 test('still-valid list/find engineering behavior remains intact', async () => {
-  const service = new OrganizationService();
+  const service = new OrganizationService(createCoreTestTransactionManager());
   const first = await service.create({
     name: 'Workspace A',
     primaryOwnerUserId: 'user_a',

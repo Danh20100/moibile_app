@@ -1,6 +1,7 @@
 import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
+import { createCoreTestTransactionManager } from './in-memory-transaction-manager';
 
 export interface CoreFoundationHarness {
   organizationService: OrganizationService;
@@ -9,9 +10,10 @@ export interface CoreFoundationHarness {
 }
 
 export function createCoreFoundationHarness(): CoreFoundationHarness {
-  const organizationService = new OrganizationService();
-  const propertyService = new PropertyService(organizationService);
-  const roomService = new RoomService(propertyService);
+  const transactions = createCoreTestTransactionManager();
+  const organizationService = new OrganizationService(transactions);
+  const propertyService = new PropertyService(organizationService, transactions);
+  const roomService = new RoomService(propertyService, transactions);
   return { organizationService, propertyService, roomService };
 }
 

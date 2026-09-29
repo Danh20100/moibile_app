@@ -12,6 +12,7 @@ export interface CreateRoomInput extends RoomRecord {}
 export interface PropertyRepository {
   createProperty(input: CreatePropertyInput): Promise<void>;
   findProperty(propertyId: string): Promise<PropertyRecord | undefined>;
+  findPropertiesByOrganization(organizationId?: string): Promise<PropertyRecord[]>;
   updateProperty(record: PropertyRecord): Promise<void>;
   createRoom(input: CreateRoomInput): Promise<void>;
   findRoom(roomId: string): Promise<RoomRecord | undefined>;

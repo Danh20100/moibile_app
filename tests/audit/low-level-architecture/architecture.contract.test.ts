@@ -116,9 +116,7 @@ describe('architecture contract audit', () => {
   });
 
   it('creates actual destination-domain data when onboarding is confirmed', async () => {
-    const organizations = new OrganizationService();
-    const properties = new PropertyService(organizations);
-    const rooms = new RoomService(properties);
+    const { organizationService: organizations, propertyService: properties, roomService: rooms } = createCoreFoundationHarness();
     const onboarding = new OnboardingService(properties, rooms);
     const organization = await organizations.create({
       name: 'Organization A',
@@ -158,9 +156,7 @@ describe('architecture contract audit', () => {
   });
 
   it('does not silently create fake destination data for a confirmed onboarding batch', async () => {
-    const organizations = new OrganizationService();
-    const properties = new PropertyService(organizations);
-    const rooms = new RoomService(properties);
+    const { organizationService: organizations, propertyService: properties, roomService: rooms } = createCoreFoundationHarness();
     const onboarding = new OnboardingService(properties, rooms);
     const organization = await organizations.create({
       name: 'Organization B',
