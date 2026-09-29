@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IncidentService } from '../../src/modules/incident/services/incident.service';
 import { AuditTrustService } from '../../src/modules/audit-trust/services/audit-trust.service';
+import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 const roomLookup = { findById: async (id: string) => ({ id }) };
 
 test('Incident follows frozen lifecycle and appends immutable status events', async () => {
-  const service = new IncidentService(roomLookup as never);
+  const service = new IncidentService(roomLookup as never, createCoreTestTransactionManager());
   const incident = await service.create({ roomId: 'room-1', reportedByUserId: 'user-1', category: 'PLUMBING' });
   await service.updateStatus(incident.id, { status: 'ACKNOWLEDGED', actorUserId: 'user-2' });
   await service.updateStatus(incident.id, { status: 'IN_PROGRESS', actorUserId: 'user-2' });
@@ -16,7 +17,7 @@ test('Incident follows frozen lifecycle and appends immutable status events', as
 });
 
 test('REJECTED and CLOSED incidents are terminal', async () => {
-  const service = new IncidentService(roomLookup as never);
+  const service = new IncidentService(roomLookup as never, createCoreTestTransactionManager());
   const rejected = await service.create({ roomId: 'room-1', category: 'OTHER' });
   await service.updateStatus(rejected.id, { status: 'REJECTED' });
   await assert.rejects(() => service.updateStatus(rejected.id, { status: 'ACKNOWLEDGED' }));
@@ -26,7 +27,7 @@ test('REJECTED and CLOSED incidents are terminal', async () => {
 });
 
 test('TrustReport targets exactly one Listing or Review without auto-removal policy', async () => {
-  const service = new AuditTrustService();
+  const service = new AuditTrustService(createCoreTestTransactionManager());
   const listing = await service.submitReport({ listingId: 'listing-1', reason: 'INCORRECT_INFORMATION' });
   assert.equal(listing.listingId, 'listing-1');
   await assert.rejects(() => service.submitReport({ listingId: 'listing-1', reviewId: 'review-1', reason: 'SPAM' }));

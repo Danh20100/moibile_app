@@ -45,7 +45,9 @@ test('IncidentEvent is a first-class append-only history concept', () => {
   const source = readRepoFiles([
     'src/modules/incident/contracts/index.ts',
     'src/modules/incident/services/incident.service.ts',
+    'src/persistence/ports/incident.repository.ts',
   ]);
   assert.match(source, /IncidentEvent/);
-  assert.match(source, /append/i);
+  assert.match(source, /insertIncidentEvent/i);
+  assert.doesNotMatch(source, /updateIncidentEvent|deleteIncidentEvent/i);
 });

@@ -4,4 +4,5 @@ export interface TrustReportRecord { trustReportId:string; reporterUserId:string
 export interface TrustRepository {
   createReview(input:ReviewRecord):Promise<void>; findReview(id:string):Promise<ReviewRecord|undefined>; updateReview(input:ReviewRecord):Promise<void>;
   createTrustReport(input:TrustReportRecord):Promise<void>; findTrustReport(id:string):Promise<TrustReportRecord|undefined>; updateTrustReport(input:TrustReportRecord):Promise<void>;
+  findTrustReports():Promise<TrustReportRecord[]>;
 }

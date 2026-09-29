@@ -4,6 +4,8 @@ import type { TransactionManager } from '../../../src/persistence/ports/transact
 import type { InquiryRecord, ListingRecord, ListingStatusEventRecord } from '../../../src/persistence/ports/listing.repository';
 import type { TenancyNoticeRecord, TenancyParticipantRecord, TenancyRecord, TenancyTermsRecord, TermsAcknowledgementRecord } from '../../../src/persistence/ports/tenancy.repository';
 import type { BillingCycleRecord, ChargeRecord, DepositEventRecord, DepositPaymentApplicationRecord, DepositRecord, DepositSettlementRecord, PaymentAllocationRecord, PaymentRecord, ReceiptRecord } from '../../../src/persistence/ports/finance.repository';
+import type { IncidentEventRecord, IncidentRecord } from '../../../src/persistence/ports/incident.repository';
+import type { TrustReportRecord } from '../../../src/persistence/ports/trust.repository';
 
 export function createCoreTestTransactionManager(): TransactionManager {
   const users = new Set<string>();
@@ -19,6 +21,8 @@ export function createCoreTestTransactionManager(): TransactionManager {
   const acknowledgements = new Map<string, TermsAcknowledgementRecord>();
   const notices = new Map<string, TenancyNoticeRecord>();
   const cycles=new Map<string,BillingCycleRecord>(),charges=new Map<string,ChargeRecord>(),payments=new Map<string,PaymentRecord>(),allocations=new Map<string,PaymentAllocationRecord>(),deposits=new Map<string,DepositRecord>(),applications=new Map<string,DepositPaymentApplicationRecord>(),settlements=new Map<string,DepositSettlementRecord>(),depositEvents=new Map<string,DepositEventRecord>(),receipts=new Map<string,ReceiptRecord>();
+  const incidents=new Map<string,IncidentRecord>(),incidentEvents:IncidentEventRecord[]=[];
+  const trustReports=new Map<string,TrustReportRecord>();
   const repositories = {
     identity: { ensureUser: async (id: string) => { users.add(id); }, userExists: async (id: string) => users.has(id) },
     organization: {
@@ -54,7 +58,7 @@ export function createCoreTestTransactionManager(): TransactionManager {
     },
     tenancy: {
       createTenancy: async (value: TenancyRecord) => { tenancies.set(value.tenancyId, structuredClone(value)); },
-      findTenancy: async (id: string) => structuredClone(tenancies.get(id) ?? (['tenancy-a','tenancy-b'].includes(id) ? { tenancyId:id, roomId:`room-${id}`, status:'ACTIVE', startedAt:null, endedAt:null, endReason:null } : undefined)),
+      findTenancy: async (id: string) => structuredClone(tenancies.get(id) ?? (['tenancy-a','tenancy-b','ten_1','tenancy_reference'].includes(id) ? { tenancyId:id, roomId:`room-${id}`, status:'ACTIVE', startedAt:null, endedAt:null, endReason:null } : undefined)),
       findTenanciesByRoom: async (roomId?: string) => Array.from(tenancies.values()).filter((value) => !roomId || value.roomId === roomId).map((value) => structuredClone(value)),
       findNonterminalByRoom: async (roomId: string) => Array.from(tenancies.values()).filter((value) => value.roomId === roomId && ['DRAFT', 'ACTIVE', 'ENDING'].includes(value.status)).map((value) => structuredClone(value)),
       updateTenancy: async (value: TenancyRecord) => { tenancies.set(value.tenancyId, structuredClone(value)); },
@@ -67,7 +71,7 @@ export function createCoreTestTransactionManager(): TransactionManager {
       updateParticipant: async (value: TenancyParticipantRecord) => { participants.set(value.tenancyParticipantId, structuredClone(value)); },
       insertTerms: async (value: TenancyTermsRecord) => { terms.set(value.tenancyTermsId, structuredClone(value)); },
       findTermsVersion: async (tenancyId: string, version: number) => structuredClone(Array.from(terms.values()).find((value) => value.tenancyId === tenancyId && value.version === version)),
-      findTermsById: async (id: string) => structuredClone(terms.get(id) ?? (/^terms-(1|a|b)$/.test(id) ? { tenancyTermsId:id, tenancyId:id==='terms-b'?'tenancy-b':'tenancy-a', version:1, rentAmount:'1.00', agreedDepositRequirement:'1.00', termStart:'2026-01-01', termEnd:'2027-01-01', billingDayOrDueDateRule:{}, electricityArrangement:{}, waterArrangement:{}, minimalRentalConditions:{}, effectiveFromCycleBoundary:'2026-01-01' } : undefined)),
+      findTermsById: async (id: string) => structuredClone(terms.get(id) ?? (/^(terms-(1|a|b|reference)|terms_1)$/.test(id) ? { tenancyTermsId:id, tenancyId:id==='terms-b'?'tenancy-b':id==='terms_1'?'ten_1':id==='terms-reference'?'tenancy_reference':'tenancy-a', version:1, rentAmount:'1.00', agreedDepositRequirement:'1.00', termStart:'2026-01-01', termEnd:'2100-01-01', billingDayOrDueDateRule:{}, electricityArrangement:{}, waterArrangement:{}, minimalRentalConditions:{}, effectiveFromCycleBoundary:'2026-01-01' } : undefined)),
       findTermsByTenancy: async (tenancyId: string) => Array.from(terms.values()).filter((value) => value.tenancyId === tenancyId).sort((a, b) => a.version - b.version).map((value) => structuredClone(value)),
       insertAcknowledgement: async (value: TermsAcknowledgementRecord) => { acknowledgements.set(value.termsAcknowledgementId, structuredClone(value)); },
       findAcknowledgementsByTerms: async (termsId: string) => Array.from(acknowledgements.values()).filter((value) => value.tenancyTermsId === termsId).map((value) => structuredClone(value)),
@@ -87,6 +91,8 @@ export function createCoreTestTransactionManager(): TransactionManager {
       insertDepositEvent:async(v:DepositEventRecord)=>{depositEvents.set(v.depositEventId,v);},findDepositEvents:async(id:string)=>[...depositEvents.values()].filter(v=>v.depositId===id),
       insertReceipt:async(v:ReceiptRecord)=>{receipts.set(v.receiptId,v);},findReceipt:async(id:string)=>receipts.get(id),findReceiptsForPayment:async(id?:string)=>[...receipts.values()].filter(v=>!id||v.paymentId===id),updateReceipt:async(v:ReceiptRecord)=>{receipts.set(v.receiptId,v);},
     },
+    incident:{createIncident:async(v:IncidentRecord)=>{incidents.set(v.incidentId,structuredClone(v));},findIncident:async(id:string)=>structuredClone(incidents.get(id)),findIncidents:async(roomId?:string)=>[...incidents.values()].filter(v=>!roomId||v.roomId===roomId).map(v=>structuredClone(v)),findOpenIncidentsByRoom:async(id:string)=>[...incidents.values()].filter(v=>v.roomId===id&&!['CLOSED','REJECTED'].includes(v.status)),updateIncident:async(v:IncidentRecord)=>{incidents.set(v.incidentId,structuredClone(v));},insertIncidentEvent:async(v:IncidentEventRecord)=>{incidentEvents.push(structuredClone(v));},findIncidentEvents:async(id:string)=>incidentEvents.filter(v=>v.incidentId===id).map(v=>structuredClone(v))},
+    trust:{createTrustReport:async(v:TrustReportRecord)=>{trustReports.set(v.trustReportId,structuredClone(v));},findTrustReport:async(id:string)=>structuredClone(trustReports.get(id)),findTrustReports:async()=>[...trustReports.values()].map(v=>structuredClone(v)),updateTrustReport:async(v:TrustReportRecord)=>{trustReports.set(v.trustReportId,structuredClone(v));}},
   };
   return { run: async (work) => work({ repositories: repositories as never, afterCommit: () => undefined }) };
 }

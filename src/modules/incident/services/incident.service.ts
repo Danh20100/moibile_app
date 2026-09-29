@@ -1,40 +1,22 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { IncidentEventRecord, IncidentRecord } from '../../../persistence/ports/incident.repository';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { RoomService } from '../../room/services/room.service';
 import { IncidentEvent, IncidentStatus, IncidentTicket } from '../contracts';
 import { CreateIncidentDto, UpdateIncidentStatusDto } from '../dto';
 
-const VALID_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
-  REPORTED: ['ACKNOWLEDGED', 'REJECTED'],
-  ACKNOWLEDGED: ['IN_PROGRESS', 'REJECTED'],
-  IN_PROGRESS: ['RESOLVED'],
-  RESOLVED: ['IN_PROGRESS', 'CLOSED'],
-  REJECTED: [],
-  CLOSED: [],
-};
-
+const VALID_TRANSITIONS:Record<IncidentStatus,IncidentStatus[]>={REPORTED:['ACKNOWLEDGED','REJECTED'],ACKNOWLEDGED:['IN_PROGRESS','REJECTED'],IN_PROGRESS:['RESOLVED'],RESOLVED:['IN_PROGRESS','CLOSED'],REJECTED:[],CLOSED:[]};
 @Injectable()
 export class IncidentService {
-  private readonly incidents = new Map<string, IncidentTicket>();
-  private readonly events: IncidentEvent[] = [];
-  constructor(private readonly roomService: RoomService) {}
-  async create(dto: CreateIncidentDto): Promise<IncidentTicket> {
-    await this.roomService.findById(dto.roomId);
-    const value: IncidentTicket = { id: randomUUID(), ...dto, status: 'REPORTED', createdAt: new Date().toISOString() };
-    this.incidents.set(value.id, structuredClone(value));
-    this.appendEvent({ incidentId: value.id, eventType: 'STATUS_CHANGED', actorUserId: dto.reportedByUserId, toStatus: 'REPORTED', occurredAt: value.createdAt });
-    return structuredClone(value);
-  }
-  async findById(id: string): Promise<IncidentTicket> { const value = this.incidents.get(id); if (!value) throw new NotFoundException(`Incident not found: ${id}`); return structuredClone(value); }
-  async findByRoomId(roomId?: string): Promise<IncidentTicket[]> { return Array.from(this.incidents.values()).filter((value) => !roomId || value.roomId === roomId).map((value) => structuredClone(value)); }
-  async updateStatus(id: string, dto: UpdateIncidentStatusDto): Promise<IncidentTicket> {
-    const current = await this.findById(id); if (!VALID_TRANSITIONS[current.status].includes(dto.status)) throw new BadRequestException(`Invalid Incident transition ${current.status} -> ${dto.status}`);
-    const occurredAt = new Date().toISOString();
-    const updated: IncidentTicket = { ...current, status: dto.status, closureReason: dto.closureReason ?? current.closureReason, closedAt: ['CLOSED', 'REJECTED'].includes(dto.status) ? occurredAt : undefined };
-    this.incidents.set(id, structuredClone(updated));
-    this.appendEvent({ incidentId: id, eventType: 'STATUS_CHANGED', actorUserId: dto.actorUserId, note: dto.note, fromStatus: current.status, toStatus: dto.status, occurredAt });
-    return structuredClone(updated);
-  }
-  async listEvents(incidentId: string): Promise<IncidentEvent[]> { return this.events.filter((value) => value.incidentId === incidentId).map((value) => structuredClone(value)); }
-  private appendEvent(input: Omit<IncidentEvent, 'id'>): void { this.events.push({ id: randomUUID(), ...structuredClone(input) }); }
+  constructor(@Inject(RoomService) private readonly rooms:RoomService,@Inject(TRANSACTION_MANAGER) private readonly tx:TransactionManager){}
+  async create(dto:CreateIncidentDto):Promise<IncidentTicket>{await this.rooms.findById(dto.roomId);const now=new Date().toISOString();const incident:IncidentTicket={id:randomUUID(),...dto,status:'REPORTED',createdAt:now};const event:IncidentEvent={id:randomUUID(),incidentId:incident.id,eventType:'STATUS_CHANGED',actorUserId:dto.reportedByUserId,toStatus:'REPORTED',occurredAt:now};await this.tx.run(async({repositories})=>{await repositories.incident.createIncident(this.toRecord(incident));await repositories.incident.insertIncidentEvent(this.eventRecord(event));});return incident;}
+  async findById(id:string):Promise<IncidentTicket>{const value=await this.tx.run(({repositories})=>repositories.incident.findIncident(id));if(!value)throw new NotFoundException(`Incident not found: ${id}`);return this.fromRecord(value);}
+  async findByRoomId(roomId?:string):Promise<IncidentTicket[]>{return(await this.tx.run(({repositories})=>repositories.incident.findIncidents(roomId))).map(x=>this.fromRecord(x));}
+  async updateStatus(id:string,dto:UpdateIncidentStatusDto):Promise<IncidentTicket>{const current=await this.findById(id);if(!VALID_TRANSITIONS[current.status].includes(dto.status))throw new BadRequestException(`Invalid Incident transition ${current.status} -> ${dto.status}`);const now=new Date().toISOString();const updated:IncidentTicket={...current,status:dto.status,closureReason:dto.closureReason??current.closureReason,closedAt:['CLOSED','REJECTED'].includes(dto.status)?now:undefined};const event:IncidentEvent={id:randomUUID(),incidentId:id,eventType:'STATUS_CHANGED',actorUserId:dto.actorUserId,note:dto.note,fromStatus:current.status,toStatus:dto.status,occurredAt:now};await this.tx.run(async({repositories})=>{await repositories.incident.updateIncident(this.toRecord(updated));await repositories.incident.insertIncidentEvent(this.eventRecord(event));});return updated;}
+  async listEvents(id:string):Promise<IncidentEvent[]>{return(await this.tx.run(({repositories})=>repositories.incident.findIncidentEvents(id))).map(x=>this.fromEvent(x));}
+  private toRecord(x:IncidentTicket):IncidentRecord{return{incidentId:x.id,roomId:x.roomId,reportedByUserId:x.reportedByUserId??null,category:x.category,status:x.status,closureReason:x.closureReason??null,createdAt:x.createdAt,closedAt:x.closedAt??null};}
+  private fromRecord(x:IncidentRecord):IncidentTicket{return{id:x.incidentId,roomId:x.roomId,category:x.category as IncidentTicket['category'],status:x.status as IncidentStatus,createdAt:x.createdAt,...(x.reportedByUserId?{reportedByUserId:x.reportedByUserId}:{}),...(x.closureReason?{closureReason:x.closureReason}:{}),...(x.closedAt?{closedAt:x.closedAt}:{})};}
+  private eventRecord(x:IncidentEvent):IncidentEventRecord{return{incidentEventId:x.id,incidentId:x.incidentId,eventType:x.eventType,actorUserId:x.actorUserId??null,note:x.note??null,attachmentReference:x.attachmentReference??null,fromStatus:x.fromStatus??null,toStatus:x.toStatus??null,occurredAt:x.occurredAt};}
+  private fromEvent(x:IncidentEventRecord):IncidentEvent{return{id:x.incidentEventId,incidentId:x.incidentId,eventType:x.eventType,occurredAt:x.occurredAt,...(x.actorUserId?{actorUserId:x.actorUserId}:{}),...(x.note?{note:x.note}:{}),...(x.attachmentReference?{attachmentReference:x.attachmentReference}:{}),...(x.fromStatus?{fromStatus:x.fromStatus as IncidentStatus}:{}),...(x.toStatus?{toStatus:x.toStatus as IncidentStatus}:{})};}
 }
