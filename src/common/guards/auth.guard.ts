@@ -13,6 +13,8 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
+    // @Inject required: tsx strip-only mode does not emit design:paramtypes
+    @Inject(Reflector)
     private readonly reflector: Reflector,
     @Optional()
     @Inject(GOOGLE_ID_TOKEN_VERIFIER)
