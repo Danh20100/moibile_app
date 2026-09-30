@@ -30,32 +30,31 @@ const moduleDocs = [
   'src/modules/onboarding/ARCHITECTURE.md',
 ] as const;
 
-test('repository reading order places Canonical v3.7 and frozen ERDs before implementation docs', () => {
+test('repository reading order places Database v1 canonical and frozen ERDs before implementation docs', () => {
   const source = readRepoFile('README.md');
-  const canonical = source.indexOf('docs/database/canonical-v3.7.md');
-  const conceptualContract = source.indexOf('trooi-erd-lv1-conceptual.json');
-  const projectContext = source.indexOf('docs/PROJECT_CONTEXT.md');
+  const canonical = source.indexOf('docs/database/v1/canonical.md');
+  const conceptualContract = source.indexOf('docs/database/v1/erd/conceptual.json');
+  const contexts = source.indexOf('docs/contexts/');
   const implementation = source.indexOf('implementation and tests');
 
-  assert.ok(canonical >= 0, 'README must reference Canonical v3.7');
+  assert.ok(canonical >= 0, 'README must reference Database v1 canonical');
   assert.ok(
     conceptualContract > canonical,
-    'ERD LV1 must follow Canonical v3.7 in reading order',
+    'ERD conceptual must follow canonical in reading order',
   );
   assert.ok(
-    projectContext > conceptualContract,
-    'project context must come after frozen ERD authority',
+    contexts > conceptualContract,
+    'shared contexts must come after frozen ERD authority',
   );
-  assert.ok(implementation > projectContext, 'implementation must come after project/domain authority');
+  assert.ok(implementation > contexts, 'implementation must come after domain authority');
 });
 
-test('historical implementation report declares pre-ERD3 lifecycles superseded', () => {
-  const source = readRepoFile('docs/SYSTEM_STRUCTURE_IMPLEMENTATION.md');
+test('database implementation history is provenance that defers to canonical authority', () => {
+  const source = readRepoFile('docs/database/v1/implementation-history.md');
   assertContainsAll(source, [
-    'HISTORICAL / SUPERSEDED DOMAIN SEMANTICS',
-    'docs/database/canonical-v3.7.md',
-    'pre-ERD3',
-    'not current domain authority',
+    'provenance',
+    'không override',
+    'canonical.md',
   ]);
 });
 
@@ -72,9 +71,6 @@ test('module docs defer to frozen ERD3 authority', () => {
 test('current docs do not describe Receipt as payment truth', () => {
   const source = readRepoFiles([
     'README.md',
-    'docs/PROJECT_CONTEXT.md',
-    'docs/SYSTEM_CONTEXT.md',
-    'docs/USE_CASES.md',
     'src/modules/receipt/README.md',
     'src/modules/receipt/ARCHITECTURE.md',
   ]);
@@ -86,9 +82,6 @@ test('current docs do not describe Receipt as payment truth', () => {
 test('FUTURE subscription and CSV Excel import are not documented as current core', () => {
   const source = readRepoFiles([
     'README.md',
-    'docs/PROJECT_CONTEXT.md',
-    'docs/SYSTEM_CONTEXT.md',
-    'docs/USE_CASES.md',
     'src/modules/subscription/README.md',
     'src/modules/onboarding/README.md',
   ]);

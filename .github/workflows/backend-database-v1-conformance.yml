@@ -1,9 +1,9 @@
-name: Backend ERD3 Conformance
+name: Backend Database v1 Conformance
 
 on:
   push:
     branches:
-      - backend/core-foundations
+      - backend/database-v1-integration
   workflow_dispatch:
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
         run: >-
           node scripts/verify-test-baseline.mjs
           --junit domain-contract.junit.xml
-          --baseline tests/conformance/erd3/expected-failures.json
+          --baseline tests/conformance/database-v1/expected-failures.json
           --suite domain-contract
           --exit-code "${{ steps.domain_contract.outputs.exit_code }}"
 
@@ -77,7 +77,7 @@ jobs:
         run: >-
           node scripts/verify-test-baseline.mjs
           --junit full-test.junit.xml
-          --baseline tests/conformance/erd3/expected-failures.json
+          --baseline tests/conformance/database-v1/expected-failures.json
           --suite full-repository
           --exit-code "${{ steps.full_test.outputs.exit_code }}"
 

@@ -1,6 +1,6 @@
-# ERD3 Conformance Suite
+# Database v1 Conformance Suite
 
-Purpose: bridge the frozen Canonical v3.7 / ERD3 model and backend implementation semantics.
+Purpose: bridge the frozen Canonical v3.7 / Database v1 model and backend implementation semantics.
 
 ## Core rebuild status (H0–H6)
 
@@ -20,7 +20,7 @@ Remaining product-contract suites are intentionally **RED** until later waves:
 - incident
 - trust
 
-See `docs/audits/2026-09-28-erd3-conformance-red-baseline.md` for exact failing test names and owners.
+See `docs/superpowers/audits/2026-09-28-erd3-conformance-red-baseline.md` for exact failing test names and owners.
 
 ## Test style
 
@@ -30,7 +30,7 @@ Tests assert domain semantics, not one Nest module per ERD table and not a froze
 
 ## Authority
 
-`docs/database/canonical-v3.7.md` → ERD LV1 → ERD LV2 → ERD LV3 → validated PostgreSQL/PostGIS reference DDL.
+`docs/database/v1/canonical.md` → conceptual → logical → physical → validated PostgreSQL/PostGIS reference DDL.
 
 Lower-level docs, code and old tests must change when they conflict with frozen invariants.
 
@@ -51,4 +51,4 @@ Lower-level docs, code and old tests must change when they conflict with frozen 
 
 ## Execution note
 
-Do not label a test runtime-verified until `pnpm test:conformance:erd3` has actually executed in a checkout with dependencies installed.
+Do not label a test runtime-verified until `pnpm test:conformance:database-v1` has actually executed in a checkout with dependencies installed.

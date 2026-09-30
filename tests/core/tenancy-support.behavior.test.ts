@@ -9,7 +9,7 @@ import { TenancyTermsService } from '../../src/modules/tenancy/services/tenancy-
 import { TermsAcknowledgementService } from '../../src/modules/tenancy/services/terms-acknowledgement.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
-import { readRepoFile } from '../conformance/erd3/support/source';
+import { readRepoFile } from '../conformance/database-v1/support/source';
 
 async function supportFixture() {
   const transactions = createCoreTestTransactionManager();

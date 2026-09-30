@@ -6,7 +6,7 @@ import { OPTIONAL_DEPS_METADATA } from '@nestjs/common/constants';
 
 import type { RoomOperationalTransitionCause } from '../../src/modules/room/contracts';
 import { RoomService } from '../../src/modules/room/services/room.service';
-import { readRepoFiles } from '../conformance/erd3/support/source';
+import { readRepoFiles } from '../conformance/database-v1/support/source';
 import { createActiveProperty, createCoreFoundationHarness } from './support/core-foundation.harness';
 
 async function roomFixture() {

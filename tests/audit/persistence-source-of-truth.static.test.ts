@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readRepoFiles } from '../conformance/erd3/support/source';
+import { readRepoFiles } from '../conformance/database-v1/support/source';
 
 test('current persisted-domain services do not own authoritative Map state', () => {
   const source = readRepoFiles([
