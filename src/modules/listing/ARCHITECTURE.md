@@ -1,6 +1,6 @@
 # listing Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership
 
@@ -24,4 +24,4 @@ Listing references Room. Property ownership is derived through Room; do not stor
 
 ## Rebuild note
 
-The current `hidden` / `rented` FSM, duplicated `propertyId`, existence-only publish check and missing event history are pre-ERD3 contracts and are expected ERD3 conformance failures.
+The current `hidden` / `rented` FSM, duplicated `propertyId`, existence-only publish check and missing event history are pre-database-v1 contracts and are expected Database v1 conformance failures.

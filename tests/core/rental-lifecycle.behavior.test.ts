@@ -10,7 +10,7 @@ import { RoomService } from '../../src/modules/room/services/room.service';
 import { TenancyParticipantService } from '../../src/modules/tenancy/services/tenancy-participant.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import { createActiveProperty, createCoreFoundationHarness } from './support/core-foundation.harness';
-import { readRepoFiles } from '../conformance/erd3/support/source';
+import { readRepoFiles } from '../conformance/database-v1/support/source';
 
 const context = {
   reasonCode: 'LANDLORD_MANUAL',

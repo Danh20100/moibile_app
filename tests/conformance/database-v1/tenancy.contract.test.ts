@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { readRepoFile, readRepoFiles } from './support/source';
 
-test('TENANCY lifecycle matches frozen ERD3 transitions', () => {
+test('TENANCY lifecycle matches frozen Database v1 transitions', () => {
   const contract = readRepoFile('src/modules/tenancy/contracts/index.ts');
   const service = readRepoFile('src/modules/tenancy/services/tenancy.service.ts');
 

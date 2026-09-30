@@ -1,10 +1,10 @@
 # billing
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
-The pre-ERD3 `billing` module is being absorbed conceptually into the ERD3 finance bounded context. Receivable obligations and actual money inflow are separate.
+The pre-database-v1 `billing` module is being absorbed conceptually into the Database v1 finance bounded context. Receivable obligations and actual money inflow are separate.
 
 ## Current ownership
 
@@ -17,6 +17,6 @@ The pre-ERD3 `billing` module is being absorbed conceptually into the ERD3 finan
 
 `paidAmount`, `outstandingBalance` and billing status may exist only as derived/read projections, not a second mutable source of truth.
 
-## Known pre-ERD3 code drift
+## Known pre-database-v1 code drift
 
 Current code owns mutable `paidAmount`, `outstandingBalance`, a cycle lifecycle such as `upcoming/due/partial/overdue/paid`, arbitrary string charge types, and `applyPaymentOutcome()`. Those semantics are superseded and scheduled to break.

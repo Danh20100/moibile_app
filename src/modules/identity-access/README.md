@@ -1,6 +1,6 @@
 # identity-access
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
@@ -8,7 +8,7 @@
 
 Business capability comes from explicit relationships such as Organization ownership and TenancyParticipant linkage, not `UserProfile.role`.
 
-## Current ERD3 boundary
+## Current Database v1 boundary
 
 - authenticate/normalize supported identity proofs;
 - expose stable User reference;

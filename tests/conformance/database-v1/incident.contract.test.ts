@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { readRepoFile, readRepoFiles } from './support/source';
 
-test('Incident categories match frozen ERD3 set', () => {
+test('Incident categories match frozen Database v1 set', () => {
   const source = readRepoFiles([
     'src/modules/incident/contracts/index.ts',
     'src/modules/incident/dto/index.ts',
@@ -22,7 +22,7 @@ test('Incident categories match frozen ERD3 set', () => {
   assert.doesNotMatch(source, /internet/i);
 });
 
-test('Incident lifecycle matches frozen ERD3 states', () => {
+test('Incident lifecycle matches frozen Database v1 states', () => {
   const source = readRepoFile('src/modules/incident/contracts/index.ts');
   for (const state of ['reported', 'acknowledged', 'in_progress', 'resolved', 'rejected', 'closed']) {
     assert.match(source, new RegExp(state, 'i'), `missing Incident state ${state}`);

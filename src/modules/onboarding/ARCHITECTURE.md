@@ -1,6 +1,6 @@
 # onboarding Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Role
 
@@ -20,4 +20,4 @@ No current-core invariant may depend on those FUTURE capabilities.
 
 ## Reconciliation note
 
-Existing preview/confirm bulk setup is pre-ERD3 scaffolding. Conformance must distinguish reusable orchestration from import scope and must not delete current manual creation merely because CSV/Excel import is FUTURE.
+Existing preview/confirm bulk setup is pre-database-v1 scaffolding. Conformance must distinguish reusable orchestration from import scope and must not delete current manual creation merely because CSV/Excel import is FUTURE.

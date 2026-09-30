@@ -5,7 +5,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { isNumeric18Scale2NonNegative } from '../../src/common/domain/decimal-string';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
-import { readRepoFile } from '../conformance/erd3/support/source';
+import { readRepoFile } from '../conformance/database-v1/support/source';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 const listingService = () => new ListingService(createCoreTestTransactionManager());

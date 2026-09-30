@@ -5,7 +5,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
-import { readRepoFile } from '../conformance/erd3/support/source';
+import { readRepoFile } from '../conformance/database-v1/support/source';
 
 const createTenancyService = () => new TenancyService(createCoreTestTransactionManager());
 

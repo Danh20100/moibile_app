@@ -20,8 +20,17 @@ async function reservePort(): Promise<number> {
   });
 }
 
-async function waitForServer(url: string): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+async function waitForServer(
+  url: string,
+  child: ChildProcess,
+  getStderr: () => string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 150; attempt += 1) {
+    if (child.exitCode !== null) {
+      throw new Error(
+        `Server process exited prematurely with code ${child.exitCode}. Output: ${getStderr()}`,
+      );
+    }
     try {
       const response = await fetch(url);
       if (response.ok) return;
@@ -30,7 +39,7 @@ async function waitForServer(url: string): Promise<void> {
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error(`Server did not become ready: ${url}`);
+  throw new Error(`Server did not become ready: ${url}. Output: ${getStderr()}`);
 }
 
 describe('runtime HTTP access audit', () => {
@@ -40,12 +49,22 @@ describe('runtime HTTP access audit', () => {
   before(async () => {
     const port = await reservePort();
     baseUrl = `http://127.0.0.1:${port}`;
+    let stderr = '';
     child = spawn(process.execPath, ['build/main.js'], {
       cwd: process.cwd(),
-      env: { ...process.env, PORT: String(port) },
-      stdio: 'ignore',
+      env: {
+        ...process.env,
+        PORT: String(port),
+        DATABASE_URL:
+          process.env.DATABASE_URL?.trim() ||
+          'postgresql://trooi:trooi_local@localhost:5432/trooi_dev',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    await waitForServer(`${baseUrl}/api/v1/health`);
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    await waitForServer(`${baseUrl}/api/v1/health`, child, () => stderr);
   });
 
   after(() => {

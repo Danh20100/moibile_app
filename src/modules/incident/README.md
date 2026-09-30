@@ -1,6 +1,6 @@
 # incident
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
@@ -25,6 +25,6 @@
 - a Room with an open Incident cannot be archived;
 - Incident is distinct from TrustReport/moderation.
 
-## Known pre-ERD3 code drift
+## Known pre-database-v1 code drift
 
 Current code uses free-form categories plus `processing` / `need_more_information`, lacks `REJECTED`, lacks reopen from `RESOLVED`, and has no first-class append-only IncidentEvent model.

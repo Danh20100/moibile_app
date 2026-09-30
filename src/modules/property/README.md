@@ -1,12 +1,12 @@
 # property
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
 `property` owns Property identity, lifecycle and location boundaries.
 
-## Current ERD3 boundary
+## Current Database v1 boundary
 
 - lifecycle: `ACTIVE | ARCHIVED` via `lifecycleStatus`;
 - operational address/location belongs to Property;

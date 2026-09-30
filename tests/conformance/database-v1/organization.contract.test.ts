@@ -8,7 +8,7 @@ test('ORGANIZATION contract carries the primary owner reference', () => {
   assert.match(source, /primary[_A-Za-z]*owner[_A-Za-z]*user|primaryOwnerUserId/i);
 });
 
-test('old OrganizationStatus active inactive archived is not treated as ERD3 source truth', () => {
+test('old OrganizationStatus active inactive archived is not treated as Database v1 source truth', () => {
   const source = readRepoFile('src/modules/organization/contracts/index.ts');
   assert.doesNotMatch(source, /\bOrganizationStatus\b/);
 });

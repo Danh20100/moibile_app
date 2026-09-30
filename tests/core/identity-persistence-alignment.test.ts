@@ -4,7 +4,7 @@ import test from 'node:test';
 import { googlePrincipalUserId } from '../../src/common/identity/deterministic-user-id';
 import type { GoogleIdTokenVerifier } from '../../src/integrations/google-identity';
 import { IdentityAccessService } from '../../src/modules/identity-access/services/identity-access.service';
-import { readRepoFiles } from '../conformance/erd3/support/source';
+import { readRepoFiles } from '../conformance/database-v1/support/source';
 
 test('Google principal maps to a stable RFC 4122 UUIDv5 using issuer and subject', () => {
   const first = googlePrincipalUserId('https://accounts.google.com', 'subject-1');
