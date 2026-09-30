@@ -1,44 +1,52 @@
 # Handoff
 
-This directory is the canonical location for agent-to-agent handoff documents and their review responses.
+`docs/superpowers/handoff/` là vị trí chuẩn để lưu tài liệu bàn giao giữa agent/dev/session và các review response liên quan.
 
-## Handoff file naming
+Handoff phải đủ độc lập để người nhận có thể tiếp tục công việc mà không cần dựa vào lịch sử chat.
 
-Use:
+## Quy tắc đặt tên
 
 ```text
 <recipient>-<YYYYMMDD-HHmmss>-<short-description>.md
 ```
 
-Rules:
-- `recipient`: lowercase agent/person handle, e.g. `duyanh`.
-- timestamp: local project time (`Asia/Ho_Chi_Minh`, UTC+07:00).
-- `short-description`: concise kebab-case scope.
-- one handoff event = one immutable timestamped Markdown file.
+Quy ước:
 
-Backend handoffs currently target `duyanh`.
+- `recipient`: handle người/agent nhận, viết thường, ví dụ `duyanh`;
+- timestamp: giờ local project (`Asia/Ho_Chi_Minh`, UTC+07:00);
+- `short-description`: scope ngắn gọn dạng kebab-case;
+- một lần bàn giao = một file Markdown có timestamp riêng, không overwrite handoff cũ.
 
-Do not create a generic root `HANDOFF.md`. Each handoff must live here and be self-contained enough for the recipient to continue without chat history.
+Không tạo `HANDOFF.md` chung ở root repository.
 
-## Review responses
+## Nội dung tối thiểu của một handoff
 
-Handoff reviews live under:
+Handoff nên xác định rõ:
+
+- repository/branch/SHA baseline;
+- scope đã hoàn thành;
+- phần chưa hoàn thành;
+- quyết định hoặc constraint quan trọng;
+- verification/evidence đã chạy;
+- limitation hoặc non-claim;
+- bước tiếp theo mà người nhận cần thực hiện.
+## Review response
+
+Review của handoff nằm tại:
 
 ```text
 docs/superpowers/handoff/reviews/
 ```
 
-A review exists to capture not only what looks wrong, but also whether a difference may be intentional, whether evidence is missing, and whether a different implementation could contain a useful idea worth preserving.
-
-Review files use:
+Tên file review:
 
 ```text
 <reviewer>-<YYYYMMDD-HHmmss>-<handoff-short>-review.md
 ```
 
-Each review must link back to the exact handoff it reviews and record the reviewed Git SHA.
+Mỗi review phải link tới đúng handoff được review và ghi chính xác Git SHA đã kiểm tra.
 
-Review findings use these classifications:
+Finding sử dụng một trong các classification token sau:
 
 ```text
 CONFIRMED_DEFECT
@@ -48,8 +56,8 @@ PROPOSED_IMPROVEMENT
 NEEDS_OWNER_DECISION
 ```
 
-A reviewer must not assume motive. Separate observed facts from inferred intent, verified intent, evidence, recommendation, and owner decision. Plausible but unverified rationale must be labeled `Possible rationale — unverified`.
+Không suy đoán động cơ. Phải tách riêng observed fact, inferred intent, verified intent, evidence, recommendation và owner decision. Nếu rationale chỉ hợp lý nhưng chưa được chứng minh, ghi `Possible rationale - unverified`.
 
-A review does not automatically authorize fixes. Findings that require architecture/product trade-offs or lack enough evidence must be escalated instead of silently changed.
+Review không tự động cho phép sửa code. Những finding thay đổi architecture/product/scope/authority hoặc thiếu evidence phải được escalate thay vì tự quyết.
 
-Read `docs/superpowers/handoff/reviews/README.md` for the protocol and use `docs/superpowers/handoff/reviews/TEMPLATE.md` when creating a new review.
+Đọc [`reviews/README.md`](reviews/README.md) để xem protocol đầy đủ và dùng [`reviews/TEMPLATE.md`](reviews/TEMPLATE.md) khi tạo review mới.

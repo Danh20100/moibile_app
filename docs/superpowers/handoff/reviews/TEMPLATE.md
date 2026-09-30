@@ -1,4 +1,4 @@
-# Handoff Review — <short description>
+# Handoff Review — <mô tả ngắn>
 
 ```yaml
 review_of: docs/superpowers/handoff/<handoff-file>.md
@@ -7,48 +7,47 @@ reviewed_sha: <git-sha>
 status: accepted | changes-requested | owner-decision-required
 ```
 
-## Review scope
+## Phạm vi review
 
-State exactly what was reviewed:
+Ghi chính xác những gì đã được review:
 
 ```text
 files / commits / runtime evidence / tests / CI run / handoff sections
 ```
 
-Also state what was not reviewed so absence of a finding is not mistaken for approval.
+Ghi luôn phần **không** được review để tránh hiểu nhầm rằng không có finding đồng nghĩa với đã approve toàn bộ.
 
 ## Findings
 
-### Finding 1 — <short title>
+### Finding 1 — <tiêu đề ngắn>
 
 **Classification:** `CONFIRMED_DEFECT | INTENTIONAL_DEVIATION | CONTEXT_MISSING | PROPOSED_IMPROVEMENT | NEEDS_OWNER_DECISION`
 
 **Observed fact**
 
-Describe only what is directly observable.
+Chỉ mô tả điều có thể quan sát trực tiếp.
 
 **Inferred intent**
 
-If intent is not proven, write:
+Nếu intent chưa được chứng minh, ghi:
 
 ```text
-Possible rationale — unverified: <rationale>
+Possible rationale - unverified: <rationale>
 ```
-
-Otherwise write `none`.
+Nếu không có inferred intent, ghi `none`.
 
 **Verified intent**
 
-Cite the explicit source of intent, or write `none`.
+Dẫn nguồn explicit cho intent hoặc ghi `none`.
 
 **Evidence**
 
-Record concrete evidence such as:
+Ghi evidence cụ thể, ví dụ:
 
 ```text
-file/path:line or symbol
+file/path:line hoặc symbol
 commit SHA / message
-test name and result
+test name và result
 CI run / artifact
 spec / plan / handoff section
 owner statement
@@ -56,15 +55,15 @@ owner statement
 
 **Why this matters**
 
-Explain the technical/product impact without assuming motive.
+Giải thích impact kỹ thuật/sản phẩm mà không suy đoán động cơ.
 
 **Reviewer recommendation**
 
-State the recommended action and trade-offs.
+Nêu action được đề xuất và trade-off tương ứng.
 
 **Owner decision**
 
-Use one of:
+Dùng một trong các giá trị:
 
 ```text
 not required
@@ -73,30 +72,29 @@ accepted recommendation
 rejected recommendation
 custom decision: <text>
 ```
+## Intentional deviations được giữ lại
 
-## Intentional deviations retained
+Liệt kê những deviation nên được giữ vì rationale đã được xác minh hoặc owner chấp nhận.
 
-List deviations that should remain because their rationale is verified or accepted.
-
-If none:
-
-```text
-None.
-```
-
-## Open owner decisions
-
-List only unresolved `NEEDS_OWNER_DECISION` items.
-
-If none:
+Nếu không có:
 
 ```text
 None.
 ```
 
-## Review conclusion
+## Owner decision còn mở
 
-Summarize:
+Chỉ liệt kê các `NEEDS_OWNER_DECISION` chưa được giải quyết.
+
+Nếu không có:
+
+```text
+None.
+```
+
+## Kết luận review
+
+Tóm tắt:
 
 ```text
 confirmed defects: N
@@ -106,4 +104,4 @@ proposed improvements: N
 owner decisions required: N
 ```
 
-Final review status must match the metadata at the top of the file.
+`status` cuối cùng phải khớp metadata ở đầu file.

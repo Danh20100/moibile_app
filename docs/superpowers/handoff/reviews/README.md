@@ -1,27 +1,24 @@
 # Handoff Reviews
 
-This directory stores immutable review responses to handoff documents.
+`docs/superpowers/handoff/reviews/` lưu các review response bất biến cho handoff.
 
-A review is not an automatic bug-fix instruction. Its purpose is to record what the reviewer observed, what may have been intentional, what evidence exists, and what still requires a decision.
+Review không phải lệnh tự động sửa bug. Mục tiêu là ghi lại: reviewer quan sát được gì, điểm khác biệt nào có thể là chủ ý, evidence nào tồn tại và quyết định nào vẫn cần owner chốt.
 
-## File naming
-
-Use:
+## Quy tắc đặt tên
 
 ```text
 <reviewer>-<YYYYMMDD-HHmmss>-<handoff-short>-review.md
 ```
 
-Rules:
-- `reviewer`: lowercase agent/person handle.
-- timestamp: local project time (`Asia/Ho_Chi_Minh`, UTC+07:00).
-- `handoff-short`: concise kebab-case identifier derived from the reviewed handoff.
-- one review event = one immutable timestamped Markdown file.
-- never overwrite an earlier review; create a new review for each review round.
+Quy ước:
 
-## Required metadata
+- `reviewer`: handle người/agent review, viết thường;
+- timestamp: giờ local project (`Asia/Ho_Chi_Minh`, UTC+07:00);
+- `handoff-short`: định danh kebab-case rút ra từ handoff;
+- mỗi vòng review tạo một file mới;
+- không overwrite review trước đó.
 
-Every review must identify:
+## Metadata bắt buộc
 
 ```yaml
 review_of: docs/superpowers/handoff/<handoff-file>.md
@@ -30,21 +27,22 @@ reviewed_sha: <git-sha>
 status: accepted | changes-requested | owner-decision-required
 ```
 
-## Finding classifications
+Các key và giá trị `status` trên là contract của review workflow, giữ nguyên tiếng Anh để ổn định automation/tooling.
+## Classification của finding
 
-Every finding must use exactly one primary classification:
+Mỗi finding phải có đúng một classification chính:
 
-- `CONFIRMED_DEFECT` — evidence shows the implementation or handoff violates an approved contract, test, spec, or invariant.
-- `INTENTIONAL_DEVIATION` — the implementation differs from the plan/spec, and evidence supports that the deviation was deliberate and justified.
-- `CONTEXT_MISSING` — the behavior looks questionable, but available evidence is insufficient to determine whether it is wrong or intentional.
-- `PROPOSED_IMPROVEMENT` — the current behavior is not proven wrong, but there is a defensible improvement with explicit trade-offs.
-- `NEEDS_OWNER_DECISION` — multiple valid choices exist and choosing among them changes architecture, product behavior, scope, or authority.
+- `CONFIRMED_DEFECT` — evidence cho thấy implementation/handoff vi phạm contract, test, spec hoặc invariant đã được chấp nhận.
+- `INTENTIONAL_DEVIATION` — implementation khác plan/spec và có evidence cho thấy khác biệt là chủ ý, có rationale.
+- `CONTEXT_MISSING` — hành vi đáng nghi nhưng evidence hiện có chưa đủ để kết luận đúng/sai.
+- `PROPOSED_IMPROVEMENT` — chưa chứng minh hành vi hiện tại sai, nhưng có cải tiến hợp lý và trade-off rõ.
+- `NEEDS_OWNER_DECISION` — có nhiều lựa chọn hợp lệ và quyết định sẽ thay đổi architecture, product behavior, scope hoặc authority.
 
-Do not convert every difference from the plan into `CONFIRMED_DEFECT`.
+Không biến mọi khác biệt so với plan thành `CONFIRMED_DEFECT`.
 
-## Evidence discipline
+## Kỷ luật evidence
 
-For each finding, separate these concepts explicitly:
+Mỗi finding phải tách rõ:
 
 ```text
 Observed fact
@@ -55,28 +53,26 @@ Reviewer recommendation
 Owner decision
 ```
 
-Rules:
-- `Observed fact` must be directly supported by code, tests, logs, commits, docs, or runtime evidence.
-- `Inferred intent` must be labeled unverified unless evidence exists.
-- `Verified intent` requires an explicit source such as commit message, comment, spec, test name/assertion, handoff text, or owner statement.
-- Never state that an agent "intentionally" did something without evidence.
-- If the rationale is plausible but unverified, write `Possible rationale — unverified`.
-- Reviewer recommendation is advisory unless the handoff or owner explicitly authorizes implementation.
+- `Observed fact` phải được hỗ trợ trực tiếp bởi code, test, log, commit, docs hoặc runtime evidence.
+- `Inferred intent` phải ghi là chưa xác minh nếu không có evidence.
+- `Verified intent` cần nguồn rõ như commit message, comment, spec, test, handoff hoặc owner statement.
+- Không tuyên bố agent "cố ý" làm gì nếu chưa có bằng chứng.
+- Với rationale hợp lý nhưng chưa xác minh, dùng `Possible rationale - unverified`.
+- Recommendation chỉ mang tính tư vấn trừ khi scope/handoff/owner cho phép implementation trực tiếp.
+## Workflow review
 
-## Review workflow
-
-```text
-handoff created
-  -> recipient reads handoff
-  -> reviewer inspects implementation/evidence
-  -> review file created
-  -> findings classified
-  -> intentional deviations explained or challenged
-  -> owner decisions raised when required
-  -> implementation/fix proceeds only within authorized scope
+```mermaid
+flowchart LR
+    H["Handoff được tạo"] --> R["Reviewer đọc handoff + inspect evidence"]
+    R --> F["Tạo review file"]
+    F --> C["Phân loại finding"]
+    C --> D{"Cần owner quyết định?"}
+    D -->|Có| O["Escalate owner"]
+    D -->|Không| A["Theo scope được phép"]
+    O --> A
 ```
 
-A review can end in:
+Review có thể kết thúc với một trong ba `status`:
 
 ```text
 accepted
@@ -84,12 +80,12 @@ changes-requested
 owner-decision-required
 ```
 
-## Decision rules
+## Quy tắc quyết định
 
-- A `CONFIRMED_DEFECT` may be fixed directly only when the current execution scope already authorizes that fix.
-- An `INTENTIONAL_DEVIATION` must preserve its rationale in the review even if the owner later chooses to revert it.
-- A `CONTEXT_MISSING` finding must not trigger code changes until evidence is gathered or the owner explicitly decides.
-- A `PROPOSED_IMPROVEMENT` must state costs/trade-offs and is not a defect by default.
-- A `NEEDS_OWNER_DECISION` finding is a hard stop for that decision branch; agents must not silently choose.
+- `CONFIRMED_DEFECT` chỉ được sửa trực tiếp khi execution scope hiện tại đã cho phép sửa đó.
+- `INTENTIONAL_DEVIATION` phải giữ lại rationale trong review, kể cả khi owner sau đó chọn revert.
+- `CONTEXT_MISSING` không được kích hoạt thay đổi code cho tới khi có thêm evidence hoặc owner quyết định.
+- `PROPOSED_IMPROVEMENT` phải nêu cost/trade-off và không mặc định là defect.
+- `NEEDS_OWNER_DECISION` là hard stop cho nhánh quyết định đó; agent không tự chọn thay owner.
 
-Use `docs/superpowers/handoff/reviews/TEMPLATE.md` for new reviews.
+Dùng [`TEMPLATE.md`](TEMPLATE.md) để tạo review mới.
