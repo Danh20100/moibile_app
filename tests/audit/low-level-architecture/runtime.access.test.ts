@@ -84,6 +84,15 @@ describe('runtime HTTP access audit', () => {
     );
   });
 
+  it('rejects arbitrary non-empty bearer tokens with 401', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/organizations`, {
+      headers: {
+        Authorization: 'Bearer arbitrary-unverified-token-12345',
+      },
+    });
+    assert.equal(response.status, 401);
+  });
+
   it('keeps public listing discovery reachable without authentication', async () => {
     const response = await fetch(`${baseUrl}/api/v1/listings/public`);
     assert.equal(response.status, 200);
