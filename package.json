@@ -19,6 +19,7 @@
     "db:seed": "tsx database/seeds/development.ts",
     "test:persistence:migration": "tsx --test tests/integration/persistence/migration-parity.integration.ts",
     "build": "nest build",
+    "openapi:generate": "tsx scripts/openapi/generate.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.tests.json",
     "lint": "eslint \"src/**/*.ts\" --max-warnings=0",
     "format": "prettier --no-error-on-unmatched-pattern --write \"src/**/*.ts\" \"*.{json,mjs}\" \".vscode/*.json\"",

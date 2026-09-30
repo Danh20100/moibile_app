@@ -1,0 +1,1031 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Service đang hoạt động bình thường",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "status": "ok",
+                      "timestamp": "2026-09-25T00:00:00.000Z"
+                    },
+                    "timestamp": "2026-09-25T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Kiểm tra tình trạng hoạt động của service",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/organizations": {
+      "post": {
+        "operationId": "OrganizationController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Workspace đã được tạo thành công"
+          }
+        },
+        "summary": "Tạo rental operating workspace mới",
+        "tags": [
+          "Organization"
+        ]
+      },
+      "get": {
+        "operationId": "OrganizationController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Danh sách workspace"
+          }
+        },
+        "summary": "Lấy danh sách rental operating workspace",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/organizations/{id}": {
+      "get": {
+        "operationId": "OrganizationController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thông tin chi tiết workspace"
+          },
+          "404": {
+            "description": "Không tìm thấy workspace"
+          }
+        },
+        "summary": "Lấy thông tin chi tiết workspace theo ID",
+        "tags": [
+          "Organization"
+        ]
+      },
+      "patch": {
+        "operationId": "OrganizationController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Tên workspace đã được cập nhật"
+          }
+        },
+        "summary": "Đổi tên rental operating workspace",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/properties": {
+      "post": {
+        "operationId": "PropertyController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Property da duoc tao thanh cong"
+          }
+        },
+        "summary": "Tao Property / khu tro moi",
+        "tags": [
+          "Property"
+        ]
+      },
+      "get": {
+        "operationId": "PropertyController_findByOrganizationId",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "required": false,
+            "in": "query",
+            "description": "Loc theo Organization ID",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sach Property"
+          }
+        },
+        "summary": "Lay danh sach Property (co the loc theo organizationId)",
+        "tags": [
+          "Property"
+        ]
+      }
+    },
+    "/properties/{id}": {
+      "get": {
+        "operationId": "PropertyController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thong tin Property"
+          },
+          "404": {
+            "description": "Khong tim thay Property"
+          }
+        },
+        "summary": "Lay thong tin chi tiet Property",
+        "tags": [
+          "Property"
+        ]
+      },
+      "patch": {
+        "operationId": "PropertyController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thong tin Property da duoc cap nhat"
+          }
+        },
+        "summary": "Cap nhat ten / dia chi / location projection (khong doi lifecycle)",
+        "tags": [
+          "Property"
+        ]
+      }
+    },
+    "/rooms": {
+      "post": {
+        "operationId": "RoomController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Room da duoc tao thanh cong"
+          }
+        },
+        "summary": "Tao Room moi (vacant + active)",
+        "tags": [
+          "Room"
+        ]
+      },
+      "get": {
+        "operationId": "RoomController_findByPropertyId",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "description": "Loc theo Property ID",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sach Room"
+          }
+        },
+        "summary": "Lay danh sach Room (co the loc theo propertyId)",
+        "tags": [
+          "Room"
+        ]
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thong tin Room"
+          },
+          "404": {
+            "description": "Khong tim thay Room"
+          }
+        },
+        "summary": "Lay thong tin chi tiet Room",
+        "tags": [
+          "Room"
+        ]
+      },
+      "patch": {
+        "operationId": "RoomController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thong tin Room da duoc cap nhat"
+          }
+        },
+        "summary": "Cap nhat nameOrLabel cua Room",
+        "tags": [
+          "Room"
+        ]
+      }
+    },
+    "/tenancies": {
+      "get": {
+        "operationId": "TenancyController_findByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy"
+        ]
+      },
+      "post": {
+        "operationId": "RentalLifecycleController_createTenancy",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/tenancies/{id}": {
+      "get": {
+        "operationId": "TenancyController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy"
+        ]
+      }
+    },
+    "/tenancies/{id}/cancel": {
+      "post": {
+        "operationId": "TenancyController_cancel",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Cancel a DRAFT Tenancy before activation",
+        "tags": [
+          "Tenancy"
+        ]
+      }
+    },
+    "/tenancies/{id}/start-ending": {
+      "post": {
+        "operationId": "TenancyController_startEnding",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Start move-out workflow without making Room vacant",
+        "tags": [
+          "Tenancy"
+        ]
+      }
+    },
+    "/tenancies/{id}/resume": {
+      "post": {
+        "operationId": "TenancyController_resume",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Resume ACTIVE state from ENDING",
+        "tags": [
+          "Tenancy"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants": {
+      "post": {
+        "operationId": "TenancySupportController_addParticipant",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listActiveParticipants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants/{participantId}/leave": {
+      "post": {
+        "operationId": "TenancySupportController_leaveOccupant",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants/{participantId}/link-user": {
+      "post": {
+        "operationId": "TenancySupportController_linkUser",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms": {
+      "post": {
+        "operationId": "TenancySupportController_createTerms",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listTerms",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms/{termsId}": {
+      "get": {
+        "operationId": "TenancySupportController_findTerms",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms/{termsId}/acknowledgements": {
+      "post": {
+        "operationId": "TenancySupportController_acknowledgeTerms",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/notices": {
+      "post": {
+        "operationId": "TenancySupportController_issueNotice",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listNotices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/notices/{noticeId}/acknowledge": {
+      "post": {
+        "operationId": "TenancySupportController_acknowledgeNotice",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Tenancy Support"
+        ]
+      }
+    },
+    "/finance/cycles": {
+      "post": {
+        "operationId": "BillingController_createCycle",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      },
+      "get": {
+        "operationId": "BillingController_findCycles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/finance/cycles/{id}": {
+      "get": {
+        "operationId": "BillingController_findCycle",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/finance/payments": {
+      "post": {
+        "operationId": "BillingController_recordPayment",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/finance/payments/{id}": {
+      "get": {
+        "operationId": "BillingController_findPayment",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/finance/payments/{id}/allocations": {
+      "post": {
+        "operationId": "BillingController_allocate",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/finance/payments/{id}/deposit-applications": {
+      "post": {
+        "operationId": "BillingController_applyDeposit",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Finance"
+        ]
+      }
+    },
+    "/receipts": {
+      "post": {
+        "operationId": "ReceiptController_issue",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Receipt"
+        ]
+      },
+      "get": {
+        "operationId": "ReceiptController_findByPaymentId",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Receipt"
+        ]
+      }
+    },
+    "/receipts/{id}": {
+      "get": {
+        "operationId": "ReceiptController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Receipt"
+        ]
+      }
+    },
+    "/receipts/{id}/void": {
+      "post": {
+        "operationId": "ReceiptController_void",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Receipt"
+        ]
+      }
+    },
+    "/identity-access/auth/google": {
+      "post": {
+        "operationId": "IdentityAccessController_authenticateWithGoogle",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Xác thực thành công và trả về thông tin user profile"
+          },
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn"
+          }
+        },
+        "summary": "Xác thực người dùng qua Google ID Token (Android Credential Manager)",
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/identity-access/users/{id}": {
+      "get": {
+        "operationId": "IdentityAccessController_findUserById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thông tin identity profile"
+          },
+          "404": {
+            "description": "Không tìm thấy user"
+          }
+        },
+        "summary": "Lấy thông tin digital identity profile theo ID",
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/incidents": {
+      "post": {
+        "operationId": "IncidentController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Sự cố đã được tạo"
+          }
+        },
+        "summary": "Báo sự cố mới gắn với phòng (trạng thái ban đầu: reported)",
+        "tags": [
+          "Incident"
+        ]
+      },
+      "get": {
+        "operationId": "IncidentController_findByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": false,
+            "in": "query",
+            "description": "Lọc theo Room ID",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách sự cố"
+          }
+        },
+        "summary": "Lấy danh sách các sự cố (có thể lọc theo roomId)",
+        "tags": [
+          "Incident"
+        ]
+      }
+    },
+    "/incidents/{id}": {
+      "get": {
+        "operationId": "IncidentController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Thông tin sự cố"
+          },
+          "404": {
+            "description": "Không tìm thấy sự cố"
+          }
+        },
+        "summary": "Lấy thông tin chi tiết một sự cố",
+        "tags": [
+          "Incident"
+        ]
+      }
+    },
+    "/incidents/{id}/status": {
+      "patch": {
+        "operationId": "IncidentController_updateStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Trạng thái sự cố đã được cập nhật"
+          },
+          "400": {
+            "description": "Chuyển đổi trạng thái không hợp lệ"
+          }
+        },
+        "summary": "Chuyển đổi trạng thái xử lý sự cố (acknowledged -> processing -> need_more_information -> resolved -> closed)",
+        "tags": [
+          "Incident"
+        ]
+      }
+    },
+    "/listings/public": {
+      "get": {
+        "operationId": "ListingController_findPublic",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Read currently published Listing projections",
+        "tags": [
+          "Listing"
+        ]
+      }
+    },
+    "/listings/{id}": {
+      "get": {
+        "operationId": "ListingController_findById",
+        "parameters": [],
+        "responses": {
+          "404": {
+            "description": "Listing not found"
+          }
+        },
+        "tags": [
+          "Listing"
+        ]
+      },
+      "patch": {
+        "operationId": "ListingController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Listing"
+        ]
+      }
+    },
+    "/listings/{id}/unpublish": {
+      "post": {
+        "operationId": "ListingController_unpublish",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Explicitly unpublish a currently published Listing",
+        "tags": [
+          "Listing"
+        ]
+      }
+    },
+    "/listings/{id}/archive": {
+      "post": {
+        "operationId": "ListingController_archive",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Archive an eligible draft or unpublished Listing",
+        "tags": [
+          "Listing"
+        ]
+      }
+    },
+    "/inquiries": {
+      "post": {
+        "operationId": "InquiryController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Record discovery/contact intent for a Listing",
+        "tags": [
+          "Inquiry"
+        ]
+      },
+      "get": {
+        "operationId": "InquiryController_findByListingId",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inquiry"
+        ]
+      }
+    },
+    "/inquiries/{id}": {
+      "get": {
+        "operationId": "InquiryController_findById",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inquiry"
+        ]
+      }
+    },
+    "/listings": {
+      "post": {
+        "operationId": "RentalLifecycleController_createListing",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/listings/{id}/publish": {
+      "post": {
+        "operationId": "RentalLifecycleController_publishListing",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/rooms/{id}/operational-state": {
+      "patch": {
+        "operationId": "RentalLifecycleController_transitionRoomManually",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/tenancies/{id}/activate": {
+      "post": {
+        "operationId": "RentalLifecycleController_activateTenancy",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/tenancies/{id}/checkout": {
+      "post": {
+        "operationId": "RentalLifecycleController_checkoutTenancy",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Rental lifecycle"
+        ]
+      }
+    },
+    "/audit-trust/facts": {
+      "post": {
+        "operationId": "AuditTrustController_recordFact",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Sự kiện đã được ghi nhận vào lịch sử"
+          }
+        },
+        "summary": "Ghi nhận một sự kiện/business fact quan trọng để lưu vết audit",
+        "tags": [
+          "Audit & Trust"
+        ]
+      },
+      "get": {
+        "operationId": "AuditTrustController_queryAudit",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Danh sách bản ghi audit"
+          }
+        },
+        "summary": "Tra cứu lịch sử audit theo resourceType hoặc resourceId",
+        "tags": [
+          "Audit & Trust"
+        ]
+      }
+    },
+    "/audit-trust/reports": {
+      "post": {
+        "operationId": "AuditTrustController_submitReport",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Báo cáo nội bộ đã được tiếp nhận"
+          }
+        },
+        "summary": "Gửi báo cáo nội bộ lên nền tảng để review",
+        "tags": [
+          "Audit & Trust"
+        ]
+      },
+      "get": {
+        "operationId": "AuditTrustController_listReports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Danh sách báo cáo"
+          }
+        },
+        "summary": "Xem danh sách các báo cáo nội bộ đang chờ hoặc đã xử lý",
+        "tags": [
+          "Audit & Trust"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "TrọƠi API",
+    "description": "Tài liệu OpenAPI chính thức của hệ thống backend TrọƠi (Sổ vận hành thuê trọ)",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Kiểm tra trạng thái hoạt động của hệ thống"
+    },
+    {
+      "name": "Identity & Access",
+      "description": "Danh tính người dùng và capability truy cập theo relationship, không dùng global role"
+    },
+    {
+      "name": "Organization",
+      "description": "Phạm vi vận hành cấp cao nhất của chủ trọ/đơn vị quản lý"
+    },
+    {
+      "name": "Property",
+      "description": "Quản lý tài sản và bất động sản ở cấp địa điểm"
+    },
+    {
+      "name": "Room",
+      "description": "Đơn vị cho thuê cốt lõi và operational anchor"
+    },
+    {
+      "name": "Tenancy",
+      "description": "Quan hệ thuê phòng theo thời gian giữa room và tenant"
+    },
+    {
+      "name": "Billing",
+      "description": "Khoản phải thu, chi phí và trạng thái công nợ theo kỳ"
+    },
+    {
+      "name": "Receipt",
+      "description": "Bằng chứng phát hành từ Payment đã xác nhận; không phải bản ghi Payment"
+    },
+    {
+      "name": "Incident",
+      "description": "Sự cố vận hành và lifecycle xử lý ticket"
+    },
+    {
+      "name": "Listing",
+      "description": "Public projection của phòng phục vụ tìm kiếm/khám phá"
+    },
+    {
+      "name": "Audit & Trust",
+      "description": "Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ"
+    }
+  ],
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Base path chung của API hiện hành"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}
