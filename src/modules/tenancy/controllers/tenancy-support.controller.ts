@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import {
+import type {
   TenancyNotice,
   TenancyParticipant,
   TenancyTerms,
@@ -15,6 +15,10 @@ import {
   IssueTenancyNoticeDto,
   LinkParticipantUserDto,
   ParticipantOccurredAtDto,
+  TenancyNoticeDto,
+  TenancyParticipantDto,
+  TenancyTermsDto,
+  TermsAcknowledgementDto,
 } from '../dto';
 import { TenancyNoticeService } from '../services/tenancy-notice.service';
 import { TenancyParticipantService } from '../services/tenancy-participant.service';
@@ -32,6 +36,9 @@ export class TenancySupportController {
   ) {}
 
   @Post(':tenancyId/participants')
+  @ApiOperation({ summary: 'Add a participant to tenancy' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 201, description: 'Participant added', type: TenancyParticipantDto })
   async addParticipant(
     @Param('tenancyId') tenancyId: string,
     @Body() dto: AddTenancyParticipantDto,
@@ -40,11 +47,18 @@ export class TenancySupportController {
   }
 
   @Get(':tenancyId/participants')
+  @ApiOperation({ summary: 'List active participants of tenancy' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 200, description: 'List of active participants', type: [TenancyParticipantDto] })
   async listActiveParticipants(@Param('tenancyId') tenancyId: string): Promise<TenancyParticipant[]> {
     return this.participants.listActiveByTenancyId(tenancyId);
   }
 
   @Post(':tenancyId/participants/:participantId/leave')
+  @ApiOperation({ summary: 'Record participant leave' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiParam({ name: 'participantId', type: String })
+  @ApiResponse({ status: 200, description: 'Participant updated', type: TenancyParticipantDto })
   async leaveOccupant(
     @Param('participantId') participantId: string,
     @Body() dto: ParticipantOccurredAtDto,
@@ -53,6 +67,10 @@ export class TenancySupportController {
   }
 
   @Post(':tenancyId/participants/:participantId/link-user')
+  @ApiOperation({ summary: 'Link user ID to participant' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiParam({ name: 'participantId', type: String })
+  @ApiResponse({ status: 200, description: 'Participant linked', type: TenancyParticipantDto })
   async linkUser(
     @Param('participantId') participantId: string,
     @Body() dto: LinkParticipantUserDto,
@@ -61,6 +79,9 @@ export class TenancySupportController {
   }
 
   @Post(':tenancyId/terms')
+  @ApiOperation({ summary: 'Create new version of tenancy terms' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 201, description: 'Terms created', type: TenancyTermsDto })
   async createTerms(
     @Param('tenancyId') tenancyId: string,
     @Body() dto: CreateTenancyTermsDto,
@@ -69,16 +90,27 @@ export class TenancySupportController {
   }
 
   @Get(':tenancyId/terms')
+  @ApiOperation({ summary: 'List terms versions of tenancy' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 200, description: 'List of terms', type: [TenancyTermsDto] })
   async listTerms(@Param('tenancyId') tenancyId: string): Promise<TenancyTerms[]> {
     return this.terms.listByTenancyId(tenancyId);
   }
 
   @Get(':tenancyId/terms/:termsId')
+  @ApiOperation({ summary: 'Get tenancy terms version by ID' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiParam({ name: 'termsId', type: String })
+  @ApiResponse({ status: 200, description: 'Tenancy terms', type: TenancyTermsDto })
   async findTerms(@Param('termsId') termsId: string): Promise<TenancyTerms> {
     return this.terms.findById(termsId);
   }
 
   @Post(':tenancyId/terms/:termsId/acknowledgements')
+  @ApiOperation({ summary: 'Acknowledge tenancy terms' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiParam({ name: 'termsId', type: String })
+  @ApiResponse({ status: 201, description: 'Terms acknowledged', type: TermsAcknowledgementDto })
   async acknowledgeTerms(
     @Param('termsId') termsId: string,
     @Body() dto: CreateTermsAcknowledgementDto,
@@ -87,6 +119,9 @@ export class TenancySupportController {
   }
 
   @Post(':tenancyId/notices')
+  @ApiOperation({ summary: 'Issue tenancy notice' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 201, description: 'Notice issued', type: TenancyNoticeDto })
   async issueNotice(
     @Param('tenancyId') tenancyId: string,
     @Body() dto: IssueTenancyNoticeDto,
@@ -95,11 +130,18 @@ export class TenancySupportController {
   }
 
   @Get(':tenancyId/notices')
+  @ApiOperation({ summary: 'List notices of tenancy' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiResponse({ status: 200, description: 'List of notices', type: [TenancyNoticeDto] })
   async listNotices(@Param('tenancyId') tenancyId: string): Promise<TenancyNotice[]> {
     return this.notices.listByTenancyId(tenancyId);
   }
 
   @Post(':tenancyId/notices/:noticeId/acknowledge')
+  @ApiOperation({ summary: 'Acknowledge tenancy notice' })
+  @ApiParam({ name: 'tenancyId', type: String })
+  @ApiParam({ name: 'noticeId', type: String })
+  @ApiResponse({ status: 200, description: 'Notice acknowledged', type: TenancyNoticeDto })
   async acknowledgeNotice(
     @Param('noticeId') noticeId: string,
     @Body() dto: AcknowledgeTenancyNoticeDto,

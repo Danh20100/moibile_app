@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { Inquiry } from '../contracts';
-import { CreateInquiryDto } from '../dto';
+import type { Inquiry } from '../contracts';
+import { CreateInquiryDto, InquiryDto } from '../dto';
 import { InquiryService } from '../services/inquiry.service';
 
 @ApiTags('Inquiry')
@@ -12,16 +12,23 @@ export class InquiryController {
 
   @Post()
   @ApiOperation({ summary: 'Record discovery/contact intent for a Listing' })
+  @ApiResponse({ status: 201, description: 'Inquiry created', type: InquiryDto })
   async create(@Body() dto: CreateInquiryDto): Promise<Inquiry> {
     return this.inquiryService.create(dto);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get Inquiry by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Inquiry ID' })
+  @ApiResponse({ status: 200, description: 'Inquiry details', type: InquiryDto })
   async findById(@Param('id') id: string): Promise<Inquiry> {
     return this.inquiryService.findById(id);
   }
 
   @Get()
+  @ApiOperation({ summary: 'Find Inquiries by Listing ID' })
+  @ApiQuery({ name: 'listingId', type: String, required: true, description: 'Listing ID' })
+  @ApiResponse({ status: 200, description: 'List of inquiries', type: [InquiryDto] })
   async findByListingId(@Query('listingId') listingId: string): Promise<Inquiry[]> {
     return this.inquiryService.findByListingId(listingId);
   }

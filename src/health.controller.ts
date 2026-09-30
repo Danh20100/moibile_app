@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { Public } from './common';
+import { HealthStatusDto, Public } from './common/index';
 
 @ApiTags('Health')
 @Public()
@@ -12,18 +12,9 @@ export class HealthController {
   @ApiResponse({
     status: 200,
     description: 'Service đang hoạt động bình thường',
-    schema: {
-      example: {
-        success: true,
-        data: {
-          status: 'ok',
-          timestamp: '2026-09-25T00:00:00.000Z',
-        },
-        timestamp: '2026-09-25T00:00:00.000Z',
-      },
-    },
+    type: HealthStatusDto,
   })
-  check(): { status: string; timestamp: string } {
+  check(): HealthStatusDto {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),

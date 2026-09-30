@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
-import { AuthGuard } from './common';
+import { AuthGuard } from './common/index';
 import { HealthController } from './health.controller';
 import { AuditTrustModule } from './modules/audit-trust';
 import { BillingModule } from './modules/billing';

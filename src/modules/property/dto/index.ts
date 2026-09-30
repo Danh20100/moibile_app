@@ -79,3 +79,31 @@ export class UpdatePropertyDto {
   @Type(() => GeoPointDto)
   publicLocationProjection?: GeoPointDto;
 }
+
+export class PropertyProfileDto {
+  @ApiProperty({ description: 'Property ID', example: 'prop_12345' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Organization workspace ID', example: 'org_12345' })
+  @IsString()
+  organizationId!: string;
+
+  @ApiProperty({ description: 'Property / khu tro name', example: 'Nha tro 12 ngo 80 Cau Giay' })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ description: 'Lifecycle status', enum: ['active', 'archived'], example: 'active' })
+  @IsString()
+  lifecycleStatus!: 'active' | 'archived';
+
+  @ApiProperty({ description: 'Operational address text' })
+  @IsString()
+  operationalAddressText!: string;
+
+  @ApiProperty({ description: 'Operational geospatial point', type: GeoPointDto })
+  operationalLocation!: GeoPointDto;
+
+  @ApiProperty({ description: 'Public location projection', type: GeoPointDto })
+  publicLocationProjection!: GeoPointDto;
+}

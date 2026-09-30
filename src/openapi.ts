@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 
-import { API_PREFIX } from './common';
+import { API_PREFIX } from './common/index';
 
 /**
  * Single source of truth for the OpenAPI document configuration.
@@ -17,6 +17,7 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .setVersion('0.1.0')
     .addServer(`/${API_PREFIX}`, 'Base path chung của API hiện hành')
     .addBearerAuth()
+    .addSecurityRequirements('bearer')
     .addTag('Health', 'Kiểm tra trạng thái hoạt động của hệ thống')
     .addTag('Identity & Access', 'Danh tính người dùng và capability truy cập theo relationship, không dùng global role')
     .addTag('Organization', 'Phạm vi vận hành cấp cao nhất của chủ trọ/đơn vị quản lý')
@@ -31,11 +32,34 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .build();
 }
 
+const PUBLIC_PATHS = [
+  { path: '/health', method: 'get' },
+  { path: '/listings/public', method: 'get' },
+  { path: '/identity-access/auth/google', method: 'post' },
+];
+
 /**
  * Build the OpenAPI document from a Nest application instance. Shared by the
  * runtime Swagger UI setup and the offline contract export script so both stay
  * in sync.
  */
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
-  return SwaggerModule.createDocument(app, buildOpenApiConfig());
+  const document = SwaggerModule.createDocument(app, buildOpenApiConfig());
+
+  // Ensure public endpoints do not require bearer security while protected ones do
+  for (const [pathKey, pathItem] of Object.entries(document.paths)) {
+    for (const [methodKey, operation] of Object.entries(pathItem)) {
+      if (typeof operation !== 'object' || operation === null) continue;
+      const isPublic = PUBLIC_PATHS.some(
+        (p) => p.path === pathKey && p.method === methodKey.toLowerCase(),
+      );
+      if (isPublic) {
+        (operation as { security?: unknown[] }).security = [];
+      } else if (!(operation as { security?: unknown[] }).security) {
+        (operation as { security?: unknown[] }).security = [{ bearer: [] }];
+      }
+    }
+  }
+
+  return document;
 }

@@ -29,3 +29,29 @@ export class UpdateOrganizationDto {
   @IsNotEmpty()
   name?: string;
 }
+
+export class OrganizationProfileDto {
+  @ApiProperty({
+    description: 'Organization ID',
+    example: 'org_12345',
+    type: String,
+  })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({
+    description: 'Tên workspace',
+    example: 'Hệ thống nhà trọ An Cư',
+    type: String,
+  })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({
+    description: 'User ID của primary owner',
+    example: 'user_12345',
+    type: String,
+  })
+  @IsString()
+  primaryOwnerUserId!: string;
+}

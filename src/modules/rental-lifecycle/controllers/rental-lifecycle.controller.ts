@@ -1,10 +1,12 @@
 import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { CreateListingDto } from '../../listing/dto';
-import { ListingProfile } from '../../listing/contracts';
-import { RoomProfile } from '../../room/contracts';
-import { TenancyProfile } from '../../tenancy/contracts';
+import type { ListingProfile } from '../../listing/contracts';
+import { CreateListingDto, ListingProfileDto } from '../../listing/dto';
+import type { RoomProfile } from '../../room/contracts';
+import { RoomProfileDto } from '../../room/dto';
+import type { TenancyProfile } from '../../tenancy/contracts';
+import { TenancyProfileDto } from '../../tenancy/dto';
 import {
   ActivateTenancyDto,
   CheckoutTenancyDto,
@@ -20,11 +22,16 @@ export class RentalLifecycleController {
   constructor(private readonly coordinator: RentalLifecycleCoordinator) {}
 
   @Post('listings')
+  @ApiOperation({ summary: 'Create a new Listing' })
+  @ApiResponse({ status: 201, description: 'Listing created', type: ListingProfileDto })
   async createListing(@Body() dto: CreateListingDto): Promise<ListingProfile> {
     return this.coordinator.createListing(dto);
   }
 
   @Post('listings/:id/publish')
+  @ApiOperation({ summary: 'Publish a Listing' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, description: 'Listing published', type: ListingProfileDto })
   async publishListing(
     @Param('id') id: string,
     @Body() dto: ListingCommandContextDto,
@@ -33,6 +40,9 @@ export class RentalLifecycleController {
   }
 
   @Patch('rooms/:id/operational-state')
+  @ApiOperation({ summary: 'Transition room operational state manually' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, description: 'Room operational state updated', type: RoomProfileDto })
   async transitionRoomManually(
     @Param('id') id: string,
     @Body() dto: TransitionRoomManuallyDto,
@@ -41,11 +51,16 @@ export class RentalLifecycleController {
   }
 
   @Post('tenancies')
+  @ApiOperation({ summary: 'Create a new draft tenancy' })
+  @ApiResponse({ status: 201, description: 'Tenancy created', type: TenancyProfileDto })
   async createTenancy(@Body() dto: CreateTenancyDto): Promise<TenancyProfile> {
     return this.coordinator.createTenancy(dto.roomId);
   }
 
   @Post('tenancies/:id/activate')
+  @ApiOperation({ summary: 'Activate a tenancy' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, description: 'Tenancy activated', type: TenancyProfileDto })
   async activateTenancy(
     @Param('id') id: string,
     @Body() dto: ActivateTenancyDto,
@@ -54,6 +69,9 @@ export class RentalLifecycleController {
   }
 
   @Post('tenancies/:id/checkout')
+  @ApiOperation({ summary: 'Checkout a tenancy' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, description: 'Tenancy checked out', type: TenancyProfileDto })
   async checkoutTenancy(
     @Param('id') id: string,
     @Body() dto: CheckoutTenancyDto,

@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { PropertyProfile } from '../contracts';
-import { CreatePropertyDto, UpdatePropertyDto } from '../dto';
+import type { PropertyProfile } from '../contracts';
+import { CreatePropertyDto, PropertyProfileDto, UpdatePropertyDto } from '../dto';
 import { PropertyService } from '../services/property.service';
 
 @ApiTags('Property')
@@ -12,7 +12,7 @@ export class PropertyController {
 
   @Post()
   @ApiOperation({ summary: 'Tao Property / khu tro moi' })
-  @ApiResponse({ status: 201, description: 'Property da duoc tao thanh cong' })
+  @ApiResponse({ status: 201, description: 'Property da duoc tao thanh cong', type: PropertyProfileDto })
   async create(@Body() dto: CreatePropertyDto): Promise<PropertyProfile> {
     return this.propertyService.create(dto);
   }
@@ -20,7 +20,7 @@ export class PropertyController {
   @Get()
   @ApiOperation({ summary: 'Lay danh sach Property (co the loc theo organizationId)' })
   @ApiQuery({ name: 'organizationId', required: false, description: 'Loc theo Organization ID' })
-  @ApiResponse({ status: 200, description: 'Danh sach Property' })
+  @ApiResponse({ status: 200, description: 'Danh sach Property', type: [PropertyProfileDto] })
   async findByOrganizationId(
     @Query('organizationId') organizationId?: string,
   ): Promise<PropertyProfile[]> {
@@ -29,7 +29,8 @@ export class PropertyController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Lay thong tin chi tiet Property' })
-  @ApiResponse({ status: 200, description: 'Thong tin Property' })
+  @ApiParam({ name: 'id', type: String, description: 'Property ID' })
+  @ApiResponse({ status: 200, description: 'Thong tin Property', type: PropertyProfileDto })
   @ApiResponse({ status: 404, description: 'Khong tim thay Property' })
   async findById(@Param('id') id: string): Promise<PropertyProfile> {
     return this.propertyService.findById(id);
@@ -39,7 +40,8 @@ export class PropertyController {
   @ApiOperation({
     summary: 'Cap nhat ten / dia chi / location projection (khong doi lifecycle)',
   })
-  @ApiResponse({ status: 200, description: 'Thong tin Property da duoc cap nhat' })
+  @ApiParam({ name: 'id', type: String, description: 'Property ID' })
+  @ApiResponse({ status: 200, description: 'Thong tin Property da duoc cap nhat', type: PropertyProfileDto })
   async update(@Param('id') id: string, @Body() dto: UpdatePropertyDto): Promise<PropertyProfile> {
     return this.propertyService.update(id, dto);
   }
