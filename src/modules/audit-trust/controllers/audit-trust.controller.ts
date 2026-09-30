@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import type { AuditRecord, TrustReport } from '../contracts';
@@ -14,11 +14,18 @@ import { AuditTrustService } from '../services/audit-trust.service';
 @ApiTags('Audit & Trust')
 @Controller('audit-trust')
 export class AuditTrustController {
-  constructor(private readonly auditTrustService: AuditTrustService) {}
+  constructor(
+    @Inject(AuditTrustService)
+    private readonly auditTrustService: AuditTrustService,
+  ) {}
 
   @Post('facts')
   @ApiOperation({ summary: 'Ghi nhận một sự kiện/business fact quan trọng để lưu vết audit' })
-  @ApiResponse({ status: 201, description: 'Sự kiện đã được ghi nhận vào lịch sử', type: AuditRecordDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Sự kiện đã được ghi nhận vào lịch sử',
+    type: AuditRecordDto,
+  })
   async recordFact(@Body() dto: RecordAuditFactDto): Promise<AuditRecord> {
     return this.auditTrustService.recordFact(dto);
   }
@@ -34,7 +41,11 @@ export class AuditTrustController {
 
   @Post('reports')
   @ApiOperation({ summary: 'Gửi báo cáo nội bộ lên nền tảng để review' })
-  @ApiResponse({ status: 201, description: 'Báo cáo nội bộ đã được tiếp nhận', type: TrustReportDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Báo cáo nội bộ đã được tiếp nhận',
+    type: TrustReportDto,
+  })
   async submitReport(@Body() dto: SubmitInternalReportDto): Promise<TrustReport> {
     return this.auditTrustService.submitReport(dto);
   }

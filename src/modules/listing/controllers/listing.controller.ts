@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { Public } from '../../../common';
+import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
+import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { ListingProfile } from '../contracts';
 import { ListingProfileDto, ListingTransitionContextDto, UpdateListingDto } from '../dto';
 import { ListingService } from '../services/listing.service';
@@ -9,7 +10,12 @@ import { ListingService } from '../services/listing.service';
 @ApiTags('Listing')
 @Controller('listings')
 export class ListingController {
-  constructor(private readonly listingService: ListingService) {}
+  constructor(
+    @Inject(ListingService)
+    private readonly listingService: ListingService,
+    @Inject(ResourceAuthorizationService)
+    private readonly authz: ResourceAuthorizationService,
+  ) {}
 
   @Public()
   @Get('public')
@@ -24,15 +30,29 @@ export class ListingController {
   @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
   @ApiResponse({ status: 200, description: 'Listing details', type: ListingProfileDto })
   @ApiResponse({ status: 404, description: 'Listing not found' })
-  async findById(@Param('id') id: string): Promise<ListingProfile> {
-    return this.listingService.findById(id);
+  async findById(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    const listing = await this.listingService.findById(id);
+    if (listing.status !== 'published' && user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
+    return listing;
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update Listing content' })
   @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
   @ApiResponse({ status: 200, description: 'Updated listing', type: ListingProfileDto })
-  async update(@Param('id') id: string, @Body() dto: UpdateListingDto): Promise<ListingProfile> {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateListingDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.updateContent(id, dto);
   }
 
@@ -43,7 +63,11 @@ export class ListingController {
   async unpublish(
     @Param('id') id: string,
     @Body() dto: ListingTransitionContextDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.transition(id, 'unpublished', dto);
   }
 
@@ -54,7 +78,11 @@ export class ListingController {
   async archive(
     @Param('id') id: string,
     @Body() dto: ListingTransitionContextDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.transition(id, 'archived', dto);
   }
 }

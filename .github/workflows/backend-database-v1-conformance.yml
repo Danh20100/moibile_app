@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - backend/database-v1-integration
+      - backend/full-stack-contract-support
   workflow_dispatch:
 
 permissions:

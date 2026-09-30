@@ -1,6 +1,8 @@
-import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+import { CurrentUser, ResourceAuthorizationService } from '../../../common';
+import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { ListingProfile } from '../../listing/contracts';
 import { CreateListingDto, ListingProfileDto } from '../../listing/dto';
 import type { RoomProfile } from '../../room/contracts';
@@ -19,12 +21,23 @@ import { RentalLifecycleCoordinator } from '../services/rental-lifecycle.coordin
 @ApiTags('Rental lifecycle')
 @Controller()
 export class RentalLifecycleController {
-  constructor(private readonly coordinator: RentalLifecycleCoordinator) {}
+  constructor(
+    @Inject(RentalLifecycleCoordinator)
+    private readonly coordinator: RentalLifecycleCoordinator,
+    @Inject(ResourceAuthorizationService)
+    private readonly authz: ResourceAuthorizationService,
+  ) {}
 
   @Post('listings')
   @ApiOperation({ summary: 'Create a new Listing' })
   @ApiResponse({ status: 201, description: 'Listing created', type: ListingProfileDto })
-  async createListing(@Body() dto: CreateListingDto): Promise<ListingProfile> {
+  async createListing(
+    @Body() dto: CreateListingDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesRoom(user.userId, dto.roomId);
+    }
     return this.coordinator.createListing(dto);
   }
 
@@ -35,7 +48,11 @@ export class RentalLifecycleController {
   async publishListing(
     @Param('id') id: string,
     @Body() dto: ListingCommandContextDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.coordinator.publishListing(id, dto);
   }
 
@@ -46,14 +63,24 @@ export class RentalLifecycleController {
   async transitionRoomManually(
     @Param('id') id: string,
     @Body() dto: TransitionRoomManuallyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<RoomProfile> {
+    if (user) {
+      await this.authz.assertOperatesRoom(user.userId, id);
+    }
     return this.coordinator.transitionRoomManually(id, dto.operationalState, dto);
   }
 
   @Post('tenancies')
   @ApiOperation({ summary: 'Create a new draft tenancy' })
   @ApiResponse({ status: 201, description: 'Tenancy created', type: TenancyProfileDto })
-  async createTenancy(@Body() dto: CreateTenancyDto): Promise<TenancyProfile> {
+  async createTenancy(
+    @Body() dto: CreateTenancyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertOperatesRoom(user.userId, dto.roomId);
+    }
     return this.coordinator.createTenancy(dto.roomId);
   }
 
@@ -64,7 +91,11 @@ export class RentalLifecycleController {
   async activateTenancy(
     @Param('id') id: string,
     @Body() dto: ActivateTenancyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertOperatesTenancy(user.userId, id);
+    }
     return this.coordinator.activateTenancy(id, dto, dto.occurredAt);
   }
 
@@ -75,7 +106,11 @@ export class RentalLifecycleController {
   async checkoutTenancy(
     @Param('id') id: string,
     @Body() dto: CheckoutTenancyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertOperatesTenancy(user.userId, id);
+    }
     return this.coordinator.checkoutTenancy(id, dto.endReason, dto.occurredAt);
   }
 }
