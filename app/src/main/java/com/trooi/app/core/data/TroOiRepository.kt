@@ -5,7 +5,7 @@ import com.trooi.app.core.model.ConversationUi
 import com.trooi.app.core.model.FinanceEntryUi
 import com.trooi.app.core.model.RoomUi
 import com.trooi.app.core.model.TicketUi
-import com.trooi.app.core.model.UserRole
+import com.trooi.app.core.model.AccessCapabilities
 
 data class TroOiSnapshot(
     val rooms: List<RoomUi> = emptyList(),
@@ -18,20 +18,18 @@ data class TroOiSnapshot(
 
 data class UserSession(
     val displayName: String,
-    val role: UserRole,
+    val access: AccessCapabilities,
 )
 
 interface TroOiRepository {
     fun initialSnapshot(): TroOiSnapshot
 
     suspend fun login(
-        role: UserRole,
         identifier: String,
         password: String,
     ): Result<UserSession>
 
     suspend fun signUp(
-        role: UserRole,
         fullName: String,
         phone: String,
         email: String,

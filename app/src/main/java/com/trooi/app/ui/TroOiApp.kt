@@ -81,12 +81,12 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                 when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
-                        onSignUp = viewModel::openRoleSelect,
+                        onSignUp = viewModel::openSignUp,
                     )
 
                     AppPage.AuthLogin -> LoginScreen(
                         onBack = viewModel::goBack,
-                        onSignUp = viewModel::openRoleSelect,
+                        onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
                     )
@@ -96,17 +96,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onSubmit = viewModel::requestPasswordReset,
                     )
 
-                    AppPage.AuthRoleSelect -> RoleSelectScreen(
-                        onBack = viewModel::goBack,
-                        onChoose = viewModel::openSignUp,
-                        onLogin = viewModel::openLogin,
-                    )
-
-                    is AppPage.AuthSignUp -> SignUpScreen(
-                        role = page.role,
+                    AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,
                         onLogin = viewModel::openLogin,
-                        onSignUp = { name, phone, email, password -> viewModel.signUp(page.role, name, phone, email, password) },
+                        onSignUp = { name, phone, email, password -> viewModel.signUp(name, phone, email, password) },
                     )
 
                     is AppPage.Tenant -> when (page.tab) {
@@ -119,7 +112,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                             onCancel = viewModel::cancelBooking,
                         )
                         TenantTab.MESSAGES -> TenantMessagesScreen(state, viewModel::openChat)
-                        TenantTab.PROFILE -> TenantProfileScreen(state, viewModel::switchRole, viewModel::logout)
+                        TenantTab.PROFILE -> TenantProfileScreen(state, viewModel::openOperations, viewModel::logout)
                     }
 
                     is AppPage.TenantRoomDetail -> {
@@ -154,7 +147,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         LandlordTab.ROOMS -> LandlordRoomsScreen(state)
                         LandlordTab.FINANCE -> LandlordFinanceScreen(state)
                         LandlordTab.TICKETS -> LandlordTicketsScreen(state, viewModel::completeTicket)
-                        LandlordTab.PROFILE -> LandlordProfileScreen(state, viewModel::openSubscription, viewModel::switchRole, viewModel::logout)
+                        LandlordTab.PROFILE -> LandlordProfileScreen(state, viewModel::openSubscription, viewModel::openDiscovery, viewModel::logout)
                     }
 
                     AppPage.LandlordSubscription -> LandlordSubscriptionScreen(

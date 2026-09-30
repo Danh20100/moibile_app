@@ -1,7 +1,7 @@
 package com.trooi.app.core.data
 
 import com.trooi.app.core.demo.DemoData
-import com.trooi.app.core.model.UserRole
+import com.trooi.app.core.model.AccessCapabilities
 import javax.inject.Inject
 
 class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
@@ -15,21 +15,25 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
     )
 
     override suspend fun login(
-        role: UserRole,
         identifier: String,
         password: String,
     ): Result<UserSession> = Result.success(
-        UserSession(displayName = "Tài khoản demo", role = role),
+        UserSession(
+            displayName = "Tài khoản demo",
+            access = AccessCapabilities(
+                linkedTenancyIds = setOf("demo-tenancy-1"),
+                operatedOrganizationIds = setOf("demo-organization-1"),
+            ),
+        ),
     )
 
     override suspend fun signUp(
-        role: UserRole,
         fullName: String,
         phone: String,
         email: String,
         password: String,
     ): Result<UserSession> = Result.success(
-        UserSession(displayName = fullName.trim(), role = role),
+        UserSession(displayName = fullName.trim(), access = AccessCapabilities()),
     )
 
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> = Result.success(Unit)

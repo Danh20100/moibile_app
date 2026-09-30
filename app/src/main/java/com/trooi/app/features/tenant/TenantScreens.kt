@@ -594,7 +594,7 @@ fun TenantChatScreen(
 }
 
 @Composable
-fun TenantProfileScreen(state: TroOiUiState, onSwitchRole: () -> Unit, onLogout: () -> Unit) {
+fun TenantProfileScreen(state: TroOiUiState, onOpenOperations: () -> Unit, onLogout: () -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(18.dp),
@@ -618,7 +618,9 @@ fun TenantProfileScreen(state: TroOiUiState, onSwitchRole: () -> Unit, onLogout:
         item { ProfileRow(Icons.Rounded.PersonOutline, "Thông tin cá nhân", "Họ tên, số điện thoại, xác minh tài khoản") }
         item { ProfileRow(Icons.Rounded.ReceiptLong, "Thanh toán & Biên nhận", "Lịch sử cọc, tiền thuê, hóa đơn tháng") }
         item { ProfileRow(Icons.Rounded.VerifiedUser, "Trung tâm an toàn", "Báo lỗi thông tin và lưu dấu vết trao đổi") }
-        item { PrimaryButton("Chuyển vai trò Chủ trọ", onSwitchRole, Modifier.fillMaxWidth()) }
+        if (state.access.allows(ClientArea.OPERATIONS)) {
+            item { PrimaryButton("Mở khu vận hành", onOpenOperations, Modifier.fillMaxWidth()) }
+        }
         item {
             OutlinedButton(
                 onClick = onLogout,

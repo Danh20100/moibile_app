@@ -1,16 +1,13 @@
 package com.trooi.app.core.model
 
-enum class UserRole { TENANT, LANDLORD }
-
 enum class TenantTab { HOME, SAVED, SCHEDULE, MESSAGES, PROFILE }
 enum class LandlordTab { DASHBOARD, ROOMS, FINANCE, TICKETS, PROFILE }
 
 sealed interface AppPage {
     data object AuthWelcome : AppPage
     data object AuthLogin : AppPage
-    data object AuthRoleSelect : AppPage
     data object AuthForgotPassword : AppPage
-    data class AuthSignUp(val role: UserRole) : AppPage
+    data object AuthSignUp : AppPage
     data class Tenant(val tab: TenantTab) : AppPage
     data class TenantRoomDetail(val roomId: Int) : AppPage
     data class TenantChat(val conversationId: Long) : AppPage
@@ -101,7 +98,7 @@ data class SubscriptionUi(
 enum class SubscriptionPlan { FREE, TRIAL, PLUS }
 
 data class TroOiUiState(
-    val role: UserRole = UserRole.TENANT,
+    val access: AccessCapabilities = AccessCapabilities(),
     val isAuthenticated: Boolean = false,
     val displayName: String = "",
     val page: AppPage = AppPage.AuthWelcome,

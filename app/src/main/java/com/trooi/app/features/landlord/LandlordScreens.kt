@@ -428,7 +428,7 @@ fun LandlordTicketsScreen(state: TroOiUiState, onComplete: (String) -> Unit) {
 }
 
 @Composable
-fun LandlordProfileScreen(state: TroOiUiState, onSubscription: () -> Unit, onSwitchRole: () -> Unit, onLogout: () -> Unit) {
+fun LandlordProfileScreen(state: TroOiUiState, onSubscription: () -> Unit, onOpenDiscovery: () -> Unit, onLogout: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Hệ thống Chủ Trọ", style = MaterialTheme.typography.headlineMedium) }
         item {
@@ -449,7 +449,7 @@ fun LandlordProfileScreen(state: TroOiUiState, onSubscription: () -> Unit, onSwi
         item { LandlordProfileRow(Icons.Rounded.Build, "Quản lý sự cố", "Ticket, SLA và phân công xử lý", {}) }
         item { LandlordProfileRow(Icons.Rounded.Apartment, "Cấu hình tòa nhà & phòng", "Thông tin vận hành và hồ sơ phòng", {}) }
         item { LandlordProfileRow(Icons.Rounded.Cloud, "Đồng bộ Cloud Backup", "Dữ liệu được đồng bộ qua backend", {}) }
-        item { PrimaryButton("Chuyển vai trò Người Thuê", onSwitchRole, Modifier.fillMaxWidth()) }
+        item { PrimaryButton("Tìm phòng", onOpenDiscovery, Modifier.fillMaxWidth()) }
         item {
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, TroOiRed)) {
                 Icon(Icons.Rounded.Logout, null, tint = TroOiRed)
