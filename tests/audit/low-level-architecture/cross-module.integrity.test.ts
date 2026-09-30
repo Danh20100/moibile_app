@@ -25,6 +25,9 @@ describe('cross-module reference integrity audit', () => {
   let app: INestApplicationContext;
 
   before(async () => {
+    process.env.DATABASE_URL =
+      process.env.DATABASE_URL?.trim() ||
+      'postgresql://trooi:trooi_local@localhost:5432/trooi_dev';
     app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   });
 

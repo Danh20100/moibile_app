@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { readRepoFile } from '../conformance/erd3/support/source';
+import { readRepoFile } from '../conformance/database-v1/support/source';
 
-const WORKFLOW = '.github/workflows/backend-erd3-conformance.yml';
+const WORKFLOW = '.github/workflows/backend-database-v1-conformance.yml';
 
 interface Step {
   name: string;
@@ -32,6 +32,9 @@ const HARD_GATES: Array<[string, RegExp]> = [
     'Google identity regression',
     /run: pnpm exec tsx --test src\/integrations\/google-identity\/google-id-token-verifier\.spec\.ts/,
   ],
+  ['database migrations', /run: pnpm db:migrate\b/],
+  ['database seed', /run: pnpm db:seed\b/],
+  ['persistence migration parity', /run: pnpm test:persistence:migration\b/],
 ];
 
 test('Core Foundation hard gates exist and cannot be tolerated failures', () => {
@@ -47,10 +50,10 @@ test('Core Foundation hard gate script covers every completed core boundary', ()
     'tests/core/organization.behavior.test.ts',
     'tests/core/property.behavior.test.ts',
     'tests/core/room.behavior.test.ts',
-    'tests/conformance/erd3/identity.contract.test.ts',
-    'tests/conformance/erd3/organization.contract.test.ts',
-    'tests/conformance/erd3/property-room.lifecycle.test.ts',
-    'tests/conformance/erd3/future-open-boundary.static.test.ts',
+    'tests/conformance/database-v1/identity.contract.test.ts',
+    'tests/conformance/database-v1/organization.contract.test.ts',
+    'tests/conformance/database-v1/property-room.lifecycle.test.ts',
+    'tests/conformance/database-v1/future-open-boundary.static.test.ts',
     'tests/core/dto-boundary.validation.test.ts',
   ]) {
     assert.ok(script.split(/\s+/).includes(file), `test:core-foundation must run ${file}`);
@@ -75,7 +78,7 @@ test('only raw JUnit test commands may continue on error and each is classified 
       (s) =>
         /node scripts\/verify-test-baseline\.mjs/.test(s.body) &&
         s.body.includes(`--junit ${file}`) &&
-        s.body.includes('--baseline tests/conformance/erd3/expected-failures.json'),
+        s.body.includes('--baseline tests/conformance/database-v1/expected-failures.json'),
       `${script} classifier`,
     );
     assert.ok(classifierIndex > rawIndex, `${script} classifier must run after the raw command`);

@@ -1,6 +1,6 @@
 # identity-access Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative. Current implementation examples that conflict with it are superseded.
+> Canonical v3.7 / frozen Database v1 is authoritative. Current implementation examples that conflict with it are superseded.
 
 ## Ownership
 
@@ -27,4 +27,4 @@ Advanced team/member delegation and generalized invitations remain FUTURE unless
 
 ## Rebuild note
 
-Existing `UserRole`, `UserProfile.role` and role-bearing invitation contracts are pre-ERD3 scaffolding and are expected to fail ERD3 conformance until rebuilt.
+Existing `UserRole`, `UserProfile.role` and role-bearing invitation contracts are pre-database-v1 scaffolding and are expected to fail Database v1 conformance until rebuilt.

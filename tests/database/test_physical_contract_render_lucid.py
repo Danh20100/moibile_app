@@ -8,7 +8,7 @@ from scripts.database.physical_contract_render_lucid import build_lucid_payload
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+CONTRACT_PATH = ROOT / "docs/database/v1/erd/physical.json"
 
 
 class PhysicalContractLucidRendererTests(unittest.TestCase):

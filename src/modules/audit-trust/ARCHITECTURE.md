@@ -1,10 +1,10 @@
 # audit-trust Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership
 
-Generic audit history remains cross-cutting evidence only. ERD3 trust semantics are represented by Review and TrustReport concepts; they do not own Listing, Tenancy, Property or Incident lifecycle.
+Generic audit history remains cross-cutting evidence only. Database v1 trust semantics are represented by Review and TrustReport concepts; they do not own Listing, Tenancy, Property or Incident lifecycle.
 
 ## TrustReport invariant
 
@@ -25,4 +25,4 @@ Authentication requirement, rate limits, moderation/evidence policy and other `[
 
 ## Rebuild note
 
-Current generic targetType/targetId reporting is pre-ERD3 and should fail conformance until narrowed to the frozen target model.
+Current generic targetType/targetId reporting is pre-database-v1 and should fail conformance until narrowed to the frozen target model.

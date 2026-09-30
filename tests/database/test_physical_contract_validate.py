@@ -7,8 +7,8 @@ from pathlib import Path
 from scripts.database.physical_contract_validate import validate_contract
 
 ROOT = Path(__file__).resolve().parents[2]
-CONCEPTUAL_CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
-LOGICAL_CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv2-logical.json"
+CONCEPTUAL_CONTRACT_PATH = ROOT / "docs/database/v1/erd/conceptual.json"
+LOGICAL_CONTRACT_PATH = ROOT / "docs/database/v1/erd/logical.json"
 
 
 def load_logical_contract():
@@ -73,7 +73,7 @@ def build_valid_contract(logical_contract):
         "source": {
             "canonicalVersion": "v3.7",
             "canonical": {
-                "path": str(ROOT / "docs/database/canonical-v3.7.md"),
+                "path": str(ROOT / "docs/database/v1/canonical.md"),
                 "version": "v3.7",
             },
             "lv1": {
@@ -174,7 +174,7 @@ class PhysicalContractValidatorTests(unittest.TestCase):
         contract = copy.deepcopy(self.contract)
         contract["source"]["canonicalVersion"] = "v3.7"
         contract["source"]["canonical"] = {
-            "path": "docs/database/canonical-v3.7.md",
+            "path": "docs/database/v1/canonical.md",
             "version": "v3.7",
         }
         with tempfile.NamedTemporaryFile(
@@ -276,8 +276,8 @@ class PhysicalContractValidatorTests(unittest.TestCase):
 
 class PhysicalContractRepositoryContractTests(unittest.TestCase):
     def test_repository_physical_contract_contract_matches_frozen_logical_contract(self):
-        physical_contract_path = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
-        conceptual_contract_path = ROOT / "docs/database/erd/trooi-erd-lv1-conceptual.json"
+        physical_contract_path = ROOT / "docs/database/v1/erd/physical.json"
+        conceptual_contract_path = ROOT / "docs/database/v1/erd/conceptual.json"
         logical_contract = load_logical_contract()
         conceptual_contract = json.loads(conceptual_contract_path.read_text(encoding="utf-8"))
         physical_contract = json.loads(physical_contract_path.read_text(encoding="utf-8"))

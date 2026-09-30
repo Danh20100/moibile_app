@@ -1,12 +1,12 @@
 # organization
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
 `organization` owns the rental operating workspace.
 
-## Current ERD3 boundary
+## Current Database v1 boundary
 
 - Organization identity;
 - exactly one `primaryOwnerUserId` for the MVP model;

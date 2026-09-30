@@ -5,7 +5,7 @@ import { NotFoundException } from '@nestjs/common';
 
 import { InquiryService } from '../../src/modules/listing/services/inquiry.service';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
-import { readRepoFile } from '../conformance/erd3/support/source';
+import { readRepoFile } from '../conformance/database-v1/support/source';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 async function fixture() {

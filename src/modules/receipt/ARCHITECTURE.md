@@ -1,6 +1,6 @@
 # receipt Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership
 
@@ -20,4 +20,4 @@ Receipt owns evidence derived from confirmed Payment. It does not own actual mon
 
 ## Rebuild note
 
-The current `recorded | confirmed` Receipt lifecycle and Receipt-as-payment contract are intentionally incompatible with ERD3 and should fail conformance until replaced.
+The current `recorded | confirmed` Receipt lifecycle and Receipt-as-payment contract are intentionally incompatible with Database v1 and should fail conformance until replaced.

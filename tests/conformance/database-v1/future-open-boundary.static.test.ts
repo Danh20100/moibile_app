@@ -16,9 +16,9 @@ test('Onboarding bulk import scaffolding is not registered as current core', () 
 test('CSV Excel import is not documented as current core', () => {
   const source = readRepoFiles([
     'README.md',
-    'docs/PROJECT_CONTEXT.md',
-    'docs/SYSTEM_CONTEXT.md',
-    'docs/USE_CASES.md',
+    'docs/contexts/project-overview.md',
+    'docs/contexts/system-map.md',
+    'docs/contexts/end-to-end-flows.md',
     'src/modules/onboarding/README.md',
     'src/modules/onboarding/ARCHITECTURE.md',
   ]);
@@ -28,12 +28,12 @@ test('CSV Excel import is not documented as current core', () => {
 });
 
 test('OPEN policies remain explicitly unresolved rather than assigned a boolean default choice', () => {
-  const authority = readRepoFile('docs/database/canonical-v3.7.md');
+  const authority = readRepoFile('docs/database/v1/canonical.md');
   const currentDocs = readRepoFiles([
     'README.md',
-    'docs/PROJECT_CONTEXT.md',
-    'docs/SYSTEM_CONTEXT.md',
-    'docs/USE_CASES.md',
+    'docs/contexts/project-overview.md',
+    'docs/contexts/system-map.md',
+    'docs/contexts/end-to-end-flows.md',
     'src/modules/audit-trust/README.md',
     'src/modules/audit-trust/ARCHITECTURE.md',
   ]);

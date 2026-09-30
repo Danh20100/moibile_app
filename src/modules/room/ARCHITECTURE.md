@@ -1,6 +1,6 @@
 # room Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership
 

@@ -1,10 +1,10 @@
 # billing Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership model
 
-The ERD3 finance model separates obligation from settlement:
+The Database v1 finance model separates obligation from settlement:
 
 ```text
 BillingCycle → Charge
@@ -25,4 +25,4 @@ BillingCycle/Charge own what is owed. Payment owns actual money inflow. Receipt 
 
 ## Rebuild note
 
-`applyPaymentOutcome()` and the current mutable BillingCycle settlement model are pre-ERD3 abstractions. They must be removed rather than preserved through an adapter.
+`applyPaymentOutcome()` and the current mutable BillingCycle settlement model are pre-database-v1 abstractions. They must be removed rather than preserved through an adapter.
