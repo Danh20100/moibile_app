@@ -6,7 +6,7 @@ import {
   type GoogleIdTokenVerifier,
 } from '../../../integrations/google-identity';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
-import { UserReference, VerifiedPrincipal } from '../contracts';
+import { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
 import { VerifyGoogleTokenDto } from '../dto';
 
 @Injectable()
@@ -30,5 +30,30 @@ export class IdentityAccessService {
     const exists = await this.transactions.run(({ repositories }) => repositories.identity.userExists(userId));
     if (!exists) throw new NotFoundException(`Không tìm thấy user với id: ${userId}`);
     return { userId };
+  }
+
+  async getSessionContext(principal: VerifiedPrincipal): Promise<SessionContext> {
+    const [organizations, participants] = await this.transactions.run(async ({ repositories }) => {
+      const orgs = await repositories.organization.findByPrimaryOwnerUserId(principal.userId);
+      const parts = await repositories.tenancy.findParticipantsByUser(principal.userId);
+      return [orgs, parts];
+    });
+
+    const operatedOrganizationIds = Array.from(
+      new Set(organizations.map((org) => org.organizationId)),
+    ).sort();
+
+    const linkedTenancyIds = Array.from(
+      new Set(participants.map((part) => part.tenancyId)),
+    ).sort();
+
+    return {
+      userId: principal.userId,
+      operatedOrganizationIds,
+      linkedTenancyIds,
+      ...(principal.email !== undefined ? { email: principal.email } : {}),
+      ...(principal.name !== undefined ? { name: principal.name } : {}),
+      ...(principal.pictureUrl !== undefined ? { pictureUrl: principal.pictureUrl } : {}),
+    };
   }
 }
