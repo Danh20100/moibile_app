@@ -12,7 +12,6 @@ sealed interface AppPage {
     data class TenantRoomDetail(val roomId: Int) : AppPage
     data class TenantChat(val conversationId: Long) : AppPage
     data class Landlord(val tab: LandlordTab) : AppPage
-    data object LandlordSubscription : AppPage
 }
 
 data class RoomUi(
@@ -87,16 +86,6 @@ data class FinanceEntryUi(
     val time: String,
 )
 
-data class SubscriptionUi(
-    val plan: SubscriptionPlan = SubscriptionPlan.TRIAL,
-    val addBlocks: Int = 0,
-    val autoRenew: Boolean = true,
-    val trialExpiry: String = "31/07/2026",
-    val plusExpiry: String = "30/06/2027",
-)
-
-enum class SubscriptionPlan { FREE, TRIAL, PLUS }
-
 data class TroOiUiState(
     val access: AccessCapabilities = AccessCapabilities(),
     val isAuthenticated: Boolean = false,
@@ -108,6 +97,5 @@ data class TroOiUiState(
     val conversations: List<ConversationUi> = emptyList(),
     val tickets: List<TicketUi> = emptyList(),
     val finance: List<FinanceEntryUi> = emptyList(),
-    val subscription: SubscriptionUi = SubscriptionUi(),
     val snackbarMessage: String? = null,
 )

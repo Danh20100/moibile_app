@@ -142,19 +142,13 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                             onOpenRooms = { viewModel.openLandlordTab(LandlordTab.ROOMS) },
                             onOpenFinance = { viewModel.openLandlordTab(LandlordTab.FINANCE) },
                             onOpenTickets = { viewModel.openLandlordTab(LandlordTab.TICKETS) },
-                            onOpenSubscription = viewModel::openSubscription,
                         )
                         LandlordTab.ROOMS -> LandlordRoomsScreen(state)
                         LandlordTab.FINANCE -> LandlordFinanceScreen(state)
                         LandlordTab.TICKETS -> LandlordTicketsScreen(state, viewModel::completeTicket)
-                        LandlordTab.PROFILE -> LandlordProfileScreen(state, viewModel::openSubscription, viewModel::openDiscovery, viewModel::logout)
+                        LandlordTab.PROFILE -> LandlordProfileScreen(state, viewModel::openDiscovery, viewModel::logout)
                     }
 
-                    AppPage.LandlordSubscription -> LandlordSubscriptionScreen(
-                        state = state,
-                        onBack = viewModel::goBack,
-                        onActivatePlus = viewModel::activatePlus,
-                    )
                 }
             }
         }

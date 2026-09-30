@@ -33,7 +33,6 @@ fun LandlordDashboardScreen(
     onOpenRooms: () -> Unit,
     onOpenFinance: () -> Unit,
     onOpenTickets: () -> Unit,
-    onOpenSubscription: () -> Unit,
 ) {
     val rented = state.rooms.count { it.rented }
     val empty = state.rooms.size - rented
@@ -87,25 +86,6 @@ fun LandlordDashboardScreen(
                         color = Color(0xFF86EFAC),
                         trackColor = Color.White.copy(alpha = .14f),
                     )
-                }
-            }
-        }
-        item {
-            val label = when (state.subscription.plan) {
-                SubscriptionPlan.FREE -> "Free"
-                SubscriptionPlan.TRIAL -> "Plus · Dùng thử"
-                SubscriptionPlan.PLUS -> "Plus"
-            }
-            TroOiCard(Modifier.fillMaxWidth(), onClick = onOpenSubscription) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("GÓI ĐANG SỬ DỤNG", style = MaterialTheme.typography.labelMedium, color = TroOiGreen)
-                        Text("$label · ${state.rooms.size}/${subscriptionCapacity(state.subscription)} phòng", style = MaterialTheme.typography.titleMedium)
-                        Text("${state.subscription.addBlocks} Add block · ${if (state.subscription.autoRenew) "Đang bật gia hạn tự động" else "Đã tắt gia hạn"}", style = MaterialTheme.typography.labelMedium, color = TroOiMuted)
-                    }
-                    Surface(shape = CircleShape, color = TroOiGreen, modifier = Modifier.size(34.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.ChevronRight, null, tint = Color.White) }
-                    }
                 }
             }
         }
@@ -428,7 +408,7 @@ fun LandlordTicketsScreen(state: TroOiUiState, onComplete: (String) -> Unit) {
 }
 
 @Composable
-fun LandlordProfileScreen(state: TroOiUiState, onSubscription: () -> Unit, onOpenDiscovery: () -> Unit, onLogout: () -> Unit) {
+fun LandlordProfileScreen(state: TroOiUiState, onOpenDiscovery: () -> Unit, onLogout: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Hệ thống Chủ Trọ", style = MaterialTheme.typography.headlineMedium) }
         item {
@@ -440,15 +420,13 @@ fun LandlordProfileScreen(state: TroOiUiState, onSubscription: () -> Unit, onOpe
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(state.displayName.ifBlank { "Chủ trọ TrọƠi" }, style = MaterialTheme.typography.titleLarge)
-                        StatusPill(if (state.subscription.plan == SubscriptionPlan.FREE) "Free" else "Plus · ${subscriptionCapacity(state.subscription)} phòng", StatusKind.SUCCESS)
+                        Text("Không gian vận hành", style = MaterialTheme.typography.labelMedium, color = TroOiMuted)
                     }
                 }
             }
         }
-        item { LandlordProfileRow(Icons.Rounded.Payments, "Gói & thanh toán", "Quản lý subscription, capacity và billing", onSubscription) }
         item { LandlordProfileRow(Icons.Rounded.Build, "Quản lý sự cố", "Ticket, SLA và phân công xử lý", {}) }
         item { LandlordProfileRow(Icons.Rounded.Apartment, "Cấu hình tòa nhà & phòng", "Thông tin vận hành và hồ sơ phòng", {}) }
-        item { LandlordProfileRow(Icons.Rounded.Cloud, "Đồng bộ Cloud Backup", "Dữ liệu được đồng bộ qua backend", {}) }
         item { PrimaryButton("Tìm phòng", onOpenDiscovery, Modifier.fillMaxWidth()) }
         item {
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(15.dp), border = BorderStroke(1.dp, TroOiRed)) {
@@ -477,113 +455,4 @@ private fun LandlordProfileRow(icon: androidx.compose.ui.graphics.vector.ImageVe
     }
 }
 
-@Composable
-fun LandlordSubscriptionScreen(state: TroOiUiState, onBack: () -> Unit, onActivatePlus: () -> Unit) {
-    BackHandler(onBack = onBack)
-    val sub = state.subscription
-    val capacity = subscriptionCapacity(sub)
-    val usage = if (capacity == 0) 0f else (state.rooms.size.toFloat() / capacity).coerceIn(0f, 1f)
-    val label = when (sub.plan) {
-        SubscriptionPlan.FREE -> "Free"
-        SubscriptionPlan.TRIAL -> "Plus"
-        SubscriptionPlan.PLUS -> "Plus"
-    }
-
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircleIconButton(Icons.Rounded.ArrowBack, "Quay lại", onBack)
-                Spacer(Modifier.width(10.dp))
-                Text("Gói & thanh toán", style = MaterialTheme.typography.headlineMedium)
-            }
-        }
-        item {
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(TroOiSlate).padding(15.dp)) {
-                Row {
-                    Column(Modifier.weight(1f)) {
-                        Text("GÓI HIỆN TẠI", style = MaterialTheme.typography.labelMedium, color = Color(0xFFA7CBB7))
-                        Text(label, style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                        Text(when (sub.plan) {
-                            SubscriptionPlan.TRIAL -> "Đang dùng thử Plus · hết hạn ${sub.trialExpiry}"
-                            SubscriptionPlan.PLUS -> "Đang active · hết hạn ${sub.plusExpiry}"
-                            SubscriptionPlan.FREE -> "Gói miễn phí"
-                        }, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f))
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(if (sub.plan == SubscriptionPlan.TRIAL) "0đ" else if (sub.plan == SubscriptionPlan.PLUS) "5.988.000đ" else "Miễn phí", style = MaterialTheme.typography.titleLarge, color = Color(0xFF86EFAC))
-                        Text(if (sub.plan == SubscriptionPlan.PLUS) "/ năm" else "", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = .68f))
-                    }
-                }
-            }
-        }
-        item {
-            TroOiCard(Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Phòng đã tạo trong hệ thống", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Text("${state.rooms.size}/$capacity", style = MaterialTheme.typography.titleLarge)
-                }
-                Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(progress = usage, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(999.dp)), color = TroOiGreen, trackColor = TroOiGreenSoft)
-                Spacer(Modifier.height(6.dp))
-                Text("${sub.addBlocks} Add block · còn ${(capacity - state.rooms.size).coerceAtLeast(0)} chỗ trống", style = MaterialTheme.typography.labelMedium, color = TroOiMuted)
-            }
-        }
-        item { SectionTitle("Gói subscription") }
-        item {
-            PlanCard("Free", "Miễn phí · 3 phòng", listOf("Hồ sơ phòng cơ bản", "Quản lý tối đa 3 phòng", "Giới hạn tính năng vận hành"), current = sub.plan == SubscriptionPlan.FREE)
-        }
-        item {
-            PlanCard("Plus", "5.988.000đ / năm", listOf("10 phòng cơ bản", "Công nợ, biên nhận, ticket", "Dashboard, import và vận hành"), current = sub.plan != SubscriptionPlan.FREE)
-            if (sub.plan != SubscriptionPlan.PLUS) {
-                Spacer(Modifier.height(8.dp))
-                PrimaryButton("Đăng ký Plus (debug)", onActivatePlus, Modifier.fillMaxWidth())
-            }
-        }
-        item {
-            TroOiCard(Modifier.fillMaxWidth()) {
-                Text("Add block", style = MaterialTheme.typography.titleMedium)
-                Text("+5 phòng / block · chỉ mở khi Plus active", style = MaterialTheme.typography.bodyMedium, color = TroOiMuted)
-                Spacer(Modifier.height(8.dp))
-                StatusPill(if (sub.plan == SubscriptionPlan.PLUS) "${sub.addBlocks} đang dùng" else "Cần Plus active", if (sub.plan == SubscriptionPlan.PLUS) StatusKind.WARNING else StatusKind.NEUTRAL)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlanCard(title: String, price: String, features: List<String>, current: Boolean) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = if (current) Color(0xFFFBFFFC) else Color.White,
-        border = BorderStroke(if (current) 2.dp else 1.dp, if (current) TroOiGreen else TroOiLine),
-    ) {
-        Column(Modifier.padding(13.dp)) {
-            Row {
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(title, style = MaterialTheme.typography.titleMedium)
-                        if (current) { Spacer(Modifier.width(8.dp)); StatusPill("Đang dùng", StatusKind.SUCCESS) }
-                    }
-                    Text("Gói dành cho chủ trọ/operator", style = MaterialTheme.typography.labelMedium, color = TroOiMuted)
-                }
-                Text(price, style = MaterialTheme.typography.labelLarge, color = TroOiGreen)
-            }
-            Spacer(Modifier.height(10.dp))
-            features.forEach { feature ->
-                Row(Modifier.padding(vertical = 3.dp)) {
-                    Icon(Icons.Rounded.Check, null, tint = TroOiGreen, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(feature, style = MaterialTheme.typography.bodyMedium, color = TroOiMuted)
-                }
-            }
-        }
-    }
-}
-
 private fun roomCode(roomId: Int): String = "P.${100 + roomId}"
-private fun subscriptionCapacity(subscription: SubscriptionUi): Int = when (subscription.plan) {
-    SubscriptionPlan.FREE -> 3
-    SubscriptionPlan.TRIAL -> 10
-    SubscriptionPlan.PLUS -> 10 + subscription.addBlocks * 5
-}

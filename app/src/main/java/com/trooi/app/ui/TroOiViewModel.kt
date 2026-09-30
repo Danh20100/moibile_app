@@ -10,7 +10,6 @@ import com.trooi.app.core.model.ChatMessageUi
 import com.trooi.app.core.model.ConversationUi
 import com.trooi.app.core.model.LandlordTab
 import com.trooi.app.core.model.MessageFrom
-import com.trooi.app.core.model.SubscriptionPlan
 import com.trooi.app.core.model.TenantTab
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.model.AccessCapabilities
@@ -115,7 +114,6 @@ class TroOiViewModel @Inject constructor(
     }
     fun openRoom(roomId: Int) = updatePage(AppPage.TenantRoomDetail(roomId))
     fun openChat(conversationId: Long) = updatePage(AppPage.TenantChat(conversationId))
-    fun openSubscription() = updatePage(AppPage.LandlordSubscription)
 
     fun goBack() = _state.update { current ->
         current.copy(
@@ -125,7 +123,6 @@ class TroOiViewModel @Inject constructor(
                 AppPage.AuthSignUp -> AppPage.AuthWelcome
                 is AppPage.TenantRoomDetail -> AppPage.Tenant(TenantTab.HOME)
                 is AppPage.TenantChat -> AppPage.Tenant(TenantTab.MESSAGES)
-                AppPage.LandlordSubscription -> AppPage.Landlord(LandlordTab.PROFILE)
                 else -> current.page
             },
         )
@@ -186,13 +183,7 @@ class TroOiViewModel @Inject constructor(
     fun confirmBooking(bookingId: Long) = updateBookingStatus(bookingId, BookingStatus.CONFIRMED)
     fun cancelBooking(bookingId: Long) = updateBookingStatus(bookingId, BookingStatus.CANCELLED)
 
-    fun completeTicket(ticketId: String) = _state.update { current ->
-        current.copy(tickets = current.tickets.map { if (it.id == ticketId) it.copy(status = "Hoàn tất") else it })
-    }
-
-    fun activatePlus() = _state.update { current ->
-        current.copy(subscription = current.subscription.copy(plan = SubscriptionPlan.PLUS))
-    }
+    fun completeTicket(ticketId: String) = showMessage("Cập nhật sự cố cần xác nhận từ Backend; chưa khả dụng.")
 
     fun clearSnackbar() = _state.update { it.copy(snackbarMessage = null) }
 

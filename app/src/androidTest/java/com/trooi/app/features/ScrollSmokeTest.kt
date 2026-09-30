@@ -42,7 +42,7 @@ class ScrollSmokeTest {
     fun landlordDashboardScrollsWithoutDuplicateItemKeys() {
         compose.setContent {
             TroOiTheme {
-                LandlordDashboardScreen(state, {}, {}, {}, {})
+                LandlordDashboardScreen(state, {}, {}, {})
             }
         }
         scrollRepeatedly("landlord-dashboard-list")
