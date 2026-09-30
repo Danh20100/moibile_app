@@ -1,40 +1,39 @@
-# ERD — Database Contract v1
+# ERD của Database Contract v1
 
-ERD của database release `v1` được chia theo ba mức abstraction. Ba file này mô tả cùng một domain từ khái niệm → logic → physical contract, không phải ba release khác nhau.
+Ba file ERD trong thư mục này là **ba cách nhìn cùng một domain ở mức chi tiết khác nhau**, không phải ba release riêng.
 
-## Ba mức ERD
+## Ba mức
 
-- [`conceptual.json`](conceptual.json) — business concepts và quan hệ cấp cao.
-- [`logical.json`](logical.json) — entity/attribute/cardinality/constraint ở mức logic chuẩn hóa.
-- [`physical.json`](physical.json) — PostgreSQL/PostGIS physical contract dùng để derive/validate SQL.
-
-## Authority order
+- [`conceptual.json`](conceptual.json) — trả lời “hệ thống có những khái niệm nghiệp vụ nào và chúng liên quan với nhau ra sao?”.
+- [`logical.json`](logical.json) — đi sâu hơn vào entity, attribute, cardinality và constraint logic.
+- [`physical.json`](physical.json) — mô tả cách contract được thể hiện trên PostgreSQL/PostGIS.
 
 ```mermaid
 flowchart TD
-    C["../canonical.md"]
-    C --> E1["conceptual.json"]
-    E1 --> E2["logical.json"]
-    E2 --> E3["physical.json"]
-    E3 --> SQL["../schema/trooi-schema-20260927T153946Z.sql"]
+    C["../canonical.md"] --> E1["Conceptual"]
+    E1 --> E2["Logical"]
+    E2 --> E3["Physical"]
+    E3 --> SQL["../schema/*.sql"]
 ```
 
-Nếu artifact thấp hơn mâu thuẫn với artifact cao hơn, phải sửa artifact thấp hơn.
+Mỗi mức phía dưới phải giữ đúng meaning của mức phía trên.
 
-## Cách dùng theo layer
+## Frontend có cần đọc ERD không?
 
-**Frontend**
+Frontend có thể đọc để hiểu thêm hệ thống, nhưng **không dùng ERD để tự tạo API model hoặc lifecycle**. Khi làm feature, ưu tiên:
 
-Không dùng ERD để tự quyết business lifecycle hoặc tự tạo API model. Frontend đọc [`../../../contexts/product-domain.md`](../../../contexts/product-domain.md) và API contract của Backend.
+- [`../../../contexts/product-domain.md`](../../../contexts/product-domain.md)
+- backlog feature tương ứng;
+- API contract Backend expose.
 
-**Backend**
+## Backend dùng ERD thế nào?
 
-Dùng Canonical/domain contract để quyết định business rule, sau đó dùng persistence contract/repository boundary để làm việc với dữ liệu. Không để table shape tự định nghĩa business semantics.
+Backend lấy business rule từ Canonical/domain contract rồi dùng persistence contract để đọc/ghi dữ liệu. Table shape không tự quyết business semantics.
 
-**Database**
+## Database dùng ERD thế nào?
 
-Dùng chuỗi Conceptual → Logical → Physical → SQL để bảo toàn cardinality, constraint, type, index và transaction integrity đã freeze.
+Database dùng chuỗi Conceptual → Logical → Physical → SQL để giữ đúng cardinality, type, constraint, index và các ràng buộc đã freeze.
 
-## Versioning
+## Nhắc lại về version
 
-`v1` là database contract release. `conceptual`, `logical`, `physical` là ERD abstraction level bên trong release đó.
+`v1` là version của database contract. `conceptual`, `logical`, `physical` chỉ là level bên trong `v1`.

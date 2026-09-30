@@ -1,60 +1,62 @@
-# Tài liệu Database TrọƠi
+# Database TrọƠi
 
-Thư mục này chứa các **database contract release được version hóa chính thức** của TrọƠi.
-
-Database contract là authority cho cấu trúc dữ liệu, quan hệ, invariant persistence và schema thực thi. Frontend **không đọc/ghi Database trực tiếp**; Frontend đi qua API contract của Backend. Backend dùng persistence contract/repository để làm việc với Database.
+`docs/database/` chứa các **database contract đã được version hóa**. Nếu bạn chỉ muốn hiểu project, hãy bắt đầu từ [`../contexts/`](../contexts/). Nếu bạn cần biết dữ liệu, quan hệ và ràng buộc chính xác phải như thế nào, đây là nơi cần đọc.
 
 ## Release hiện tại
 
-**Current release: `v1`**
+**Database contract hiện tại: [`v1/`](v1/)**
 
-Đọc authority database hiện tại theo thứ tự:
+Đọc theo thứ tự:
 
-1. [`v1/canonical.md`](v1/canonical.md) — product/domain rules và boundary `CURRENT / OPEN / FUTURE`.
-2. [`v1/erd/conceptual.json`](v1/erd/conceptual.json) — mô hình khái niệm.
-3. [`v1/erd/logical.json`](v1/erd/logical.json) — mô hình logic/quan hệ chuẩn hóa.
-4. [`v1/erd/physical.json`](v1/erd/physical.json) — physical contract PostgreSQL/PostGIS.
+1. [`v1/canonical.md`](v1/canonical.md) — nghiệp vụ, lifecycle, cardinality và các mục `FROZEN / OPEN / FUTURE`.
+2. [`v1/erd/conceptual.json`](v1/erd/conceptual.json) — các khái niệm và quan hệ chính.
+3. [`v1/erd/logical.json`](v1/erd/logical.json) — mô hình logic chi tiết hơn.
+4. [`v1/erd/physical.json`](v1/erd/physical.json) — cách contract được thể hiện trên PostgreSQL/PostGIS.
 5. [`v1/schema/trooi-schema-20260927T153946Z.sql`](v1/schema/trooi-schema-20260927T153946Z.sql) — SQL snapshot đã freeze.
 
-[`v1/implementation-history.md`](v1/implementation-history.md) ghi lịch sử implement và verification evidence. Đây là provenance, **không có authority cao hơn contract chain phía trên**.
+[`v1/implementation-history.md`](v1/implementation-history.md) ghi lại quá trình xây database baseline và evidence đã từng chạy. Nó giúp biết **đã làm gì**, nhưng không có quyền thay đổi Canonical/ERD/SQL contract.
 
-## Database nằm ở đâu trong toàn hệ thống?
+## Database nối với Frontend và Backend thế nào?
 
 ```mermaid
 flowchart LR
-    FE["Frontend"] --> API["API Contract"]
-    API --> BE["Backend Domain / Application"]
-    BE --> PC["Persistence Contract"]
-    PC --> DB["Database Contract v1"]
-    DB --> BE
-    BE --> API
-    API --> FE
+    FE["Frontend"] -->|"API request"| BE["Backend"]
+    BE -->|"persistence"| DB[("PostgreSQL + PostGIS")]
+    DB --> BE --> FE
 ```
-## Quy tắc version
 
-Các thư mục `v1`, `v2`, ... là **database contract release**, không phải level ERD và không phải sprint implementation.
+- Frontend không đọc/ghi Database trực tiếp.
+- Backend kiểm tra nghiệp vụ và điều phối thao tác.
+- Database lưu dữ liệu và bảo vệ integrity/transaction/concurrency constraint.
 
-Khi có release mới:
+Khi **hệ thống chạy**, request đi từ Frontend → Backend → Database.
 
-- cập nhật README này để trỏ tới release hiện hành;
-- giữ release cũ tại chỗ để bảo toàn lịch sử contract;
-- không tạo thêm `current/` hoặc `latest/` làm authority song song.
+Khi **thiết kế hoặc sửa contract**, implementation phải tuân theo chuỗi Canonical → ERD → SQL. Đừng hiểu ngược hai chiều này.
 
-## Ranh giới archive
+## Version `v1`, `v2` có nghĩa gì?
 
-Tài liệu obsolete/pre-versioned cấp repository nằm dưới [`../archives/`](../archives/). Các database release chính thức đã version hóa không được chuyển vào archive chỉ vì có release mới hơn.
+Đó là version của **database contract release**, không phải level ERD.
 
-Canonical v3.6 trước thời điểm version hóa hiện được giữ tại `docs/archives/database/pre-versioned/canonical-v3.6.md`.
+Bên trong mỗi release vẫn có ba mức:
 
-## Tech stack
+```text
+Conceptual
+→ Logical
+→ Physical
+→ SQL
+```
 
-Tech stack là system context, không phải database contract. Xem [`../contexts/tech-stack.md`](../contexts/tech-stack.md) để biết công nghệ nào `IMPLEMENTED`, `PLANNED` hoặc `FUTURE`.
+Khi có `v2`, `v1` vẫn được giữ lại để biết contract cũ từng như thế nào; không chuyển release cũ vào archive chỉ vì có version mới hơn.
 
-## Liên kết với context chung
+## Những gì không nằm ở đây
 
-- [`../contexts/product-domain.md`](../contexts/product-domain.md) — domain vocabulary chung.
-- [`../contexts/integration-contracts.md`](../contexts/integration-contracts.md) — ownership giữa Frontend/Backend/Database.
-- [`../contexts/layers/database.md`](../contexts/layers/database.md) — cách đọc Database trong kiến trúc hệ thống.
-- [`../contexts/source-of-truth.md`](../contexts/source-of-truth.md) — thứ tự authority và cách xử lý conflict.
+Tech stack toàn hệ thống không phải database contract. Xem [`../contexts/tech-stack.md`](../contexts/tech-stack.md).
 
-Nếu một artifact thấp hơn mâu thuẫn với authority cao hơn trong release hiện tại, phải sửa artifact thấp hơn; không làm yếu invariant đã freeze chỉ để giữ behavior cũ.
+Frontend/Backend flow cũng không nên suy ra trực tiếp từ table/column. Xem:
+
+- [`../contexts/product-domain.md`](../contexts/product-domain.md)
+- [`../contexts/integration-contracts.md`](../contexts/integration-contracts.md)
+- [`../contexts/layers/database.md`](../contexts/layers/database.md)
+- [`../contexts/source-of-truth.md`](../contexts/source-of-truth.md)
+
+Nếu một artifact thấp hơn mâu thuẫn với nguồn chuẩn phía trên, sửa artifact thấp hơn thay vì làm yếu rule đã freeze.
