@@ -7,6 +7,7 @@ import javax.inject.Inject
 /** Debug identity is preview-only; no business command reports false success. */
 class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
     override fun initialSnapshot() = TroOiSnapshot(read = DemoData.read, demoPreview = true)
+    override fun clearSession() = Unit // Preview mode never persists Google tokens.
 
     override suspend fun login(identifier: String, password: String): Result<UserSession> =
         Result.success(

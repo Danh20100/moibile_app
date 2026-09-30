@@ -16,6 +16,8 @@ data class UserSession(
 
 interface TroOiRepository {
     fun initialSnapshot(): TroOiSnapshot
+    /** Clear client-side credentials/session when user logs out. */
+    fun clearSession()
     suspend fun login(identifier: String, password: String): Result<UserSession>
     suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession>
     suspend fun requestPasswordReset(identifier: String): Result<Unit>

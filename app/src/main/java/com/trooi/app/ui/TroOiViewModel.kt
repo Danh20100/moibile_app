@@ -1,6 +1,9 @@
 package com.trooi.app.ui
 
 import androidx.lifecycle.ViewModel
+import com.trooi.app.BuildConfig
+import com.trooi.app.core.network.BackendApi
+import com.trooi.app.core.network.dto.TransportOutcome
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.core.data.TroOiRepository
 import com.trooi.app.core.model.*
@@ -18,6 +21,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class TroOiViewModel @Inject constructor(
     private val repository: TroOiRepository,
+    private val backendApi: BackendApi,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
     private val _state = MutableStateFlow(
@@ -27,6 +31,19 @@ class TroOiViewModel @Inject constructor(
         ),
     )
     val state: StateFlow<TroOiUiState> = _state.asStateFlow()
+
+    /** Raw transport probe only; never maps unverified OpenAPI into business state. */
+    fun probePublicTransport() {
+        if (!BuildConfig.DEBUG || !BuildConfig.BACKEND_BACKED) return
+        viewModelScope.launch {
+            val message = when (val outcome = backendApi.getPublicListingsRaw()) {
+                is TransportOutcome.Success -> "GET /listings/public: HTTP ${outcome.status}. DTO mapping đang chờ OpenAPI GREEN."
+                is TransportOutcome.Failure -> "Không kết nối được Backend: ${outcome.kind}" +
+                    (outcome.httpStatus?.let { " (HTTP $it)" } ?: "")
+            }
+            showMessage(message)
+        }
+    }
 
     fun openLogin() = open(AppPage.AuthLogin)
     fun openSignUp() = open(AppPage.AuthSignUp)
@@ -125,8 +142,10 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
-    fun logout() = _state.update {
-        it.copy(
+    fun logout() {
+        repository.clearSession()
+        _state.update {
+            it.copy(
             isAuthenticated = false,
             displayName = "",
             access = AccessCapabilities(),
@@ -134,7 +153,8 @@ class TroOiViewModel @Inject constructor(
             page = AppPage.Discovery,
             submittingInquiry = false,
             snackbarMessage = null,
-        )
+            )
+        }
     }
 
     fun goBack() {

@@ -1,6 +1,7 @@
 package com.trooi.app.ui
 
 import android.os.SystemClock
+import com.trooi.app.BuildConfig
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
@@ -9,12 +10,14 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
+import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -64,7 +67,11 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
             },
         ) { insets ->
             Box(Modifier.fillMaxSize().padding(insets)) {
-                when (val page = state.page) {
+                if (BuildConfig.BACKEND_BACKED && state.page in setOf(
+                        AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
+                    )) {
+                    BackendAuthenticationPending(viewModel::goBack)
+                } else when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
@@ -84,7 +91,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onBack = viewModel::goBack,
                         onSubmit = viewModel::requestPasswordReset,
                     )
-                    AppPage.Discovery -> V1DiscoveryScreen(state, viewModel::openListing)
+                    AppPage.Discovery -> V1DiscoveryScreen(
+                        state, viewModel::openListing,
+                        onProbeTransport = if (BuildConfig.BACKEND_BACKED && BuildConfig.DEBUG) viewModel::probePublicTransport else null,
+                    )
                     is AppPage.ListingDetail -> V1ListingDetailScreen(
                         state, page.listingId, viewModel::goBack, viewModel::submitInquiry,
                     )
@@ -176,5 +186,16 @@ private fun V1OwnerNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
             icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
             label = { Text("Tài khoản") },
         )
+    }
+}
+
+@Composable
+private fun BackendAuthenticationPending(onBack: () -> Unit) {
+    Column(Modifier.fillMaxSize().padding(24.dp)) {
+        V1Panel("Google sign-in đang chờ Backend contract") {
+            V1Pending("Phiên bản kết nối không hỗ trợ password, đăng ký hay reset giả. " +
+                "Google Credential Manager và /identity-access/me chỉ được nối khi OpenAPI gate GREEN.")
+            V1Action("Quay về tìm phòng", onBack, modifier = Modifier.fillMaxWidth())
+        }
     }
 }

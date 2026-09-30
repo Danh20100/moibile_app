@@ -35,7 +35,7 @@ class ScrollSmokeTest {
     }
 
     @Test fun discoveryScrollDoesNotMixDraftAndPublicCards() {
-        compose.setContent { TroOiTheme { V1DiscoveryScreen(state) {} } }
+        compose.setContent { TroOiTheme { V1DiscoveryScreen(state, onOpenListing = {}) } }
         scroll("v1-discovery-list")
     }
 

@@ -24,7 +24,11 @@ import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
 
 @Composable
-fun V1DiscoveryScreen(state: TroOiUiState, onOpenListing: (String) -> Unit) {
+fun V1DiscoveryScreen(
+    state: TroOiUiState,
+    onOpenListing: (String) -> Unit,
+    onProbeTransport: (() -> Unit)? = null,
+) {
     // Do not render Room or locally invented listings: only public PUBLISHED projection.
     val listings = publicDiscoveryFeed(state.read.publicListings)
     LazyColumn(
@@ -33,6 +37,14 @@ fun V1DiscoveryScreen(state: TroOiUiState, onOpenListing: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
         item { V1PageTitle("Tìm phòng", "Khám phá tin đăng đang công khai") }
+        if (onProbeTransport != null) {
+            item {
+                V1Panel("Kiểm tra kết nối API · Backend Debug") {
+                    V1Pending("Chỉ kiểm tra HTTP, không đọc DTO production khi OpenAPI chưa GREEN.")
+                    V1Action("Kiểm tra GET /listings/public", onProbeTransport)
+                }
+            }
+        }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel("Khu vực công khai") {
