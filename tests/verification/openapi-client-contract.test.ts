@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -32,6 +33,9 @@ test('openapi: components.schemas is populated with named schemas', () => {
   const doc = loadOpenApi();
   const schemas = doc.components?.schemas;
   assert.ok(schemas, 'components.schemas must exist');
+  if (!schemas) {
+    return;
+  }
   const keys = Object.keys(schemas);
   assert.ok(keys.length >= 25, `Expected at least 25 schemas, got ${keys.length}`);
 
