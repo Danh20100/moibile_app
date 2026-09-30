@@ -14,6 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: trooi
+          POSTGRES_PASSWORD: trooi_local
+          POSTGRES_DB: trooi_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trooi -d trooi_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://trooi:trooi_local@localhost:5432/trooi_dev
+      TEST_DATABASE_URL: postgresql://trooi:trooi_local@localhost:5432/trooi_test
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,6 +63,18 @@ jobs:
 
       - name: Google identity verifier regression
         run: pnpm exec tsx --test src/integrations/google-identity/google-id-token-verifier.spec.ts
+
+      - name: Provision test database
+        run: pnpm exec tsx scripts/database/bootstrap-test-db.ts
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+
+      - name: Run database seed
+        run: pnpm db:seed
+
+      - name: Persistence migration parity
+        run: pnpm test:persistence:migration
 
       - name: Domain-contract suite (JUnit)
         id: domain_contract

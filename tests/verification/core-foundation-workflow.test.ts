@@ -32,6 +32,9 @@ const HARD_GATES: Array<[string, RegExp]> = [
     'Google identity regression',
     /run: pnpm exec tsx --test src\/integrations\/google-identity\/google-id-token-verifier\.spec\.ts/,
   ],
+  ['database migrations', /run: pnpm db:migrate\b/],
+  ['database seed', /run: pnpm db:seed\b/],
+  ['persistence migration parity', /run: pnpm test:persistence:migration\b/],
 ];
 
 test('Core Foundation hard gates exist and cannot be tolerated failures', () => {
