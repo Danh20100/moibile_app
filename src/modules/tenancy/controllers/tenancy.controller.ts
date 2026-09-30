@@ -26,17 +26,28 @@ export class TenancyController {
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyProfile[]> {
     if (roomId) {
-      if (user) {
-        await this.authz.assertCanAccessRoom(user.userId, roomId);
+      const tenancies = await this.tenancyService.findByRoomId(roomId);
+      if (!user) {
+        return tenancies;
       }
-      return this.tenancyService.findByRoomId(roomId);
+      const accessible = await Promise.all(
+        tenancies.map(async (tenancy) => {
+          try {
+            await this.authz.assertCanReadTenancy(user.userId, tenancy.id);
+            return tenancy;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return accessible.filter((tenancy): tenancy is TenancyProfile => tenancy !== null);
     }
     if (user) {
       const all = await this.tenancyService.findByRoomId();
       const accessible = await Promise.all(
         all.map(async (t) => {
           try {
-            await this.authz.assertCanAccessTenancy(user.userId, t.id);
+            await this.authz.assertCanReadTenancy(user.userId, t.id);
             return t;
           } catch {
             return null;
@@ -58,7 +69,7 @@ export class TenancyController {
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyProfile> {
     if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, id);
+      await this.authz.assertCanReadTenancy(user.userId, id);
     }
     return this.tenancyService.findById(id);
   }

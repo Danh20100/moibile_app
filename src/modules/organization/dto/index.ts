@@ -9,14 +9,6 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
-
-  @ApiPropertyOptional({
-    description: 'User ID của primary owner (nếu xác thực, server tự động lấy từ CurrentUser)',
-    example: 'user_12345',
-  })
-  @IsOptional()
-  @IsString()
-  primaryOwnerUserId?: string;
 }
 
 export class UpdateOrganizationDto {

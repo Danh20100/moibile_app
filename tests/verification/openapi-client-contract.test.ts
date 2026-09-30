@@ -6,18 +6,30 @@ import test from 'node:test';
 
 interface OpenApiDoc {
   openapi: string;
-  paths: Record<string, Record<string, {
-    summary?: string;
-    security?: Array<Record<string, string[]>>;
-    requestBody?: {
-      content?: Record<string, { schema?: { $ref?: string; type?: string } }>;
-    };
-    responses?: Record<string, {
-      content?: Record<string, {
-        schema?: { $ref?: string; type?: string; items?: { $ref?: string } };
-      }>;
-    }>;
-  }>>;
+  paths: Record<
+    string,
+    Record<
+      string,
+      {
+        summary?: string;
+        security?: Array<Record<string, string[]>>;
+        requestBody?: {
+          content?: Record<string, { schema?: { $ref?: string; type?: string } }>;
+        };
+        responses?: Record<
+          string,
+          {
+            content?: Record<
+              string,
+              {
+                schema?: { $ref?: string; type?: string; items?: { $ref?: string } };
+              }
+            >;
+          }
+        >;
+      }
+    >
+  >;
   components?: {
     securitySchemes?: Record<string, unknown>;
     schemas?: Record<string, unknown>;
@@ -68,6 +80,19 @@ test('openapi: components.schemas is populated with named schemas', () => {
   for (const schemaName of requiredSchemas) {
     assert.ok(schemas[schemaName], `Missing schema: ${schemaName}`);
   }
+
+  const createOrganization = schemas.CreateOrganizationDto as {
+    properties?: Record<string, unknown>;
+  };
+  assert.ok(createOrganization?.properties?.name, 'CreateOrganizationDto must expose name');
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(
+      createOrganization?.properties ?? {},
+      'primaryOwnerUserId',
+    ),
+    false,
+    'CreateOrganizationDto must not accept client-supplied owner authority',
+  );
 });
 
 test('openapi: bearer security schemes defined and applied to protected operations', () => {
@@ -104,8 +129,7 @@ test('openapi: bearer security schemes defined and applied to protected operatio
     const op = doc.paths[path]?.[method];
     assert.ok(op, `Path ${method.toUpperCase()} ${path} must exist`);
     assert.ok(
-      Array.isArray(op.security) &&
-        op.security.some((s) => 'bearer' in s),
+      Array.isArray(op.security) && op.security.some((s) => 'bearer' in s),
       `Protected endpoint ${method.toUpperCase()} ${path} must have bearer security`,
     );
   }

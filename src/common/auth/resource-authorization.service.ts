@@ -134,6 +134,29 @@ export class ResourceAuthorizationService {
     return participants.some((p) => p.userId === userId && p.leftAt === null);
   }
 
+  async hasParticipantHistoryInTenancy(userId: string, tenancyId: string): Promise<boolean> {
+    const participants = await this.transactions.run(({ repositories }) =>
+      repositories.tenancy.findParticipantsByTenancy(tenancyId),
+    );
+    return participants.some((p) => p.userId === userId);
+  }
+
+  async assertCanReadTenancy(userId: string, tenancyId: string): Promise<TenancyRecord> {
+    const tenancy = await this.transactions.run(({ repositories }) =>
+      repositories.tenancy.findTenancy(tenancyId),
+    );
+    if (!tenancy) {
+      throw new NotFoundException(`Tenancy not found: ${tenancyId}`);
+    }
+    if (await this.isOperatorOfRoom(userId, tenancy.roomId)) {
+      return tenancy;
+    }
+    if (await this.hasParticipantHistoryInTenancy(userId, tenancyId)) {
+      return tenancy;
+    }
+    throw new ForbiddenException('You do not have permission to read this tenancy');
+  }
+
   async assertCanAccessTenancy(userId: string, tenancyId: string): Promise<TenancyRecord> {
     const tenancy = await this.transactions.run(({ repositories }) =>
       repositories.tenancy.findTenancy(tenancyId),
@@ -181,7 +204,7 @@ export class ResourceAuthorizationService {
     if (!cycle) {
       throw new NotFoundException(`Không tìm thấy chu kỳ thanh toán với ID: ${billingCycleId}`);
     }
-    await this.assertCanAccessTenancy(userId, cycle.tenancyId);
+    await this.assertCanReadTenancy(userId, cycle.tenancyId);
     return cycle;
   }
 
@@ -192,7 +215,7 @@ export class ResourceAuthorizationService {
     if (!payment) {
       throw new NotFoundException(`Không tìm thấy thanh toán với ID: ${paymentId}`);
     }
-    await this.assertCanAccessTenancy(userId, payment.tenancyId);
+    await this.assertCanReadTenancy(userId, payment.tenancyId);
     return payment;
   }
 

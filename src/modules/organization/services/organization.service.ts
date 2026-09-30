@@ -5,13 +5,18 @@ import {
   type TransactionManager,
 } from '../../../persistence/ports/transaction-manager';
 import { OrganizationProfile } from '../contracts';
-import { CreateOrganizationDto, UpdateOrganizationDto } from '../dto';
+import { UpdateOrganizationDto } from '../dto';
+
+interface CreateOrganizationInput {
+  name: string;
+  primaryOwnerUserId: string;
+}
 
 @Injectable()
 export class OrganizationService {
   constructor(@Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
 
-  async create(dto: CreateOrganizationDto): Promise<OrganizationProfile> {
+  async create(dto: CreateOrganizationInput): Promise<OrganizationProfile> {
     if (!dto.primaryOwnerUserId) {
       throw new BadRequestException('primaryOwnerUserId là bắt buộc');
     }

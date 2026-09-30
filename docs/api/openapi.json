@@ -2695,11 +2695,6 @@
             "type": "string",
             "description": "Tên workspace vận hành cho thuê",
             "example": "Hệ thống nhà trọ An Cư"
-          },
-          "primaryOwnerUserId": {
-            "type": "string",
-            "description": "User ID của primary owner (nếu xác thực, server tự động lấy từ CurrentUser)",
-            "example": "user_12345"
           }
         },
         "required": [

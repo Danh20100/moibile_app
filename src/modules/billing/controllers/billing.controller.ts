@@ -53,7 +53,7 @@ export class BillingController {
   ): Promise<BillingCycle[]> {
     if (tenancyId) {
       if (user) {
-        await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
+        await this.authz.assertCanReadTenancy(user.userId, tenancyId);
       }
       return this.billingService.findByTenancyId(tenancyId);
     }
@@ -62,7 +62,7 @@ export class BillingController {
       const accessible = await Promise.all(
         all.map(async (c) => {
           try {
-            await this.authz.assertCanAccessTenancy(user.userId, c.tenancyId);
+            await this.authz.assertCanReadTenancy(user.userId, c.tenancyId);
             return c;
           } catch {
             return null;

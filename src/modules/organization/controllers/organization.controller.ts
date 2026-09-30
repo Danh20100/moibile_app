@@ -37,13 +37,12 @@ export class OrganizationController {
     @Body() dto: CreateOrganizationDto,
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<OrganizationProfile> {
-    const ownerId = user?.userId ?? dto.primaryOwnerUserId;
-    if (!ownerId) {
-      throw new UnauthorizedException('Yêu cầu xác thực người dùng');
+    if (!user) {
+      throw new UnauthorizedException('Verified principal is required');
     }
     return this.organizationService.create({
       name: dto.name,
-      primaryOwnerUserId: ownerId,
+      primaryOwnerUserId: user.userId,
     });
   }
 

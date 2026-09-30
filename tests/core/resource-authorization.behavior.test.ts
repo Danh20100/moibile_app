@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 
 import { ResourceAuthorizationService } from '../../src/common/auth/resource-authorization.service';
 import type { VerifiedPrincipal } from '../../src/modules/identity-access/contracts';
@@ -121,11 +121,21 @@ test('Resource Authorization: Organization scoping & owner binding', async () =>
 
   // User A creates an organization, attempting to set owner to user-spoofed
   const orgA = await env.orgController.create(
-    { name: 'Khu Tro User A', primaryOwnerUserId: 'user-spoofed' },
+    { name: 'Khu Tro User A', primaryOwnerUserId: 'user-spoofed' } as never,
     userA,
   );
   // Must be bound to userA.userId, ignoring client's spoofed authority
   assert.equal(orgA.primaryOwnerUserId, userA.userId);
+
+  // Protected creation must fail closed when no verified principal is present.
+  await assert.rejects(
+    () =>
+      env.orgController.create(
+        { name: 'Spoofed Workspace', primaryOwnerUserId: 'user-spoofed' } as never,
+        undefined,
+      ),
+    (err: unknown) => err instanceof UnauthorizedException,
+  );
 
   // User A lists organizations -> sees orgA
   const listA = await env.orgController.findAll(userA);
@@ -556,4 +566,104 @@ test('Resource Authorization: Incidents scoping and role boundaries', async () =
     userA,
   );
   assert.equal(updatedIncident.status, 'ACKNOWLEDGED');
+});
+
+test('Resource Authorization: former tenant keeps historical reads but loses operational writes', async () => {
+  const env = setupTestEnvironment();
+  const operator = createPrincipal('operator-history');
+  const formerTenant = createPrincipal('former-tenant');
+
+  const org = await env.orgController.create({ name: 'History Org' }, operator);
+  const property = await env.propertyController.create(
+    {
+      organizationId: org.id,
+      name: 'History Property',
+      operationalAddressText: 'History Address',
+      operationalLocation: { latitude: 10.77, longitude: 106.69 },
+      publicLocationProjection: { latitude: 10.77, longitude: 106.69 },
+    },
+    operator,
+  );
+  const room = await env.roomController.create(
+    { propertyId: property.id, nameOrLabel: 'H-01' },
+    operator,
+  );
+  const tenancy = await env.lifecycleController.createTenancy({ roomId: room.id }, operator);
+  const participant = await env.tenancySupportController.addParticipant(
+    tenancy.id,
+    {
+      userId: formerTenant.userId,
+      role: 'OCCUPANT',
+      joinedAt: '2026-01-01T00:00:00.000Z',
+    },
+    operator,
+  );
+  const terms = await env.tenancySupportController.createTerms(
+    tenancy.id,
+    {
+      version: 1,
+      rentAmount: '3000000',
+      agreedDepositRequirement: '3000000',
+      termStart: '2026-01-01',
+      termEnd: '2026-12-31',
+      billingDayOrDueDateRule: {},
+      electricityArrangement: {},
+      waterArrangement: {},
+      minimalRentalConditions: {},
+      effectiveFromCycleBoundary: '2026-01-01',
+    },
+    operator,
+  );
+  const cycle = await env.billingController.createCycle(
+    {
+      tenancyId: tenancy.id,
+      tenancyTermsId: terms.id,
+      periodStart: '2026-01-01',
+      periodEnd: '2026-01-31',
+      charges: [{ type: 'RENT', amount: '3000000.00' }],
+    },
+    operator,
+  );
+  const payment = await env.billingController.recordPayment(
+    {
+      tenancyId: tenancy.id,
+      amount: '3000000.00',
+      source: 'MANUAL_TRANSFER',
+      verification: 'USER_RECORDED',
+      confirmedAt: '2026-01-02T00:00:00.000Z',
+    },
+    operator,
+  );
+  const receipt = await env.receiptController.issue({ paymentId: payment.id }, operator);
+
+  await env.tenancySupportController.leaveOccupant(
+    tenancy.id,
+    participant.id,
+    { occurredAt: '2026-02-01T00:00:00.000Z' },
+    operator,
+  );
+
+  assert.equal((await env.tenancyController.findById(tenancy.id, formerTenant)).id, tenancy.id);
+  assert.equal(
+    (await env.tenancySupportController.listTerms(tenancy.id, formerTenant))[0].id,
+    terms.id,
+  );
+  assert.equal((await env.billingController.findCycle(cycle.id, formerTenant)).id, cycle.id);
+  assert.equal((await env.billingController.findPayment(payment.id, formerTenant)).id, payment.id);
+  assert.equal((await env.receiptController.findById(receipt.id, formerTenant)).id, receipt.id);
+
+  await assert.rejects(
+    () =>
+      env.tenancySupportController.acknowledgeTerms(
+        tenancy.id,
+        terms.id,
+        {
+          tenancyParticipantId: participant.id,
+          userId: formerTenant.userId,
+          acknowledgedAt: '2026-02-02T00:00:00.000Z',
+        },
+        formerTenant,
+      ),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
 });

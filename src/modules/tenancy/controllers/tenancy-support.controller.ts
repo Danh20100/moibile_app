@@ -143,7 +143,7 @@ export class TenancySupportController {
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyTerms[]> {
     if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
+      await this.authz.assertCanReadTenancy(user.userId, tenancyId);
     }
     return this.terms.listByTenancyId(tenancyId);
   }
@@ -159,7 +159,7 @@ export class TenancySupportController {
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyTerms> {
     if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
+      await this.authz.assertCanReadTenancy(user.userId, tenancyId);
     }
     return this.terms.findById(termsId);
   }
@@ -207,7 +207,7 @@ export class TenancySupportController {
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyNotice[]> {
     if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
+      await this.authz.assertCanReadTenancy(user.userId, tenancyId);
     }
     return this.notices.listByTenancyId(tenancyId);
   }
