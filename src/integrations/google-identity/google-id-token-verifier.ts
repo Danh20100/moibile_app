@@ -4,6 +4,7 @@ import { GoogleIdentityVerificationError } from './google-identity.errors';
 import type { GoogleIdentity, GoogleIdTokenVerifier } from './google-identity.types';
 
 export interface GoogleTokenPayload {
+  iss?: string;
   sub?: string;
   email?: string;
   email_verified?: boolean;
@@ -59,7 +60,7 @@ export class GoogleAuthIdTokenVerifier implements GoogleIdTokenVerifier {
 
     const payload = ticket.getPayload();
 
-    if (!payload?.sub || !payload.sub.trim()) {
+    if (!payload?.sub || !payload.sub.trim() || !payload.iss || !payload.iss.trim()) {
       throw new GoogleIdentityVerificationError(
         'INVALID_PAYLOAD',
         'Verified Google token does not contain a valid subject.',
@@ -67,6 +68,7 @@ export class GoogleAuthIdTokenVerifier implements GoogleIdTokenVerifier {
     }
 
     return {
+      issuer: payload.iss,
       subject: payload.sub,
       ...(payload.email !== undefined ? { email: payload.email } : {}),
       ...(payload.email_verified !== undefined ? { emailVerified: payload.email_verified } : {}),

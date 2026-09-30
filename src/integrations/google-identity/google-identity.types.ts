@@ -1,4 +1,5 @@
-﻿export interface GoogleIdentity {
+export interface GoogleIdentity {
+  issuer: string;
   subject: string;
   email?: string;
   emailVerified?: boolean;
