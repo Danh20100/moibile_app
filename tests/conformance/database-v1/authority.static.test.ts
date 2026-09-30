@@ -58,12 +58,13 @@ test('database implementation history is provenance that defers to canonical aut
   ]);
 });
 
-test('module docs defer to frozen ERD3 authority', () => {
+test('module docs defer to frozen Database v1 authority', () => {
   for (const path of moduleDocs) {
     const source = readRepoFile(path);
     assert.ok(
-      source.includes('Canonical v3.7') && source.includes('ERD3'),
-      `${path} must explicitly defer to Canonical v3.7 / ERD3`,
+      source.includes('Canonical v3.7') &&
+        (source.includes('Database v1') || source.includes('database-v1')),
+      `${path} must explicitly defer to Canonical v3.7 / Database v1`,
     );
   }
 });

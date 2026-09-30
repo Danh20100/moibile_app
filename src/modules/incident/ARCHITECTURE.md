@@ -1,6 +1,6 @@
 # incident Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Ownership
 
@@ -27,4 +27,4 @@ Open Incident blocks Room archival. Incident history does not become TrustReport
 
 ## Rebuild note
 
-The current `processing` / `need_more_information` transition map, free-form category DTO and mutable ticket-history approach are pre-ERD3 and intentionally fail conformance.
+The current `processing` / `need_more_information` transition map, free-form category DTO and mutable ticket-history approach are pre-database-v1 and intentionally fail conformance.

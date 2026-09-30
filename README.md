@@ -57,7 +57,7 @@ Implementation must not silently choose a policy through DTO defaults, guards, m
 convenience constants.
 
 Canonical items marked `[FUTURE]` are not current-core requirements. In particular,
-Subscription/Pricing/Quota and CSV/Excel import are FUTURE even if pre-ERD3 scaffolding still
+Subscription/Pricing/Quota and CSV/Excel import are FUTURE even if legacy scaffolding still
 exists in the repository.
 
 ## Backend and database runtime

@@ -1,6 +1,6 @@
 # tenancy
 
-> Authority: Canonical v3.7 / frozen ERD3 override this module and current code.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
 ## Purpose
 
@@ -35,6 +35,6 @@ Direct `ACTIVE → ENDED` is not valid.
 - no next DRAFT Tenancy while current Tenancy is `ENDING`;
 - confirmed checkout atomically performs `ENDING → ENDED` and Room → `VACANT`.
 
-## Known pre-ERD3 code drift
+## Known pre-database-v1 code drift
 
 Current code stores direct `tenantId`, embeds mutable `terms`, lacks `CANCELLED`, allows direct `ACTIVE → ENDED`, and has no participant/versioned-terms/acknowledgement/notice model.

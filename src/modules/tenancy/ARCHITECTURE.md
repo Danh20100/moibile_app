@@ -1,6 +1,6 @@
 # tenancy Architecture
 
-> Canonical v3.7 / frozen ERD3 is authoritative.
+> Canonical v3.7 / frozen Database v1 is authoritative.
 
 ## Aggregate responsibility
 
@@ -34,4 +34,4 @@ ENDING → ENDED
 
 ## Rebuild note
 
-The current direct `tenantId`, embedded terms object and old transition map are deliberately pre-ERD3 and must be replaced rather than adapted for compatibility.
+The current direct `tenantId`, embedded terms object and old transition map are deliberately pre-database-v1 and must be replaced rather than adapted for compatibility.
