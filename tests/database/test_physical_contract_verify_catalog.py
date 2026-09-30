@@ -6,7 +6,7 @@ from pathlib import Path
 from scripts.database.physical_contract_verify_catalog import expected_catalog, verify_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+CONTRACT_PATH = ROOT / "docs/database/v1/erd/physical.json"
 
 
 def load_contract():

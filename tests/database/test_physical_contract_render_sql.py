@@ -6,7 +6,7 @@ from pathlib import Path
 from scripts.database.physical_contract_render_sql import render_sql
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_PATH = ROOT / "docs/database/erd/trooi-erd-lv3-physical.json"
+CONTRACT_PATH = ROOT / "docs/database/v1/erd/physical.json"
 
 
 def load_contract():

@@ -41,7 +41,7 @@ test('initial migration matches the frozen physical catalog', async () => {
       process.env.PYTHON ?? 'python',
       [
         'scripts/database/physical_contract_verify_catalog.py',
-        'docs/database/erd/trooi-erd-lv3-physical.json',
+        'docs/database/v1/erd/physical.json',
         catalogPath,
       ],
       { cwd: process.cwd(), encoding: 'utf8' },
