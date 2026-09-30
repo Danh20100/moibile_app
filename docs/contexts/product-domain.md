@@ -1,27 +1,24 @@
-# Product Domain TrọƠi
+# Các phần nghiệp vụ của TrọƠi
 
-Tài liệu này mô tả mental model nghiệp vụ dùng chung cho Frontend, Backend và Database. Nó không thay thế canonical; khi có xung đột, authority nằm ở [`../database/v1/canonical.md`](../database/v1/canonical.md).
+Tài liệu này giúp Frontend, Backend và Database dùng cùng một cách hiểu về các khái niệm chính. Chi tiết chính thức vẫn nằm ở [`../database/v1/canonical.md`](../database/v1/canonical.md); nếu hai nơi nói khác nhau, Canonical là nguồn chuẩn.
 
-## 1. Bản đồ domain
+## 1. Bản đồ tổng thể
 
 ```mermaid
 flowchart TB
-    ID[Identity & Access]
-    ORG[Organization]
-    PROP[Property]
-    ROOM[Room]
-    DISC[Listing / Search / Inquiry]
-    TEN[Tenancy / Participant / Terms / Notice]
-    FIN[Billing / Payment / Deposit / Receipt]
-    INC[Incident / Incident Event]
-    TRUST[Review / Trust Report]
-    SIDE[Notification / Dashboard / Read Models]
+    ID["Tài khoản & quyền truy cập"]
+    ORG["Không gian vận hành"]
+    PROP["Property & Room"]
+    DISC["Listing / Search / Inquiry"]
+    TEN["Tenancy / Participant / Terms / Notice"]
+    FIN["Billing / Payment / Deposit / Receipt"]
+    INC["Incident"]
+    TRUST["Review / Trust Report"]
+    SIDE["Dashboard / Notification / History"]
 
-    ID --> ORG
-    ORG --> PROP
-    PROP --> ROOM
-    ROOM --> DISC
-    ROOM --> TEN
+    ID --> ORG --> PROP
+    PROP --> DISC
+    PROP --> TEN
     TEN --> FIN
     TEN --> INC
     TEN --> TRUST
@@ -30,68 +27,79 @@ flowchart TB
     TRUST --> SIDE
 ```
 
-## 2. Identity & workspace
+## 2. Tài khoản và không gian vận hành
 
 ### USER
-Digital identity. `USER` không có global role kiểu landlord/tenant/operator.
+
+`USER` là tài khoản số. Nó không mang một role cố định kiểu landlord/tenant/operator.
 
 ### ORGANIZATION
-Workspace vận hành thuê trọ. MVP có primary owner reference; advanced team/delegation là FUTURE.
 
-Quyền truy cập nghiệp vụ phải dựa trên ownership/resource relationship hoặc tenancy participation, không dựa vào một `User.role` toàn cục.
+`ORGANIZATION` là không gian để một chủ trọ/người vận hành quản lý các Property. Trong MVP, mỗi Organization có đúng một primary owner/operator; team/staff/delegation nâng cao để FUTURE.
 
-## 3. Property & Room
+Quyền phải dựa vào quan hệ thật với tài nguyên hoặc Tenancy, không dựa vào `User.role` toàn cục.
+
+## 3. Property và Room
 
 ### PROPERTY
-Đại diện một cơ sở/địa điểm quản lý phòng. Lifecycle hiện tại: `ACTIVE | ARCHIVED`. Property có operational location và public-location projection tách biệt.
+
+Đại diện cho một cơ sở/địa điểm quản lý phòng. Property có lifecycle `ACTIVE | ARCHIVED` và tách vị trí vận hành khỏi vị trí được phép công khai.
 
 ### ROOM
-Đơn vị thuê cụ thể. Room có hai chiều trạng thái độc lập:
 
-- `operational_state = VACANT | OCCUPIED | MAINTENANCE | INACTIVE`
-- `record_lifecycle = ACTIVE | ARCHIVED`
+Đơn vị cho thuê cụ thể. Room có hai nhóm trạng thái khác nhau:
 
-Room không sở hữu giá thuê đã thỏa thuận. Giá thuê thuộc Tenancy Terms.
+- trạng thái vận hành: `VACANT | OCCUPIED | MAINTENANCE | INACTIVE`;
+- lifecycle của bản ghi: `ACTIVE | ARCHIVED`.
+
+Giá thuê đã thỏa thuận không nằm trên Room; nó thuộc Terms của một Tenancy cụ thể.
 
 ```mermaid
 stateDiagram-v2
     [*] --> VACANT
-    VACANT --> OCCUPIED
+    VACANT --> OCCUPIED: tenancy activated
+    OCCUPIED --> VACANT: checkout confirmed
     VACANT --> MAINTENANCE
-    VACANT --> INACTIVE
     MAINTENANCE --> VACANT
+    VACANT --> INACTIVE
     MAINTENANCE --> INACTIVE
-    OCCUPIED --> VACANT: checkout
+    INACTIVE --> VACANT: reactivate
 ```
 
-## 4. Discovery
+## 4. Tìm phòng và liên hệ
 
 ### LISTING
-Public discovery projection của Room. Lifecycle chính xác:
+
+Listing là **thông tin của một Room được đưa ra cho người tìm phòng xem**. Nó phục vụ discovery, không phải hồ sơ vận hành thật của Room.
+
+Trạng thái chuẩn:
 
 `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`
 
-Publish chỉ hợp lệ khi Room đang `VACANT`, active và Property active. Một Room có tối đa một current/non-archived Listing.
+Chỉ được publish khi Property còn active, Room còn active và đang `VACANT`. Một Room có tối đa một Listing hiện hành chưa archive.
 
 ### SEARCH / MAP
-Chỉ đọc public discovery projection được cho phép. Operational location riêng tư không được tự động expose ra public search.
+
+Chỉ đọc các Listing đang `PUBLISHED` và chỉ dùng vị trí công khai đã được phép đưa ra ngoài. Địa chỉ vận hành chính xác không mặc định được expose.
 
 ### INQUIRY
-Cầu nối giữa discovery và khả năng hình thành quan hệ thuê. Inquiry không phải booking/reservation và không phải điều kiện bắt buộc để tạo Tenancy.
+
+Là nhu cầu liên hệ/quan tâm tới một Listing. Inquiry không phải booking/reservation và cũng không bắt buộc phải có trước khi tạo Tenancy.
 
 ```mermaid
 flowchart LR
-    R[Room VACANT] --> L[Listing PUBLISHED]
-    L --> S[Search / Map]
-    S --> I[Inquiry]
-    I --> T[Tenancy DRAFT]
+    R["Room VACANT"] --> L["Listing PUBLISHED"]
+    L --> S["Search / Map"]
+    S --> I["Inquiry"]
+    I -. "có thể" .-> T["Tenancy DRAFT"]
     R --> T
 ```
 
-## 5. Rental relationship
+## 5. Quan hệ thuê
 
 ### TENANCY
-Quan hệ thuê của một Room. Lifecycle hiện tại:
+
+Tenancy là một lần thuê cụ thể của một Room theo thời gian.
 
 ```mermaid
 stateDiagram-v2
@@ -103,42 +111,48 @@ stateDiagram-v2
     ENDING --> ENDED
 ```
 
-Một Room có tối đa một non-terminal Tenancy (`DRAFT | ACTIVE | ENDING`). Không được tạo draft kế tiếp khi tenancy hiện tại còn `ENDING`.
+Một Room chỉ được có tối đa một Tenancy chưa kết thúc (`DRAFT | ACTIVE | ENDING`). Khi Tenancy còn `ENDING`, chưa được tạo draft tiếp theo cho cùng Room.
 
 ### TENANCY_PARTICIPANT
-Người tham gia quan hệ thuê, tách biệt với `USER`. Participant có thể chưa có tài khoản; linkage tới USER là optional. Active tenancy có đúng một active `PRIMARY` và có thể có nhiều active `OCCUPANT`.
+
+Người thực sự tham gia Tenancy. Participant tồn tại độc lập với `USER`: một người có thể tham gia thuê dù chưa tạo tài khoản. Link sang `USER` là optional `0..1`.
+
+Tenancy đang active phải có đúng một active `PRIMARY`; có thể có thêm nhiều `OCCUPANT`.
 
 ### TENANCY_TERMS
-Điều khoản thuê theo version. Terms sở hữu rent, deposit requirement, dates, billing rules, utility rules và minimum-rental conditions. Thay đổi tài chính áp dụng từ billing boundary tiếp theo; MVP không prorate.
+
+Lưu điều khoản thuê theo từng phiên bản: giá thuê, yêu cầu cọc, thời gian thuê, rule thanh toán, điện/nước và các điều kiện tối thiểu. Khi thay đổi, tạo version mới; không ghi đè lịch sử.
 
 ### TERMS_ACKNOWLEDGEMENT / TENANCY_NOTICE
-Acknowledgement gắn với một Terms version cụ thể. Notice lưu lịch sử giao tiếp liên quan tenancy; không biến platform thành hệ thống phán quyết pháp lý.
 
-## 6. Finance
+Acknowledgement ghi nhận một participant đã xác nhận một Terms version cụ thể. Notice lưu lịch sử thông báo trong quan hệ thuê. Cả hai đều là dữ liệu ghi nhận thao tác/giao tiếp, không phải dịch vụ pháp lý.
+
+## 6. Tiền thuê, thanh toán, cọc và biên nhận
 
 ```mermaid
 flowchart TD
-    TERMS[Tenancy Terms] --> BC[Billing Cycle]
-    BC --> CH[Charge]
-    PAY[Payment] --> PA[Payment Allocation]
-    PA --> CH
-    PAY --> DPA[Deposit Payment Application]
-    DPA --> DEP[Deposit]
-    PAY --> REC[Receipt]
+    TERMS["Terms"] --> CYCLE["Billing Cycle"]
+    CYCLE --> CHARGE["Charge"]
+    PAYMENT["Payment - tiền thực nhận"] --> ALLOC["Payment Allocation"]
+    ALLOC --> CHARGE
+    PAYMENT --> DEPAPP["Deposit Application"]
+    DEPAPP --> DEP["Deposit"]
+    PAYMENT --> RECEIPT["Receipt"]
 ```
 
-- `BillingCycle` và `Charge` là nghĩa vụ phải thu.
-- Charge type hiện tại: `RENT | ELECTRICITY | WATER`.
-- `Payment` là tiền thực nhận; chỉ confirmed Payment mới tính là received money.
-- `PaymentAllocation` phân bổ Payment vào Charge.
-- `DepositPaymentApplication` dùng Payment để funding Deposit.
-- `Receipt` là bằng chứng phát hành từ Payment đủ điều kiện; Receipt không phải Payment.
-- Refund/settlement deposit là outbound movement, không phải negative Payment.
+Ba khái niệm không được trộn với nhau:
 
-## 7. Operations, trust và read surfaces
+- `Charge`: khoản phải thu;
+- `Payment`: tiền thực tế đã nhận và được xác nhận;
+- `Receipt`: bằng chứng được phát hành từ Payment đủ điều kiện.
+
+Deposit requirement nằm trong Terms; Deposit theo dõi số tiền đã giữ và quá trình settlement. Refund không phải một Payment âm.
+
+## 7. Sự cố, trust và các phần dùng để hiển thị
 
 ### INCIDENT / INCIDENT_EVENT
-Incident theo dõi vấn đề vận hành của phòng; `INCIDENT_EVENT` là lịch sử append-only.
+
+Incident theo dõi một vấn đề vận hành của Room. Mỗi thay đổi quan trọng được ghi thành `INCIDENT_EVENT` để giữ lịch sử.
 
 Lifecycle:
 
@@ -150,22 +164,22 @@ Lifecycle:
 
 `RESOLVED → CLOSED | IN_PROGRESS`
 
-`REJECTED` và `CLOSED` là terminal.
-
 ### REVIEW / TRUST_REPORT
-Review và Trust Report là domain riêng, không phải Incident. Trust Report target Listing hoặc Review; public personal rating không phải semantics hiện tại.
 
-### NOTIFICATION / DASHBOARD
-Notification là side effect/delivery. Dashboard và các read model là projection phục vụ đọc. Các surface này không được mutate source business state hoặc trở thành write authority.
+Review dựa trên lịch sử thuê đủ điều kiện. Trust Report dùng để báo vấn đề với nội dung công khai như Listing hoặc Review. Cả hai tách biệt với Incident.
 
-## 8. Cross-domain invariants quan trọng
+### DASHBOARD / NOTIFICATION / HISTORY
 
-- Room rời `VACANT` thì current Listing phải được unpublish đồng bộ.
-- Checkout phải kết thúc Tenancy và trả Room về `VACANT` trong workflow nhất quán.
-- Room archive yêu cầu `INACTIVE`, không có non-terminal Tenancy và không có open Incident.
-- Allocation/deposit application không được cross Tenancy và tổng amount không vượt Payment amount.
-- Chỉ confirmed Payment mới được dùng để tính tiền đã nhận và phát hành Receipt.
-- Incident Event là append-only history.
-- Technical audit không thay thế operational/business truth.
+Đây là các phần giúp đọc, tổng hợp hoặc gửi thông tin. Chúng được xây từ dữ liệu gốc nhưng không được tự trở thành nơi ghi business state chính.
 
-Xem [`integration-contracts.md`](integration-contracts.md) để biết invariant nào do Backend orchestration, Database constraint/transaction guard và Frontend consumption chịu trách nhiệm.
+## 8. Một số rule xuyên nhiều phần cần nhớ
+
+- Room rời `VACANT` thì Listing đang public phải được ngừng công khai trong cùng workflow.
+- Checkout phải đưa Tenancy về `ENDED` và Room về `VACANT` một cách nhất quán.
+- Room chỉ archive khi đủ điều kiện và không còn Tenancy/Incident đang chặn.
+- Allocation hoặc Deposit Application không được trỏ sang Tenancy khác Payment.
+- Chỉ confirmed Payment mới được tính là tiền đã nhận và dùng để phát hành Receipt.
+- Incident Event giữ lịch sử theo kiểu append-only.
+- Audit kỹ thuật không thay thế lịch sử nghiệp vụ.
+
+Đọc [`integration-contracts.md`](integration-contracts.md) để biết rule nào được Frontend hiển thị, Backend kiểm tra/điều phối và Database bảo vệ.

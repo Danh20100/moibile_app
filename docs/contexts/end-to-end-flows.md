@@ -1,8 +1,8 @@
-# Luồng End-to-End TrọƠi
+# Các luồng chính từ đầu đến cuối
 
-Tài liệu này mô tả các luồng đi xuyên Product → Frontend → Backend → Database. Mục đích là để ba layer hiểu cùng một business story và không tự tạo semantics khác nhau.
+Tài liệu này kể lại các luồng quan trọng theo cách người dùng nhìn thấy, rồi cho biết thao tác đó đi qua Frontend, Backend và Database như thế nào.
 
-## 1. Tìm phòng và Inquiry
+## 1. Tìm phòng và gửi nhu cầu liên hệ
 
 ```mermaid
 sequenceDiagram
@@ -12,130 +12,131 @@ sequenceDiagram
     participant DB as PostgreSQL/PostGIS
 
     U->>FE: Tìm phòng / mở bản đồ
-    FE->>BE: Query published listings
-    BE->>DB: Search public projection
-    DB-->>BE: Listing + public location
-    BE-->>FE: Search results
-    FE-->>U: Danh sách / map
-    U->>FE: Gửi Inquiry
-    FE->>BE: Create Inquiry
-    BE->>DB: Persist Inquiry
-    DB-->>BE: Saved
-    BE-->>FE: Inquiry created
+    FE->>BE: Yêu cầu danh sách phòng đang công khai
+    BE->>DB: Tìm Listing PUBLISHED theo public location
+    DB-->>BE: Kết quả phù hợp
+    BE-->>FE: Danh sách / vị trí công khai
+    FE-->>U: Hiển thị kết quả
+    U->>FE: Chọn "Tôi quan tâm / Liên hệ"
+    FE->>BE: Tạo Inquiry
+    BE->>DB: Lưu Inquiry
+    BE-->>FE: Đã ghi nhận
 ```
 
-Chỉ Listing `PUBLISHED` và public location được dùng cho discovery. Inquiry không bắt buộc để tạo Tenancy.
+Chỉ Listing `PUBLISHED` được dùng cho discovery. Inquiry giúp nối hai bên nhưng không phải booking và không bắt buộc phải có trước Tenancy.
 
-## 2. Tạo và kích hoạt Tenancy
+## 2. Tạo và kích hoạt một lần thuê
 
 ```mermaid
 sequenceDiagram
-    actor O as Operator
+    actor O as Chủ trọ / người vận hành
     participant FE as Android App
     participant BE as Backend
     participant DB as Database
 
-    O->>FE: Tạo quan hệ thuê
-    FE->>BE: Create Tenancy for Room
-    BE->>DB: Guard one non-terminal tenancy
-    DB-->>BE: Eligible
-    BE->>DB: Persist DRAFT Tenancy
-    O->>FE: Thêm Participant + Terms
-    FE->>BE: Save Participant / Terms
-    BE->>DB: Persist versioned facts
-    O->>FE: Activate Tenancy
-    FE->>BE: Activate command
-    BE->>DB: Atomic tenancy/room/listing guards
-    DB-->>BE: Commit ACTIVE + OCCUPIED + listing unavailable
-    BE-->>FE: Updated state
+    O->>FE: Tạo lượt thuê cho Room
+    FE->>BE: Create Tenancy
+    BE->>DB: Kiểm tra Room chưa có Tenancy chưa kết thúc
+    BE->>DB: Lưu DRAFT Tenancy
+    O->>FE: Thêm người tham gia + điều khoản
+    FE->>BE: Lưu Participant / Terms
+    BE->>DB: Lưu dữ liệu có lịch sử
+    O->>FE: Kích hoạt lượt thuê
+    FE->>BE: Activate Tenancy
+    BE->>DB: Transaction kiểm tra và cập nhật Tenancy + Room + Listing
+    DB-->>BE: Commit
+    BE-->>FE: Trạng thái mới
 ```
 
-## 3. Billing → Payment → Receipt
+Khi activation thành công, Tenancy mới thực sự `ACTIVE`, Room chuyển `OCCUPIED` và Listing đang public phải được xử lý nhất quán. Frontend không tự đổi ba state này trước khi Backend trả kết quả.
+
+## 3. Tạo khoản phải thu, ghi nhận thanh toán và phát hành biên nhận
 
 ```mermaid
 flowchart LR
-    TERMS[Applicable Terms version] --> BC[Billing Cycle]
-    BC --> CH[Charges]
-    USER[Record money received] --> PAY[Confirmed Payment]
-    PAY --> ALLOC[Payment Allocation]
-    ALLOC --> CH
-    PAY --> DEP[Deposit Application]
-    PAY --> REC[Receipt]
+    TERMS["Terms áp dụng"] --> CYCLE["Kỳ tính tiền"]
+    CYCLE --> CHARGE["Khoản phải thu"]
+    MONEY["Tiền đã nhận"] --> PAYMENT["Confirmed Payment"]
+    PAYMENT --> ALLOC["Phân bổ vào Charge"]
+    ALLOC --> CHARGE
+    PAYMENT --> DEP["Áp dụng vào Deposit"]
+    PAYMENT --> RECEIPT["Receipt"]
 ```
 
-Luồng này phải giữ ba khái niệm riêng: nghĩa vụ phải thu (`Charge`), tiền thực nhận (`Payment`) và bằng chứng (`Receipt`). UI không được gom chúng thành một mutable “paid status” rồi coi đó là source of truth.
+UI cần giúp người dùng phân biệt rõ: **phải thu**, **đã nhận tiền**, **cọc**, **biên nhận**. Không gom tất cả thành một nút “đã thanh toán” rồi dùng nó như dữ liệu gốc.
 
 ## 4. Báo và xử lý sự cố
 
 ```mermaid
 sequenceDiagram
-    actor T as Tenant/Participant
+    actor T as Người thuê
     participant FE as Android App
-    participant BE as Incident Module
+    participant BE as Backend
     participant DB as Database
+
     T->>FE: Báo sự cố
-    FE->>BE: Create Incident
-    BE->>DB: Persist REPORTED + event
-    BE-->>FE: Incident state
-    FE->>BE: Các command xử lý tiếp theo
-    BE->>DB: Validate transition + append IncidentEvent
-    DB-->>BE: New state/history
-    BE-->>FE: Render current state + timeline
+    FE->>BE: Tạo Incident
+    BE->>DB: Lưu Incident REPORTED + event đầu tiên
+    BE-->>FE: Trạng thái hiện tại
+    FE->>BE: Gửi thao tác xử lý tiếp theo
+    BE->>DB: Kiểm tra transition + append IncidentEvent
+    DB-->>BE: State và timeline mới
+    BE-->>FE: Dữ liệu để hiển thị
 ```
 
-`INCIDENT_EVENT` là append-only history. Notification có thể được trigger bởi sự kiện nhưng không được mutate Incident source state.
+Lịch sử sự cố không bị ghi đè. Notification có thể được gửi theo sự kiện nhưng không được tự đổi trạng thái Incident.
 
-## 5. Checkout / Move-out
+## 5. Trả phòng
 
 ```mermaid
 flowchart TD
-    A[Tenancy ACTIVE] --> B[Start ending]
-    B --> C[Tenancy ENDING]
-    C -->|Hủy move-out| A
-    C -->|Confirmed checkout| D[Atomic workflow]
-    D --> E[Tenancy ENDED]
-    D --> F[Room VACANT]
-    F --> G[Revalidate current Listing]
-    G --> H[Next rental cycle]
+    A["Tenancy ACTIVE"] --> B["Bắt đầu trả phòng"]
+    B --> C["Tenancy ENDING"]
+    C -->|"Hủy trả phòng"| A
+    C -->|"Xác nhận checkout"| D["Transaction"]
+    D --> E["Tenancy ENDED"]
+    D --> F["Room VACANT"]
+    F --> G["Kiểm tra lại Listing"]
+    G --> H["Sẵn sàng cho vòng thuê tiếp theo"]
 ```
 
-Không có direct `ACTIVE → ENDED`. Checkout là workflow phối hợp Tenancy và Room.
+`ENDING` chưa có nghĩa Room đã trống. Chỉ khi checkout được xác nhận thì Tenancy mới `ENDED` và Room mới trở về `VACANT`.
 
-## 6. Room state ↔ Listing coupling
+## 6. Room và Listing phải đi cùng nhau
 
 ```mermaid
 flowchart LR
-    RV[Room VACANT + ACTIVE] --> LP[Listing PUBLISHED]
-    LP --> D{Room rời VACANT?}
-    D -->|Có| LU[Listing UNPUBLISHED]
-    D -->|Không| LP
-    LU --> R{Room VACANT lại?}
-    R -->|Có, đủ điều kiện| LP
-    R -->|Không / retired| LA[Listing ARCHIVED]
+    R["Room VACANT + ACTIVE"] --> L["Listing PUBLISHED"]
+    L --> X{"Room rời VACANT?"}
+    X -->|"Có"| U["Listing UNPUBLISHED"]
+    X -->|"Không"| L
+    U --> V{"Room VACANT lại và đủ điều kiện?"}
+    V -->|"Có"| L
+    V -->|"Không còn dùng"| A["Listing ARCHIVED"]
 ```
 
-Frontend chỉ hiển thị state đã được trả về; Backend điều phối transition; Database bảo vệ constraint/current-listing integrity.
+Frontend chỉ hiển thị state hệ thống trả về. Backend kiểm tra/điều phối thay đổi. Database bảo vệ các ràng buộc có thể bị race.
 
-## 7. Tenant Portal và relationship-based access
+## 7. Tenant Portal và quyền dựa trên quan hệ
 
 ```mermaid
 flowchart TD
-    U[Authenticated USER] --> LINK{Có liên kết với Tenancy Participant?}
-    LINK -->|Không| DISC[Discovery capabilities]
-    LINK -->|Có| AUTH[Authorize theo relationship/resource]
-    AUTH --> PORTAL[My Rental / Terms / Deposit / Billing / Payment / Receipts / Tickets / Notices / Move-out / History]
+    U["USER đã đăng nhập"] --> L{"Có link với Tenancy Participant?"}
+    L -->|"Không"| D["Discovery / Find Rooms"]
+    L -->|"Có"| A["Kiểm tra quyền theo Tenancy"]
+    A --> P["My Rental / Terms / Deposit / Billing / Payment / Receipts / Tickets / Notices / Move-out / History"]
 ```
 
-Tenant capability không đến từ `User.role = tenant`.
+Người dùng không có quyền tenant chỉ vì một global role. Quyền đến từ Participant/Tenancy thực tế.
 
-## 8. Review / Trust Report
+## 8. Review và Trust Report
 
-Review eligibility đến từ quan hệ thuê đủ điều kiện. Trust Report target đúng một Listing hoặc Review và tách biệt với Incident. Các policy canonical còn `OPEN` không được UI/API tự chọn default.
+Review chỉ xuất hiện khi người dùng có lịch sử thuê đủ điều kiện. Trust Report dùng để báo vấn đề với Listing hoặc Review. Một report không tự động xóa nội dung; các policy còn `OPEN` vẫn phải để `OPEN`.
 
-## 9. Nguyên tắc chung cho mọi flow
+## 9. Nguyên tắc chung
 
-- Frontend gửi intent, không gửi “business truth đã quyết định sẵn”.
-- Backend validate command và sở hữu orchestration.
-- Database là nơi enforcement cuối cho invariant cần transaction/concurrency safety.
-- Response/read model quay lại Frontend để render state mới.
-- Side effect như Notification chạy theo source fact, không trở thành nguồn fact mới.
+- Frontend gửi **thao tác người dùng muốn làm**, không tự quyết kết quả nghiệp vụ.
+- Backend kiểm tra quyền/rule và điều phối những thay đổi liên quan.
+- Database là lớp bảo vệ cuối cho các ràng buộc cần transaction hoặc concurrency safety.
+- Frontend cập nhật UI từ response/state mới sau khi thao tác hoàn tất.
+- Notification và Dashboard đi theo dữ liệu gốc, không trở thành nguồn ghi nghiệp vụ mới.

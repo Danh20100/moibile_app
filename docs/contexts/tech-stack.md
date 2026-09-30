@@ -1,118 +1,94 @@
 # Tech Stack TrọƠi
 
-Tài liệu này tổng hợp stack toàn hệ thống và tách rõ **IMPLEMENTED**, **PLANNED** và **FUTURE**. Một công nghệ xuất hiện trong design doc cũ không đồng nghĩa đã được tích hợp runtime.
+File này giúp trả lời một câu hỏi thực tế: **project đã dùng công nghệ gì, cái gì mới chỉ được chọn cho hướng triển khai và cái gì để sau**.
 
-## 1. Quy ước trạng thái
+## 1. Cách đọc trạng thái
 
-- **IMPLEMENTED:** có implementation/evidence trong baseline hiện có của project.
-- **PLANNED:** đã được chọn hoặc mô tả cho kiến trúc nhưng chưa có integration/runtime đầy đủ.
-- **FUTURE:** chưa thuộc nhu cầu core hiện tại hoặc phụ thuộc capability FUTURE.
+- **IMPLEMENTED:** đã có implementation/evidence ở một baseline của project.
+- **PLANNED:** đã được chọn hoặc mô tả rõ nhưng chưa tích hợp đầy đủ.
+- **FUTURE:** chưa thuộc phần lõi hiện tại hoặc phụ thuộc feature FUTURE.
 
-## 2. System stack
+> Quan trọng: `IMPLEMENTED` không luôn đồng nghĩa file runtime đã có trên HEAD của `integration/full-stack-sync`. Trong giai đoạn đang hội tụ các lane, hãy kiểm tra đúng branch/commit trước khi kết luận.
+
+## 2. Toàn hệ thống
 
 ```mermaid
 flowchart LR
-    ANDROID[Android<br/>Kotlin + Compose]
-    API[NestJS<br/>TypeScript + REST/OpenAPI]
-    DATA[Kysely / pg<br/>Persistence Layer]
-    PG[(PostgreSQL + PostGIS)]
-    CACHE[Redis<br/>PLANNED]
-    OBJ[Object Storage / MinIO<br/>PLANNED]
-
-    ANDROID --> API
-    API --> DATA
-    DATA --> PG
-    API -.planned.-> CACHE
-    API -.planned.-> OBJ
+    ANDROID["Android\nKotlin + Compose"] --> API["NestJS\nTypeScript"]
+    API --> DATA["Persistence layer"]
+    DATA --> PG[("PostgreSQL + PostGIS")]
+    API -. "PLANNED" .-> CACHE["Redis"]
+    API -. "PLANNED" .-> OBJ["Object Storage"]
 ```
 
 ## 3. Frontend
 
 | Thành phần | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| Android native | IMPLEMENTED | Product surface chính |
+| Android native | IMPLEMENTED | Sản phẩm chính |
 | Kotlin | IMPLEMENTED | Ngôn ngữ Android |
-| Jetpack Compose / Material 3 | IMPLEMENTED | Declarative UI |
-| MVVM + Repository foundation | IMPLEMENTED | ViewModel + repository boundary đã có |
+| Jetpack Compose / Material 3 | IMPLEMENTED | UI declarative |
+| MVVM + Repository foundation | IMPLEMENTED | Boundary ViewModel/Repository đã có ở frontend baseline |
 | Hilt | IMPLEMENTED | Dependency injection |
-| Coroutines/Flow | IMPLEMENTED | Dùng cùng Android lifecycle/ViewModel stack; integration data chưa hoàn chỉnh |
-| Retrofit + OkHttp | PLANNED | Có trong frontend stack design, chưa thấy dependency runtime ở baseline app hiện tại |
-| kotlinx.serialization | PLANNED | Contract/data mapping target |
-| Room local database | PLANNED | Local structured cache/persistence; không thay server truth |
-| DataStore | PLANNED | Preferences/local small state |
+| Coroutines/Flow | IMPLEMENTED | Nền tảng async/reactive |
+| Retrofit + OkHttp | PLANNED | Chưa nên coi là production API integration hoàn chỉnh |
+| kotlinx.serialization | PLANNED | Mapping data/contract |
+| Room local database | PLANNED | Local cache/persistence, không thay server truth |
+| DataStore | PLANNED | Preferences/client state nhỏ |
 | Coil | PLANNED | Image loading/cache |
-| OpenAPI client integration | PLANNED | Frontend release hiện chưa tích hợp Backend OpenAPI |
-| Static marketing web | IMPLEMENTED foundation | `web/` riêng; không sở hữu core nghiệp vụ |
+| OpenAPI client integration | PLANNED | Cần nối với Backend contract thực tế |
+| Marketing web | IMPLEMENTED foundation | Chỉ phục vụ marketing |
 
 ## 4. Backend
 
 | Thành phần | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| TypeScript | IMPLEMENTED | Backend language |
+| TypeScript | IMPLEMENTED | Ngôn ngữ Backend |
 | NestJS | IMPLEMENTED | Modular Monolith application |
-| HTTP / REST | IMPLEMENTED | Client-server API style |
-| OpenAPI / Swagger | IMPLEMENTED backend | Swagger tooling có trong backend; frontend consumption chưa hoàn tất |
-| class-validator / class-transformer | IMPLEMENTED | DTO/input validation |
-| Google Auth Library | IMPLEMENTED integration boundary | Google identity verification support |
-| Kysely | IMPLEMENTED | Typed SQL/persistence client layer |
-| `pg` | IMPLEMENTED | PostgreSQL driver |
-| node-pg-migrate | IMPLEMENTED | Migration tooling |
-| ESLint / Prettier / TypeScript checks | IMPLEMENTED | Static verification/tooling |
+| HTTP / REST | IMPLEMENTED | Cách client gọi server |
+| OpenAPI / Swagger | IMPLEMENTED backend baseline | Frontend consumption chưa hoàn tất |
+| class-validator / class-transformer | IMPLEMENTED baseline | Validation ở API boundary |
+| Google Auth Library | IMPLEMENTED | Google identity verification boundary |
+| Kysely | IMPLEMENTED database baseline | Typed SQL/persistence |
+| `pg` | IMPLEMENTED database baseline | PostgreSQL driver |
+| node-pg-migrate | IMPLEMENTED database baseline | Migration tooling |
+| ESLint / Prettier / TypeScript checks | IMPLEMENTED | Static tooling |
 
-Backend tổ chức theo Modular Monolith. Module boundary đi theo business ownership, không theo “mỗi table một module”.
-
-## 5. Database & persistence
+## 5. Database và persistence
 
 | Thành phần | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| PostgreSQL | IMPLEMENTED | Authoritative relational persistence |
-| PostGIS | IMPLEMENTED | Spatial data/query cho Search/Map |
-| Repository ports | IMPLEMENTED | Backend persistence abstraction |
-| PostgreSQL repositories | IMPLEMENTED | Runtime adapters |
-| Transaction Manager | IMPLEMENTED | Atomic persistence boundary |
-| Transaction/concurrency guards | IMPLEMENTED | Rental, billing, finance, trust invariants |
-| Deterministic dev seed/reset | IMPLEMENTED | Development persistence workflow |
-| Redis | PLANNED | Cache/temporary state; chưa thuộc completed baseline |
-| MinIO / S3-compatible object storage | PLANNED | Binary object storage; chưa thuộc completed baseline |
+| PostgreSQL | IMPLEMENTED database baseline | Nơi lưu dữ liệu nghiệp vụ phía server |
+| PostGIS | IMPLEMENTED database baseline | Query vị trí cho Search/Map |
+| Repository ports | IMPLEMENTED database baseline | Tách application khỏi DB adapter |
+| PostgreSQL repositories | IMPLEMENTED database baseline | Runtime adapter |
+| Transaction Manager | IMPLEMENTED database baseline | Giữ nhiều thay đổi cùng transaction |
+| Transaction/concurrency guards | IMPLEMENTED database baseline | Bảo vệ các invariant dễ race |
+| Dev seed/reset | IMPLEMENTED database baseline | Workflow phát triển |
+| Redis | PLANNED | Chưa thuộc completed baseline |
+| MinIO / S3-compatible storage | PLANNED | Chưa thuộc completed baseline |
 
-```mermaid
-flowchart TB
-    APP[Backend Application]
-    PORT[Persistence Ports]
-    REPO[PostgreSQL Repositories]
-    PG[(PostgreSQL)]
-    GIS[PostGIS]
-    APP --> PORT --> REPO --> PG
-    PG --- GIS
-```
-
-## 6. Infrastructure / delivery
+## 6. Hạ tầng và delivery
 
 | Thành phần | Trạng thái | Ghi chú |
 | --- | --- | --- |
-| Docker Compose cho persistence dev | IMPLEMENTED | Backend có `compose.persistence.yml` workflow cho PostgreSQL |
-| Vercel cho marketing web | IMPLEMENTED foundation | Frontend web có Vercel configuration |
-| GitHub Actions | IMPLEMENTED | Không mặc định coi mọi branch/commit đã có CI |
-| Traefik | PLANNED | Có trong stack design cũ, chưa coi là runtime baseline |
-| Full production container topology | PLANNED | Chưa freeze trong context hiện tại |
+| Docker Compose cho persistence dev | IMPLEMENTED database baseline | PostgreSQL dev workflow |
+| Vercel cho marketing web | IMPLEMENTED foundation | Marketing deployment |
+| GitHub Actions | IMPLEMENTED | Workflow tồn tại; không suy ra mọi commit đã có CI |
+| Traefik | PLANNED | Chưa là runtime baseline hiện tại |
+| Production container topology | PLANNED | Chưa freeze |
 
-## 7. Testing / verification
+## 7. Testing và verification
 
-Backend baseline có các lớp kiểm tra: build, typecheck, lint, domain/core behavior, ERD3 conformance, persistence integration, migration parity và restart/concurrency tests. Frontend foundation có unit tests, lint/build và Android instrumentation/smoke surfaces.
+Các baseline Backend/Database đã có nhiều lớp kiểm tra như build, typecheck, lint, core behavior, ERD conformance, persistence integration, migration parity, restart và concurrency. Frontend baseline cũng có unit/build/lint/instrumentation ở mức foundation.
 
-Không được dùng một test pass ở branch cũ để tuyên bố commit hiện tại đã qua CI nếu chưa chạy/verify đúng commit đó.
+Nhưng một test từng pass ở branch cũ **không phải bằng chứng** rằng HEAD hiện tại đã pass. Khi cần claim trạng thái hiện tại, chạy hoặc đọc evidence của đúng commit.
 
-## 8. Những stack không được tự suy diễn
+## 8. Đừng suy diễn từ tên công nghệ
 
-- Redis và MinIO không được ghi như đã implemented chỉ vì chúng xuất hiện trong tài liệu tech-stack cũ.
-- OpenAPI là contract target giữa Backend và Android nhưng frontend release hiện chưa tích hợp API production hoàn chỉnh.
-- Local Room database của Android, nếu triển khai, vẫn chỉ là local persistence/cache; PostgreSQL vẫn là server business truth.
-- Technology choice không được dùng để tự đóng một policy canonical đang `OPEN`.
+- Redis/MinIO chưa được coi là đã tích hợp chỉ vì chúng từng xuất hiện trong design.
+- OpenAPI là hướng contract giữa Backend và Android, nhưng cần kiểm tra artifact/runtime của đúng branch trước khi dùng.
+- Local database trên Android chỉ là dữ liệu local/cache; PostgreSQL vẫn giữ dữ liệu nghiệp vụ phía server.
+- Một lựa chọn công nghệ không có quyền tự đóng policy Canonical đang `OPEN`.
 
-Xem [`layers/frontend.md`](layers/frontend.md), [`layers/backend.md`](layers/backend.md) và [`layers/database.md`](layers/database.md) để hiểu stack theo từng layer.
-
-## 9. Lưu ý về integration baseline
-
-`IMPLEMENTED` trong tài liệu này mô tả implementation đã có bằng chứng trong các baseline Frontend/Backend/Database đang được đồng bộ vào `integration/full-stack-sync`. Trong giai đoạn docs-first hiện tại, không được suy ra rằng mọi runtime file của các baseline đó đã được merge vào branch integration chỉ từ tài liệu này.
-
-Khi cần xác nhận một capability đã hiện diện trên HEAD đang làm việc hay chưa, kiểm tra runtime tree, tests và Git evidence của đúng HEAD đó.
+Đọc [`layers/frontend.md`](layers/frontend.md), [`layers/backend.md`](layers/backend.md) và [`layers/database.md`](layers/database.md) nếu cần nhìn stack theo từng phần.

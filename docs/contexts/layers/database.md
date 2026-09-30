@@ -1,12 +1,10 @@
 # Database Context
 
-Database layer cung cấp authoritative persistence và integrity enforcement cho TrọƠi. Tài liệu này chỉ giải thích cách sử dụng database authority; không duplicate canonical/ERD/schema.
+Database là nơi lưu dữ liệu nghiệp vụ phía server và là lớp bảo vệ cuối cho những ràng buộc có thể bị phá khi nhiều request chạy cùng lúc.
 
-## 1. Authority hiện tại
+File này chỉ giải thích cách Database tham gia hệ thống. Nguồn chuẩn thật sự nằm trong [`../../database/v1/`](../../database/v1/).
 
-Database contract release hiện tại: [`../../database/v1/`](../../database/v1/).
-
-Đọc theo thứ tự:
+## 1. Đọc Database contract theo thứ tự
 
 1. [`canonical.md`](../../database/v1/canonical.md)
 2. [`erd/conceptual.json`](../../database/v1/erd/conceptual.json)
@@ -16,89 +14,70 @@ Database contract release hiện tại: [`../../database/v1/`](../../database/v1
 
 ```mermaid
 flowchart TD
-    C[Canonical] --> CE[Conceptual ERD]
-    CE --> LE[Logical ERD]
-    LE --> PE[Physical ERD]
-    PE --> SQL[Versioned SQL Schema]
-    SQL --> RUN[Runtime migrations / repositories]
+    C["Canonical"] --> C1["Conceptual"]
+    C1 --> C2["Logical"]
+    C2 --> C3["Physical"]
+    C3 --> SQL["SQL Schema"]
+    SQL --> RUN["Runtime migrations / repositories"]
 ```
 
-## 2. Runtime persistence
-
-Baseline persistence hiện tại sử dụng PostgreSQL + PostGIS, Kysely + `pg`, `node-pg-migrate`, repository ports/adapters và PostgreSQL transaction manager.
+## 2. Database tham gia request như thế nào?
 
 ```mermaid
 flowchart LR
-    BE[Backend Service] --> PORT[Persistence Port]
-    PORT --> REPO[PostgreSQL Repository]
-    REPO --> TX[Transaction Manager]
-    TX --> PG[(PostgreSQL)]
-    PG --- GIS[PostGIS]
+    BE["Backend"] --> PORT["Persistence Port"]
+    PORT --> REPO["PostgreSQL Repository"]
+    REPO --> TX["Transaction"]
+    TX --> PG[("PostgreSQL")]
+    PG --- GIS["PostGIS"]
 ```
 
-PostGIS là extension của authoritative relational store, không phải business source of truth riêng.
+PostGIS chỉ mở rộng khả năng lưu/query vị trí; nó không tạo thêm một nguồn business state riêng.
 
-## 3. Database chịu trách nhiệm gì?
+## 3. Database phải bảo vệ gì?
 
-- durable relational persistence;
-- foreign key và relational integrity;
-- uniqueness/check constraints đã thuộc physical contract;
+- foreign key và quan hệ giữa các bản ghi;
+- unique/check constraint đã thuộc contract;
 - transaction atomicity;
-- concurrency-safe enforcement cho invariant có thể race;
-- geospatial storage/query cho Search/Map;
-- giữ lịch sử/fact theo schema đã freeze.
+- invariant dễ race khi hai request chạy cùng lúc;
+- dữ liệu vị trí và query cho Search/Map;
+- lịch sử/fact theo schema đã freeze.
 
-Database không được dùng để lén tạo product rule mới ngoài authority contract.
-
-## 4. Invariant cần enforcement mạnh
-
-Các nhóm đã có transaction/concurrency guard trong persistence baseline gồm rental, billing, finance và trust consistency.
-
-Ví dụ:
-
-- tối đa một current Listing cho Room;
-- tối đa một non-terminal Tenancy cho Room;
-- publish Listing phụ thuộc Room vacancy/Property state;
-- checkout phối hợp Tenancy và Room;
-- tổng Payment Allocation + Deposit Application không vượt Payment amount;
-- settlement Deposit không vượt funded amount;
-- consistency của Review/Claim/Acknowledgement.
+Ví dụ dễ hiểu: Backend có thể pre-check “Room này chưa có Tenancy khác”. Nhưng nếu hai request cùng chạy, chỉ pre-check là chưa đủ; transaction/constraint/lock phía Database phải ngăn cả hai cùng commit.
 
 ```mermaid
 flowchart TD
-    REQ1[Request A] --> APP[Application pre-check]
-    REQ2[Request B] --> APP
-    APP --> TX[DB Transaction / Lock / Constraint]
-    TX --> OK{Invariant còn đúng?}
-    OK -->|Có| COMMIT[Commit]
-    OK -->|Không| ROLLBACK[Reject + Rollback]
+    A["Request A"] --> PRE["Backend pre-check"]
+    B["Request B"] --> PRE
+    PRE --> TX["DB transaction / lock / constraint"]
+    TX --> OK{"Invariant còn đúng?"}
+    OK -->|"Có"| COMMIT["Commit"]
+    OK -->|"Không"| ROLLBACK["Reject + rollback"]
 ```
 
-Application pre-check không thay thế transaction-safe enforcement trong trường hợp concurrent request.
+## 4. Một số invariant cần lớp bảo vệ cuối
 
-## 5. Search/Map và location boundary
+- tối đa một Listing hiện hành cho mỗi Room;
+- tối đa một Tenancy chưa kết thúc cho mỗi Room;
+- publish Listing phải khớp trạng thái Room/Property;
+- checkout phải giữ Tenancy và Room nhất quán;
+- tổng Payment Allocation + Deposit Application không vượt Payment;
+- Deposit settlement không vượt số tiền đã giữ;
+- Review/Claim/Acknowledgement phải khớp đúng User/Participant/Tenancy.
 
-Database giữ operational location và public projection theo contract. Public Search/Map chỉ query projection được phép công khai.
+## 5. Search/Map và vị trí
 
-```mermaid
-flowchart LR
-    PRIVATE[Operational location] --> PG[(PostGIS)]
-    PUBLIC[Public location projection] --> PG
-    PG --> SEARCH[Listing Search Repository]
-    SEARCH --> API[Public API]
-```
+Database có thể lưu cả vị trí vận hành và dữ liệu vị trí được phép công khai. Public API chỉ được dùng public projection theo contract.
 
-Existence của exact location trong schema không cấp quyền expose nó ra client.
+Việc một cột tồn tại trong schema **không có nghĩa** nó được phép trả ra client.
 
 ## 6. Redis và object storage
 
-Redis và MinIO/S3-compatible storage từng được mô tả trong tech-stack cũ, nhưng không thuộc completed database implementation baseline hiện tại. Chúng phải được coi là `PLANNED` cho tới khi có implementation và verification tương ứng.
+Redis và MinIO/S3 từng xuất hiện trong hướng tech-stack, nhưng không thuộc completed database baseline hiện tại. Tiếp tục coi là `PLANNED` cho đến khi có implementation và verification tương ứng.
 
 ## 7. Provenance
 
-[`../../database/v1/implementation-history.md`](../../database/v1/implementation-history.md) ghi lại quá trình implementation/verification tới database baseline. File đó là provenance, không cao hơn contract chain.
-
-Không suy ra rằng mọi migration operation đều an toàn chỉ từ lịch sử verify tổng thể; behavior migration/rollback cụ thể phải được kiểm tra riêng trước khi sử dụng trong vận hành.
+[`../../database/v1/implementation-history.md`](../../database/v1/implementation-history.md) cho biết database baseline đã được xây và kiểm chứng qua những commit nào. Đây là lịch sử triển khai, không cao hơn Canonical/ERD/SQL contract.
 
 ## 8. Đọc tiếp
 

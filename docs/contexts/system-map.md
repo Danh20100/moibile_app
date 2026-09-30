@@ -1,131 +1,113 @@
-# System Map TrọƠi
+# Bản đồ hệ thống TrọƠi
 
-Tài liệu này cho thấy TrọƠi gồm những thành phần kỹ thuật nào, mỗi thành phần sở hữu gì và chúng kết nối với nhau ra sao.
+Tài liệu này trả lời ba câu hỏi: **project có những phần kỹ thuật nào, mỗi phần làm gì và chúng nối với nhau ở đâu**.
 
-## 1. Kiến trúc cấp cao
+## 1. Toàn cảnh
 
 ```mermaid
 flowchart LR
-    USER[Người dùng]
-    APP[Android App]
-    WEB[Landing / Marketing Web]
-    API[NestJS Backend API]
-    DOMAIN[Domain + Application Modules]
-    PORT[Persistence Ports / Transaction Guards]
-    PG[(PostgreSQL + PostGIS)]
-
-    USER --> APP
-    USER --> WEB
-    APP -->|HTTP / REST| API
-    API --> DOMAIN
-    DOMAIN --> PORT
-    PORT --> PG
+    USER["Người dùng"] --> APP["Android App"]
+    USER --> WEB["Landing / Marketing Web"]
+    APP -->|"HTTP / REST"| API["Backend API"]
+    API --> DOMAIN["Application + Domain"]
+    DOMAIN --> PORT["Persistence"]
+    PORT --> PG[("PostgreSQL + PostGIS")]
 ```
 
-Android app là product surface chính. Landing website là marketing surface và không sở hữu core business state.
+Android app là sản phẩm chính. Landing website phục vụ giới thiệu/marketing và không giữ trạng thái nghiệp vụ cốt lõi.
 
 ## 2. Frontend
 
-Frontend chịu trách nhiệm presentation và client interaction:
+Frontend lo phần người dùng nhìn thấy và thao tác:
 
-- render UI từ state;
-- nhận user intent;
+- hiển thị dữ liệu và trạng thái;
+- nhận thao tác của người dùng;
 - gọi Backend theo API contract;
-- quản lý UI state và local client state;
-- cache/local persistence khi cần nhưng không thay server business truth.
+- giữ navigation/UI state và local cache khi cần;
+- hiển thị lỗi hoặc state mới sau response.
 
-Frontend không sở hữu Listing/Tenancy lifecycle, financial truth hoặc cross-domain invariant.
+Frontend **không tự quyết** Listing/Tenancy lifecycle, số tiền đã thực nhận hay các rule xuyên nhiều domain.
 
 ```mermaid
 flowchart LR
-    UI[Jetpack Compose UI] --> VM[ViewModel]
-    VM --> REP[Repository]
-    REP --> REMOTE[Remote API]
-    REP --> LOCAL[Room / DataStore]
+    UI["Compose UI"] --> VM["ViewModel"]
+    VM --> REP["Repository"]
+    REP --> REMOTE["Backend API"]
+    REP --> LOCAL["Local cache / preferences"]
 ```
 
 ## 3. Backend
 
-Backend là boundary chính cho application/domain behavior:
+Backend là nơi kiểm tra và thực thi nghiệp vụ:
 
-- authentication/identity boundary;
-- business command validation;
-- lifecycle transitions;
-- cross-domain orchestration;
-- authorization theo resource/relationship;
-- API/OpenAPI contract;
-- transaction coordination qua persistence ports.
+- xác thực và kiểm tra quyền;
+- validate command;
+- thực hiện lifecycle transition;
+- điều phối một thao tác chạm nhiều domain;
+- expose API/OpenAPI;
+- thực hiện transaction qua lớp persistence;
+- tạo read model hoặc side effect khi cần.
 
-Backend hiện đi theo Modular Monolith: nhiều module có boundary rõ nhưng cùng một deployable application.
+Kiến trúc backend đi theo Modular Monolith: module tách theo trách nhiệm nghiệp vụ nhưng vẫn chạy trong cùng một ứng dụng.
 
 ```mermaid
 flowchart TB
-    API[Controllers / DTO / OpenAPI]
-    APP[Application Services]
-    LIFE[Rental Lifecycle Coordinator]
-    GUARD[Transaction Coordinators]
-    REPO[Repository Ports]
-
-    API --> APP
-    APP --> LIFE
-    APP --> GUARD
-    LIFE --> GUARD
-    GUARD --> REPO
+    API["Controller / API contract"] --> APP["Application Service"]
+    APP --> RULE["Domain rules"]
+    APP --> COORD["Luồng cần điều phối nhiều phần"]
+    RULE --> PORT["Persistence ports"]
+    COORD --> PORT
 ```
 
-Các module backend hiện có gồm identity-access, organization, property, room, listing, tenancy, rental-lifecycle, billing, receipt, incident, audit-trust và onboarding. `subscription` tồn tại như FUTURE scaffolding, không phải current-core authority.
+Các module đã xuất hiện trong các baseline gồm identity-access, organization, property, room, listing, tenancy, rental-lifecycle, billing, receipt, incident, audit-trust và onboarding. `subscription` chỉ là FUTURE scaffolding, không phải phần lõi hiện tại.
 
-## 4. Database & persistence
+## 4. Database và lớp persistence
 
-PostgreSQL/PostGIS là authoritative persistence platform cho dữ liệu nghiệp vụ hiện tại. Persistence layer gồm Kysely/pg client, repository implementations, transaction manager và transaction guards.
-
-Database chịu trách nhiệm:
-
-- relational/geospatial persistence;
-- foreign key, uniqueness và check integrity;
-- concurrency-safe guards cho invariant có thể race;
-- transaction atomicity;
-- query/read projection cần dữ liệu database.
+PostgreSQL/PostGIS giữ dữ liệu nghiệp vụ phía server. Backend không nên viết thẳng từ application service xuống database; thao tác đi qua persistence contract/repository và transaction boundary.
 
 ```mermaid
 flowchart LR
-    PORT[Repository Ports] --> IMPL[PostgreSQL Repositories]
-    IMPL --> TX[Transaction Manager]
-    TX --> PG[(PostgreSQL)]
-    PG --- GIS[PostGIS]
+    APP["Backend"] --> PORT["Persistence port"]
+    PORT --> REPO["PostgreSQL repository"]
+    REPO --> DB[("PostgreSQL")]
+    DB --- GIS["PostGIS"]
 ```
 
-## 5. Supporting capabilities
+Database chịu trách nhiệm giữ dữ liệu bền vững, foreign key/uniqueness/check, transaction atomicity và những ràng buộc dễ bị phá khi nhiều request chạy cùng lúc.
 
-- **Search/Map:** read surface dựa trên published Listing và public location projection; PostGIS phục vụ spatial query.
-- **Notification:** delivery side effect, không được sở hữu business state.
-- **Dashboard/read model:** denormalized projection phục vụ đọc, không phải write authority.
-- **Object storage / cache:** định hướng kỹ thuật có trong tài liệu cũ nhưng chưa thuộc baseline implemented hiện tại; xem [`tech-stack.md`](tech-stack.md).
+## 5. Luồng chạy và nguồn chuẩn là hai chuyện khác nhau
 
-## 6. Ownership giữa các layer
+Khi app chạy, request đi theo chiều Frontend → Backend → Database.
 
-| Concern | Frontend | Backend | Database |
-| --- | --- | --- | --- |
-| UI/presentation state | Sở hữu | Không | Không |
-| User intent | Thu nhận | Diễn giải/validate | Không |
-| Business lifecycle | Render | Sở hữu transition/orchestration | Persist + guard integrity |
-| API contract | Consume | Sở hữu/expose | Không |
-| Persistence contract | Không | Sở hữu port/transaction intent | Implement/enforce |
-| Relational integrity | Không | Pre-check khi hữu ích | Authoritative enforcement |
-| Public Search/Map | Render | API/query orchestration | PostGIS/query projection |
-| Dashboard | Render | Read-model orchestration | Query source |
-| Notification | Render/receive | Trigger/delivery orchestration | Persist delivery fact nếu cần |
-
-## 7. Nguyên tắc liên kết
+Khi thiết kế hoặc sửa semantics, implementation phải tuân theo nguồn chuẩn:
 
 ```mermaid
-flowchart TD
-    A[Product/domain meaning] --> B[Backend contract]
-    B --> C[OpenAPI / DTO]
-    C --> D[Frontend model + UI state]
-    B --> E[Persistence port]
-    E --> F[PostgreSQL repository]
-    F --> G[Database v1 contract]
+flowchart LR
+    CONTRACT["Database v1 / Canonical"] -. "ràng buộc" .-> PORT["Persistence contract"]
+    CONTRACT -. "ràng buộc" .-> REPO["Repository implementation"]
+    PORT --> REPO --> DB[("Database runtime")]
 ```
 
-Nếu một thay đổi vượt qua boundary giữa hai node trong sơ đồ trên, phải kiểm tra cả hai đầu contract và cập nhật context liên quan nếu mental model thay đổi.
+Đừng đọc sơ đồ runtime rồi hiểu nhầm rằng repository có quyền tự định nghĩa contract.
+
+## 6. Các capability hỗ trợ
+
+- **Search/Map:** đọc các Listing đang public và public location projection; PostGIS hỗ trợ truy vấn vị trí.
+- **Notification:** gửi thông tin sau khi business event xảy ra; không tự thay đổi business state.
+- **Dashboard:** tổng hợp dữ liệu để xem; không phải nơi ghi revenue/debt/occupancy truth.
+- **Cache/Object storage:** có trong hướng kỹ thuật nhưng phải xem trạng thái cụ thể trong [`tech-stack.md`](tech-stack.md) trước khi coi là đã tích hợp.
+
+## 7. Ai chịu trách nhiệm phần nào?
+
+| Việc | Frontend | Backend | Database |
+| --- | --- | --- | --- |
+| Hiển thị UI | Chính | — | — |
+| Nhận thao tác người dùng | Chính | Nhận/kiểm tra | — |
+| Quyết định lifecycle transition | Hiển thị theo kết quả | Chính | Giữ state + bảo vệ integrity |
+| API contract | Sử dụng | Định nghĩa/expose | — |
+| Transaction nhiều bản ghi | — | Điều phối | Bảo đảm atomicity |
+| Search/Map | Hiển thị | Điều phối query | PostGIS/query data |
+| Dashboard | Hiển thị | Tổng hợp | Cung cấp dữ liệu gốc |
+| Notification | Nhận/hiển thị | Trigger/gửi | Lưu delivery fact nếu cần |
+
+Nếu một thay đổi đi qua hai layer trở lên, kiểm tra cả hai đầu contract thay vì chỉ sửa nơi đang báo lỗi.

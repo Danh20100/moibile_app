@@ -1,98 +1,86 @@
 # Frontend Context
 
-Tài liệu này giúp developer/agent Frontend hiểu vị trí của Android app trong TrọƠi và những contract tuyệt đối không được tự suy diễn.
+File này dành cho người đang làm Android app. Mục tiêu là để mở vào và biết ngay: **Frontend được quyết định gì, phải hỏi Backend ở đâu và những business rule nào không được tự nghĩ thêm ở UI**.
 
-## 1. Vai trò
+## 1. Frontend làm gì?
 
-Android app là product surface chính. Frontend chịu trách nhiệm presentation, interaction, navigation, UI state và mapping dữ liệu từ Backend thành trải nghiệm người dùng.
+Android app chịu trách nhiệm phần người dùng nhìn thấy và thao tác:
+
+- màn hình, navigation và UI state;
+- nhận thao tác của người dùng;
+- gọi Backend;
+- map response thành dữ liệu dễ hiển thị;
+- cache/preferences/client state khi cần;
+- hiển thị loading/error/empty/success rõ ràng.
 
 ```mermaid
 flowchart LR
-    USER[User] --> UI[Compose UI]
-    UI --> VM[ViewModel]
-    VM --> REP[Repository]
-    REP --> API[Backend API]
-    REP --> LOCAL[Local storage/cache]
+    USER["User"] --> UI["Compose UI"]
+    UI --> VM["ViewModel"]
+    VM --> REP["Repository"]
+    REP --> API["Backend API"]
+    REP --> LOCAL["Local cache"]
 ```
 
-Frontend **không sở hữu** business lifecycle hoặc server source of truth.
+Frontend **không tự quyết** business lifecycle hoặc dữ liệu gốc phía server.
 
-## 2. Kiến trúc hiện tại
+## 2. Những gì Frontend có thể tự giữ
 
-Baseline frontend có:
+Frontend có thể có `UiState`, display model, navigation state, loading/error state và local cache riêng. Những model này phục vụ UI và phải map được về API/domain state chuẩn.
 
-- Android native bằng Kotlin;
-- Jetpack Compose / Material 3;
-- MVVM + Repository foundation;
-- Hilt dependency injection;
-- feature areas cho auth, landlord và tenant;
-- debug/demo repository và release repository boundary.
+Ví dụ: UI có thể hiển thị nhãn “Đang cho thuê”, nhưng không được tạo persisted Listing state `RENTED` nếu contract chuẩn chỉ có `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`.
 
-API production/OpenAPI integration chưa hoàn tất ở frontend baseline; demo/debug build không được dùng làm bằng chứng rằng Backend contract đã được tích hợp.
-
-## 3. Quy tắc state
-
-Frontend được phép có:
-
-- `UiState` riêng;
-- loading/error/empty state;
-- display model;
-- local navigation state;
-- cache/offline representation.
-
-Nhưng mọi persisted/business state phải map về contract chuẩn. Ví dụ Listing không được tự thêm `hidden` hoặc `rented` làm domain state.
-
-## 4. Feature mental map
+## 3. Nhìn project theo feature
 
 ```mermaid
 flowchart TB
-    AUTH[Auth / Identity]
-    DISC[Discovery / Search / Map / Inquiry]
-    OPS[Owner / Operator Operations]
-    RENT[My Rental / Tenancy]
-    FIN[Billing / Payment / Deposit / Receipt]
-    INC[Incident / History]
-    TRUST[Notice / Review / Trust]
+    AUTH["Đăng nhập / Identity"]
+    DISC["Tìm phòng / Listing / Inquiry"]
+    OWNER["Quản lý Property / Room"]
+    RENT["Tenancy / My Rental"]
+    FIN["Billing / Payment / Deposit / Receipt"]
+    INC["Incident / History"]
+    TRUST["Notice / Review / Trust"]
 
     AUTH --> DISC
-    AUTH --> OPS
+    AUTH --> OWNER
     AUTH --> RENT
-    OPS --> FIN
+    OWNER --> FIN
     RENT --> FIN
     RENT --> INC
     RENT --> TRUST
 ```
 
-Tenant Portal capability hiện tại bao gồm các surface quanh My Rental, Terms, Deposit, Billing, Payment, Receipts, Tickets, Notices, Move-out, History và Find Rooms, tùy relationship/authorization thực tế.
+Tenant Portal hiện gồm các capability quanh My Rental, Terms, Deposit, Billing, Payment, Receipts, Tickets, Notices, Move-out, History và Find Rooms, tùy vào quan hệ/quyền thật của User.
 
-## 5. Contract với Backend
+## 4. Khi người dùng bấm một nút nghiệp vụ
 
-Frontend phải consume API/OpenAPI thay vì tự duy trì một schema nghiệp vụ song song.
+Ví dụ người dùng bấm **Kích hoạt lượt thuê**:
 
-Khi Backend trả rejected command:
+1. Frontend gửi yêu cầu activate.
+2. Backend kiểm tra Room, Participant, Terms và các rule liên quan.
+3. Database commit thay đổi nếu mọi thứ hợp lệ.
+4. Frontend nhận state mới rồi mới cập nhật màn hình như một lần thuê đã active.
 
-- không optimistic-commit business state như đã thành công;
-- render error theo UX phù hợp;
-- refresh/reconcile state nếu cần;
-- không tự sửa lifecycle để “khớp UI”.
+Không optimistic-commit business state quan trọng trước khi server xác nhận.
 
-## 6. Local data
+## 5. Dữ liệu local
 
-Room database/DataStore/other local persistence nếu được tích hợp chỉ phục vụ cache/preferences/client state. Chúng không thay PostgreSQL server truth.
+Room database/DataStore hoặc local cache, nếu được tích hợp, chỉ phục vụ trải nghiệm client. Chúng không thay thế PostgreSQL phía server.
 
-Operational location private cũng không được render/expose chỉ vì API model từng chứa field đó; Search/Map phải dùng public projection.
+Search/Map cũng chỉ dùng vị trí công khai Backend trả về; không tự expose exact operational location chỉ vì một model cũ từng chứa field đó.
 
-## 7. Checklist trước khi làm feature Frontend
+## 6. Checklist trước khi làm một feature
 
-1. Đọc use case tương ứng trong [`../end-to-end-flows.md`](../end-to-end-flows.md).
-2. Kiểm tra domain vocabulary trong [`../product-domain.md`](../product-domain.md) và [`../glossary.md`](../glossary.md).
-3. Xác định API boundary trong [`../integration-contracts.md`](../integration-contracts.md).
-4. Kiểm tra Backend đã expose contract thật chưa; không suy từ mock/demo data.
-5. Không đưa FUTURE capability vào current UI nếu chưa được scope.
-6. Nếu cần thay API/domain semantics, phối hợp Backend/Database thay vì workaround tại client.
+1. Mở backlog feature trong [`../../backlogs/v1/`](../../backlogs/v1/).
+2. Đọc luồng tương ứng trong [`../end-to-end-flows.md`](../end-to-end-flows.md).
+3. Kiểm tra thuật ngữ trong [`../product-domain.md`](../product-domain.md) / [`../glossary.md`](../glossary.md).
+4. Xác định API cần có qua [`../integration-contracts.md`](../integration-contracts.md).
+5. Kiểm tra Backend đã expose contract thật chưa; đừng suy từ mock/demo.
+6. Nếu cần đổi business meaning, phối hợp Backend/Database thay vì workaround ở UI.
 
-## 8. Đọc tiếp
+## 7. Đọc tiếp
 
-- [`backend.md`](backend.md) — Backend xử lý intent và business rule thế nào.
-- [`database.md`](database.md) — persistence authority phía server.
-- [`../tech-stack.md`](../tech-stack.md) — trạng thái công nghệ Frontend hiện tại.
+- [`backend.md`](backend.md) — Backend xử lý thao tác người dùng ra sao.
+- [`database.md`](database.md) — dữ liệu phía server được giữ/bảo vệ thế nào.
+- [`../tech-stack.md`](../tech-stack.md) — stack và trạng thái integration hiện tại.

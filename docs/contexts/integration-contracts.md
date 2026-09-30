@@ -1,127 +1,129 @@
-# Integration Contracts
+# Cách Frontend, Backend và Database nối với nhau
 
-Tài liệu này mô tả các boundary bắt buộc giữa Frontend, Backend và Database. Nó không duplicate toàn bộ business rule; mục tiêu là chỉ rõ **ai sở hữu rule, ai consume rule và contract nào nối các layer**.
+Tài liệu này không lặp lại toàn bộ business rule. Nó chỉ trả lời: **mỗi layer chịu trách nhiệm gì và khi chuyển dữ liệu qua layer khác thì dựa vào contract nào**.
 
-## 1. Contract chain
+## 1. Có hai góc nhìn cần tách riêng
+
+### Luồng request khi hệ thống chạy
+
+```mermaid
+flowchart LR
+    FE["Frontend"] -->|"HTTP request"| API["Backend API"]
+    API --> APP["Application / Domain"]
+    APP --> PORT["Persistence"]
+    PORT --> DB[("Database")]
+    DB --> APP
+    APP --> API
+    API --> FE
+```
+
+### Chiều mà implementation phải tuân theo nguồn chuẩn
 
 ```mermaid
 flowchart TD
-    P[Product vocabulary / Use Cases]
-    D[Backend Domain Contract]
-    API[DTO + OpenAPI]
-    FE[Frontend Models / Repository / UI State]
-    PP[Persistence Ports]
-    DBI[PostgreSQL Repository]
-    DBC[Database v1 Contract]
-
-    P --> D
-    D --> API
-    API --> FE
-    D --> PP
-    PP --> DBI
-    DBI --> DBC
+    PRODUCT["Product / Canonical meaning"] --> DOMAIN["Backend domain contract"]
+    DOMAIN --> API["API / OpenAPI"]
+    API --> FE["Frontend model"]
+    PRODUCT --> DBC["Database v1 contract"]
+    DBC --> PORT["Persistence contract"]
+    PORT --> REPO["Repository implementation"]
 ```
 
-Nếu một schema/model thay đổi ở giữa chain, hai phía của boundary phải được kiểm tra cùng nhau. Không được sửa một đầu rồi để đầu còn lại tự suy đoán.
+Runtime gọi từ trên xuống database; nhưng implementation phía dưới không có quyền tự đổi meaning của contract phía trên.
 
 ## 2. Frontend ↔ Backend
 
-Backend API/OpenAPI là contract giao tiếp giữa client và server. Frontend không được tự tạo business state hoặc enum khác contract chỉ vì UI cần thuận tiện.
+Frontend gửi thao tác mà người dùng muốn thực hiện. Backend mới là nơi kiểm tra quyền, rule và quyết định thao tác có thành công hay không.
 
-Frontend có thể có `UiState`, display model hoặc local cache model riêng, nhưng phải có mapping rõ ràng tới API/domain semantics.
+Frontend có thể có `UiState`, display model, loading/error state hoặc local cache riêng. Những thứ đó phục vụ trải nghiệm người dùng và phải map rõ về API/domain state chuẩn.
 
 ```mermaid
 sequenceDiagram
-    participant UI as Compose UI
+    participant UI as UI
     participant VM as ViewModel
     participant R as Repository
     participant API as Backend API
 
-    UI->>VM: User event
-    VM->>R: Intent / request
-    R->>API: Contract request
-    API-->>R: Contract response
-    R-->>VM: Mapped data/result
-    VM-->>UI: UI State
+    UI->>VM: Người dùng thao tác
+    VM->>R: Gửi yêu cầu
+    R->>API: Request theo contract
+    API-->>R: Response
+    R-->>VM: Dữ liệu đã map
+    VM-->>UI: State để hiển thị
 ```
 
-### Không được làm
+Không nên:
 
-- Frontend tự cho phép transition mà Backend không hỗ trợ.
-- Dùng UI label làm persisted state.
-- Tự thêm field/enum “tạm” rồi coi là API contract.
-- Dựa vào demo data để suy ra business invariant.
+- cho phép transition mà Backend không hỗ trợ;
+- dùng text label trên UI làm persisted state;
+- tự thêm enum/field rồi coi đó là API contract;
+- lấy mock/demo data để suy ra business rule.
 
 ## 3. Backend ↔ Database
 
-Backend sở hữu application command, business orchestration và persistence intent. Database implementation thực thi persistence port và là enforcement cuối cho relational/concurrency invariant.
+Backend chịu trách nhiệm command và điều phối nghiệp vụ. Database chịu trách nhiệm lưu đúng fact và bảo vệ những ràng buộc cần transaction/concurrency safety.
 
-```mermaid
-flowchart LR
-    S[Application Service] --> P[Persistence Port]
-    P --> T[Transaction Manager / Coordinator]
-    T --> R[PostgreSQL Repository]
-    R --> DB[(PostgreSQL/PostGIS)]
-```
+Application pre-check vẫn hữu ích để trả lỗi dễ hiểu, nhưng không đủ cho các tình huống hai request chạy đồng thời.
 
-Application-level pre-check giúp trả lỗi rõ hơn nhưng không thay thế database guard nếu hai request đồng thời có thể phá invariant.
+Những case cần bảo vệ mạnh gồm ít nhất:
 
-Các boundary cần transaction/concurrency safety gồm ít nhất:
+- một Room chỉ có một Listing hiện hành;
+- một Room chỉ có một Tenancy chưa kết thúc;
+- publish Listing phụ thuộc trạng thái Room/Property;
+- checkout phải cập nhật Tenancy và Room cùng một workflow;
+- tổng tiền phân bổ/áp dụng không vượt Payment;
+- Deposit settlement không vượt số tiền đã giữ;
+- Review/Claim/Acknowledgement phải khớp đúng Tenancy/User/Participant.
 
-- một current Listing trên một Room;
-- một non-terminal Tenancy trên một Room;
-- Listing publish ↔ Room vacancy;
-- checkout ↔ Tenancy end + Room vacancy;
-- Payment amount cap qua allocation + deposit application;
-- Deposit settlement cap;
-- các consistency guard của Review/Claim/Acknowledgement.
+## 4. Ai làm gì trong các feature thường gặp?
 
-## 4. Ownership matrix
-
-| Concern | Frontend | Backend | Database |
+| Việc | Frontend | Backend | Database |
 | --- | --- | --- | --- |
-| Listing state display | Render | Expose state | Persist |
-| Listing transition | Request intent | **Own transition** | Enforce integrity |
-| Tenancy lifecycle | Render | **Own FSM/orchestration** | Persist + concurrency guard |
-| PRIMARY participant rule | Render/validate form | Validate command | Enforce consistency where applicable |
-| Billing/Charge | Render | Create/orchestrate | Persist authoritative facts |
-| Payment received | Display/input | Validate/orchestrate | Persist authoritative fact |
-| Receipt | Display | Issue/void behavior | Persist evidence/history |
-| Incident lifecycle | Render timeline | **Own transition** | Persist + append history |
-| Public map | Render | Shape public response | PostGIS query/public projection |
-| Notification | Receive/render | Trigger/deliver | Optional delivery persistence only |
-| Dashboard | Render | Compose read model | Query source facts |
+| Hiển thị Listing | Hiển thị state | Trả dữ liệu | Lưu state |
+| Đăng/ngừng đăng Listing | Gửi thao tác | Kiểm tra + đổi state | Bảo vệ integrity |
+| Tenancy lifecycle | Hiển thị và gửi action | Quyết định transition | Lưu + chống race |
+| PRIMARY participant | Nhập/hiển thị | Kiểm tra rule | Bảo vệ consistency |
+| Billing/Charge | Hiển thị | Tạo/điều phối | Lưu khoản phải thu |
+| Payment | Nhập/xem | Xác nhận/điều phối | Lưu tiền thực nhận |
+| Receipt | Xem/tải/chia sẻ | Phát hành/void | Lưu lịch sử bằng chứng |
+| Incident | Hiển thị timeline | Kiểm tra transition | Lưu Incident + event |
+| Search/Map | Hiển thị | Tạo response công khai | Query PostGIS/public data |
+| Notification | Nhận/hiển thị | Trigger/gửi | Lưu delivery fact nếu cần |
+| Dashboard | Hiển thị | Tổng hợp | Cung cấp dữ liệu gốc |
 
-## 5. Contract cho location và Search/Map
+## 5. Vị trí công khai và vị trí vận hành
 
-Operational location và public projection là hai concern khác nhau. Frontend Search/Map chỉ consume public projection do Backend expose; Backend query qua persistence contract; Database/PostGIS giữ dữ liệu và spatial query.
+Frontend Search/Map chỉ được nhận dữ liệu vị trí được phép công khai. Việc database có lưu địa chỉ chính xác không có nghĩa Backend được trả thẳng field đó ra public API.
 
 ```mermaid
 flowchart LR
-    OP[Operational location<br/>private] --> DB[(PostGIS)]
-    PUB[Approved public projection] --> DB
-    DB --> BE[Search Repository]
-    BE --> API[Public Search API]
-    API --> FE[Map / Search UI]
+    PRIVATE["Vị trí vận hành"] --> DB[("PostGIS")]
+    PUBLIC["Vị trí công khai"] --> DB
+    DB --> SEARCH["Search query"]
+    SEARCH --> API["Public API"]
+    API --> FE["Map / Search UI"]
 ```
 
-Không được expose exact operational location chỉ vì cột đó tồn tại trong database.
+## 6. Khi một thao tác bị từ chối
 
-## 6. Contract cho error và rejected command
+Nếu command thất bại:
 
-Rejected command phải không để lại partial mutation đã biết. Backend trả kết quả lỗi theo API contract; Database transaction rollback khi command không thể hoàn tất nhất quán; Frontend render lỗi mà không tự giả định state mới.
+- Backend trả lỗi theo API contract;
+- Database rollback phần mutation chưa hoàn tất;
+- Frontend hiển thị lỗi và không giả định business state đã đổi;
+- nếu cần, Frontend refresh state mới nhất từ server.
 
-## 7. Thay đổi contract an toàn
+## 7. Khi thay đổi một feature xuyên nhiều layer
 
-Khi thay đổi một feature xuyên layer, kiểm tra theo thứ tự:
+Kiểm tra lần lượt:
 
-1. Business meaning có thay đổi không? Nếu có, kiểm tra canonical/context authority trước.
-2. Backend domain/API contract có thay đổi không?
+1. Meaning nghiệp vụ có thay đổi không?
+2. Backend rule/API có thay đổi không?
 3. OpenAPI/DTO có thay đổi không?
-4. Frontend model/repository/UI state có cần cập nhật không?
-5. Persistence port/repository/schema có thay đổi không?
-6. Invariant có cần transaction/concurrency guard mới không?
-7. End-to-end tests và conformance tests nào phải cập nhật?
-8. Context này có còn mô tả đúng boundary mới không?
+4. Frontend mapping/UI state có thay đổi không?
+5. Persistence/schema có thay đổi không?
+6. Có invariant nào cần transaction/concurrency guard mới không?
+7. Test nào phải cập nhật?
+8. Context/backlog còn mô tả đúng flow không?
 
-Không dùng migration/schema change để lén tạo business semantics mới; cũng không dùng UI requirement để bypass domain invariant.
+Không dùng migration để lén tạo business rule mới và cũng không dùng yêu cầu UI để bỏ qua invariant đã được chốt.
