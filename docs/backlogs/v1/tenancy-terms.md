@@ -1,109 +1,67 @@
-# Tenancy Terms — Điều khoản thuê
+# Tenancy Terms — Điều khoản của một lần thuê
 
 ## 1. Mục tiêu
 
-Tenancy Terms lưu các **điều kiện thuê đã được ghi nhận theo từng version** cho một Tenancy. Khi điều khoản thay đổi, hệ thống tạo version mới thay vì ghi đè lịch sử cũ.
+Terms lưu **điều kiện thuê theo từng phiên bản**. Khi điều khoản thay đổi, hệ thống tạo version mới thay vì sửa mất lịch sử cũ.
 
-## 2. Người dùng tham gia
+Terms là nơi giữ các dữ liệu như giá thuê, yêu cầu cọc, thời gian thuê, rule kỳ thanh toán và cách tính điện/nước.
 
-- Chủ trọ / người vận hành: ghi nhận điều khoản ban đầu và các lần thay đổi sau đó.
-- Người thuê/participant: xem điều khoản áp dụng và có thể xác nhận một version cụ thể thông qua Terms Acknowledgement.
+## 2. Người dùng cần làm được gì?
 
-## 3. Điểm vào trên sản phẩm
-
-- Từ Tenancy `DRAFT` trước khi kích hoạt.
-- Từ chi tiết Tenancy khi cần xem lịch sử hoặc tạo version điều khoản mới.
-
-## 4. Hành động người dùng
+Chủ trọ/người vận hành:
 
 - **Ghi nhận điều khoản** ban đầu.
 - **Tạo phiên bản điều khoản mới** khi hai bên thay đổi thỏa thuận.
 - **Xem lịch sử điều khoản**.
-- Đi tiếp sang **Xác nhận điều khoản** cho một version cụ thể.
 
-Các action chỉ mô tả intent nghiệp vụ; Frontend không tự quyết version nào áp dụng cho billing.
+Người thuê/participant:
 
-## 5. Luồng sử dụng
+- xem version đang áp dụng;
+- xem lịch sử version;
+- đi tiếp sang **Xác nhận phiên bản điều khoản** khi cần.
 
 ```mermaid
 flowchart TD
-    A["Tenancy đã tạo"] --> B["Ghi nhận Terms v1"]
-    B --> C["Version hiện tại được áp dụng"]
-    C --> D{"Có thay đổi điều khoản?"}
+    A["Tenancy đã tạo"] --> B["Ghi Terms v1"]
+    B --> C["Version đang áp dụng"]
+    C --> D{"Có thay đổi?"}
     D -->|"Không"| C
     D -->|"Có"| E["Tạo version mới"]
-    E --> F["Giữ nguyên version cũ"]
-    F --> G["Version mới có effective boundary"]
-    G --> C
-    B --> H["Có thể xác nhận version"]
-    E --> H
+    E --> F["Giữ version cũ làm lịch sử"]
+    F --> G["Version mới áp dụng từ boundary phù hợp"]
 ```
-## 6. Frontend phải làm gì
 
-- Hiển thị version điều khoản hiện tại và lịch sử version trước đó.
-- Cho phép nhập/gửi intent tạo version mới khi người dùng có quyền.
-- Hiển thị các nhóm dữ liệu nghiệp vụ như giá thuê, cọc, ngày hiệu lực, billing/utility rule theo contract.
-- Không overwrite version cũ trên UI như thể lịch sử chưa từng tồn tại.
-- Khi version mới có hiệu lực từ billing boundary kế tiếp, UI phải phản ánh effective date do Backend trả về.
+## 3. Frontend cần làm gì?
 
-## 7. Backend phải làm gì
+- Hiển thị version hiện tại và lịch sử.
+- Cho người có quyền tạo version mới.
+- Hiển thị rõ giá thuê, cọc, ngày và rule billing/utility theo contract.
+- Không trình bày như thể version cũ bị sửa/xóa.
+- Dùng effective date/boundary do Backend trả về; không tự quyết version nào áp dụng cho một Billing Cycle.
 
-- Tạo Terms version mới thay vì destructive update version cũ.
-- Kiểm tra date ordering, monetary value và consistency với Tenancy.
-- Xác định effective boundary theo rule hiện hành.
-- Cung cấp provenance để downstream Billing biết version nào áp dụng cho cycle nào.
-- Không tự thêm proration nếu authority vẫn để FUTURE.
+## 4. Backend cần làm gì?
 
-## 8. Database phải làm gì
+- Tạo version mới thay vì destructive update.
+- Kiểm tra ngày, monetary values và quan hệ với Tenancy.
+- Xác định effective boundary đúng rule.
+- Cung cấp provenance để Billing biết cycle nào dùng Terms version nào.
+- Không tự thêm proration vì capability đó đang FUTURE.
 
-- Lưu từng Terms version như historical fact.
-- Bảo vệ quan hệ Terms ↔ Tenancy và version ordering/provenance cần thiết.
-- Giữ exact monetary/date semantics.
-- Hỗ trợ downstream Billing truy được đúng Terms version áp dụng.
-- Không mất version cũ khi version mới được tạo.
+## 5. Database cần bảo vệ gì?
 
-## 9. Luồng xuyên hệ thống
+- Lưu từng version và không làm mất version cũ.
+- Giữ quan hệ Terms ↔ Tenancy, version ordering và exact money/date semantics.
+- Cho Billing truy được Terms version đã áp dụng.
 
-```mermaid
-sequenceDiagram
-    actor O as Chủ trọ
-    participant FE as Frontend
-    participant BE as Backend
-    participant DB as Database
-    O->>FE: Chọn "Tạo phiên bản điều khoản mới"
-    FE->>BE: Gửi điều khoản + effective intent
-    BE->>BE: Kiểm tra business rule
-    BE->>DB: Lưu Terms version mới
-    DB-->>BE: Version + provenance
-    BE-->>FE: Terms hiện tại + effective boundary
-    FE-->>O: Hiển thị version mới và lịch sử cũ
-```
-## 10. Business rules
+## 6. Khi nào xem là hoàn thành?
 
-- Terms là versioned historical facts, không overwrite version cũ.
-- Rent/deposit/dates/billing/utility conditions thuộc Terms, không thuộc Room.
-- Financial change áp dụng theo effective boundary đã chốt; MVP không tự prorate.
-- Acknowledgement gắn với đúng Terms version.
+- Có thể xem version hiện tại và lịch sử.
+- Tạo version mới không sửa mất version cũ.
+- Billing có thể xác định đúng Terms version áp dụng.
 
-## 11. Phụ thuộc
-
-- Upstream: Tenancy.
-- Downstream: Terms Acknowledgement, Billing Cycle, Charge, Deposit.
-
-## 12. Tiêu chí hoàn thành
-
-**Frontend**
-- Xem được version hiện tại, lịch sử và tạo version mới theo quyền.
-
-**Backend**
-- Versioning, effective boundary và validation đúng authority.
-
-**Database**
-- Historical immutability/provenance và exact values được bảo vệ.
-
-## 13. Tài liệu liên quan
+## Tài liệu liên quan
 
 - [`tenancy.md`](tenancy.md)
 - [`terms-acknowledgement.md`](terms-acknowledgement.md)
-- [`../../contexts/product-domain.md`](../../contexts/product-domain.md)
+- [`billing.md`](billing.md)
 - [`../../database/v1/canonical.md`](../../database/v1/canonical.md)

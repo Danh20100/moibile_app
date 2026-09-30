@@ -1,103 +1,61 @@
-# Terms Acknowledgement — Xác nhận điều khoản
+# Terms Acknowledgement — Xác nhận phiên bản điều khoản
 
 ## 1. Mục tiêu
 
-Terms Acknowledgement ghi nhận việc một participant đã liên kết với `USER` **xác nhận đúng một Tenancy Terms version cụ thể**. Đây là lịch sử xác nhận thao tác, không phải dịch vụ pháp lý hay cơ chế tự động biến điều khoản thành hợp đồng pháp lý.
+Feature này ghi nhận rằng một participant đã liên kết với `USER` **xác nhận một Terms version cụ thể**.
 
-## 2. Người dùng tham gia
+Đây là lịch sử xác nhận thao tác trong sản phẩm. Nó không phải chữ ký số, dịch vụ pháp lý hay cơ chế để TrọƠi tự xác nhận hiệu lực pháp lý của điều khoản.
 
-- Người thuê/participant đã liên kết User: xem và xác nhận một Terms version.
-- Chủ trọ/người vận hành: xem trạng thái xác nhận của participant khi cần theo dõi flow thuê.
+## 2. Người dùng cần làm được gì?
 
-## 3. Điểm vào trên sản phẩm
-
-- Từ chi tiết điều khoản của Tenancy.
-- Từ Tenant Portal khi có Terms version cần xem/xác nhận.
-
-## 4. Hành động người dùng
+Người thuê/participant đã link User:
 
 - **Xem điều khoản**.
-- **Xác nhận đã xem / đồng ý ghi nhận** cho version đang hiển thị theo wording sản phẩm.
-- Xem lịch sử những version đã xác nhận trước đó.
+- **Xác nhận phiên bản điều khoản** đang hiển thị.
+- xem mình đã xác nhận version nào và thời điểm nào.
 
-Frontend phải luôn cho người dùng biết họ đang xác nhận version nào; không dùng một acknowledgement cũ để đại diện cho version mới.
+Chủ trọ/người vận hành:
 
-## 5. Luồng sử dụng
+- xem trạng thái xác nhận của participant khi cần theo dõi flow thuê.
 
 ```mermaid
 flowchart TD
-    A["Terms version có sẵn"] --> B["Participant đã link User"]
-    B --> C["Người dùng xem Terms"]
-    C --> D["Xác nhận version hiện tại"]
-    D --> E["Lưu acknowledgement"]
+    A["Terms version"] --> B["Participant đã link User"]
+    B --> C["Người dùng xem điều khoản"]
+    C --> D["Xác nhận version đang xem"]
+    D --> E["Lưu acknowledgement + thời điểm"]
     E --> F{"Có Terms version mới?"}
-    F -->|"Không"| G["Giữ lịch sử hiện tại"]
-    F -->|"Có"| H["Hiển thị version mới"]
-    H --> C
+    F -->|"Có"| C
+    F -->|"Không"| G["Giữ lịch sử"]
 ```
-## 6. Frontend phải làm gì
 
-- Hiển thị rõ Terms version đang được xem.
-- Chỉ cho phép action xác nhận khi participant đã liên kết User theo rule hiện hành.
-- Sau khi xác nhận, hiển thị trạng thái/timestamp do Backend trả về.
-- Khi có Terms version mới, không reuse acknowledgement của version cũ.
-- Cho phép xem lịch sử acknowledgement theo version khi cần.
+## 3. Frontend cần làm gì?
 
-## 7. Backend phải làm gì
+- Luôn cho người dùng biết mình đang xem/xác nhận version nào.
+- Chỉ cho xác nhận khi participant đã link đúng User theo rule hiện tại.
+- Sau khi xác nhận, hiển thị trạng thái và timestamp từ Backend.
+- Version mới không được dùng lại acknowledgement của version cũ.
 
-- Kiểm tra participant thuộc đúng Tenancy và đã liên kết đúng User.
+## 4. Backend cần làm gì?
+
+- Kiểm tra Participant thuộc đúng Tenancy và link đúng User.
 - Kiểm tra Terms version thuộc cùng Tenancy.
-- Ghi acknowledgement gắn với participant + User + Terms version + timestamp.
-- Không biến acknowledgement thành legal adjudication hoặc tự thêm legal effect ngoài authority.
+- Lưu acknowledgement theo Participant + User + Terms version + thời điểm.
+- Không thêm legal effect ngoài phạm vi đã chốt.
 
-## 8. Database phải làm gì
+## 5. Database cần bảo vệ gì?
 
-- Lưu reference giữa acknowledgement, participant, User và Terms version.
-- Bảo vệ same-Tenancy consistency.
-- Giữ lịch sử version-specific acknowledgement.
-- Không cho unlinked participant tạo User-backed acknowledgement.
+- Giữ reference giữa acknowledgement, Participant, User và Terms version.
+- Bảo đảm chúng thuộc cùng Tenancy.
+- Giữ lịch sử theo từng version.
 
-## 9. Luồng xuyên hệ thống
+## 6. Khi nào xem là hoàn thành?
 
-```mermaid
-sequenceDiagram
-    actor T as Người thuê
-    participant FE as Frontend
-    participant BE as Backend
-    participant DB as Database
-    T->>FE: Chọn "Xác nhận điều khoản"
-    FE->>BE: Xác nhận Terms version cụ thể
-    BE->>DB: Kiểm tra participant/User/Terms consistency
-    DB-->>BE: Facts hợp lệ
-    BE->>DB: Lưu acknowledgement + timestamp
-    DB-->>BE: Đã ghi nhận
-    BE-->>FE: Trạng thái xác nhận
-    FE-->>T: Hiển thị đã xác nhận
-```
-## 10. Business rules
+- Người dùng luôn biết version mình xác nhận.
+- Acknowledgement không thể trỏ nhầm Tenancy/User/Participant.
+- Version mới có lịch sử xác nhận riêng.
 
-- Acknowledgement luôn gắn với đúng một Terms version.
-- Participant phải thuộc cùng Tenancy với Terms version.
-- User-backed acknowledgement chỉ hợp lệ khi participant đã link đúng User.
-- Version mới cần acknowledgement riêng nếu flow yêu cầu.
-
-## 11. Phụ thuộc
-
-- Upstream: Tenancy, Tenancy Participant, Tenancy Terms, User link.
-- Downstream: rental evidence/history consumers.
-
-## 12. Tiêu chí hoàn thành
-
-**Frontend**
-- Người dùng luôn biết đang xác nhận version nào và xem được trạng thái sau xác nhận.
-
-**Backend**
-- Identity/participant/Terms consistency được kiểm tra trước khi ghi.
-
-**Database**
-- Version-specific history và reference integrity được bảo vệ.
-
-## 13. Tài liệu liên quan
+## Tài liệu liên quan
 
 - [`tenancy-participant.md`](tenancy-participant.md)
 - [`tenancy-terms.md`](tenancy-terms.md)

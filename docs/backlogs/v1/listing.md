@@ -2,124 +2,77 @@
 
 ## 1. Mục tiêu
 
-Listing là **projection công khai để khám phá một Room**, không phải bản ghi vận hành của Room. Feature này cho phép chủ trọ/người vận hành tạo và quản lý tin đăng của một phòng đủ điều kiện, đồng thời cho người thuê nhìn thấy các phòng đang thực sự có thể thuê.
+Listing là phần thông tin được đưa ra cho người tìm phòng xem. Nó giúp một Room đang đủ điều kiện xuất hiện trên tìm kiếm/bản đồ, nhưng **không thay thế hồ sơ vận hành thật của Room**.
 
-## 2. Người dùng tham gia
+## 2. Người dùng đi vào từ đâu?
 
-- Chủ trọ / người vận hành: tạo, chỉnh sửa, đăng, ngừng đăng, đăng lại, lưu trữ Listing.
-- Người thuê: xem Listing đang `PUBLISHED`, từ đó đi tiếp sang Inquiry hoặc luồng thuê.
+- Chủ trọ/người vận hành: từ chi tiết Room hoặc khu quản lý tin đăng.
+- Người tìm phòng: từ danh sách, bản đồ hoặc kết quả tìm kiếm.
 
-## 3. Điểm vào trên sản phẩm
+## 3. Người dùng cần làm được gì?
 
-- Từ chi tiết Room hoặc khu vực quản lý Listing của một Room.
-- Từ danh sách phòng đang trống và đủ điều kiện đăng.
-- Người thuê đi vào qua tìm kiếm, bản đồ hoặc danh sách phòng công khai.
-
-## 4. Hành động người dùng
-
-Phía chủ trọ/người vận hành cần có các hành động nghiệp vụ sau khi phù hợp với state hiện tại:
+Phía chủ trọ/người vận hành:
 
 - **Tạo tin đăng**.
-- **Lưu thay đổi** nội dung tin đăng hiện tại.
+- **Lưu thay đổi**.
 - **Đăng tin**.
 - **Ngừng đăng**.
-- **Đăng lại** khi Room đủ điều kiện trở lại.
-- **Lưu trữ tin đăng** khi bản ghi discovery này không còn được sử dụng.
+- **Đăng lại** khi phòng đủ điều kiện.
+- **Lưu trữ tin đăng** khi không còn dùng.
 
-Frontend không tự quyết transition. Nếu action không hợp lệ theo business state, UI phải phản ánh trạng thái đó thay vì tự tạo state mới.
+Phía người tìm phòng:
 
-## 5. Luồng sử dụng
+- xem Listing đang `PUBLISHED`;
+- đi tiếp sang Inquiry hoặc các luồng discovery khác.
 
 ```mermaid
 flowchart TD
     A["Room đủ điều kiện"] --> B["Tạo tin đăng"]
     B --> C["DRAFT"]
-    C --> D["Chỉnh sửa / Lưu thay đổi"]
+    C --> D["Lưu thay đổi"]
     D --> E["Đăng tin"]
-    E --> F["Backend kiểm tra điều kiện"]
-    F -->|"Hợp lệ"| G["PUBLISHED"]
-    G --> H["Người thuê khám phá"]
+    E --> F{"Backend kiểm tra hợp lệ?"}
+    F -->|"Có"| G["PUBLISHED"]
+    F -->|"Không"| C
+    G --> H["Người dùng tìm thấy phòng"]
     G --> I["Room không còn VACANT"]
     I --> J["UNPUBLISHED"]
-    J --> K{"Room đủ điều kiện lại?"}
-    K -->|"Có"| E
-    K -->|"Không còn dùng"| L["ARCHIVED"]
-    C --> L
+    J -->|"Room đủ điều kiện lại"| E
+    C --> K["ARCHIVED"]
+    J --> K
 ```
-## 6. Frontend phải làm gì
 
-- Hiển thị Listing hiện tại của Room và trạng thái `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`.
-- Chỉ hiển thị các action phù hợp với state và quyền của người dùng.
-- Khi người dùng chọn **Đăng tin**, gửi intent lên Backend và chờ kết quả kiểm tra eligibility.
-- Nếu Backend từ chối publish, hiển thị lý do nghiệp vụ thay vì tự sửa state.
-- Ở phía người thuê, chỉ đưa `PUBLISHED` Listing vào discovery/search/map.
-- Khi Listing bị unpublish do Room không còn khả dụng, cập nhật UI theo state trả về từ hệ thống.
+## 4. Frontend cần làm gì?
 
-## 7. Backend phải làm gì
+- Hiển thị đúng trạng thái `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`.
+- Chỉ đưa những thao tác phù hợp với trạng thái hiện tại cho người dùng.
+- Khi người dùng bấm **Đăng tin**, gửi yêu cầu lên Backend và chờ kết quả; không tự đổi state trước.
+- Nếu publish bị từ chối, hiển thị lý do dễ hiểu.
+- Discovery chỉ hiển thị Listing đang `PUBLISHED`.
 
-- Sở hữu lifecycle Listing và các transition hợp lệ.
-- Kiểm tra publish eligibility: Property còn `ACTIVE`, Room còn active và `VACANT`.
-- Bảo đảm một Room không có nhiều Listing hiện hành song song.
-- Khi Room rời `VACANT`, đồng bộ việc chuyển current Listing sang `UNPUBLISHED`.
-- Ghi nhận lịch sử thay đổi trạng thái Listing.
-- Cung cấp dữ liệu discovery/search chỉ từ Listing đủ điều kiện công khai.
+## 5. Backend cần làm gì?
 
-## 8. Database phải làm gì
+- Kiểm tra Property còn `ACTIVE`, Room còn active và `VACANT` trước khi publish.
+- Giữ đúng lifecycle Listing.
+- Khi Room rời `VACANT`, ngừng công khai Listing hiện tại trong cùng workflow.
+- Lưu lịch sử thay đổi trạng thái.
+- Không cho một Room có nhiều Listing hiện hành cùng lúc.
 
-- Lưu Listing và status hiện tại.
-- Lưu `LISTING_STATUS_EVENT` làm lịch sử lifecycle.
-- Bảo vệ invariant **tối đa một current/non-archived Listing cho mỗi Room**.
-- Bảo vệ integrity giữa Listing, Room và Property.
-- Hỗ trợ public location projection/search mà không làm lộ operational location ngoài contract.
-- Các thay đổi Listing–Room có nguy cơ race phải được thực hiện trong transaction/guard phù hợp.
+## 6. Database cần bảo vệ gì?
 
-## 9. Luồng xuyên hệ thống
+- Lưu Listing và lịch sử `LISTING_STATUS_EVENT`.
+- Bảo đảm một Room không thể có hai Listing hiện hành, kể cả khi hai request chạy gần như đồng thời.
+- Giữ quan hệ Listing ↔ Room ↔ Property hợp lệ.
+- Chỉ hỗ trợ public location theo contract; không làm lộ vị trí vận hành chính xác.
 
-```mermaid
-sequenceDiagram
-    actor O as Chủ trọ
-    participant FE as Frontend
-    participant BE as Backend
-    participant DB as Database
-    O->>FE: Chọn "Đăng tin"
-    FE->>BE: Yêu cầu publish Listing
-    BE->>DB: Đọc/khóa trạng thái Room + Listing cần thiết
-    DB-->>BE: Property/Room/Listing facts
-    BE->>BE: Kiểm tra eligibility + lifecycle
-    BE->>DB: Ghi PUBLISHED + status event
-    DB-->>BE: Commit thành công
-    BE-->>FE: Listing mới nhất
-    FE-->>O: Hiển thị trạng thái PUBLISHED
-```
-## 10. Business rules
+## 7. Khi nào xem là hoàn thành?
 
-- Lifecycle chính xác: `DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED`.
-- Publish chỉ hợp lệ khi Room còn `VACANT`, Room record còn active và Property còn `ACTIVE`.
-- Một Room chỉ có tối đa một Listing hiện hành/non-archived.
-- Room rời `VACANT` phải làm current Listing không còn công khai.
-- Listing không thay thế Room, Tenancy hoặc operational history.
+- Chủ trọ có đủ các thao tác nghiệp vụ ở trên.
+- Người tìm phòng chỉ thấy Listing đang public.
+- Backend từ chối đúng các trường hợp Room/Property không đủ điều kiện.
+- Database giữ được uniqueness/history khi có request đồng thời.
 
-## 11. Phụ thuộc
-
-- Upstream: Organization, Property, Room.
-- Cross-domain: Rental Lifecycle.
-- Downstream: Inquiry, Tenancy, Search/Map, Trust.
-
-## 12. Tiêu chí hoàn thành
-
-**Frontend**
-- Có đầy đủ các action nghiệp vụ đã nêu và phản ánh đúng state.
-- Discovery không hiển thị Listing ngoài `PUBLISHED`.
-
-**Backend**
-- Lifecycle, eligibility và Room–Listing coupling đúng authority.
-- Rejected command không để lại state trung gian sai.
-
-**Database**
-- Current Listing uniqueness, reference integrity và status history được bảo vệ.
-- Race liên quan publish/unpublish không phá invariant.
-
-## 13. Tài liệu liên quan
+## Tài liệu liên quan
 
 - [`../../contexts/product-domain.md`](../../contexts/product-domain.md)
 - [`../../contexts/end-to-end-flows.md`](../../contexts/end-to-end-flows.md)

@@ -1,120 +1,60 @@
-# Rental Lifecycle — Vòng đời thuê xuyên domain
+# Rental Lifecycle — Giữ Room, Listing và Tenancy đi cùng nhau
 
 ## 1. Mục tiêu
 
-Rental Lifecycle là **cross-feature orchestration** nối Property, Room, Listing và Tenancy để một thay đổi nghiệp vụ không làm các domain lệch state với nhau.
+Rental Lifecycle không phải một màn hình và cũng không phải một nút riêng. Đây là phần Backend dùng để **điều phối những thao tác làm thay đổi nhiều nghiệp vụ cùng lúc**, để Room, Listing và Tenancy không lệch state.
 
-Đây **không phải một màn hình riêng** và Frontend không cần tạo nút tên “Rental Lifecycle”. Frontend chỉ gọi các action nghiệp vụ thật như **Đăng tin**, **Kích hoạt lượt thuê**, **Bắt đầu trả phòng**, **Xác nhận trả phòng**; Backend dùng Rental Lifecycle để điều phối các domain liên quan.
+Frontend chỉ cần đưa cho người dùng các action thật như **Đăng tin**, **Kích hoạt lượt thuê**, **Bắt đầu trả phòng**, **Xác nhận trả phòng**.
 
-## 2. Người dùng tham gia
-
-- Chủ trọ / người vận hành: thực hiện các action làm thay đổi vòng đời cho thuê.
-- Người thuê: đi qua discovery, tenancy và move-out flow tương ứng.
-
-## 3. Điểm vào trên sản phẩm
-
-Feature này được kích hoạt gián tiếp từ nhiều nơi:
-
-- Room/Listing management khi đăng hoặc ngừng đăng phòng.
-- Inquiry hoặc Room khi tạo Tenancy.
-- Tenancy khi kích hoạt thuê.
-- Tenancy khi bắt đầu hoặc xác nhận trả phòng.
-
-## 4. Hành động người dùng liên quan
-
-- **Tạo tin đăng / Đăng tin**.
-- **Tạo lượt thuê**.
-- **Kích hoạt lượt thuê**.
-- **Bắt đầu trả phòng**.
-- **Hủy trả phòng / Tiếp tục thuê**.
-- **Xác nhận trả phòng**.
-- **Đăng lại tin** khi Room trở về trạng thái đủ điều kiện.
-
-## 5. Luồng sử dụng
+## 2. Người dùng đi qua flow nào?
 
 ```mermaid
 flowchart LR
-    A["Room VACANT"] --> B["Tạo / duy trì Listing"]
-    B --> C["Đăng tin"]
-    C --> D["Discovery / Inquiry"]
-    D --> E["Tạo Tenancy"]
+    A["Room VACANT"] --> B["Listing"]
+    B --> C["PUBLISHED"]
+    C --> D["Inquiry / thỏa thuận"]
+    D --> E["Tenancy DRAFT"]
     E --> F["Participant + Terms"]
-    F --> G["Kích hoạt lượt thuê"]
-    G --> H["Listing UNPUBLISHED"]
-    H --> I["Room OCCUPIED"]
-    I --> J["Vận hành thuê"]
-    J --> K["Bắt đầu trả phòng"]
-    K --> L["Xác nhận trả phòng"]
-    L --> M["Tenancy ENDED + Room VACANT"]
-    M --> N["Revalidate Listing"]
-    N --> C
+    F --> G["Kích hoạt"]
+    G --> H["Tenancy ACTIVE"]
+    G --> I["Room OCCUPIED"]
+    G --> J["Listing UNPUBLISHED"]
+    H --> K["Bắt đầu trả phòng"]
+    K --> L["ENDING"]
+    L --> M["Xác nhận checkout"]
+    M --> N["Tenancy ENDED + Room VACANT"]
+    N --> O["Có thể chuẩn bị vòng thuê tiếp theo"]
 ```
-## 6. Frontend phải làm gì
 
-- Gửi đúng business intent từ các feature cụ thể; không gọi một “rental lifecycle screen” giả định.
-- Sau mỗi action, cập nhật UI từ state hệ thống trả về cho cả Listing, Room và Tenancy liên quan.
-- Không tự suy luận rằng Room đã `OCCUPIED` chỉ vì người dùng bấm kích hoạt; phải chờ Backend commit thành công.
-- Không tự coi Room `VACANT` khi Tenancy mới `ENDING`; chỉ checkout thành công mới hoàn tất coupling đó.
-- Khi action thất bại, giữ UI nhất quán với state authoritative gần nhất.
+## 3. Frontend cần làm gì?
 
-## 7. Backend phải làm gì
+- Gửi đúng thao tác từ feature cụ thể; không tạo “Rental Lifecycle screen”.
+- Sau command, cập nhật UI từ state Backend trả về cho các phần liên quan.
+- Không tự coi Room `OCCUPIED` chỉ vì user vừa bấm Activate.
+- Không tự coi Room `VACANT` khi Tenancy mới chỉ `ENDING`.
+- Nếu command thất bại, giữ UI theo state authoritative gần nhất.
 
-- Điều phối cross-domain command mà không lấy ownership entity-local khỏi module sở hữu.
-- Kích hoạt Tenancy phải phối hợp Tenancy → `ACTIVE`, Room → `OCCUPIED`, current Listing → `UNPUBLISHED` khi áp dụng.
-- Checkout phải phối hợp Tenancy `ENDING → ENDED` và Room → `VACANT` atomically.
-- Room rời `VACANT` phải làm Listing công khai hiện tại không còn public.
-- Rejected command không được để lại known partial mutation.
+## 4. Backend cần làm gì?
 
-## 8. Database phải làm gì
+- Kích hoạt Tenancy phải phối hợp Tenancy → `ACTIVE`, Room → `OCCUPIED` và Listing → không còn public khi áp dụng.
+- Checkout phải phối hợp Tenancy `ENDING → ENDED` và Room → `VACANT` trong một transaction phù hợp.
+- Room rời `VACANT` thì Listing public hiện tại phải được xử lý ngay.
+- Command bị từ chối không để lại partial mutation.
 
-- Cung cấp transaction boundary/locking để các invariant xuyên bảng không bị race.
-- Bảo vệ one-current-listing và one-nonterminal-tenancy khi command chạy đồng thời.
-- Bảo đảm activation/checkout cập nhật các fact liên quan atomically.
-- Giữ history riêng của Listing/Tenancy thay vì collapse chúng thành một record chung.
+## 5. Database cần bảo vệ gì?
 
-## 9. Luồng xuyên hệ thống
+- Transaction/locking cho các thay đổi xuyên nhiều bản ghi.
+- One-current-listing và one-nonterminal-tenancy khi request chạy đồng thời.
+- Activation/checkout phải commit hoặc rollback nhất quán.
+- Giữ history của Listing/Tenancy riêng, không gom thành một record chung.
 
-```mermaid
-sequenceDiagram
-    actor O as Chủ trọ
-    participant FE as Frontend
-    participant BE as Rental Lifecycle / Backend
-    participant DB as Database
-    O->>FE: Chọn "Xác nhận trả phòng"
-    FE->>BE: Checkout Tenancy
-    BE->>DB: Khóa/đọc Tenancy + Room + Listing cần thiết
-    DB-->>BE: Current facts
-    BE->>BE: Kiểm tra checkout rules
-    BE->>DB: Atomically ENDED + VACANT + related updates
-    DB-->>BE: Commit
-    BE-->>FE: Tenancy/Room/Listing state mới
-    FE-->>O: Hiển thị phòng đã trở lại vòng thuê mới
-```
-## 10. Business rules
+## 6. Khi nào xem là hoàn thành?
 
-- Rental Lifecycle là orchestration, không phải source business state riêng.
-- Room rời `VACANT` phải làm current Listing không còn `PUBLISHED`.
-- Activate Tenancy và checkout phải giữ Room/Tenancy/Listing nhất quán.
-- Checkout là workflow xác nhận `ENDING → ENDED` cùng Room → `VACANT`.
-- Application pre-check không thay thế database transaction guard cho race-prone invariant.
+- Sau Activate/Checkout, Room + Listing + Tenancy luôn khớp nhau.
+- Không có partial state khi lỗi.
+- Concurrency không phá uniqueness/invariant.
 
-## 11. Phụ thuộc
-
-- Upstream: Property, Room, Listing, Tenancy, Tenancy Participant, Tenancy Terms.
-- Downstream: Billing, Incident, Review, Trust và các flow vận hành tiếp theo.
-
-## 12. Tiêu chí hoàn thành
-
-**Frontend**
-- Các action ở Listing/Tenancy phản ánh state xuyên domain sau response.
-
-**Backend**
-- Cross-domain command không để partial state và giữ ownership đúng module.
-
-**Database**
-- Các transition cần atomicity/concurrency guard được bảo vệ trong transaction.
-
-## 13. Tài liệu liên quan
+## Tài liệu liên quan
 
 - [`listing.md`](listing.md)
 - [`tenancy.md`](tenancy.md)

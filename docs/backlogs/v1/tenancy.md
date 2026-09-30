@@ -1,125 +1,70 @@
-# Tenancy — Quan hệ thuê
+# Tenancy — Một lần thuê phòng
 
 ## 1. Mục tiêu
 
-Tenancy đại diện cho **một quan hệ thuê của một Room theo thời gian**. Feature này cho phép tạo quan hệ thuê, chuẩn bị participant + terms, kích hoạt thuê, bắt đầu trả phòng, hoàn tác việc trả phòng khi cần, xác nhận checkout và lưu lịch sử sau khi kết thúc.
+Tenancy là bản ghi cho **một quan hệ thuê cụ thể của một Room theo thời gian**. Nó đi từ lúc chuẩn bị thuê, bắt đầu thuê, bắt đầu trả phòng cho tới khi checkout hoàn tất.
 
-## 2. Người dùng tham gia
+## 2. Người dùng cần làm được gì?
 
-- Chủ trọ / người vận hành: tạo và quản lý vòng đời Tenancy.
-- Người thuê/participant: tham gia quan hệ thuê và sử dụng tenant-facing flow theo quyền liên kết.
-
-## 3. Điểm vào trên sản phẩm
-
-- Từ Room đang đủ điều kiện để bắt đầu một quan hệ thuê.
-- Từ Inquiry khi hai bên đã thống nhất.
-- Từ direct operator agreement mà không cần Inquiry.
-- Sau khi Tenancy tồn tại, đi vào từ hồ sơ Room hoặc khu vực quản lý thuê.
-
-## 4. Hành động người dùng
-
-Chủ trọ/người vận hành cần có các action nghiệp vụ phù hợp với state:
+Chủ trọ/người vận hành:
 
 - **Tạo lượt thuê**.
 - **Thêm người tham gia**.
 - **Ghi nhận điều khoản**.
 - **Kích hoạt lượt thuê**.
 - **Bắt đầu trả phòng**.
-- **Hủy trả phòng / Tiếp tục thuê** khi đang `ENDING` và move-out bị hủy.
-- **Xác nhận trả phòng** để kết thúc thuê.
+- **Hủy trả phòng / Tiếp tục thuê** khi đang `ENDING`.
+- **Xác nhận trả phòng**.
 - **Hủy lượt thuê** khi còn `DRAFT`.
 
-## 5. Luồng sử dụng
+Người thuê/participant:
+
+- xem quan hệ thuê của mình qua Tenant Portal theo quyền thực tế;
+- đi qua Terms, Billing, Payment, Notice, Incident và Move-out theo các backlog tương ứng.
 
 ```mermaid
 flowchart TD
-    A["Inquiry hoặc thỏa thuận trực tiếp"] --> B["Tạo lượt thuê"]
-    B --> C["DRAFT"]
-    C --> D["Participant + Terms sẵn sàng"]
-    D --> E["Kích hoạt lượt thuê"]
-    E --> F["ACTIVE"]
-    F --> G["Bắt đầu trả phòng"]
-    G --> H["ENDING"]
-    H --> I{"Move-out tiếp tục?"}
-    I -->|"Không"| F
-    I -->|"Có"| J["Xác nhận trả phòng"]
-    J --> K["ENDED + Room VACANT"]
-    C --> L["Hủy lượt thuê"]
-    L --> M["CANCELLED"]
+    A["Tạo lượt thuê"] --> B["DRAFT"]
+    B --> C["Participant + Terms sẵn sàng"]
+    C --> D["Kích hoạt"]
+    D --> E["ACTIVE"]
+    E --> F["Bắt đầu trả phòng"]
+    F --> G["ENDING"]
+    G -->|"Tiếp tục thuê"| E
+    G -->|"Xác nhận checkout"| H["ENDED + Room VACANT"]
+    B -->|"Hủy trước khi active"| I["CANCELLED"]
 ```
-## 6. Frontend phải làm gì
 
-- Hiển thị lifecycle `DRAFT | ACTIVE | ENDING | ENDED | CANCELLED`.
-- Chỉ hiển thị action phù hợp với state hiện tại và quyền của người dùng.
-- Khi kích hoạt, yêu cầu Backend xác nhận participant/terms và Room eligibility thay vì tự suy luận ở UI.
-- Khi bắt đầu trả phòng, phản ánh `ENDING` nhưng chưa coi Room là `VACANT`.
-- Khi xác nhận checkout, cập nhật cả Tenancy và Room state theo response từ Backend.
-- Giữ Tenancy đã `ENDED`/`CANCELLED` như lịch sử, không xóa khỏi UI chỉ vì đã terminal.
+## 3. Frontend cần làm gì?
 
-## 7. Backend phải làm gì
+- Hiển thị đúng `DRAFT | ACTIVE | ENDING | ENDED | CANCELLED`.
+- Chỉ hiển thị action phù hợp với state và quyền.
+- Khi activate hoặc checkout, chờ Backend trả kết quả rồi mới cập nhật Room/Tenancy như đã thay đổi.
+- `ENDING` chưa được hiển thị như “phòng đã trống”.
+- Tenancy đã kết thúc vẫn phải xem được như lịch sử.
 
-- Sở hữu state machine Tenancy và transition hợp lệ.
-- Chặn tạo Tenancy mới nếu Room đã có non-terminal Tenancy.
-- Khi activate, kiểm tra participant/terms và phối hợp Room → `OCCUPIED` cùng Listing unpublish cần thiết.
+## 4. Backend cần làm gì?
+
+- Giữ đúng state machine.
+- Không cho tạo Tenancy mới khi Room còn một Tenancy chưa kết thúc.
+- Activation phải kiểm tra Participant/Terms và phối hợp Room + Listing liên quan.
 - Cho phép `ENDING → ACTIVE` khi move-out bị hủy.
-- Checkout phải điều phối atomically `ENDING → ENDED` và Room → `VACANT`.
+- Checkout phải đưa Tenancy `ENDING → ENDED` và Room → `VACANT` trong một workflow nhất quán.
 - Không cho direct `ACTIVE → ENDED`.
 
-## 8. Database phải làm gì
+## 5. Database cần bảo vệ gì?
 
-- Lưu Tenancy lifecycle và quan hệ với Room.
-- Bảo vệ invariant tối đa một non-terminal Tenancy (`DRAFT | ACTIVE | ENDING`) cho mỗi Room.
-- Lưu participant/terms qua bảng/domain riêng, không nhúng semantics cũ vào Tenancy.
-- Hỗ trợ transaction-safe activation/checkout và các cross-row guard cần thiết.
-- Giữ terminal Tenancy làm historical record.
+- Tối đa một Tenancy chưa kết thúc (`DRAFT | ACTIVE | ENDING`) cho mỗi Room.
+- Lưu terminal Tenancy làm lịch sử.
+- Hỗ trợ transaction-safe activation/checkout và các guard cần thiết.
 
-## 9. Luồng xuyên hệ thống
+## 6. Khi nào xem là hoàn thành?
 
-```mermaid
-sequenceDiagram
-    actor O as Chủ trọ
-    participant FE as Frontend
-    participant BE as Backend
-    participant DB as Database
-    O->>FE: Chọn "Kích hoạt lượt thuê"
-    FE->>BE: Yêu cầu activate Tenancy
-    BE->>DB: Đọc/khóa Tenancy + Room + participant/terms
-    DB-->>BE: Business facts hiện tại
-    BE->>BE: Kiểm tra activation rules
-    BE->>DB: Commit Tenancy ACTIVE + Room OCCUPIED + Listing update
-    DB-->>BE: Commit thành công
-    BE-->>FE: State mới
-    FE-->>O: Hiển thị lượt thuê đang hoạt động
-```
-## 10. Business rules
+- Toàn bộ action trên hoạt động đúng state.
+- Không có partial state giữa Tenancy/Room/Listing khi command thất bại.
+- Hai request đồng thời không tạo được hai Tenancy chưa kết thúc cho cùng Room.
 
-- Lifecycle: `DRAFT → ACTIVE`, `DRAFT → CANCELLED`, `ACTIVE → ENDING`, `ENDING → ACTIVE`, `ENDING → ENDED`.
-- Không có direct `ACTIVE → ENDED`.
-- Mỗi Room có tối đa một non-terminal Tenancy.
-- Khi Tenancy `ENDING`, không được tạo next `DRAFT` Tenancy cho cùng Room.
-- Active Tenancy cần đúng participant/terms preconditions theo authority.
-
-## 11. Phụ thuộc
-
-- Upstream: Property, Room, optional Inquiry.
-- Supporting: Tenancy Participant, Tenancy Terms, Terms Acknowledgement, Tenancy Notice.
-- Cross-domain: Listing, Rental Lifecycle.
-- Downstream: Billing, Payment, Deposit, Incident, Review, Trust.
-
-## 12. Tiêu chí hoàn thành
-
-**Frontend**
-- Flow state/action đúng lifecycle và không tự kết thúc Tenancy.
-
-**Backend**
-- Activation, ending, reversal, checkout và cancellation đúng rule.
-- Rejected command không để state partial.
-
-**Database**
-- Non-terminal tenancy uniqueness và transaction guards được bảo vệ.
-- Terminal history được giữ nguyên.
-
-## 13. Tài liệu liên quan
+## Tài liệu liên quan
 
 - [`rental-lifecycle.md`](rental-lifecycle.md)
 - [`tenancy-participant.md`](tenancy-participant.md)
