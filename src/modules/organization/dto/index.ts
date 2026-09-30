@@ -9,14 +9,6 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
-
-  @ApiProperty({
-    description: 'User ID của primary owner (MVP ownership reference)',
-    example: 'user_12345',
-  })
-  @IsString()
-  @IsNotEmpty()
-  primaryOwnerUserId!: string;
 }
 
 export class UpdateOrganizationDto {
@@ -28,4 +20,30 @@ export class UpdateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   name?: string;
+}
+
+export class OrganizationProfileDto {
+  @ApiProperty({
+    description: 'Organization ID',
+    example: 'org_12345',
+    type: String,
+  })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({
+    description: 'Tên workspace',
+    example: 'Hệ thống nhà trọ An Cư',
+    type: String,
+  })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({
+    description: 'User ID của primary owner',
+    example: 'user_12345',
+    type: String,
+  })
+  @IsString()
+  primaryOwnerUserId!: string;
 }

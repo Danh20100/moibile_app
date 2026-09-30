@@ -30,3 +30,33 @@ export class UpdateRoomOperationalStateDto {
   @IsIn(['vacant', 'maintenance', 'inactive'])
   operationalState!: 'vacant' | 'maintenance' | 'inactive';
 }
+
+export class RoomProfileDto {
+  @ApiProperty({ description: 'Room ID', example: 'room_12345' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Parent Property ID', example: 'prop_12345' })
+  @IsString()
+  propertyId!: string;
+
+  @ApiProperty({ description: 'Room name or label', example: 'Phong 201' })
+  @IsString()
+  nameOrLabel!: string;
+
+  @ApiProperty({
+    description: 'Operational state',
+    enum: ['vacant', 'occupied', 'maintenance', 'inactive'],
+    example: 'vacant',
+  })
+  @IsString()
+  operationalState!: 'vacant' | 'occupied' | 'maintenance' | 'inactive';
+
+  @ApiProperty({
+    description: 'Record lifecycle',
+    enum: ['active', 'archived'],
+    example: 'active',
+  })
+  @IsString()
+  recordLifecycle!: 'active' | 'archived';
+}

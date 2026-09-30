@@ -1,40 +1,118 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { TenancyProfile } from '../contracts';
+import { CurrentUser, ResourceAuthorizationService } from '../../../common';
+import type { VerifiedPrincipal } from '../../identity-access/contracts';
+import type { TenancyProfile } from '../contracts';
+import { TenancyProfileDto } from '../dto';
 import { TenancyService } from '../services/tenancy.service';
 
 @ApiTags('Tenancy')
 @Controller('tenancies')
 export class TenancyController {
-  constructor(private readonly tenancyService: TenancyService) {}
+  constructor(
+    @Inject(TenancyService)
+    private readonly tenancyService: TenancyService,
+    @Inject(ResourceAuthorizationService)
+    private readonly authz: ResourceAuthorizationService,
+  ) {}
 
   @Get()
-  @ApiQuery({ name: 'roomId', required: false })
-  async findByRoomId(@Query('roomId') roomId?: string): Promise<TenancyProfile[]> {
-    return this.tenancyService.findByRoomId(roomId);
+  @ApiOperation({ summary: 'Find tenancies (optionally filtered by roomId)' })
+  @ApiQuery({ name: 'roomId', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List of tenancies', type: [TenancyProfileDto] })
+  async findByRoomId(
+    @Query('roomId') roomId?: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile[]> {
+    if (roomId) {
+      const tenancies = await this.tenancyService.findByRoomId(roomId);
+      if (!user) {
+        return tenancies;
+      }
+      const accessible = await Promise.all(
+        tenancies.map(async (tenancy) => {
+          try {
+            await this.authz.assertCanReadTenancy(user.userId, tenancy.id);
+            return tenancy;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return accessible.filter((tenancy): tenancy is TenancyProfile => tenancy !== null);
+    }
+    if (user) {
+      const all = await this.tenancyService.findByRoomId();
+      const accessible = await Promise.all(
+        all.map(async (t) => {
+          try {
+            await this.authz.assertCanReadTenancy(user.userId, t.id);
+            return t;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return accessible.filter((t): t is TenancyProfile => t !== null);
+    }
+    return this.tenancyService.findByRoomId();
   }
 
   @Get(':id')
-  async findById(@Param('id') id: string): Promise<TenancyProfile> {
+  @ApiOperation({ summary: 'Get Tenancy by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Tenancy ID' })
+  @ApiResponse({ status: 200, description: 'Tenancy details', type: TenancyProfileDto })
+  @ApiResponse({ status: 404, description: 'Tenancy not found' })
+  async findById(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertCanReadTenancy(user.userId, id);
+    }
     return this.tenancyService.findById(id);
   }
 
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Cancel a DRAFT Tenancy before activation' })
-  async cancel(@Param('id') id: string): Promise<TenancyProfile> {
+  @ApiParam({ name: 'id', type: String, description: 'Tenancy ID' })
+  @ApiResponse({ status: 200, description: 'Cancelled tenancy', type: TenancyProfileDto })
+  async cancel(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertOperatesTenancy(user.userId, id);
+    }
     return this.tenancyService.cancel(id);
   }
 
   @Post(':id/start-ending')
   @ApiOperation({ summary: 'Start move-out workflow without making Room vacant' })
-  async startEnding(@Param('id') id: string): Promise<TenancyProfile> {
+  @ApiParam({ name: 'id', type: String, description: 'Tenancy ID' })
+  @ApiResponse({ status: 200, description: 'Ending tenancy', type: TenancyProfileDto })
+  async startEnding(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertCanAccessTenancy(user.userId, id);
+    }
     return this.tenancyService.startEnding(id);
   }
 
   @Post(':id/resume')
   @ApiOperation({ summary: 'Resume ACTIVE state from ENDING' })
-  async resume(@Param('id') id: string): Promise<TenancyProfile> {
+  @ApiParam({ name: 'id', type: String, description: 'Tenancy ID' })
+  @ApiResponse({ status: 200, description: 'Resumed tenancy', type: TenancyProfileDto })
+  async resume(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<TenancyProfile> {
+    if (user) {
+      await this.authz.assertOperatesTenancy(user.userId, id);
+    }
     return this.tenancyService.resumeActive(id);
   }
 }

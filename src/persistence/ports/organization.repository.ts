@@ -4,6 +4,7 @@ export interface OrganizationRepository {
   createOrganization(input: CreateOrganizationInput): Promise<void>;
   findOrganization(organizationId: string): Promise<OrganizationRecord | undefined>;
   findOrganizations(): Promise<OrganizationRecord[]>;
+  findByPrimaryOwnerUserId(userId: string): Promise<OrganizationRecord[]>;
   updateOrganization(record: OrganizationRecord): Promise<void>;
   lockOrganization(organizationId: string): Promise<void>;
 }

@@ -11,3 +11,12 @@ export interface VerifiedPrincipal extends UserReference {
   name?: string;
   pictureUrl?: string;
 }
+
+export interface SessionContext {
+  userId: string;
+  operatedOrganizationIds: string[];
+  linkedTenancyIds: string[];
+  email?: string;
+  name?: string;
+  pictureUrl?: string;
+}

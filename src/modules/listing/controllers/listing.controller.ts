@@ -1,49 +1,88 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-import { Public } from '../../../common';
-import { ListingProfile } from '../contracts';
-import { ListingTransitionContextDto, UpdateListingDto } from '../dto';
+import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
+import type { VerifiedPrincipal } from '../../identity-access/contracts';
+import type { ListingProfile } from '../contracts';
+import { ListingProfileDto, ListingTransitionContextDto, UpdateListingDto } from '../dto';
 import { ListingService } from '../services/listing.service';
 
 @ApiTags('Listing')
 @Controller('listings')
 export class ListingController {
-  constructor(private readonly listingService: ListingService) {}
+  constructor(
+    @Inject(ListingService)
+    private readonly listingService: ListingService,
+    @Inject(ResourceAuthorizationService)
+    private readonly authz: ResourceAuthorizationService,
+  ) {}
 
   @Public()
   @Get('public')
   @ApiOperation({ summary: 'Read currently published Listing projections' })
+  @ApiResponse({ status: 200, description: 'Published listings', type: [ListingProfileDto] })
   async findPublic(): Promise<ListingProfile[]> {
     return this.listingService.findPublished();
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get Listing by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
+  @ApiResponse({ status: 200, description: 'Listing details', type: ListingProfileDto })
   @ApiResponse({ status: 404, description: 'Listing not found' })
-  async findById(@Param('id') id: string): Promise<ListingProfile> {
-    return this.listingService.findById(id);
+  async findById(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    const listing = await this.listingService.findById(id);
+    if (listing.status !== 'published' && user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
+    return listing;
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateListingDto): Promise<ListingProfile> {
+  @ApiOperation({ summary: 'Update Listing content' })
+  @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
+  @ApiResponse({ status: 200, description: 'Updated listing', type: ListingProfileDto })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateListingDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.updateContent(id, dto);
   }
 
   @Post(':id/unpublish')
   @ApiOperation({ summary: 'Explicitly unpublish a currently published Listing' })
+  @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
+  @ApiResponse({ status: 200, description: 'Unpublished listing', type: ListingProfileDto })
   async unpublish(
     @Param('id') id: string,
     @Body() dto: ListingTransitionContextDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.transition(id, 'unpublished', dto);
   }
 
   @Post(':id/archive')
   @ApiOperation({ summary: 'Archive an eligible draft or unpublished Listing' })
+  @ApiParam({ name: 'id', type: String, description: 'Listing ID' })
+  @ApiResponse({ status: 200, description: 'Archived listing', type: ListingProfileDto })
   async archive(
     @Param('id') id: string,
     @Body() dto: ListingTransitionContextDto,
+    @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<ListingProfile> {
+    if (user) {
+      await this.authz.assertOperatesListing(user.userId, id);
+    }
     return this.listingService.transition(id, 'archived', dto);
   }
 }

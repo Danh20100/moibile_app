@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -35,10 +35,17 @@ test('initial migration matches the frozen physical catalog', async () => {
 
   const directory = mkdtempSync(join(tmpdir(), 'trooi-catalog-'));
   const catalogPath = join(directory, 'catalog.json');
+  const pythonCmd =
+    process.env.PYTHON ??
+    (process.platform === 'win32'
+      ? (existsSync(join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Python310', 'python.exe'))
+          ? join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Python', 'Python310', 'python.exe')
+          : 'py')
+      : 'python');
   try {
     writeFileSync(catalogPath, JSON.stringify(catalog), 'utf8');
     const verification = spawnSync(
-      process.env.PYTHON ?? 'python',
+      pythonCmd,
       [
         'scripts/database/physical_contract_verify_catalog.py',
         'docs/database/v1/erd/physical.json',
