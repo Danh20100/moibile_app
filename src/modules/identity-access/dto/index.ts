@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class VerifyGoogleTokenDto {
   @ApiProperty({
@@ -9,4 +9,122 @@ export class VerifyGoogleTokenDto {
   @IsString()
   @IsNotEmpty()
   idToken!: string;
+}
+
+export class UserReferenceDto {
+  @ApiProperty({
+    description: 'User ID của người dùng',
+    example: 'c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8',
+  })
+  @IsString()
+  userId!: string;
+}
+
+export class VerifiedPrincipalDto {
+  @ApiProperty({
+    description: 'User ID của người dùng',
+    example: 'c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8',
+  })
+  @IsString()
+  userId!: string;
+
+  @ApiProperty({
+    description: 'Provider danh tính',
+    example: 'google',
+  })
+  @IsString()
+  provider!: 'google';
+
+  @ApiProperty({
+    description: 'Issuer của Google ID Token',
+    example: 'https://accounts.google.com',
+  })
+  @IsString()
+  issuer!: string;
+
+  @ApiProperty({
+    description: 'Google Subject ID (sub claim)',
+    example: '112345678901234567890',
+  })
+  @IsString()
+  subject!: string;
+
+  @ApiPropertyOptional({
+    description: 'Email người dùng',
+    example: 'user@example.com',
+  })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Trạng thái xác thực email',
+    example: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  emailVerified?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Tên hiển thị người dùng',
+    example: 'Nguyen Van A',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL ảnh đại diện',
+  })
+  @IsOptional()
+  @IsString()
+  pictureUrl?: string;
+}
+
+export class SessionContextDto {
+  @ApiProperty({
+    description: 'User ID của người dùng đã xác thực',
+    example: 'c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8',
+  })
+  @IsString()
+  userId!: string;
+
+  @ApiProperty({
+    description: 'Danh sách Organization ID mà user là primary owner',
+    type: [String],
+    example: ['org_123'],
+  })
+  @IsArray()
+  operatedOrganizationIds!: string[];
+
+  @ApiProperty({
+    description: 'Danh sách Tenancy ID mà user tham gia',
+    type: [String],
+    example: ['ten_456'],
+  })
+  @IsArray()
+  linkedTenancyIds!: string[];
+
+  @ApiPropertyOptional({
+    description: 'Email người dùng',
+    example: 'user@example.com',
+  })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tên hiển thị người dùng',
+    example: 'Nguyen Van A',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL ảnh đại diện',
+  })
+  @IsOptional()
+  @IsString()
+  pictureUrl?: string;
 }

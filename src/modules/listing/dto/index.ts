@@ -131,3 +131,63 @@ export class CreateInquiryDto {
   @IsNotEmpty()
   status!: string;
 }
+
+export class ListingProfileDto {
+  @ApiProperty({ description: 'Listing ID', example: 'list_12345' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Room ID', example: 'room_12345' })
+  @IsString()
+  roomId!: string;
+
+  @ApiProperty({
+    description: 'Listing status',
+    enum: ['draft', 'published', 'unpublished', 'archived'],
+    example: 'published',
+  })
+  @IsString()
+  status!: 'draft' | 'published' | 'unpublished' | 'archived';
+
+  @ApiProperty({ description: 'Public title' })
+  @IsString()
+  publicTitle!: string;
+
+  @ApiProperty({ description: 'Public description' })
+  @IsString()
+  publicDescription!: string;
+
+  @ApiProperty({ description: 'Exact numeric(18,2)-compatible public price', example: '3500000.00' })
+  @IsString()
+  publicPriceProjection!: string;
+
+  @ApiProperty({ description: 'Public location projection', type: PublicLocationProjectionDto })
+  publicLocationProjection!: PublicLocationProjectionDto;
+}
+
+export class InquiryDto {
+  @ApiProperty({ description: 'Inquiry ID', example: 'inq_12345' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Listing ID', example: 'list_12345' })
+  @IsString()
+  listingId!: string;
+
+  @ApiPropertyOptional({ description: 'Sender user ID' })
+  @IsOptional()
+  @IsString()
+  senderUserId?: string;
+
+  @ApiProperty({ description: 'Contact intent or message' })
+  @IsString()
+  contactIntentOrMessage!: string;
+
+  @ApiProperty({ description: 'Inquiry status' })
+  @IsString()
+  status!: string;
+
+  @ApiProperty({ description: 'Creation timestamp' })
+  @IsString()
+  createdAt!: string;
+}

@@ -31,6 +31,24 @@ export class PostgresOrganizationRepository implements OrganizationRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findByPrimaryOwnerUserId(userId: string): Promise<OrganizationRecord[]> {
+    try {
+      const rows = await this.executor
+        .selectFrom('organizations')
+        .select(['organization_id', 'primary_owner_user_id', 'name'])
+        .where('primary_owner_user_id', '=', userId)
+        .orderBy('organization_id')
+        .execute();
+      return rows.map((row) => ({
+        organizationId: row.organization_id,
+        primaryOwnerUserId: row.primary_owner_user_id,
+        name: row.name,
+      }));
+    } catch (error) {
+      throw mapPostgresError(error);
+    }
+  }
+
   async updateOrganization(record: OrganizationRecord): Promise<void> {
     try {
       await this.executor.updateTable('organizations').set({
