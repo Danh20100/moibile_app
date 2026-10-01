@@ -130,7 +130,7 @@ class BackendTroOiRepository @Inject constructor(
             val receiptCard = ReceiptCard(
                 receiptId = receipt.id,
                 confirmedPaymentId = receipt.paymentId,
-                issuedAtLabel = "${receipt.issuedAt} ? ${receipt.status}",
+                issuedAtLabel = "${receipt.issuedAt} \u00B7 ${receipt.status}",
             )
             tenantFinance[payment.tenancyId]?.let { current ->
                 tenantFinance[payment.tenancyId] = current.copy(

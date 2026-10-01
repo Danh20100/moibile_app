@@ -114,6 +114,10 @@ class BackendRuntimeContractTest {
         assertEquals(setOf("room-1"), read.operationalRooms.map { it.roomId }.toSet())
         assertEquals(1, read.noticesByTenancy["tenancy-1"]?.size)
         assertEquals(1, read.tenantFinanceByTenancy["tenancy-1"]?.receipts?.size)
+        assertEquals(
+            "2026-09-30T01:00:00.000Z \u00B7 ISSUED",
+            read.tenantFinanceByTenancy["tenancy-1"]?.receipts?.single()?.issuedAtLabel,
+        )
         assertTrue(read.dashboardByOrganization.isEmpty())
     }
 

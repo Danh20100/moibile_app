@@ -5,6 +5,7 @@ on:
     branches:
       - backend/database-v1-integration
       - backend/full-stack-contract-support
+      - integration/full-stack-sync-runtime-staging
   workflow_dispatch:
 
 permissions:
