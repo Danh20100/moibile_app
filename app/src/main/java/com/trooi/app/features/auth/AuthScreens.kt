@@ -21,7 +21,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.trooi.app.core.model.UserRole
 import com.trooi.app.ui.components.TroOiBrand
 import com.trooi.app.ui.components.TroOiPrimaryButton
 import com.trooi.app.ui.theme.*
@@ -72,8 +71,7 @@ fun AuthWelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
 }
 
 @Composable
-fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -> Unit, onLogin: (UserRole, String, String) -> Unit) {
-    var role by remember { mutableStateOf(UserRole.TENANT) }
+fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -> Unit, onLogin: (String, String) -> Unit) {
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
@@ -81,8 +79,6 @@ fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -
     val passwordOk = isValidPassword(password)
 
     AuthFormScaffold(onBack = onBack, title = "Chào mừng trở lại", subtitle = "Đăng nhập để tiếp tục với TrọƠi") {
-        RoleSegment(role, onRoleChange = { role = it })
-        Spacer(Modifier.height(18.dp))
         AuthTextField(identifier, { identifier = it }, "Email hoặc số điện thoại", Icons.Rounded.Person, keyboardType = KeyboardType.Email)
         Spacer(Modifier.height(12.dp))
         AuthTextField(
@@ -100,7 +96,7 @@ fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -
         TextButton(onClick = onForgotPassword, modifier = Modifier.align(Alignment.End)) { Text("Quên mật khẩu?", color = TroOiGreen) }
         TroOiPrimaryButton(
             text = "Đăng nhập",
-            onClick = { onLogin(role, identifier.trim(), password) },
+            onClick = { onLogin(identifier.trim(), password) },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             enabled = identifierOk && passwordOk,
         )
@@ -127,55 +123,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit, onSubmit: (String) -> Unit) {
 }
 
 @Composable
-fun RoleSelectScreen(onBack: () -> Unit, onChoose: (UserRole) -> Unit, onLogin: () -> Unit) {
-    AuthFormScaffold(onBack = onBack, title = "Chọn vai trò", subtitle = "Bạn có thể đổi vai trò sau khi đăng nhập.") {
-        RoleChoiceCard(
-            icon = Icons.Rounded.Search,
-            title = "Tôi là Người thuê",
-            description = "Tìm phòng và đặt lịch xem.",
-            onClick = { onChoose(UserRole.TENANT) },
-        )
-        Spacer(Modifier.height(12.dp))
-        RoleChoiceCard(
-            icon = Icons.Rounded.Apartment,
-            title = "Tôi là Chủ trọ",
-            description = "Quản lý phòng và vận hành.",
-            onClick = { onChoose(UserRole.LANDLORD) },
-        )
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("Đã có tài khoản?", color = TroOiMuted)
-            TextButton(onClick = onLogin) { Text("Đăng nhập", color = TroOiGreen, fontWeight = FontWeight.Bold) }
-        }
-    }
-}
-
-@Composable
-private fun RoleChoiceCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, TroOiLine),
-        shadowElevation = 2.dp,
-    ) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(16.dp), color = TroOiGreenSoft, modifier = Modifier.size(52.dp)) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = TroOiGreen, modifier = Modifier.size(28.dp)) }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = TroOiMuted)
-            }
-            Icon(Icons.Rounded.ChevronRight, null, tint = TroOiGreen)
-        }
-    }
-}
-
-@Composable
-fun SignUpScreen(role: UserRole, onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, String, String, String) -> Unit) {
+fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, String, String, String) -> Unit) {
     var fullName by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -187,8 +135,8 @@ fun SignUpScreen(role: UserRole, onBack: () -> Unit, onLogin: () -> Unit, onSign
 
     AuthFormScaffold(
         onBack = onBack,
-        title = if (role == UserRole.TENANT) "Tạo tài khoản Người thuê" else "Tạo tài khoản Chủ trọ",
-        subtitle = if (role == UserRole.TENANT) "Lưu phòng và đặt lịch xem nhanh hơn." else "Bắt đầu quản lý nhà trọ trên một workspace duy nhất.",
+        title = "Tạo tài khoản",
+        subtitle = "Quyền truy cập sẽ được xác định theo quan hệ thuê và nơi bạn vận hành.",
     ) {
         AuthTextField(fullName, { fullName = it }, "Họ và tên", Icons.Rounded.Badge)
         Spacer(Modifier.height(10.dp))
@@ -236,22 +184,6 @@ private fun AuthFormScaffold(onBack: () -> Unit, title: String, subtitle: String
         Spacer(Modifier.height(26.dp))
         content()
         Spacer(Modifier.height(28.dp))
-    }
-}
-
-@Composable
-private fun RoleSegment(selected: UserRole, onRoleChange: (UserRole) -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).padding(4.dp)) {
-        listOf(UserRole.TENANT to "Người thuê", UserRole.LANDLORD to "Chủ trọ").forEach { (role, label) ->
-            val active = role == selected
-            Surface(
-                modifier = Modifier.weight(1f).clickable { onRoleChange(role) },
-                shape = RoundedCornerShape(13.dp),
-                color = if (active) TroOiGreen else Color.Transparent,
-            ) {
-                Text(label, modifier = Modifier.padding(vertical = 11.dp), textAlign = TextAlign.Center, color = if (active) Color.White else TroOiMuted, fontWeight = FontWeight.Bold)
-            }
-        }
     }
 }
 

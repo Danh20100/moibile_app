@@ -1,20 +1,7 @@
-# TrọƠi Web
+# TrọƠi web — marketing surface
 
-Frontend SPA tối giản cho Vercel. Không có framework runtime và không có dependency production.
+The production web entry (`index.html`) is a responsive marketing page for the Android-first rental lifecycle product. It does **not** offer login, booking, subscription, payment or any business-operation routes. All navigation stays inside the landing page.
 
-## Commands
+The older `src/app.js`, `src/views/` and state modules are **inactive legacy UI** retained temporarily for source migration; `index.html` does not load them. They are not evidence of a supported second business application. The current Android release is not backend-integrated or Play-ready.
 
-```powershell
-npm run check
-npm test
-npm run dev
-```
-
-## Runtime config
-
-`runtime-config.js`:
-
-- `demoMode: true`: dùng dữ liệu preview local.
-- `demoMode: false`: không giả backend; auth cần OpenAPI adapter.
-
-Không thêm endpoint vào `src/core/api.js` cho tới khi OpenAPI contract được cung cấp.
+Run: `npm run check`, `npm test`, `npm run test:browser`, then `npm run dev`. Deploy Vercel with Root Directory `web`; `vercel.json` implements SPA fallback, returning the marketing page for legacy routes without exposing login forms.

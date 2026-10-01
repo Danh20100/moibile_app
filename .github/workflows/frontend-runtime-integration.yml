@@ -1,0 +1,89 @@
+name: Frontend Runtime Integration
+
+on:
+  push:
+    branches:
+      - frontend/full-stack-runtime-connection
+      - integration/full-stack-sync-runtime-staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TROOI_API_BASE_URL: https://example.invalid/api/v1/
+      TROOI_GOOGLE_WEB_CLIENT_ID: test-client.apps.googleusercontent.com
+      ANDROID_HOME: /usr/local/lib/android/sdk
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Android unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Android lint
+        run: ./gradlew lintDebug lintBackendDebug --stacktrace
+
+      - name: Android assemble
+        run: ./gradlew assembleDebug assembleBackendDebug assembleDebugAndroidTest bundleRelease --stacktrace
+
+      - name: Static architecture guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R -n -E 'UserRole|RoomUi|BookingUi|SubscriptionPlan|backendUnavailable' app/src/main app/src/backendDebug app/src/release
+          ! grep -R -n -E 'import .*DemoData|DemoData\.' app/src/backendDebug app/src/release
+
+      - name: Upload Android evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-android-evidence-${{ github.sha }}
+          path: |
+            app/build/reports/
+            app/build/test-results/
+            app/build/outputs/apk/
+            app/build/outputs/bundle/
+          if-no-files-found: warn
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Web syntax check
+        working-directory: web
+        run: npm run check
+
+      - name: Web tests
+        working-directory: web
+        run: npm test
+
+      - name: Web browser smoke
+        working-directory: web
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            export CHROME_PATH="$(command -v google-chrome)"
+          elif command -v chromium >/dev/null 2>&1; then
+            export CHROME_PATH="$(command -v chromium)"
+          fi
+          npm run test:browser
