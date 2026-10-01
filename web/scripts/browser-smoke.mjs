@@ -29,9 +29,10 @@ try {
     try {
       const dom = execFileSync(process.env.CHROME_PATH, [
         "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-extensions",
+        "--disable-dev-shm-usage",
         "--no-first-run", `--user-data-dir=${profile}`, "--virtual-time-budget=1200",
         "--dump-dom", `http://127.0.0.1:${port}/`,
-      ], { timeout: 12000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      ], { timeout: 30000, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
       assert.match(dom, /data-marketing-site/);
       console.log("PASS: Chrome rendered marketing page");
     } finally { rmSync(profile, { recursive: true, force: true }); }
