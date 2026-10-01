@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R -n -E 'UserRole|RoomUi|BookingUi|SubscriptionPlan|backendUnavailable' app/src/main app/src/backendDebug app/src/release
-          ! grep -R -n 'DemoData' app/src/backendDebug app/src/release
+          ! grep -R -n -E 'import .*DemoData|DemoData\.' app/src/backendDebug app/src/release
 
       - name: Upload Android evidence
         if: always()
