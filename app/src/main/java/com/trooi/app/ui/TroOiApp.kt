@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +28,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val activity = LocalActivity.current
+    val context = LocalContext.current
     var lastExitAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
@@ -70,7 +72,11 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                 if (BuildConfig.BACKEND_BACKED && state.page in setOf(
                         AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
                     )) {
-                    BackendAuthenticationPending(viewModel::goBack)
+                    BackendGoogleAuthentication(
+                        inProgress = state.authInProgress,
+                        onSignIn = { viewModel.signInWithGoogle(context) },
+                        onBack = viewModel::goBack,
+                    )
                 } else when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
@@ -96,11 +102,16 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onProbeTransport = if (BuildConfig.BACKEND_BACKED && BuildConfig.DEBUG) viewModel::probePublicTransport else null,
                     )
                     is AppPage.ListingDetail -> V1ListingDetailScreen(
-                        state, page.listingId, viewModel::goBack, viewModel::submitInquiry,
+                        state = state,
+                        listingId = page.listingId,
+                        onBack = viewModel::goBack,
+                        onOpenLogin = viewModel::openLogin,
+                        onSubmitInquiry = viewModel::submitInquiry,
                     )
                     AppPage.TenantPortal -> V1TenantPortalScreen(state, viewModel::openDiscovery)
                     AppPage.Account -> V1AccountScreen(
                         state = state,
+                        googleOnly = BuildConfig.BACKEND_BACKED,
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
                         onDiscovery = viewModel::openDiscovery,
@@ -190,12 +201,21 @@ private fun V1OwnerNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
 }
 
 @Composable
-private fun BackendAuthenticationPending(onBack: () -> Unit) {
+private fun BackendGoogleAuthentication(
+    inProgress: Boolean,
+    onSignIn: () -> Unit,
+    onBack: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().padding(24.dp)) {
-        V1Panel("Google sign-in đang chờ Backend contract") {
-            V1Pending("Phiên bản kết nối không hỗ trợ password, đăng ký hay reset giả. " +
-                "Google Credential Manager và /identity-access/me chỉ được nối khi OpenAPI gate GREEN.")
-            V1Action("Quay về tìm phòng", onBack, modifier = Modifier.fillMaxWidth())
+        V1Panel("Đăng nhập TrọƠi bằng Google") {
+            V1Pending("Google ID Token được Backend xác minh; quyền Owner/Tenant được suy ra từ relationship thật.")
+            V1Action(
+                if (inProgress) "Đang xác thực…" else "Tiếp tục với Google",
+                onClick = onSignIn,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !inProgress,
+            )
+            TextButton(onClick = onBack, enabled = !inProgress) { Text("Quay về tìm phòng") }
         }
     }
 }

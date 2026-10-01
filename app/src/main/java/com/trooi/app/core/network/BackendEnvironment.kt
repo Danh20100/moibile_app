@@ -18,6 +18,10 @@ object BackendEnvironment {
         require(url.scheme == "https" || (allowLocalHttp && url.scheme == "http" && localHost)) {
             "Plain HTTP is only allowed for local/LAN hosts in the backend debug variant"
         }
-        return url
+        return if (url.encodedPath == "/") {
+            url.newBuilder().addPathSegments("api/v1/").build()
+        } else {
+            url
+        }
     }
 }

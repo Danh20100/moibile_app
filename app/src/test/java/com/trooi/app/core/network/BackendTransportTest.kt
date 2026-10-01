@@ -15,12 +15,13 @@ class BackendTransportTest {
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
     @Test fun baseUrlRequiresConfigurationAndProtectsReleaseTls() {
         assertEquals("https://example.org/api/", BackendEnvironment.normalize(" https://example.org/api ").toString())
+        assertEquals("https://example.org/api/v1/", BackendEnvironment.normalize("https://example.org").toString())
         assertThrows(IllegalArgumentException::class.java) { BackendEnvironment.normalize("") }
         assertThrows(IllegalArgumentException::class.java) { BackendEnvironment.normalize("http://example.org") }
         assertThrows(IllegalArgumentException::class.java) { BackendEnvironment.normalize("http://example.org", true) }
         assertThrows(IllegalArgumentException::class.java) { BackendEnvironment.normalize("https://a:b@example.org") }
         assertThrows(IllegalArgumentException::class.java) { BackendEnvironment.normalize("https://example.org/?token=secret") }
-        assertEquals("http://127.0.0.1:4000/", BackendEnvironment.normalize("http://127.0.0.1:4000", true).toString())
+        assertEquals("http://127.0.0.1:4000/api/v1/", BackendEnvironment.normalize("http://127.0.0.1:4000", true).toString())
     }
 
     @Test fun publicListingTransportNeverSendsBearerOrMapsUnknownDto() = runBlocking {
@@ -33,7 +34,7 @@ class BackendTransportTest {
             assertTrue(result is TransportOutcome.Success)
             assertTrue((result as TransportOutcome.Success).document.rawBody.contains("unknownField"))
             val request = server.takeRequest()
-            assertEquals("/listings/public", request.path)
+            assertEquals("/api/v1/listings/public", request.path)
             assertNull(request.getHeader("Authorization"))
         }
     }
@@ -61,10 +62,8 @@ class BackendTransportTest {
 
     @Test fun backendRepositoryLogoutClearsTokenAndNeverExposesDemoSnapshot() {
         val token = InMemoryAuthTokenProvider().apply { setToken("short-lived-google-id-token") }
-        val fakeApi = object : BackendApi {
-            override suspend fun getPublicListingsRaw() = TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)
-        }
-        val repository = BackendTroOiRepository(fakeApi, token)
+        val api = OkHttpBackendApi(BackendClient("", token))
+        val repository = BackendTroOiRepository(api, token)
         assertFalse(repository.initialSnapshot().demoPreview)
         assertTrue(repository.initialSnapshot().read.publicListings.isEmpty())
         repository.clearSession()

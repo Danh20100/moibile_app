@@ -7,6 +7,11 @@ data class TransportDocument(
 )
 
 /** Transport error is distinct from domain error and from an authorized empty projection. */
+sealed interface ApiOutcome<out T> {
+    data class Data<T>(val value: T) : ApiOutcome<T>
+    data class Failure(val kind: ErrorKind, val httpStatus: Int? = null) : ApiOutcome<Nothing>
+}
+
 sealed interface TransportOutcome {
     data class Success(val status: Int, val document: TransportDocument) : TransportOutcome
     data class Failure(val kind: ErrorKind, val httpStatus: Int? = null) : TransportOutcome
@@ -18,4 +23,5 @@ enum class ErrorKind {
     AUTH_EXPIRED,
     FORBIDDEN,
     HTTP_ERROR,
+    INVALID_RESPONSE,
 }

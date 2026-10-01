@@ -20,6 +20,11 @@ val backendApiBaseUrl = providers.gradleProperty("trooiApiBaseUrl")
     .orElse("")
     .get()
 val escapedBackendApiBaseUrl = backendApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+val googleWebClientId = providers.gradleProperty("trooiGoogleWebClientId")
+    .orElse(providers.environmentVariable("TROOI_GOOGLE_WEB_CLIENT_ID"))
+    .orElse("")
+    .get()
+val escapedGoogleWebClientId = googleWebClientId.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
     namespace = "com.trooi.app"
@@ -33,6 +38,7 @@ android {
         versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_API_BASE_URL", "\"$escapedBackendApiBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")
     }
 
     signingConfigs {
@@ -104,6 +110,10 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
     implementation("com.google.dagger:hilt-android:2.59.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("androidx.credentials:credentials:1.5.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -1,7 +1,9 @@
 package com.trooi.app.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.auth.GoogleCredentialAuth
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.TransportOutcome
 import androidx.lifecycle.viewModelScope
@@ -22,6 +24,7 @@ import kotlinx.coroutines.launch
 class TroOiViewModel @Inject constructor(
     private val repository: TroOiRepository,
     private val backendApi: BackendApi,
+    private val googleCredentialAuth: GoogleCredentialAuth,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
     private val _state = MutableStateFlow(
@@ -32,12 +35,16 @@ class TroOiViewModel @Inject constructor(
     )
     val state: StateFlow<TroOiUiState> = _state.asStateFlow()
 
+    init {
+        if (BuildConfig.BACKEND_BACKED) refreshPublicListings()
+    }
+
     /** Raw transport probe only; never maps unverified OpenAPI into business state. */
     fun probePublicTransport() {
         if (!BuildConfig.DEBUG || !BuildConfig.BACKEND_BACKED) return
         viewModelScope.launch {
             val message = when (val outcome = backendApi.getPublicListingsRaw()) {
-                is TransportOutcome.Success -> "GET /listings/public: HTTP ${outcome.status}. DTO mapping đang chờ OpenAPI GREEN."
+                is TransportOutcome.Success -> "GET /listings/public: HTTP ${outcome.status}. Contract runtime đã kết nối."
                 is TransportOutcome.Failure -> "Không kết nối được Backend: ${outcome.kind}" +
                     (outcome.httpStatus?.let { " (HTTP $it)" } ?: "")
             }
@@ -61,6 +68,73 @@ class TroOiViewModel @Inject constructor(
             return showMessage("Tin đăng này không có trong danh sách công khai.")
         }
         open(AppPage.ListingDetail(listingId))
+    }
+
+    fun signInWithGoogle(context: Context) {
+        if (!BuildConfig.BACKEND_BACKED || _state.value.authInProgress) return
+        _state.update { it.copy(authInProgress = true) }
+        viewModelScope.launch {
+            googleCredentialAuth.getIdToken(context).fold(
+                onSuccess = { idToken ->
+                    repository.authenticateWithGoogleIdToken(idToken).fold(
+                        onSuccess = { session ->
+                            _state.update {
+                                it.copy(
+                                    isAuthenticated = true,
+                                    displayName = session.displayName,
+                                    access = session.access,
+                                    authInProgress = false,
+                                    page = AppPage.Discovery,
+                                )
+                            }
+                            refreshAuthorizedRead(session.access)
+                        },
+                        onFailure = { error ->
+                            _state.update { it.copy(authInProgress = false) }
+                            showMessage(error.message ?: "Google authentication thất bại.")
+                        },
+                    )
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(authInProgress = false) }
+                    showMessage(error.message ?: "Không lấy được Google credential.")
+                },
+            )
+        }
+    }
+
+    private fun refreshPublicListings() {
+        if (_state.value.runtimeLoading) return
+        _state.update { it.copy(runtimeLoading = true) }
+        viewModelScope.launch {
+            repository.refreshPublicListings().fold(
+                onSuccess = { listings ->
+                    _state.update { current ->
+                        current.copy(
+                            runtimeLoading = false,
+                            read = current.read.copy(publicListings = publicDiscoveryFeed(listings)),
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(runtimeLoading = false) }
+                    showMessage(error.message ?: "Không tải được tin đăng công khai.")
+                },
+            )
+        }
+    }
+
+    private fun refreshAuthorizedRead(access: AccessCapabilities) {
+        _state.update { it.copy(runtimeLoading = true) }
+        viewModelScope.launch {
+            repository.refreshAuthorizedRead(access).fold(
+                onSuccess = { read -> _state.update { it.copy(read = read, runtimeLoading = false) } },
+                onFailure = { error ->
+                    _state.update { it.copy(runtimeLoading = false) }
+                    showMessage(error.message ?: "Không tải được dữ liệu theo quyền hiện tại.")
+                },
+            )
+        }
     }
 
     fun login(identifier: String, password: String) {
@@ -144,15 +218,19 @@ class TroOiViewModel @Inject constructor(
 
     fun logout() {
         repository.clearSession()
-        _state.update {
-            it.copy(
-            isAuthenticated = false,
-            displayName = "",
-            access = AccessCapabilities(),
-            read = FrontendReadSnapshot(publicListings = publicDiscoveryFeed(snapshot.read.publicListings)),
-            page = AppPage.Discovery,
-            submittingInquiry = false,
-            snackbarMessage = null,
+        _state.update { current ->
+            current.copy(
+                isAuthenticated = false,
+                displayName = "",
+                access = AccessCapabilities(),
+                read = FrontendReadSnapshot(
+                    publicListings = publicDiscoveryFeed(current.read.publicListings),
+                ),
+                page = AppPage.Discovery,
+                authInProgress = false,
+                runtimeLoading = false,
+                submittingInquiry = false,
+                snackbarMessage = null,
             )
         }
     }

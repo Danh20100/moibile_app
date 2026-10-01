@@ -4,16 +4,17 @@ import com.trooi.app.core.network.dto.ErrorKind
 import com.trooi.app.core.network.dto.TransportDocument
 import com.trooi.app.core.network.dto.TransportOutcome
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.util.concurrent.TimeUnit
+import okhttp3.RequestBody.Companion.toRequestBody
 
 private class BearerCall
 
-/** Attaches the current Google token only to explicitly protected requests. */
 class BearerTokenInterceptor(private val tokens: AuthTokenProvider) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
@@ -26,7 +27,6 @@ class BearerTokenInterceptor(private val tokens: AuthTokenProvider) : Intercepto
     }
 }
 
-/** Wire-level transport only; no business response DTOs before OpenAPI is GREEN. */
 class BackendClient(
     private val rawBaseUrl: String,
     private val tokens: AuthTokenProvider,
@@ -38,21 +38,46 @@ class BackendClient(
         .addInterceptor(BearerTokenInterceptor(tokens))
         .build(),
 ) {
-    suspend fun get(path: String, authenticated: Boolean = false): TransportOutcome = withContext(Dispatchers.IO) {
-        val base = try { BackendEnvironment.normalize(rawBaseUrl, allowLocalHttp) }
-            catch (_: IllegalArgumentException) { return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED) }
-        // Never accept externally-supplied absolute URLs, traversal or queries.
-        if (path.isBlank() || path.startsWith("/") || path.contains("..") || path.contains('?') || path.contains('#')) {
+    suspend fun get(
+        path: String,
+        authenticated: Boolean = false,
+        query: Map<String, String> = emptyMap(),
+    ): TransportOutcome = execute(path, authenticated, query) { builder -> builder.get() }
+
+    suspend fun postJson(
+        path: String,
+        json: String,
+        authenticated: Boolean = false,
+    ): TransportOutcome = execute(path, authenticated, emptyMap()) { builder ->
+        builder.post(json.toRequestBody(JSON_MEDIA_TYPE))
+    }
+
+    private suspend fun execute(
+        path: String,
+        authenticated: Boolean,
+        query: Map<String, String>,
+        configure: (Request.Builder) -> Request.Builder,
+    ): TransportOutcome = withContext(Dispatchers.IO) {
+        val base = try {
+            BackendEnvironment.normalize(rawBaseUrl, allowLocalHttp)
+        } catch (_: IllegalArgumentException) {
+            return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED)
+        }
+        if (!isSafeRelativePath(path) || query.keys.any { it.isBlank() }) {
             return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED)
         }
         val requestToken = if (authenticated) tokens.token() else null
         if (authenticated && requestToken.isNullOrBlank()) {
             return@withContext TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED)
         }
-        val target = base.resolve(path) ?: return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED)
-        val request = Request.Builder().url(target).apply {
-            if (authenticated) tag(BearerCall::class.java, BearerCall())
+        val targetBase = base.resolve(path)
+            ?: return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED)
+        val target = targetBase.newBuilder().apply {
+            query.forEach { (name, value) -> addQueryParameter(name, value) }
         }.build()
+        var builder = Request.Builder().url(target)
+        if (authenticated) builder = builder.tag(BearerCall::class.java, BearerCall())
+        val request = configure(builder).build()
         try {
             client.newCall(request).execute().use { response ->
                 val status = response.code
@@ -72,5 +97,13 @@ class BackendClient(
         } catch (_: IOException) {
             TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)
         }
+    }
+
+    private fun isSafeRelativePath(path: String): Boolean =
+        path.isNotBlank() && !path.startsWith("/") && !path.contains("..") &&
+            !path.contains('?') && !path.contains('#') && !path.contains("://")
+
+    private companion object {
+        val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

@@ -2,12 +2,23 @@ package com.trooi.app.core.data
 
 import com.trooi.app.core.demo.DemoData
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.FrontendReadSnapshot
+import com.trooi.app.core.model.PublicListingCard
 import javax.inject.Inject
 
 /** Debug identity is preview-only; no business command reports false success. */
 class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
     override fun initialSnapshot() = TroOiSnapshot(read = DemoData.read, demoPreview = true)
-    override fun clearSession() = Unit // Preview mode never persists Google tokens.
+    override fun clearSession() = Unit
+
+    override suspend fun refreshPublicListings(): Result<List<PublicListingCard>> =
+        Result.success(DemoData.read.publicListings)
+
+    override suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession> =
+        Result.failure(IllegalStateException("Preview debug không dùng Google runtime authentication."))
+
+    override suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot> =
+        Result.success(DemoData.read)
 
     override suspend fun login(identifier: String, password: String): Result<UserSession> =
         Result.success(
@@ -27,5 +38,5 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
         Result.failure(IllegalStateException("Preview chỉ hiển thị giao diện; chưa gửi yêu cầu khôi phục."))
 
     override suspend fun submitInquiry(listingId: String, message: String): Result<Unit> =
-        Result.failure(IllegalStateException("Chức năng liên hệ sẽ khả dụng sau khi tích hợp API Inquiry."))
+        Result.failure(IllegalStateException("Preview không tạo Inquiry thật."))
 }

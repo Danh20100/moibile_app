@@ -21,6 +21,15 @@ data class TenantFinanceProjection(
     val receipts: List<ReceiptCard> = emptyList(),
 )
 
+data class TenancyNoticeCard(
+    val noticeId: String,
+    val tenancyId: String,
+    val type: String,
+    val content: String,
+    val issuedAtLabel: String,
+    val acknowledgedAtLabel: String? = null,
+)
+
 /** Read projections do not own or mutate business facts. */
 data class FrontendReadSnapshot(
     val publicListings: List<PublicListingCard> = emptyList(),
@@ -30,6 +39,7 @@ data class FrontendReadSnapshot(
     val operatorListings: List<OperatorListingCard> = emptyList(),
     val tenancies: List<TenancyCard> = emptyList(),
     val tenantFinanceByTenancy: Map<String, TenantFinanceProjection> = emptyMap(),
+    val noticesByTenancy: Map<String, List<TenancyNoticeCard>> = emptyMap(),
     val operatorFinanceByOrganization: Map<String, OperatorFinanceProjection> = emptyMap(),
     val incidents: List<IncidentCard> = emptyList(),
     val dashboardByOrganization: Map<String, DashboardReadModel> = emptyMap(),

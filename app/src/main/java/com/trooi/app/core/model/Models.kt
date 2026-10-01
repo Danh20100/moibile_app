@@ -23,6 +23,8 @@ data class TroOiUiState(
     val access: AccessCapabilities = AccessCapabilities(),
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),
     val demoPreview: Boolean = false,
+    val authInProgress: Boolean = false,
+    val runtimeLoading: Boolean = false,
     val submittingInquiry: Boolean = false,
     val snackbarMessage: String? = null,
 )

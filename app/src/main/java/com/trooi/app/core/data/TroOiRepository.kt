@@ -2,6 +2,7 @@ package com.trooi.app.core.data
 
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.FrontendReadSnapshot
+import com.trooi.app.core.model.PublicListingCard
 
 data class TroOiSnapshot(
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),
@@ -16,12 +17,17 @@ data class UserSession(
 
 interface TroOiRepository {
     fun initialSnapshot(): TroOiSnapshot
-    /** Clear client-side credentials/session when user logs out. */
     fun clearSession()
+
+    suspend fun refreshPublicListings(): Result<List<PublicListingCard>>
+    suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession>
+    suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot>
+
+    /** Preview-only credential methods remain for the isolated demo debug source set. */
     suspend fun login(identifier: String, password: String): Result<UserSession>
     suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession>
     suspend fun requestPasswordReset(identifier: String): Result<Unit>
 
-    /** Inquiry is contact intent (not booking). Adapter mapping waits for published OpenAPI. */
+    /** Inquiry is contact intent, never booking/chat state. */
     suspend fun submitInquiry(listingId: String, message: String): Result<Unit>
 }

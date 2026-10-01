@@ -40,7 +40,7 @@ fun V1DiscoveryScreen(
         if (onProbeTransport != null) {
             item {
                 V1Panel("Kiểm tra kết nối API · Backend Debug") {
-                    V1Pending("Chỉ kiểm tra HTTP, không đọc DTO production khi OpenAPI chưa GREEN.")
+                    V1Pending("HTTP diagnostic trên backendDebug; business UI dùng DTO OpenAPI đã GREEN.")
                     V1Action("Kiểm tra GET /listings/public", onProbeTransport)
                 }
             }
@@ -51,7 +51,9 @@ fun V1DiscoveryScreen(
                 Text("Vị trí và bộ lọc sẽ lấy từ public Listing API. Không hiển thị địa chỉ vận hành.", color = TroOiMuted)
             }
         }
-        if (listings.isEmpty()) {
+        if (state.runtimeLoading && listings.isEmpty()) {
+            item { V1Panel("Đang tải tin đăng") { V1Pending("Đang đọc public Listing projection từ Backend.") } }
+        } else if (listings.isEmpty()) {
             item { V1Panel("Chưa có tin đăng công khai") { V1Pending("Chưa có dữ liệu Listing PUBLISHED từ Backend.") } }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
@@ -77,6 +79,7 @@ fun V1ListingDetailScreen(
     state: TroOiUiState,
     listingId: String,
     onBack: () -> Unit,
+    onOpenLogin: () -> Unit,
     onSubmitInquiry: (String, String) -> Unit,
 ) {
     BackHandler(onBack = onBack)
@@ -104,21 +107,26 @@ fun V1ListingDetailScreen(
             item {
                 V1Panel("Liên hệ về tin đăng") {
                     Text("Inquiry là nhu cầu liên hệ, không phải giữ phòng hay đặt lịch.", color = TroOiMuted)
-                    OutlinedTextField(
-                        value = inquiryText,
-                        onValueChange = { inquiryText = it.take(1000) },
-                        label = { Text("Nội dung cần liên hệ") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3,
-                        maxLines = 5,
-                    )
-                    V1Action(
-                        "Gửi yêu cầu liên hệ",
-                        { onSubmitInquiry(listing.listingId, inquiryText) },
-                        enabled = inquiryText.isNotBlank() && !state.submittingInquiry,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("Yêu cầu chỉ thành công khi Backend xác nhận. Hiện adapter đang chờ OpenAPI.", color = TroOiMuted, style = MaterialTheme.typography.labelSmall)
+                    if (!state.isAuthenticated) {
+                        V1Pending("Đăng nhập bằng Google để gửi Inquiry. Không tạo booking/chat cục bộ.")
+                        V1Action("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        OutlinedTextField(
+                            value = inquiryText,
+                            onValueChange = { inquiryText = it.take(1000) },
+                            label = { Text("Nội dung cần liên hệ") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3,
+                            maxLines = 5,
+                        )
+                        V1Action(
+                            "Gửi yêu cầu liên hệ",
+                            { onSubmitInquiry(listing.listingId, inquiryText) },
+                            enabled = inquiryText.isNotBlank() && !state.submittingInquiry,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text("Yêu cầu chỉ thành công sau response 201 từ Backend.", color = TroOiMuted, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -197,6 +205,17 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                         if (receipts.isEmpty()) V1Pending("Chưa có Receipt từ confirmed Payment.")
                         else receipts.forEach { V1Metric("Biên nhận " + it.receiptId, it.issuedAtLabel) }
                     }
+                    PortalArea.NOTICES -> {
+                        val notices = linked.flatMap { state.read.noticesByTenancy[it].orEmpty() }
+                        if (notices.isEmpty()) V1Pending("Chưa có Notice theo Tenancy.")
+                        else notices.forEach { notice ->
+                            V1Metric(notice.type, notice.content)
+                            V1Pending(
+                                notice.acknowledgedAtLabel?.let { "Đã xác nhận: $it" }
+                                    ?: "Phát hành: ${notice.issuedAtLabel}",
+                            )
+                        }
+                    }
                     PortalArea.FIND_ROOMS -> V1Action("Mở Discovery", onFindRooms)
                     else -> V1Pending("Đang chờ Backend cung cấp dữ liệu và quyền cụ thể cho ${selected.title}. Không tạo trạng thái nghiệp vụ giả ở client.")
                 }
@@ -226,6 +245,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
 @Composable
 fun V1AccountScreen(
     state: TroOiUiState,
+    googleOnly: Boolean = false,
     onLogin: () -> Unit,
     onSignUp: () -> Unit,
     onDiscovery: () -> Unit,
@@ -241,8 +261,12 @@ fun V1AccountScreen(
                 V1Pending(if (state.isAuthenticated) "Đã đăng nhập" else "Bạn vẫn có thể tìm phòng công khai khi chưa đăng nhập.")
                 V1Action("Tìm phòng", onDiscovery, modifier = Modifier.fillMaxWidth())
                 if (!state.isAuthenticated) {
-                    V1Action("Đăng nhập", onLogin, modifier = Modifier.fillMaxWidth())
-                    TextButton(onClick = onSignUp) { Text("Tạo tài khoản") }
+                    V1Action(
+                        if (googleOnly) "Đăng nhập với Google" else "Đăng nhập",
+                        onLogin,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (!googleOnly) TextButton(onClick = onSignUp) { Text("Tạo tài khoản") }
                 } else {
                     if (state.access.allows(ClientArea.TENANT_PORTAL)) {
                         V1Action("My Rental / Tenant Portal", onTenantPortal, modifier = Modifier.fillMaxWidth())
