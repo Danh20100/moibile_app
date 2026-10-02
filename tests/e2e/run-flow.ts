@@ -62,7 +62,8 @@ function prepareAndroidDevice(): void {
   run(adb, ['wait-for-device']);
   run(adb, ['shell', 'am', 'force-stop', 'dev.mobile.maestro']);
   run(adb, ['shell', 'am', 'force-stop', 'dev.mobile.maestro.test']);
-  sleep(750);
+  // ponytail: Windows Maestro KeyValueStore file-lock across consecutive JVM sessions
+  sleep(process.platform === 'win32' ? 3000 : 750);
 }
 
 function runMaestro(flowFile: string, env: NodeJS.ProcessEnv): void {

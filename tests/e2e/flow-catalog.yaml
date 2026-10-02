@@ -81,7 +81,6 @@ features:
 execution_status:
   executable_now:
     - DISC-01
-  automation_flaky:
     - DISC-02
   requires_real_google_session:
     - AUTH-01
@@ -116,4 +115,4 @@ frozen_notification_use_cases:
 notes:
   - Notification channels remain OPEN; cases assert recipient/source/delivery facts, not push/email/SMS/Zalo.
   - Inquiry/Contact is V1. Appointment reservation or instant booking is not V1.
-  - DISC-02 remains flaky until its Maestro navigation tap is stabilized on Windows.
+  - DISC-02 taps clickable Listing card via testTag resource-id; consecutive Windows runs relaunch after clearState.

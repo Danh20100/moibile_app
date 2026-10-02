@@ -2,12 +2,18 @@ appId: com.trooi.app.backenddev
 ---
 - launchApp:
     clearState: true
-- assertVisible: 'Tìm phòng'
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: 'v1-discovery-list'
+    timeout: 20000
 - scrollUntilVisible:
     element:
       id: 'public-listing-card'
     direction: DOWN
-    timeout: 10000
+    timeout: 20000
+    visibilityPercentage: 50
 - tapOn:
     id: 'public-listing-card'
 - assertVisible: 'Thông tin công khai'
