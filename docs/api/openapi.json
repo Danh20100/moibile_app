@@ -1497,6 +1497,173 @@
         ]
       }
     },
+    "/finance/deposits": {
+      "post": {
+        "operationId": "BillingController_createDeposit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDepositDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deposit lifecycle created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Tenancy"
+          }
+        },
+        "summary": "Initialize the one-per-Tenancy Deposit lifecycle",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "BillingController_findDepositByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposit projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot read the Tenancy"
+          },
+          "404": {
+            "description": "Tenancy or Deposit lifecycle not found"
+          }
+        },
+        "summary": "Get the source-backed Deposit projection for a Tenancy",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/deposits/{id}/events": {
+      "get": {
+        "operationId": "BillingController_findDepositEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Deposit ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposit event history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DepositEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List append-only Deposit events",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/deposits/{id}/settlements": {
+      "post": {
+        "operationId": "BillingController_settleDeposit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Deposit ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleDepositDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deposit settlement recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositSettlementDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record a Deposit refund/retain settlement",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/finance/payments/{id}/deposit-applications": {
       "post": {
         "operationId": "BillingController_applyDeposit",
@@ -3869,6 +4036,181 @@
           "paymentId",
           "chargeId",
           "allocatedAmount"
+        ]
+      },
+      "CreateDepositDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          }
+        },
+        "required": [
+          "tenancyId"
+        ]
+      },
+      "DepositProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "requirementAmount": {
+            "type": "string",
+            "nullable": true,
+            "example": "3500000.00"
+          },
+          "fundedAmount": {
+            "type": "string",
+            "example": "2000000.00"
+          },
+          "settledAmount": {
+            "type": "string",
+            "example": "0.00"
+          },
+          "heldAmount": {
+            "type": "string",
+            "example": "2000000.00"
+          },
+          "state": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "EXPECTED",
+              "PARTIALLY_HELD",
+              "HELD",
+              "PENDING_SETTLEMENT",
+              "SETTLED"
+            ]
+          },
+          "blockedByOpenPolicy": {
+            "type": "boolean",
+            "description": "True when an OPEN deposit-requirement-change policy prevents an authoritative state projection."
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "fundedAmount",
+          "settledAmount",
+          "heldAmount",
+          "blockedByOpenPolicy"
+        ]
+      },
+      "DepositEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "devent_12345"
+          },
+          "depositId": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "REFUNDED",
+              "RETAINED"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "example": "1000000.00"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "paymentApplicationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "settlementId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "depositId",
+          "eventType",
+          "amount",
+          "occurredAt"
+        ]
+      },
+      "SettleDepositDto": {
+        "type": "object",
+        "properties": {
+          "refundedAmount": {
+            "type": "string",
+            "example": "3000000.00"
+          },
+          "retainedAmount": {
+            "type": "string",
+            "example": "500000.00"
+          },
+          "reasonOrNote": {
+            "type": "string",
+            "example": "Final checkout settlement"
+          },
+          "settledAt": {
+            "type": "string",
+            "example": "2026-10-05T08:00:00.000Z"
+          }
+        },
+        "required": [
+          "refundedAmount",
+          "retainedAmount",
+          "reasonOrNote",
+          "settledAt"
+        ]
+      },
+      "DepositSettlementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dset_12345"
+          },
+          "depositId": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "refundedAmount": {
+            "type": "string",
+            "example": "3000000.00"
+          },
+          "retainedAmount": {
+            "type": "string",
+            "example": "500000.00"
+          },
+          "reasonOrNote": {
+            "type": "string"
+          },
+          "actedByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "settledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "depositId",
+          "refundedAmount",
+          "retainedAmount",
+          "reasonOrNote",
+          "actedByUserId",
+          "settledAt"
         ]
       },
       "DepositPaymentApplicationDto": {

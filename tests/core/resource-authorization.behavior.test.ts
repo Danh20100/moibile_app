@@ -567,6 +567,71 @@ test('Resource Authorization: Tenancy, Tenant Linked access & Finance isolation'
     (err: unknown) => err instanceof ForbiddenException,
   );
 
+  // Deposit lifecycle is discoverable by Tenancy; only the operator initializes and settles it.
+  await assert.rejects(
+    () => env.billingController.createDeposit({ tenancyId: tenancyA.id }, userB),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
+
+  const deposit = await env.billingController.createDeposit({ tenancyId: tenancyA.id }, userA);
+  assert.equal(deposit.tenancyId, tenancyA.id);
+  assert.equal(deposit.requirementAmount, '3000000');
+  assert.equal(deposit.fundedAmount, '0.00');
+  assert.equal(deposit.state, 'EXPECTED');
+  assert.equal(deposit.blockedByOpenPolicy, false);
+
+  const tenantDeposit = await env.billingController.findDepositByTenancy(tenancyA.id, userB);
+  assert.equal(tenantDeposit.id, deposit.id);
+
+  await assert.rejects(
+    () => env.billingController.findDepositByTenancy(tenancyA.id, userC),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
+
+  await env.billingController.applyDeposit(
+    paymentA.id,
+    { targetId: deposit.id, amount: '3000000.00' },
+    userA,
+  );
+  const heldDeposit = await env.billingController.findDepositByTenancy(tenancyA.id, userB);
+  assert.equal(heldDeposit.fundedAmount, '3000000.00');
+  assert.equal(heldDeposit.heldAmount, '3000000.00');
+  assert.equal(heldDeposit.state, 'HELD');
+
+  await assert.rejects(
+    () =>
+      env.billingController.settleDeposit(
+        deposit.id,
+        {
+          refundedAmount: '2500000.00',
+          retainedAmount: '500000.00',
+          reasonOrNote: 'Tenant cannot settle the deposit',
+          settledAt: '2026-10-03T10:00:00.000Z',
+        },
+        userB,
+      ),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
+
+  const settlement = await env.billingController.settleDeposit(
+    deposit.id,
+    {
+      refundedAmount: '2500000.00',
+      retainedAmount: '500000.00',
+      reasonOrNote: 'Final checkout settlement',
+      settledAt: '2026-10-03T10:05:00.000Z',
+    },
+    userA,
+  );
+  assert.equal(settlement.actedByUserId, userA.userId);
+
+  const depositEvents = await env.billingController.findDepositEvents(deposit.id, userB);
+  assert.deepEqual(depositEvents.map((event) => event.eventType), ['RECEIVED', 'REFUNDED', 'RETAINED']);
+  const settledDeposit = await env.billingController.findDepositByTenancy(tenancyA.id, userB);
+  assert.equal(settledDeposit.settledAmount, '3000000.00');
+  assert.equal(settledDeposit.heldAmount, '0.00');
+  assert.equal(settledDeposit.state, 'SETTLED');
+
   // User A issues receipt
   const receiptA = await env.receiptController.issue({ paymentId: paymentA.id }, userA);
 
