@@ -25,7 +25,16 @@ with stable UUIDs. Re-running the seed is idempotent for those fixture IDs.
 
 ## Run locally
 
-Start the Docker stack first, then run:
+Start the Docker stack and Pixel emulator first. The preferred entry point is:
+
+```powershell
+pnpm e2e:flow DISC-01
+pnpm e2e:flow DISC-02
+```
+
+Each executable flow resets and seeds deterministic data, runs Maestro on Android, then verifies the public API, PostgreSQL facts, and relevant invariants.
+
+The lower-level seed commands remain available when debugging:
 
 ```powershell
 pnpm e2e:reset
