@@ -1,3 +1,10 @@
+---
+review_of: docs/superpowers/handoff/duyanh-20261002-190219-v1-e2e-flow-closure.md
+reviewer: coordinator
+reviewed_sha: e1027443220ecc8b7e4a0ec7a3b662dbdbd94321
+status: changes-requested
+---
+
 # Independent Review — V1 E2E Flow Closure
 
 **Reviewer:** Integration / coordinator audi
