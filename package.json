@@ -23,6 +23,7 @@
     "e2e:seed": "node --env-file=.env --import tsx tests/e2e/seed/seed.ts",
     "e2e:reset": "node --env-file=.env --import tsx tests/e2e/seed/reset.ts",
     "e2e:flow": "node --env-file=.env --import tsx tests/e2e/run-flow.ts",
+    "e2e:coverage": "node --import tsx tests/e2e/validate-v1-coverage.ts",
     "test:persistence:migration": "tsx --test tests/integration/persistence/migration-parity.integration.ts",
     "build": "nest build",
     "openapi:generate": "nest build && node scripts/openapi/generate.js",

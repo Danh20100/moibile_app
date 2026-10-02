@@ -1,0 +1,217 @@
+feature: operator-inventory
+sources:
+  - docs/backlogs/v1/organization.md
+  - docs/backlogs/v1/property-room.md
+  - docs/backlogs/v1/listing.md
+cases:
+  - id: ORG-01-H01
+    flow: ORG-01
+    kind: happy
+    scenario: authenticated user creates Organization
+    expect: [organization-created, current-user-is-primary-owner]
+  - id: ORG-01-H02
+    flow: ORG-01
+    kind: cardinality
+    scenario: same user creates multiple Organizations
+    expect: [multiple-organizations-allowed]
+  - id: ORG-02-H01
+    flow: ORG-02
+    kind: read
+    scenario: operator lists and opens owned Organizations
+    expect: [owned-organizations-visible]
+  - id: ORG-02-N01
+    flow: ORG-02
+    kind: authorization
+    scenario: user opens foreign Organization resources
+    expect: [access-denied]
+  - id: PROP-01-H01
+    flow: PROP-01
+    kind: happy
+    scenario: operator creates Property under owned Organization
+    expect: [property-created, property-linked-to-organization, lifecycle-active]
+  - id: PROP-01-P01
+    flow: PROP-01
+    kind: privacy
+    scenario: Property stores operational and public locations
+    expect: [operational-location-stored, public-projection-stored-separately]
+    must_not: [default-exact-address-to-public]
+  - id: PROP-01-N01
+    flow: PROP-01
+    kind: authorization
+    scenario: operator tries to create Property under foreign Organization
+    expect: [access-denied, no-property-created]
+  - id: ROOM-01-H01
+    flow: ROOM-01
+    kind: happy
+    scenario: operator adds Room to active Property
+    expect: [room-created, operational-state-vacant, record-lifecycle-active]
+  - id: ROOM-01-N01
+    flow: ROOM-01
+    kind: ancestor-guard
+    scenario: create Room under archived Property
+    expect: [rejected]
+  - id: ROOM-02-H01
+    flow: ROOM-02
+    kind: lifecycle
+    scenario: VACANT Room enters MAINTENANCE and returns VACANT
+    expect: [valid-transitions, history-appended]
+  - id: ROOM-02-S01
+    flow: ROOM-02
+    kind: side-effect
+    scenario: PUBLISHED Listing exists when Room enters MAINTENANCE
+    expect: [room-maintenance, listing-unpublished-synchronously, listing-status-event-appended]
+  - id: ROOM-02-N01
+    flow: ROOM-02
+    kind: invalid-transition
+    scenario: OCCUPIED Room attempts direct MAINTENANCE
+    expect: [rejected]
+  - id: ROOM-03-H01
+    flow: ROOM-03
+    kind: lifecycle
+    scenario: VACANT or MAINTENANCE Room becomes INACTIVE
+    expect: [room-inactive]
+  - id: ROOM-03-S01
+    flow: ROOM-03
+    kind: side-effect
+    scenario: Room with PUBLISHED Listing becomes INACTIVE
+    expect: [listing-unpublished-synchronously]
+  - id: ROOM-03-H02
+    flow: ROOM-03
+    kind: lifecycle
+    scenario: INACTIVE Room under ACTIVE Property reactivates
+    expect: [room-vacant]
+  - id: ROOM-03-N01
+    flow: ROOM-03
+    kind: ancestor-guard
+    scenario: Room under ARCHIVED Property attempts reactivation
+    expect: [rejected]
+  - id: ROOM-04-H01
+    flow: ROOM-04
+    kind: archive
+    scenario: eligible INACTIVE Room is archived
+    expect: [room-archived, related-listings-archived, history-appended]
+  - id: ROOM-04-N01
+    flow: ROOM-04
+    kind: archive-guard
+    scenario: Room has non-terminal Tenancy
+    expect: [archive-rejected]
+  - id: ROOM-04-N02
+    flow: ROOM-04
+    kind: archive-guard
+    scenario: Room has open Incident
+    expect: [archive-rejected]
+  - id: LIST-01-H01
+    flow: LIST-01
+    kind: happy
+    scenario: operator creates current Listing for active VACANT Room
+    expect: [listing-draft, linked-room-correct]
+  - id: LIST-01-N01
+    flow: LIST-01
+    kind: cardinality
+    scenario: Room already has current non-archived Listing
+    expect: [second-current-listing-rejected]
+  - id: LIST-02-H01
+    flow: LIST-02
+    kind: edit
+    scenario: operator edits public Listing fields
+    expect: [public-fields-updated, source-room-state-unchanged]
+  - id: LIST-02-P01
+    flow: LIST-02
+    kind: privacy
+    scenario: operator edits public location projection
+    must_not: [copy-private-operational-address-implicitly]
+  - id: LIST-03-H01
+    flow: LIST-03
+    kind: publish
+    scenario: complete Listing on active VACANT Room is published
+    expect: [listing-published, status-event-appended, discovery-visible]
+  - id: LIST-03-N01
+    flow: LIST-03
+    kind: publish-guard
+    scenario: Room is OCCUPIED MAINTENANCE or INACTIVE
+    expect: [publish-rejected]
+  - id: LIST-03-N02
+    flow: LIST-03
+    kind: ancestor-guard
+    scenario: Property or Room lifecycle is ARCHIVED
+    expect: [publish-rejected]
+  - id: LIST-04-H01
+    flow: LIST-04
+    kind: unpublish
+    scenario: operator manually unpublishes Listing
+    expect: [listing-unpublished, discovery-hidden, status-event-appended]
+  - id: LIST-05-H01
+    flow: LIST-05
+    kind: republish
+    scenario: UNPUBLISHED Listing passes validation after Room returns VACANT
+    expect: [listing-published, discovery-visible, new-status-event]
+  - id: LIST-05-N01
+    flow: LIST-05
+    kind: republish-guard
+    scenario: Room is not VACANT at republish time
+    expect: [rejected]
+  - id: LIST-06-H01
+    flow: LIST-06
+    kind: archive
+    scenario: DRAFT or UNPUBLISHED Listing is archived
+    expect: [listing-archived, no-longer-current]
+  - id: LIST-06-N01
+    flow: LIST-06
+    kind: terminal-state
+    scenario: archived Listing attempts republish
+    expect: [rejected]
+  - id: ORG-03-H01
+    flow: ORG-03
+    kind: update
+    scenario: primary owner updates supported Organization fields
+    expect: [supported-fields-persisted, primary-owner-unchanged]
+  - id: PROP-02-H01
+    flow: PROP-02
+    kind: update
+    scenario: operator views and updates supported Property operational fields
+    expect: [changes-persisted, lifecycle-authority-remains-backend]
+  - id: PROP-02-P01
+    flow: PROP-02
+    kind: privacy
+    scenario: Property location data changes
+    expect: [public-projection-revalidated-separately]
+    must_not: [leak-exact-location-by-default]
+  - id: PROP-03-H01
+    flow: PROP-03
+    kind: archive
+    scenario: Property satisfies all frozen archive guards
+    expect: [property-archived]
+  - id: PROP-03-N01
+    flow: PROP-03
+    kind: archive-guard
+    scenario: Property has nonterminal Tenancy Published Listing OCCUPIED Room active child Room or open Incident
+    expect: [archive-rejected]
+    must_not: [auto-close-incidents]
+  - id: ROOM-05-H01
+    flow: ROOM-05
+    kind: update
+    scenario: operator views and updates supported Room fields
+    expect: [supported-fields-persisted]
+    must_not: [invent-operational-transition-from-form-edit]
+  - id: ROOM-06-H01
+    flow: ROOM-06
+    kind: correction
+    scenario: same physical Room was assigned to wrong Property before committed public history
+    expect: [property-relation-corrected, history-appended]
+  - id: ROOM-06-H02
+    flow: ROOM-06
+    kind: correction
+    scenario: same physical Room correction occurs after public Listing
+    expect:
+      [
+        listing-unpublished,
+        property-relation-corrected,
+        public-location-revalidated,
+        manual-republish-required,
+      ]
+  - id: ROOM-06-N01
+    flow: ROOM-06
+    kind: identity
+    scenario: Room physically relocates or restructuring changes physical context
+    expect: [new-room-identity-required, old-room-archived]
+    must_not: [reuse-old-room-identity-as-simple-correction]

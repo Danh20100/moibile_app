@@ -1,0 +1,186 @@
+feature: rental-lifecycle
+sources:
+  - docs/backlogs/v1/tenancy.md
+  - docs/backlogs/v1/tenancy-participant.md
+  - docs/backlogs/v1/tenancy-terms.md
+  - docs/backlogs/v1/terms-acknowledgement.md
+  - docs/backlogs/v1/rental-lifecycle.md
+cases:
+  - id: TEN-01-H01
+    flow: TEN-01
+    kind: happy
+    scenario: operator creates DRAFT Tenancy for eligible Room
+    expect: [tenancy-draft, correct-room-link]
+  - id: TEN-01-N01
+    flow: TEN-01
+    kind: invariant
+    scenario: Room already has DRAFT ACTIVE or ENDING Tenancy
+    expect: [new-tenancy-rejected]
+  - id: TEN-01-N02
+    flow: TEN-01
+    kind: preleasing-guard
+    scenario: current Tenancy is ENDING
+    expect: [future-draft-rejected]
+    must_not: [implement-preleasing-semantics]
+  - id: TEN-02-H01
+    flow: TEN-02
+    kind: lifecycle
+    scenario: DRAFT Tenancy is cancelled before activation
+    expect: [tenancy-cancelled, room-state-unchanged, history-preserved]
+  - id: TEN-02-N01
+    flow: TEN-02
+    kind: invalid-transition
+    scenario: ACTIVE Tenancy attempts DRAFT cancellation path
+    expect: [rejected]
+  - id: TEN-03-H01
+    flow: TEN-03
+    kind: read
+    scenario: authorized operator or linked tenant opens Tenancy
+    expect: [tenancy-readable, current-lifecycle-from-backend]
+  - id: TEN-03-N01
+    flow: TEN-03
+    kind: authorization
+    scenario: unrelated user opens Tenancy
+    expect: [access-denied]
+  - id: PART-01-H01
+    flow: PART-01
+    kind: happy
+    scenario: operator adds PRIMARY participant without requiring USER account
+    expect: [primary-participant-created, user-link-optional]
+  - id: PART-01-N01
+    flow: PART-01
+    kind: cardinality
+    scenario: second active PRIMARY is added
+    expect: [rejected]
+  - id: PART-02-H01
+    flow: PART-02
+    kind: happy
+    scenario: operator adds OCCUPANT
+    expect: [occupant-created, primary-unchanged]
+  - id: PART-02-H02
+    flow: PART-02
+    kind: history
+    scenario: OCCUPANT leaves Tenancy
+    expect: [left-at-recorded, participant-row-preserved]
+  - id: PART-03-H01
+    flow: PART-03
+    kind: linking
+    scenario: existing USER is linked to participant
+    expect: [participant-user-link-created, tenant-capability-derived]
+  - id: PART-03-I01
+    flow: PART-03
+    kind: invariant
+    scenario: user account is later unlinked or unavailable
+    expect: [participant-history-preserved]
+  - id: PART-04-H01
+    flow: PART-04
+    kind: history
+    scenario: authorized user views participant history
+    expect: [joined-and-left-history-visible, roles-preserved-over-time]
+  - id: PART-05-O01
+    flow: PART-05
+    kind: open-policy
+    scenario: PRIMARY replacement is attempted
+    expect: [execute-only-after-authoritative-policy-frozen, max-one-active-primary]
+  - id: TERMS-01-H01
+    flow: TERMS-01
+    kind: happy
+    scenario: operator records initial Terms
+    expect: [version-one-created, exact-rent, exact-deposit-requirement, dates-and-rules-persisted]
+  - id: TERMS-01-N01
+    flow: TERMS-01
+    kind: scope
+    scenario: unsupported generic fee is added to Terms or Billing scope
+    expect: [rejected-or-not-offered]
+  - id: TERMS-02-H01
+    flow: TERMS-02
+    kind: versioning
+    scenario: parties change Terms
+    expect: [new-version-created, old-version-preserved]
+  - id: TERMS-02-I01
+    flow: TERMS-02
+    kind: billing-boundary
+    scenario: financial Terms change mid-cycle
+    expect: [new-terms-effective-next-cycle-boundary]
+    must_not: [mutate-current-cycle, prorate-mid-cycle]
+  - id: TERMS-03-H01
+    flow: TERMS-03
+    kind: read
+    scenario: authorized user views Terms history
+    expect: [all-allowed-versions-visible, current-version-identifiable]
+  - id: ACK-01-H01
+    flow: ACK-01
+    kind: happy
+    scenario: linked participant user acknowledges displayed Terms version
+    expect:
+      [ack-row-created, exact-version-linked, participant-and-user-linked, timestamp-persisted]
+  - id: ACK-01-N01
+    flow: ACK-01
+    kind: authorization
+    scenario: unrelated user acknowledges Terms
+    expect: [rejected]
+  - id: ACK-01-I01
+    flow: ACK-01
+    kind: invariant
+    scenario: new Terms version exists after old acknowledgement
+    must_not: [treat-old-version-ack-as-new-version-ack]
+  - id: ACK-02-H01
+    flow: ACK-02
+    kind: read
+    scenario: operator checks acknowledgement state
+    expect: [status-scoped-by-participant-and-terms-version]
+  - id: RENT-01-H01
+    flow: RENT-01
+    kind: happy
+    scenario: valid DRAFT Tenancy is activated
+    expect: [tenancy-active, room-occupied, published-listing-unpublished, atomic-commit]
+  - id: RENT-01-N01
+    flow: RENT-01
+    kind: guard
+    scenario: no active PRIMARY
+    expect: [activation-rejected, room-not-occupied]
+  - id: RENT-01-N02
+    flow: RENT-01
+    kind: guard
+    scenario: Room is not VACANT
+    expect: [activation-rejected]
+  - id: RENT-01-N03
+    flow: RENT-01
+    kind: concurrency
+    scenario: two activations race for same Room
+    expect: [at-most-one-nonterminal-tenancy-wins, no-split-brain-room-state]
+  - id: RENT-02-H01
+    flow: RENT-02
+    kind: lifecycle
+    scenario: authorized user starts move-out
+    expect: [tenancy-ending, room-still-occupied, move-out-notification-to-relevant-counterparty]
+  - id: RENT-02-I01
+    flow: RENT-02
+    kind: invariant
+    scenario: tenant indicates move-out
+    must_not: [set-room-vacant, set-tenancy-ended]
+  - id: RENT-03-H01
+    flow: RENT-03
+    kind: lifecycle
+    scenario: ENDING Tenancy continues renting
+    expect: [tenancy-active, room-occupied]
+  - id: RENT-04-H01
+    flow: RENT-04
+    kind: checkout
+    scenario: operator confirms checkout from ENDING
+    expect: [tenancy-ended, room-vacant, atomic-commit]
+  - id: RENT-04-N01
+    flow: RENT-04
+    kind: invalid-transition
+    scenario: ACTIVE Tenancy attempts direct ENDED transition
+    expect: [rejected]
+  - id: RENT-04-I01
+    flow: RENT-04
+    kind: invariant
+    scenario: term end date passes without checkout confirmation
+    must_not: [auto-end-tenancy, auto-vacate-room]
+  - id: RENT-04-H02
+    flow: RENT-04
+    kind: next-cycle
+    scenario: checkout completed and Room returns VACANT
+    expect: [eligible-for-next-rental-cycle, no-automatic-listing-republish]

@@ -87,3 +87,38 @@ flows:
     preconditions: [issued-receipt]
     steps: [void-receipt, issue-replacement]
     assertions: [old-receipt-voided-not-deleted, replacement-traceable, one-current-receipt]
+  - id: BILL-03
+    name: record-utility-inputs
+    actor: operator
+    status: spec_only
+    preconditions: [supported-utility-connections]
+    steps: [record-meter-or-supported-inputs, calculate-cycle-charges]
+    assertions: [electricity-water-provenance-preserved, unsupported-charge-types-rejected]
+  - id: BILL-04
+    name: derive-outstanding-balance
+    actor: authorized-user
+    status: spec_only
+    preconditions: [charges-and-allocations]
+    steps: [open-billing-summary]
+    assertions: [outstanding-derived-from-source-facts, no-separate-editable-paid-flag]
+  - id: PAY-05
+    name: tenant-views-confirmed-payments
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [confirmed-payments]
+    steps: [open-payment-history]
+    assertions: [only-linked-tenancy-payments-visible, confirmation-source-visible]
+  - id: CLAIM-03
+    name: view-payment-claim-status
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [submitted-payment-claim]
+    steps: [open-claim-status]
+    assertions: [claim-distinct-from-payment, current-review-state-visible]
+  - id: REC-03
+    name: tenant-receipt-history
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [receipt-history]
+    steps: [open-receipts, open-current-or-voided-receipt]
+    assertions: [issued-voided-history-visible, source-payment-traceable]

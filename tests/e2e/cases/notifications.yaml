@@ -1,0 +1,127 @@
+feature: notifications
+source: docs/backlogs/v1/notification.md
+authority: docs/database/v1/canonical.md#26-notifications-frozen-capability
+channel_policy: OPEN
+cases:
+  - id: NOTIF-01-H01
+    flow: NOTIF-01
+    kind: source-routing
+    scenario: authorized recipient opens Notification
+    expect: [routes-to-authorized-source-feature, source-reference-preserved]
+    must_not: [mutate-source-business-state]
+  - id: NOTIF-01-N01
+    flow: NOTIF-01
+    kind: authorization
+    scenario: unrelated user tries to open another recipient Notification
+    expect: [access-denied]
+  - id: NOTIF-02-H01
+    flow: NOTIF-02
+    kind: list
+    scenario: authenticated user opens notification center
+    expect: [only-own-notifications-visible, delivery-facts-readable]
+  - id: NOTIF-03-H01
+    flow: NOTIF-03
+    kind: navigation
+    scenario: Notification source still exists and recipient retains permission
+    expect: [source-feature-opens]
+  - id: NOTIF-03-N01
+    flow: NOTIF-03
+    kind: authorization
+    scenario: recipient lost permission to source after Notification was created
+    expect: [source-access-denied-or-safe-unavailable-state]
+    must_not: [notification-bypass-source-authorization]
+  - id: NOTIF-04-O01
+    flow: NOTIF-04
+    kind: open-policy
+    scenario: read-state capability is enabled
+    expect: [read-at-or-equivalent-delivery-state-updated]
+    must_not: [change-inquiry-payment-tenancy-incident-or-notice-state]
+  - id: NOTIF-X01
+    flow: NOTIF-01
+    kind: cross-actor
+    event: new-inquiry
+    producer: searcher
+    recipient: listing-organization-primary-owner
+    source: inquiry
+    expect: [notification-created-after-inquiry, recipient-can-open-inquiry]
+    must_not: [create-booking, create-tenancy, change-room-state]
+  - id: NOTIF-X02
+    flow: NOTIF-01
+    kind: cross-actor
+    event: payment-due
+    producer: billing-domain
+    recipient: authorized-linked-tenant-user
+    source: charge-or-billing-context
+    expect: [notification-created-for-due-condition]
+    must_not: [mark-charge-paid, create-payment]
+  - id: NOTIF-X03
+    flow: NOTIF-01
+    kind: cross-actor
+    event: payment-confirmed
+    producer: operator-payment-action
+    recipient: authorized-linked-tenant-user
+    source: payment
+    expect: [notification-created-after-confirmed-payment]
+    must_not: [notification-confirm-payment-itself]
+  - id: NOTIF-X04
+    flow: NOTIF-01
+    kind: cross-actor
+    event: new-incident
+    producer: authorized-room-user
+    recipient: responsible-operator-by-relationship
+    source: incident
+    expect: [notification-created-after-incident-recorded]
+    must_not: [auto-acknowledge-incident]
+  - id: NOTIF-X05
+    flow: NOTIF-01
+    kind: cross-actor
+    event: incident-status-changed
+    producer: operator
+    recipient: affected-authorized-user-by-relationship
+    source: incident
+    expect: [notification-created-after-valid-transition]
+    must_not: [perform-transition-from-notification]
+  - id: NOTIF-X06
+    flow: NOTIF-01
+    kind: cross-actor
+    event: tenancy-notice-issued
+    producer: operator
+    recipient: authorized-linked-participant-user
+    source: tenancy-notice
+    expect: [notification-created-after-notice-issued]
+    must_not: [treat-delivery-as-acknowledgement-or-legal-validation]
+  - id: NOTIF-X07
+    flow: NOTIF-01
+    kind: cross-actor
+    event: move-out
+    producer: authorized-tenancy-user
+    recipient: relevant-counterparty-by-relationship
+    source: tenancy
+    expect: [notification-created-after-move-out-event]
+    must_not: [auto-checkout, auto-vacate-room]
+  - id: NOTIF-X08
+    flow: NOTIF-01
+    kind: cross-actor
+    event: review-or-report-moderation
+    producer: authorized-moderation-flow
+    recipient: affected-user-under-authoritative-policy
+    source: review-or-trust-report
+    expect: [notification-created-when-policy-authorizes]
+    must_not: [freeze-open-moderation-permissions, auto-remove-content-from-notification]
+  - id: NOTIF-I01
+    flow: NOTIF-01
+    kind: invariant
+    scenario: any Notification is created delivered or read
+    must_not:
+      [
+        become-business-source-of-truth,
+        mutate-payment,
+        mutate-tenancy,
+        mutate-incident,
+        resolve-trust-report,
+      ]
+  - id: NOTIF-O01
+    flow: NOTIF-01
+    kind: open-policy
+    scenario: delivery channel is selected
+    expect: [no-test-assumes-push-email-sms-or-zalo-until-channel-policy-is-frozen]

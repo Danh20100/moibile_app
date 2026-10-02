@@ -70,3 +70,31 @@ flows:
     preconditions: [submitted-report, authoritative-moderation-permission]
     steps: [move-under-review, resolve-or-reject]
     assertions: [valid-lifecycle, report-history-preserved]
+  - id: NOTIF-02
+    name: list-notifications
+    actor: authenticated-user
+    status: spec_only
+    preconditions: [notification-fixtures]
+    steps: [open-notification-center]
+    assertions: [only-recipient-notifications-visible]
+  - id: NOTIF-03
+    name: open-notification-source
+    actor: authenticated-user
+    status: spec_only
+    preconditions: [notification-with-source-reference]
+    steps: [open-notification]
+    assertions: [routes-to-authorized-source-feature, source-business-state-unchanged]
+  - id: NOTIF-04
+    name: notification-read-state
+    actor: authenticated-user
+    status: open_policy
+    preconditions: [authoritative-read-state-capability]
+    steps: [mark-or-observe-read]
+    assertions: [read-state-updated-only-in-delivery-layer, source-business-state-unchanged]
+  - id: REVIEW-03
+    name: view-review-history
+    actor: authorized-user
+    status: open_policy
+    preconditions: [review-record, authoritative-review-visibility-policy]
+    steps: [open-review]
+    assertions: [review-traceable-to-eligible-rental-history, no-public-personal-score]

@@ -79,3 +79,45 @@ flows:
     preconditions: [ending-tenancy, occupied-room]
     steps: [confirm-checkout]
     assertions: [tenancy-ended, room-vacant, no-direct-active-to-ended, transaction-atomic]
+  - id: TEN-02
+    name: cancel-draft-tenancy
+    actor: operator
+    status: spec_only
+    preconditions: [draft-tenancy]
+    steps: [cancel-tenancy]
+    assertions: [tenancy-cancelled, room-not-occupied, history-preserved]
+  - id: TEN-03
+    name: read-tenancy
+    actor: authorized-user
+    status: spec_only
+    preconditions: [authorized-tenancy]
+    steps: [open-tenancy]
+    assertions: [only-authorized-tenancy-visible, current-lifecycle-from-backend]
+  - id: PART-04
+    name: participant-history
+    actor: authorized-user
+    status: spec_only
+    preconditions: [tenancy-with-participant-history]
+    steps: [open-participant-history]
+    assertions: [joined-left-history-preserved, unlinked-user-does-not-delete-participant]
+  - id: PART-05
+    name: replace-primary-participant
+    actor: operator
+    status: open_policy
+    preconditions: [active-primary, authoritative-replacement-policy]
+    steps: [perform-controlled-primary-replacement]
+    assertions: [max-one-active-primary, old-primary-history-preserved]
+  - id: TERMS-03
+    name: view-terms-history
+    actor: authorized-user
+    status: spec_only
+    preconditions: [versioned-terms]
+    steps: [open-terms-history]
+    assertions: [all-versions-readable-by-permission, current-version-identifiable]
+  - id: ACK-02
+    name: view-terms-acknowledgements
+    actor: operator
+    status: spec_only
+    preconditions: [terms-and-participants]
+    steps: [open-acknowledgement-status]
+    assertions: [acknowledgement-scoped-to-specific-version-and-participant]

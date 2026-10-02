@@ -35,3 +35,24 @@ flows:
     preconditions: [issued-notice, authorized-recipient]
     steps: [open-notice, acknowledge]
     assertions: [ack-user-and-timestamp-persisted, history-preserved]
+  - id: INC-04
+    name: reject-incident
+    actor: operator
+    status: spec_only
+    preconditions: [rejectable-incident]
+    steps: [reject-with-supported-reason-or-note]
+    assertions: [incident-rejected, event-appended, history-preserved]
+  - id: INC-05
+    name: close-incident
+    actor: operator
+    status: spec_only
+    preconditions: [closable-incident]
+    steps: [close-with-valid-reason]
+    assertions: [incident-closed, closed-at-recorded, timeline-preserved]
+  - id: NOTICE-03
+    name: tenancy-notice-history
+    actor: authorized-user
+    status: spec_only
+    preconditions: [issued-notices]
+    steps: [open-notice-history]
+    assertions: [issued-and-acknowledged-history-visible, tenancy-scope-enforced]

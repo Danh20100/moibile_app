@@ -1,0 +1,93 @@
+feature: operations
+sources:
+  - docs/backlogs/v1/incident.md
+  - docs/backlogs/v1/tenancy-notice.md
+cases:
+  - id: INC-01-H01
+    flow: INC-01
+    kind: happy
+    scenario: authorized tenant or operator reports Incident
+    expect: [incident-reported, initial-event-appended, room-linked]
+  - id: INC-01-S01
+    flow: INC-01
+    kind: category
+    scenario: report uses MVP Incident category
+    expect: [electrical-plumbing-access-security-room-facility-appliance-or-other]
+  - id: INC-01-N01
+    flow: INC-01
+    kind: authorization
+    scenario: unrelated user reports Incident for Room
+    expect: [rejected]
+  - id: INC-01-X01
+    flow: INC-01
+    kind: cross-actor
+    scenario: tenant reports new Incident
+    expect: [operator-notification-created, notification-references-incident]
+    must_not: [notification-change-incident-state]
+  - id: INC-02-H01
+    flow: INC-02
+    kind: lifecycle
+    scenario: operator acknowledges then starts Incident work
+    expect: [acknowledged-then-in-progress, event-per-transition]
+  - id: INC-02-H02
+    flow: INC-02
+    kind: lifecycle
+    scenario: operator resolves Incident
+    expect: [incident-resolved, event-appended]
+  - id: INC-02-X01
+    flow: INC-02
+    kind: cross-actor
+    scenario: Incident status changes
+    expect: [affected-authorized-user-notification-created, source-reference-preserved]
+  - id: INC-02-N01
+    flow: INC-02
+    kind: invalid-transition
+    scenario: unsupported Incident transition is requested
+    expect: [rejected, timeline-unchanged]
+  - id: INC-03-H01
+    flow: INC-03
+    kind: reopen
+    scenario: RESOLVED Incident is reopened
+    expect: [status-in-progress, reopen-event-appended, previous-events-preserved]
+  - id: INC-04-H01
+    flow: INC-04
+    kind: reject
+    scenario: rejectable Incident is rejected
+    expect: [status-rejected, event-appended, note-or-reason-preserved]
+  - id: INC-05-H01
+    flow: INC-05
+    kind: close
+    scenario: closable Incident is closed with valid closure reason
+    expect: [status-closed, closed-at-recorded, event-appended]
+  - id: INC-05-I01
+    flow: INC-05
+    kind: archive-invariant
+    scenario: Room or Property archive is attempted while Incident remains open
+    expect: [archive-rejected]
+    must_not: [auto-close-incident-during-archive]
+  - id: NOTICE-01-H01
+    flow: NOTICE-01
+    kind: happy
+    scenario: operator creates and issues Tenancy Notice
+    expect: [notice-linked-to-tenancy, issuer-recorded, issued-at-recorded]
+  - id: NOTICE-01-X01
+    flow: NOTICE-01
+    kind: cross-actor
+    scenario: Notice is issued
+    expect: [authorized-linked-participant-notification-created, notification-references-notice]
+    must_not: [notification-create-legal-effect]
+  - id: NOTICE-02-H01
+    flow: NOTICE-02
+    kind: acknowledgement
+    scenario: linked participant acknowledges Notice
+    expect: [ack-user-recorded, acknowledged-at-recorded]
+  - id: NOTICE-02-I01
+    flow: NOTICE-02
+    kind: semantic
+    scenario: Notice acknowledgement succeeds
+    must_not: [treat-ack-as-platform-legal-validation]
+  - id: NOTICE-03-H01
+    flow: NOTICE-03
+    kind: history
+    scenario: authorized user opens Notice history
+    expect: [issued-and-acknowledged-facts-visible, tenancy-scope-enforced]

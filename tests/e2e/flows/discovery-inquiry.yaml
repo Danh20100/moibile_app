@@ -36,3 +36,10 @@ flows:
     preconditions: [operator-relationship, inquiry-fixture]
     steps: [open-listing-inquiries, open-inquiry]
     assertions: [authorized-inquiry-visible, foreign-inquiry-not-readable]
+  - id: DISC-04
+    name: public-map-list-projection
+    actor: guest
+    status: spec_only
+    preconditions: [published-listings-with-public-location]
+    steps: [open-search, switch-list-and-map, open-result]
+    assertions: [same-published-source-set, public-location-only, no-exact-operational-location]

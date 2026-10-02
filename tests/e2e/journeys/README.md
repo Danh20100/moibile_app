@@ -10,5 +10,6 @@ Current chains:
 - `J03`: Inquiry/context -> Tenancy -> Participant -> Terms -> activation.
 - `J04`: active rental -> Billing/Payment/Receipt -> Incident/Notice operations.
 - `J05`: move-out -> checkout -> deposit closeout -> former-tenant history/review eligibility.
+- `CX-v1-cross-actor.yaml`: Inquiry, Incident, Billing/Payment, Notice, Move-out, and Trust flows whose effects cross from one user to another.
 
 Journeys may remain `spec_only` until all atomic flows expose executable Android surfaces.
