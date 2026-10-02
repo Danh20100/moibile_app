@@ -5,10 +5,11 @@ appId: com.trooi.app.backenddev
 - assertVisible: 'Tìm phòng'
 - scrollUntilVisible:
     element:
-      text: 'Phong E2E - Thu Duc'
+      id: 'public-listing-10000000-0000-4000-8000-000000000005'
     direction: DOWN
     timeout: 10000
-- tapOn: 'Phong E2E - Thu Duc'
+- tapOn:
+    id: 'public-listing-10000000-0000-4000-8000-000000000005'
 - assertVisible: 'Thông tin công khai'
 - assertVisible: 'Giá đề xuất của tin đăng'
 - assertVisible: '3500000.00'
