@@ -38,9 +38,9 @@ A feature chỉ được xem là hoàn tất khi phần liên quan đã có đ�
 - [ ] Loading state
 - [ ] Empty state
 - [ ] Error / retry state
-- [ ] Search by location
-- [ ] Price filter
-- [ ] Availability filter
+- [ ] Search by location — PARTIAL: client-side public area search on loaded PUBLISHED listings; no server search parameters or E2E evidence yet.
+- [ ] Price filter — PARTIAL: inclusive numeric VND range on published public projection; no server query/E2E evidence yet.
+- [ ] Availability filter — BLOCKED_BACKEND: public Listing OpenAPI currently has no availability field or query.
 - [ ] Room/property type filter — **OPEN**
 - [ ] Public Map view
 - [ ] Map ↔ List synchronization
@@ -49,7 +49,7 @@ A feature chỉ được xem là hoàn tất khi phần liên quan đã có đ�
 ## Listing
 
 - [x] Listing detail screen — PARTIAL
-- [ ] Stable Listing-card semantic/test target
+- [ ] Stable Listing-card semantic/test target — PARTIAL: `public-listing-{id}` tag added to Compose and DISC-02 Maestro; emulator execution pending.
 - [ ] Price presentation
 - [ ] Amenities/public fields
 - [ ] Public location only
