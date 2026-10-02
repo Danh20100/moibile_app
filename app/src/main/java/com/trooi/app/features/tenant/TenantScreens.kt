@@ -13,14 +13,16 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.trooi.app.features.discovery.PublicDiscoveryFilters
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
+import com.trooi.app.features.inquiry.InquiryComposer
 import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
 
@@ -31,7 +33,10 @@ fun V1DiscoveryScreen(
     onProbeTransport: (() -> Unit)? = null,
 ) {
     // Do not render Room or locally invented listings: only public PUBLISHED projection.
-    val listings = publicDiscoveryFeed(state.read.publicListings)
+    var minPrice by rememberSaveable { mutableStateOf("") }
+    var maxPrice by rememberSaveable { mutableStateOf("") }
+    val filter = PublicDiscoveryFilters(minPrice.trim(), maxPrice.trim())
+    val listings = filter.apply(state.read.publicListings)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-discovery-list"),
         contentPadding = PaddingValues(18.dp),
@@ -48,21 +53,45 @@ fun V1DiscoveryScreen(
         }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
-            V1Panel("Khu vực công khai") {
-                Text("Vị trí và bộ lọc sẽ lấy từ public Listing API. Không hiển thị địa chỉ vận hành.", color = TroOiMuted)
+            V1Panel("Lọc trên tin đăng công khai") {
+                V1Pending("Tìm theo khu vực tạm thời chưa khả dụng: đang chờ Backend cung cấp hợp đồng tìm kiếm vị trí công khai.")
+                OutlinedTextField(
+                    value = minPrice, onValueChange = { minPrice = it },
+                    label = { Text("Giá thấp nhất (VND)") },
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-filter-min-price"),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = maxPrice, onValueChange = { maxPrice = it },
+                    label = { Text("Giá cao nhất (VND)") },
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-filter-max-price"),
+                    singleLine = true,
+                )
+                filter.validationMessage()?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("discovery-filter-error"))
+                }
+                Text(
+                    "Bộ lọc giá áp dụng trên kết quả GET /listings/public đã tải. " +
+                        "Tìm kiếm khu vực và Availability chưa có hợp đồng Backend; không dùng địa chỉ vận hành.",
+                    color = TroOiMuted,
+                    style = MaterialTheme.typography.labelMedium,
+                )
             }
         }
         if (state.runtimeLoading && listings.isEmpty()) {
             item { V1Panel("Đang tải tin đăng") { V1Pending("Đang đọc public Listing projection từ Backend.") } }
         } else if (listings.isEmpty()) {
-            item { V1Panel("Chưa có tin đăng công khai") { V1Pending("Chưa có dữ liệu Listing PUBLISHED từ Backend.") } }
+            item { V1Panel("Không có kết quả") {
+                V1Pending(if (filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
+                    "Không có tin đăng PUBLISHED phù hợp bộ lọc trong dữ liệu đang tải."
+                } else "Chưa có dữ liệu Listing PUBLISHED từ Backend.")
+            } }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
                 V1Panel(
                     listing.title,
                     modifier = Modifier
-                        .testTag("public-listing-card")
-                        .semantics(mergeDescendants = true) {}
+                        .testTag("public-listing-" + listing.listingId)
                         .clickable { onOpenListing(listing.listingId) },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -91,7 +120,6 @@ fun V1ListingDetailScreen(
 ) {
     BackHandler(onBack = onBack)
     val listing = publicDiscoveryFeed(state.read.publicListings).firstOrNull { it.listingId == listingId }
-    var inquiryText by remember(listingId) { mutableStateOf("") }
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-listing-detail"),
         contentPadding = PaddingValues(18.dp),
@@ -111,31 +139,7 @@ fun V1ListingDetailScreen(
                     if (listing.publicGeoPoint == null) V1Pending("Chưa có public map projection.")
                 }
             }
-            item {
-                V1Panel("Liên hệ về tin đăng") {
-                    Text("Inquiry là nhu cầu liên hệ, không phải giữ phòng hay đặt lịch.", color = TroOiMuted)
-                    if (!state.isAuthenticated) {
-                        V1Pending("Đăng nhập bằng Google để gửi Inquiry. Không tạo booking/chat cục bộ.")
-                        V1Action("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
-                    } else {
-                        OutlinedTextField(
-                            value = inquiryText,
-                            onValueChange = { inquiryText = it.take(1000) },
-                            label = { Text("Nội dung cần liên hệ") },
-                            modifier = Modifier.fillMaxWidth(),
-                            minLines = 3,
-                            maxLines = 5,
-                        )
-                        V1Action(
-                            "Gửi yêu cầu liên hệ",
-                            { onSubmitInquiry(listing.listingId, inquiryText) },
-                            enabled = inquiryText.isNotBlank() && !state.submittingInquiry,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text("Yêu cầu chỉ thành công sau response 201 từ Backend.", color = TroOiMuted, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
+            item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry) }
         }
     }
 }

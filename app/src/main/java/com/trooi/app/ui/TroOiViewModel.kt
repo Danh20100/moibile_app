@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 @HiltViewModel
 class TroOiViewModel @Inject constructor(
@@ -34,6 +35,9 @@ class TroOiViewModel @Inject constructor(
         ),
     )
     val state: StateFlow<TroOiUiState> = _state.asStateFlow()
+    /** Invalidates late auth and authorized read callbacks on logout/account change. */
+    private var sessionGeneration = 0
+    private var authenticationJob: Job? = null
 
     init {
         if (BuildConfig.BACKEND_BACKED) refreshPublicListings()
@@ -67,37 +71,49 @@ class TroOiViewModel @Inject constructor(
         if (publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == listingId }) {
             return showMessage("Tin đăng này không có trong danh sách công khai.")
         }
+        _state.update { it.copy(inquiryCompletedListingId = null, inquiryError = null) }
         open(AppPage.ListingDetail(listingId))
     }
 
     fun signInWithGoogle(context: Context) {
         if (!BuildConfig.BACKEND_BACKED || _state.value.authInProgress) return
+        val startedAt = sessionGeneration
         _state.update { it.copy(authInProgress = true) }
-        viewModelScope.launch {
+        authenticationJob = viewModelScope.launch {
             googleCredentialAuth.getIdToken(context).fold(
                 onSuccess = { idToken ->
                     repository.authenticateWithGoogleIdToken(idToken).fold(
                         onSuccess = { session ->
-                            _state.update {
-                                it.copy(
-                                    isAuthenticated = true,
-                                    displayName = session.displayName,
-                                    access = session.access,
-                                    authInProgress = false,
-                                    page = AppPage.Discovery,
-                                )
+                            if (startedAt != sessionGeneration) {
+                                // A previous credential response must not resurrect a logged-out user.
+                                if (!_state.value.isAuthenticated) repository.clearSession()
+                            } else {
+                                sessionGeneration++
+                                _state.update {
+                                    it.copy(
+                                        isAuthenticated = true,
+                                        displayName = session.displayName,
+                                        access = session.access,
+                                        authInProgress = false,
+                                        page = AppPage.Discovery,
+                                    )
+                                }
+                                refreshAuthorizedRead(session.access)
                             }
-                            refreshAuthorizedRead(session.access)
                         },
                         onFailure = { error ->
-                            _state.update { it.copy(authInProgress = false) }
-                            showMessage(error.message ?: "Google authentication thất bại.")
+                            if (startedAt == sessionGeneration) {
+                                _state.update { it.copy(authInProgress = false) }
+                                showMessage(error.message ?: "Google authentication thất bại.")
+                            }
                         },
                     )
                 },
                 onFailure = { error ->
-                    _state.update { it.copy(authInProgress = false) }
-                    showMessage(error.message ?: "Không lấy được Google credential.")
+                    if (startedAt == sessionGeneration) {
+                        _state.update { it.copy(authInProgress = false) }
+                        showMessage(error.message ?: "Không lấy được Google credential.")
+                    }
                 },
             )
         }
@@ -125,13 +141,20 @@ class TroOiViewModel @Inject constructor(
     }
 
     private fun refreshAuthorizedRead(access: AccessCapabilities) {
+        val generation = sessionGeneration
         _state.update { it.copy(runtimeLoading = true) }
         viewModelScope.launch {
             repository.refreshAuthorizedRead(access).fold(
-                onSuccess = { read -> _state.update { it.copy(read = read, runtimeLoading = false) } },
+                onSuccess = { read ->
+                    if (generation == sessionGeneration) _state.update { current ->
+                        if (current.isAuthenticated) current.copy(read = read, runtimeLoading = false) else current
+                    }
+                },
                 onFailure = { error ->
-                    _state.update { it.copy(runtimeLoading = false) }
-                    showMessage(error.message ?: "Không tải được dữ liệu theo quyền hiện tại.")
+                    if (generation == sessionGeneration) {
+                        _state.update { it.copy(runtimeLoading = false) }
+                        showMessage(error.message ?: "Không tải được dữ liệu theo quyền hiện tại.")
+                    }
                 },
             )
         }
@@ -199,24 +222,47 @@ class TroOiViewModel @Inject constructor(
         if (publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == listingId }) {
             return showMessage("Không thể liên hệ về tin đăng chưa công khai.")
         }
-        _state.update { it.copy(submittingInquiry = true) }
+        val generation = sessionGeneration
+        _state.update { it.copy(submittingInquiry = true, inquiryCompletedListingId = null, inquiryError = null) }
         viewModelScope.launch {
             repository.submitInquiry(listingId, clean).fold(
                 onSuccess = {
-                    _state.update {
-                        it.copy(submittingInquiry = false, snackbarMessage = "Hệ thống đã ghi nhận yêu cầu liên hệ.")
+                    if (generation == sessionGeneration) _state.update {
+                        it.copy(submittingInquiry = false, inquiryCompletedListingId = listingId,
+                            inquiryError = null, snackbarMessage = "Hệ thống đã ghi nhận yêu cầu liên hệ.")
                     }
                 },
                 onFailure = { cause ->
-                    _state.update {
-                        it.copy(submittingInquiry = false, snackbarMessage = cause.message ?: "Không thể gửi yêu cầu liên hệ.")
+                    if (generation == sessionGeneration) _state.update {
+                        it.copy(submittingInquiry = false, inquiryError = cause.message ?: "Không thể gửi yêu cầu liên hệ.")
                     }
                 },
             )
         }
     }
 
+    fun refreshSessionContext() {
+        if (!BuildConfig.BACKEND_BACKED || !_state.value.isAuthenticated) return
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            repository.refreshSessionContext().fold(
+                onSuccess = { session ->
+                    if (generation == sessionGeneration) {
+                        _state.update { it.copy(displayName = session.displayName, access = session.access) }
+                        refreshAuthorizedRead(session.access)
+                    }
+                },
+                onFailure = { error ->
+                    if (generation == sessionGeneration) showMessage(error.message ?: "Không thể làm mới quyền truy cập.")
+                },
+            )
+        }
+    }
+
     fun logout() {
+        sessionGeneration++
+        authenticationJob?.cancel()
+        authenticationJob = null
         repository.clearSession()
         _state.update { current ->
             current.copy(
@@ -230,6 +276,8 @@ class TroOiViewModel @Inject constructor(
                 authInProgress = false,
                 runtimeLoading = false,
                 submittingInquiry = false,
+                inquiryCompletedListingId = null,
+                inquiryError = null,
                 snackbarMessage = null,
             )
         }

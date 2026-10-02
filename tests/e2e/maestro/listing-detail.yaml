@@ -10,12 +10,12 @@ appId: com.trooi.app.backenddev
     timeout: 20000
 - scrollUntilVisible:
     element:
-      id: 'public-listing-card'
+      id: 'public-listing-10000000-0000-4000-8000-000000000005'
     direction: DOWN
     timeout: 20000
     visibilityPercentage: 50
 - tapOn:
-    id: 'public-listing-card'
+    id: 'public-listing-10000000-0000-4000-8000-000000000005'
 - assertVisible: 'Thông tin công khai'
 - assertVisible: 'Giá đề xuất của tin đăng'
 - assertVisible: '3500000.00'
