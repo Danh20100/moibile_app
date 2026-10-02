@@ -52,6 +52,17 @@ class BackendClient(
         builder.post(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 
+    suspend fun patchJson(
+        path: String,
+        json: String,
+        authenticated: Boolean = true,
+    ): TransportOutcome = execute(path, authenticated, emptyMap()) { builder ->
+        builder.patch(json.toRequestBody(JSON_MEDIA_TYPE))
+    }
+
+    suspend fun postEmpty(path: String, authenticated: Boolean = true): TransportOutcome =
+        postJson(path, "{}", authenticated)
+
     private suspend fun execute(
         path: String,
         authenticated: Boolean,

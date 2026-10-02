@@ -11,6 +11,8 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
     override fun initialSnapshot() = TroOiSnapshot(read = DemoData.read, demoPreview = true)
     override fun clearSession() = Unit
 
+    override suspend fun refreshSessionContext(): Result<UserSession> = Result.failure(UnsupportedOperationException())
+
     override suspend fun refreshPublicListings(): Result<List<PublicListingCard>> =
         Result.success(DemoData.read.publicListings)
 

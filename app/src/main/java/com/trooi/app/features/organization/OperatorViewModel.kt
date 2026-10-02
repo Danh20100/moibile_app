@@ -1,0 +1,222 @@
+package com.trooi.app.features.organization
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.features.shared.*
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+/** Nested route stack persists independently from the Compose visual composition. */
+sealed interface OperatorRoute {
+    data object Organizations : OperatorRoute
+    data class Organization(val id: String) : OperatorRoute
+    data class Properties(val organizationId: String) : OperatorRoute
+    data class Property(val id: String, val organizationId: String) : OperatorRoute
+    data class Rooms(val propertyId: String, val organizationId: String) : OperatorRoute
+    data class Room(val id: String, val propertyId: String, val organizationId: String) : OperatorRoute
+    data class Listing(val id: String, val roomId: String, val propertyId: String, val organizationId: String) : OperatorRoute
+    data class Rentals(val roomId: String, val organizationId: String) : OperatorRoute
+    data class Inquiries(val listingId: String) : OperatorRoute
+    data class Inquiry(val id: String, val listingId: String) : OperatorRoute
+}
+
+data class OperatorUiState(
+    val stack: List<OperatorRoute> = listOf(OperatorRoute.Organizations),
+    val busy: Boolean = false,
+    val error: String? = null,
+    val errorKind: String? = null,
+    val success: String? = null,
+    val organizationCreatedRevision: Int = 0,
+    val organizations: List<V1Organization> = emptyList(),
+    val organization: V1Organization? = null,
+    val properties: List<V1Property> = emptyList(),
+    val property: V1Property? = null,
+    val rooms: List<V1Room> = emptyList(),
+    val room: V1Room? = null,
+    val listing: V1Listing? = null,
+    val inquiries: List<V1Inquiry> = emptyList(),
+    val inquiry: V1Inquiry? = null,
+) {
+    val route: OperatorRoute get() = stack.last()
+}
+
+@HiltViewModel
+class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) : ViewModel() {
+    private val _ui = MutableStateFlow(OperatorUiState())
+    val ui: StateFlow<OperatorUiState> = _ui.asStateFlow()
+    private var revision = 0
+    private var access = AccessCapabilities()
+    private var started = false
+
+    fun begin(capabilities: AccessCapabilities) {
+        if (started && access == capabilities) return
+        started = true
+        access = capabilities
+        _ui.value = OperatorUiState()
+        load()
+    }
+
+    fun reset() {
+        revision++
+        access = AccessCapabilities()
+        started = false
+        _ui.value = OperatorUiState()
+    }
+
+    fun open(route: OperatorRoute) {
+        // Local scoping prevents accidental navigation; Backend remains final authority.
+        val authorized = when (route) {
+            is OperatorRoute.Organizations -> true
+            is OperatorRoute.Organization -> route.id in access.operatedOrganizationIds
+            is OperatorRoute.Properties -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Property -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Rooms -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Room -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Listing -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Rentals -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.Inquiries, is OperatorRoute.Inquiry -> true // Only reachable from an authorized Listing.
+        }
+        if (!authorized) {
+            _ui.update { it.copy(error = "Không có quyền mở tài nguyên này.", errorKind = "FORBIDDEN") }
+            return
+        }
+        _ui.update { it.copy(stack = it.stack + route, success = null, error = null, errorKind = null,
+            organizations = emptyList(), organization = null, properties = emptyList(), property = null,
+            rooms = emptyList(), room = null, listing = null, inquiries = emptyList(), inquiry = null) }
+        load()
+    }
+
+    fun back(): Boolean {
+        if (_ui.value.stack.size <= 1) return false
+        revision++
+        _ui.update { it.copy(stack = it.stack.dropLast(1), success = null, error = null, errorKind = null) }
+        load()
+        return true
+    }
+
+    fun load() {
+        val route = _ui.value.route
+        if (access.operatedOrganizationIds.isEmpty() && route != OperatorRoute.Organizations) return
+        val requestId = ++revision
+        _ui.update { it.copy(busy = true, error = null, errorKind = null) }
+        viewModelScope.launch {
+            try {
+                when (route) {
+                    OperatorRoute.Organizations -> {
+                        val data = api.organizations().filter { it.id in access.operatedOrganizationIds }
+                        publish(requestId) { it.copy(organizations = data) }
+                    }
+                    is OperatorRoute.Organization -> publish(requestId) { it.copy(organization = api.organization(route.id)) }
+                    is OperatorRoute.Properties -> publish(requestId) {
+                        it.copy(properties = api.properties(route.organizationId).filter { p -> p.organizationId == route.organizationId })
+                    }
+                    is OperatorRoute.Property -> publish(requestId) { it.copy(property = api.property(route.id)) }
+                    is OperatorRoute.Rooms -> publish(requestId) {
+                        it.copy(rooms = api.rooms(route.propertyId).filter { room -> room.propertyId == route.propertyId })
+                    }
+                    is OperatorRoute.Room -> publish(requestId) { it.copy(room = api.room(route.id)) }
+                    is OperatorRoute.Listing -> publish(requestId) {
+                        val listing = api.listing(route.id)
+                        require(listing.roomId == route.roomId) { "Listing không thuộc Room hiện tại." }
+                        it.copy(listing = listing)
+                    }
+                    is OperatorRoute.Rentals -> publish(requestId) { it }
+                    is OperatorRoute.Inquiries -> publish(requestId) { it.copy(inquiries = api.inquiries(route.listingId).filter { q -> q.listingId == route.listingId }) }
+                    is OperatorRoute.Inquiry -> publish(requestId) { it.copy(inquiry = api.inquiry(route.id)) }
+                }
+            } catch (error: Exception) { fail(requestId, error) }
+        }
+    }
+
+    fun createOrganization(name: String) = write {
+        require(name.isNotBlank()) { "Nhập tên Organization" }
+        val created = api.createOrganization(name.trim())
+        val refreshed = api.organization(created.id)
+        val granted = api.sessionAccess()
+        require(refreshed.id in granted.operatedOrganizationIds) { "Backend chưa cấp relationship cho Organization mới." }
+        access = granted
+        _ui.update { it.copy(organization = refreshed, stack = it.stack + OperatorRoute.Organization(refreshed.id),
+            organizationCreatedRevision = it.organizationCreatedRevision + 1) }
+    }
+
+    fun renameOrganization(id: String, name: String) = write {
+        require(id in access.operatedOrganizationIds && name.isNotBlank()) { "Organization hoặc tên không hợp lệ" }
+        api.editOrganization(id, name.trim())
+        _ui.update { it.copy(organization = api.organization(id)) }
+    }
+
+    fun createProperty(organizationId: String, name: String, address: String, opLat: Double, opLng: Double, publicLat: Double, publicLng: Double) = write {
+        require(organizationId in access.operatedOrganizationIds && name.isNotBlank() && address.isNotBlank()) { "Điền đủ thông tin Property" }
+        val created = api.createProperty(organizationId, name.trim(), address.trim(), opLat, opLng, publicLat, publicLng)
+        _ui.update { it.copy(property = api.property(created.id), stack = it.stack + OperatorRoute.Property(created.id, organizationId)) }
+    }
+
+    fun renameProperty(id: String, organizationId: String, name: String) = write {
+        require(organizationId in access.operatedOrganizationIds && name.isNotBlank()) { "Thông tin Property không hợp lệ" }
+        api.editProperty(id, name.trim())
+        _ui.update { it.copy(property = api.property(id)) }
+    }
+
+    fun createRoom(propertyId: String, organizationId: String, label: String) = write {
+        require(organizationId in access.operatedOrganizationIds && label.isNotBlank()) { "Thiếu tên phòng" }
+        val created = api.createRoom(propertyId, label.trim())
+        _ui.update { it.copy(room = api.room(created.id), stack = it.stack + OperatorRoute.Room(created.id, propertyId, organizationId)) }
+    }
+
+    fun renameRoom(id: String, label: String) = write {
+        require(label.isNotBlank()) { "Thiếu tên phòng" }
+        api.editRoom(id, label.trim())
+        _ui.update { it.copy(room = api.room(id)) }
+    }
+
+    fun createListing(room: OperatorRoute.Room, title: String, description: String, price: String, lat: Double, lng: Double) = write {
+        require(title.isNotBlank() && description.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?"))) {
+            "Thiếu title/description hoặc giá không hợp lệ"
+        }
+        val created = api.createListing(room.id, title.trim(), description.trim(), price, lat, lng)
+        _ui.update { it.copy(listing = api.listing(created.id), stack = it.stack + OperatorRoute.Listing(created.id, room.id, room.propertyId, room.organizationId)) }
+    }
+
+    fun editListing(route: OperatorRoute.Listing, title: String, description: String, price: String) = write {
+        require(title.isNotBlank() && description.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?"))) { "Thông tin Listing không hợp lệ" }
+        api.editListing(route.id, title.trim(), description.trim(), price)
+        _ui.update { it.copy(listing = api.listing(route.id)) }
+    }
+
+    private fun write(operation: suspend () -> Unit) {
+        if (_ui.value.busy) return
+        val current = ++revision
+        _ui.update { it.copy(busy = true, error = null, errorKind = null, success = null) }
+        viewModelScope.launch {
+            try {
+                operation()
+                if (revision == current) _ui.update { it.copy(busy = false, success = "Backend đã xác nhận thay đổi.") }
+            } catch (error: Exception) { fail(current, error) }
+        }
+    }
+
+    private suspend fun publish(requestId: Int, update: suspend (OperatorUiState) -> OperatorUiState) {
+        if (revision != requestId) return
+        val refreshed = update(_ui.value)
+        if (revision == requestId) _ui.value = refreshed.copy(busy = false)
+    }
+
+    private fun fail(requestId: Int, error: Exception) {
+        if (revision != requestId) return
+        val kind = if (error is V1RequestException) error.kind.name else "VALIDATION_OR_RESPONSE"
+        val status = if (error is V1RequestException) error.status else null
+        val detail = when (status) {
+            403 -> "Backend từ chối truy cập (403)."
+            404 -> "Không tìm thấy tài nguyên (404)."
+            409 -> "Xung đột quy tắc nghiệp vụ (409); tải lại dữ liệu trước khi thử."
+            else -> error.message ?: "Không thể hoàn thành yêu cầu."
+        }
+        _ui.update { it.copy(busy = false, error = detail, errorKind = kind) }
+    }
+}

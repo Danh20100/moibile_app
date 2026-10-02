@@ -26,14 +26,17 @@ data class TroOiUiState(
     val authInProgress: Boolean = false,
     val runtimeLoading: Boolean = false,
     val submittingInquiry: Boolean = false,
+    val inquiryCompletedListingId: String? = null,
+    val inquiryError: String? = null,
     val snackbarMessage: String? = null,
 )
 
 /** Only UI routing and relationship checks: the backend remains the authority for operations. */
 fun canOpenPage(page: AppPage, authenticated: Boolean, access: AccessCapabilities): Boolean =
     when (page) {
-        AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance, AppPage.OwnerIncidents ->
+        AppPage.OwnerDashboard, AppPage.OwnerFinance, AppPage.OwnerIncidents ->
             authenticated && access.allows(ClientArea.OPERATIONS)
+        AppPage.OwnerProperties -> authenticated
         AppPage.TenantPortal -> authenticated && access.allows(ClientArea.TENANT_PORTAL)
         else -> true
     }

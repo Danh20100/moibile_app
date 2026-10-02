@@ -16,6 +16,17 @@ class BackendTroOiRepository @Inject constructor(
 
     suspend fun probePublicTransport(): TransportOutcome = api.getPublicListingsRaw()
 
+    override suspend fun refreshSessionContext(): Result<UserSession> = try {
+        val session = api.getSessionContext().required("session context")
+        Result.success(UserSession(
+            displayName = session.name ?: session.email ?: session.userId,
+            access = AccessCapabilities(
+                linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+            ),
+        ))
+    } catch (error: RuntimeException) { Result.failure(error) }
+
     override suspend fun refreshPublicListings(): Result<List<PublicListingCard>> = try {
         Result.success(mapPublicListings(api.getPublicListings().required("public listings")))
     } catch (error: RuntimeException) {

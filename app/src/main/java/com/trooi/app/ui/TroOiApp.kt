@@ -10,6 +10,8 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -18,6 +20,7 @@ import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
+import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -55,7 +58,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
 
     TroOiTheme {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
             containerColor = TroOiBackground,
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
@@ -108,7 +111,9 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onOpenLogin = viewModel::openLogin,
                         onSubmitInquiry = viewModel::submitInquiry,
                     )
-                    AppPage.TenantPortal -> V1TenantPortalScreen(state, viewModel::openDiscovery)
+                    AppPage.TenantPortal -> if (BuildConfig.BACKEND_BACKED) {
+                        V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
+                    } else V1TenantPortalScreen(state, viewModel::openDiscovery)
                     AppPage.Account -> V1AccountScreen(
                         state = state,
                         googleOnly = BuildConfig.BACKEND_BACKED,
@@ -120,7 +125,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onLogout = viewModel::logout,
                     )
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state)
-                    AppPage.OwnerProperties -> V1OwnerPropertiesScreen(state)
+                    AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
+                        V1OperatorWorkspace(state.access, onUnauthorized = viewModel::logout,
+                            onWorkspaceCreated = viewModel::refreshSessionContext)
+                    } else V1OwnerPropertiesScreen(state)
                     AppPage.OwnerFinance -> V1OwnerFinanceScreen(state)
                     AppPage.OwnerIncidents -> V1OwnerIncidentsScreen(state)
                 }
@@ -146,10 +154,10 @@ private fun V1PublicNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
                 label = { Text("My Rental") },
             )
         }
-        if (state.isAuthenticated && state.access.allows(ClientArea.OPERATIONS)) {
+        if (state.isAuthenticated) {
             NavigationBarItem(
                 selected = false,
-                onClick = viewModel::openOperations,
+                onClick = if (state.access.allows(ClientArea.OPERATIONS)) viewModel::openOperations else viewModel::openOwnerProperties,
                 icon = { Icon(Icons.Rounded.Apartment, "Vận hành") },
                 label = { Text("Vận hành") },
             )

@@ -19,6 +19,7 @@ interface TroOiRepository {
     fun initialSnapshot(): TroOiSnapshot
     fun clearSession()
 
+    suspend fun refreshSessionContext(): Result<UserSession>
     suspend fun refreshPublicListings(): Result<List<PublicListingCard>>
     suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession>
     suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot>
