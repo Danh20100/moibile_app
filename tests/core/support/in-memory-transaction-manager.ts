@@ -32,6 +32,7 @@ import type {
   IncidentRecord,
 } from '../../../src/persistence/ports/incident.repository';
 import type { TrustReportRecord } from '../../../src/persistence/ports/trust.repository';
+import type { NotificationRecord } from '../../../src/persistence/ports/notification.repository';
 
 export function createCoreTestTransactionManager(): TransactionManager {
   const users = new Set<string>();
@@ -58,6 +59,7 @@ export function createCoreTestTransactionManager(): TransactionManager {
   const incidents = new Map<string, IncidentRecord>(),
     incidentEvents: IncidentEventRecord[] = [];
   const trustReports = new Map<string, TrustReportRecord>();
+  const notifications = new Map<string, NotificationRecord>();
   const repositories = {
     identity: {
       ensureUser: async (id: string) => {
@@ -385,6 +387,19 @@ export function createCoreTestTransactionManager(): TransactionManager {
       findTrustReports: async () => [...trustReports.values()].map((v) => structuredClone(v)),
       updateTrustReport: async (v: TrustReportRecord) => {
         trustReports.set(v.trustReportId, structuredClone(v));
+      },
+    },
+    notification: {
+      createNotification: async (v: NotificationRecord) => {
+        notifications.set(v.notificationId, structuredClone(v));
+      },
+      findNotification: async (id: string) => structuredClone(notifications.get(id)),
+      findNotificationsByRecipient: async (userId: string) =>
+        [...notifications.values()]
+          .filter((v) => v.recipientUserId === userId)
+          .map((v) => structuredClone(v)),
+      updateNotification: async (v: NotificationRecord) => {
+        notifications.set(v.notificationId, structuredClone(v));
       },
     },
   };

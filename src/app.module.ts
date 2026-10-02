@@ -14,6 +14,7 @@ import { ReceiptModule } from './modules/receipt';
 import { RoomModule } from './modules/room';
 import { RentalLifecycleModule } from './modules/rental-lifecycle';
 import { TenancyModule } from './modules/tenancy';
+import { NotificationModule } from './modules/notification';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TenancyModule } from './modules/tenancy';
     ListingModule,
     RentalLifecycleModule,
     AuditTrustModule,
+    NotificationModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -10,10 +10,64 @@ const VALID_TRANSITIONS:Record<IncidentStatus,IncidentStatus[]>={REPORTED:['ACKN
 @Injectable()
 export class IncidentService {
   constructor(@Inject(RoomService) private readonly rooms:RoomService,@Inject(TRANSACTION_MANAGER) private readonly tx:TransactionManager){}
-  async create(dto:CreateIncidentDto):Promise<IncidentTicket>{await this.rooms.findById(dto.roomId);const now=new Date().toISOString();const incident:IncidentTicket={id:randomUUID(),...dto,status:'REPORTED',createdAt:now};const event:IncidentEvent={id:randomUUID(),incidentId:incident.id,eventType:'STATUS_CHANGED',actorUserId:dto.reportedByUserId,toStatus:'REPORTED',occurredAt:now};await this.tx.run(async({repositories})=>{await repositories.incident.createIncident(this.toRecord(incident));await repositories.incident.insertIncidentEvent(this.eventRecord(event));});return incident;}
+  async create(dto:CreateIncidentDto):Promise<IncidentTicket>{
+    await this.rooms.findById(dto.roomId);
+    const now=new Date().toISOString();
+    const incident:IncidentTicket={id:randomUUID(),...dto,status:'REPORTED',createdAt:now};
+    const event:IncidentEvent={id:randomUUID(),incidentId:incident.id,eventType:'STATUS_CHANGED',actorUserId:dto.reportedByUserId,toStatus:'REPORTED',occurredAt:now};
+    await this.tx.run(async({repositories})=>{
+      await repositories.incident.createIncident(this.toRecord(incident));
+      await repositories.incident.insertIncidentEvent(this.eventRecord(event));
+      if (repositories.notification) {
+        const room = await repositories.property?.findRoom(dto.roomId);
+        if (room) {
+          const property = await repositories.property?.findProperty(room.propertyId);
+          if (property) {
+            const org = await repositories.organization?.findOrganization(property.organizationId);
+            if (org?.primaryOwnerUserId) {
+              await repositories.notification.createNotification({
+                notificationId: randomUUID(),
+                recipientUserId: org.primaryOwnerUserId,
+                category: 'NEW_INCIDENT',
+                messageOrPayloadReference: `incident:${incident.id}`,
+                deliveryStatus: 'PENDING',
+                createdAt: now,
+                deliveredAt: null,
+                readAt: null,
+              });
+            }
+          }
+        }
+      }
+    });
+    return incident;
+  }
   async findById(id:string):Promise<IncidentTicket>{const value=await this.tx.run(({repositories})=>repositories.incident.findIncident(id));if(!value)throw new NotFoundException(`Incident not found: ${id}`);return this.fromRecord(value);}
   async findByRoomId(roomId?:string):Promise<IncidentTicket[]>{return(await this.tx.run(({repositories})=>repositories.incident.findIncidents(roomId))).map(x=>this.fromRecord(x));}
-  async updateStatus(id:string,dto:UpdateIncidentStatusDto):Promise<IncidentTicket>{const current=await this.findById(id);if(!VALID_TRANSITIONS[current.status].includes(dto.status))throw new BadRequestException(`Invalid Incident transition ${current.status} -> ${dto.status}`);const now=new Date().toISOString();const updated:IncidentTicket={...current,status:dto.status,closureReason:dto.closureReason??current.closureReason,closedAt:['CLOSED','REJECTED'].includes(dto.status)?now:undefined};const event:IncidentEvent={id:randomUUID(),incidentId:id,eventType:'STATUS_CHANGED',actorUserId:dto.actorUserId,note:dto.note,fromStatus:current.status,toStatus:dto.status,occurredAt:now};await this.tx.run(async({repositories})=>{await repositories.incident.updateIncident(this.toRecord(updated));await repositories.incident.insertIncidentEvent(this.eventRecord(event));});return updated;}
+  async updateStatus(id:string,dto:UpdateIncidentStatusDto):Promise<IncidentTicket>{
+    const current=await this.findById(id);
+    if(!VALID_TRANSITIONS[current.status].includes(dto.status))throw new BadRequestException(`Invalid Incident transition ${current.status} -> ${dto.status}`);
+    const now=new Date().toISOString();
+    const updated:IncidentTicket={...current,status:dto.status,closureReason:dto.closureReason??current.closureReason,closedAt:['CLOSED','REJECTED'].includes(dto.status)?now:undefined};
+    const event:IncidentEvent={id:randomUUID(),incidentId:id,eventType:'STATUS_CHANGED',actorUserId:dto.actorUserId,note:dto.note,fromStatus:current.status,toStatus:dto.status,occurredAt:now};
+    await this.tx.run(async({repositories})=>{
+      await repositories.incident.updateIncident(this.toRecord(updated));
+      await repositories.incident.insertIncidentEvent(this.eventRecord(event));
+      if (repositories.notification && current.reportedByUserId) {
+        await repositories.notification.createNotification({
+          notificationId: randomUUID(),
+          recipientUserId: current.reportedByUserId,
+          category: 'INCIDENT_STATUS_CHANGED',
+          messageOrPayloadReference: `incident:${id}`,
+          deliveryStatus: 'PENDING',
+          createdAt: now,
+          deliveredAt: null,
+          readAt: null,
+        });
+      }
+    });
+    return updated;
+  }
   async listEvents(id:string):Promise<IncidentEvent[]>{return(await this.tx.run(({repositories})=>repositories.incident.findIncidentEvents(id))).map(x=>this.fromEvent(x));}
   private toRecord(x:IncidentTicket):IncidentRecord{return{incidentId:x.id,roomId:x.roomId,reportedByUserId:x.reportedByUserId??null,category:x.category,status:x.status,closureReason:x.closureReason??null,createdAt:x.createdAt,closedAt:x.closedAt??null};}
   private fromRecord(x:IncidentRecord):IncidentTicket{return{id:x.incidentId,roomId:x.roomId,category:x.category as IncidentTicket['category'],status:x.status as IncidentStatus,createdAt:x.createdAt,...(x.reportedByUserId?{reportedByUserId:x.reportedByUserId}:{}),...(x.closureReason?{closureReason:x.closureReason}:{}),...(x.closedAt?{closedAt:x.closedAt}:{})};}

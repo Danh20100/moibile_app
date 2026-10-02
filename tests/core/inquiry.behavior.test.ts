@@ -78,3 +78,55 @@ test('Inquiry contract contains no booking reservation viewing or realtime threa
     /reservation|booking|hold|viewing|appointment|thread|typing|reaction|tenancyId/i,
   );
 });
+
+test('Inquiry creation emits notification to listing operator', async () => {
+  const transactions = createCoreTestTransactionManager();
+  const operatorUserId = 'operator-user-1';
+  const orgId = 'org-1';
+  const propertyId = 'prop-1';
+  const roomId = 'room-1';
+  await transactions.run(async ({ repositories }) => {
+    await repositories.organization.createOrganization({
+      organizationId: orgId,
+      primaryOwnerUserId: operatorUserId,
+      name: 'Test Org',
+    });
+    await repositories.property.createProperty({
+      propertyId,
+      organizationId: orgId,
+      name: 'Test Prop',
+      lifecycleStatus: 'ACTIVE',
+      operationalAddressText: 'Address',
+      operationalLocation: { longitude: 106, latitude: 10 },
+      publicLocationProjection: { longitude: 106, latitude: 10 },
+    });
+    await repositories.property.createRoom({
+      roomId,
+      propertyId,
+      nameOrLabel: 'Room 101',
+      operationalState: 'VACANT',
+      recordLifecycle: 'ACTIVE',
+    });
+  });
+  const listings = new ListingService(transactions);
+  const listing = await listings.createDraft({
+    roomId,
+    publicTitle: 'Room 101',
+    publicDescription: 'Nice room',
+    publicPriceProjection: '2000.00',
+    publicLocationProjection: { longitude: 106, latitude: 10 },
+  });
+  const inquiries = new InquiryService(listings, transactions);
+  const created = await inquiries.create({
+    listingId: listing.id,
+    contactIntentOrMessage: 'Want to visit',
+    status: 'new',
+  });
+  const notifs = await transactions.run(async ({ repositories }) =>
+    repositories.notification.findNotificationsByRecipient(operatorUserId),
+  );
+  assert.equal(notifs.length, 1);
+  assert.equal(notifs[0]?.recipientUserId, operatorUserId);
+  assert.equal(notifs[0]?.category, 'NEW_INQUIRY');
+  assert.equal(notifs[0]?.messageOrPayloadReference, `inquiry:${created.id}`);
+});

@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
@@ -57,7 +58,13 @@ fun V1DiscoveryScreen(
             item { V1Panel("Chưa có tin đăng công khai") { V1Pending("Chưa có dữ liệu Listing PUBLISHED từ Backend.") } }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
-                V1Panel(listing.title, modifier = Modifier.clickable { onOpenListing(listing.listingId) }) {
+                V1Panel(
+                    listing.title,
+                    modifier = Modifier
+                        .testTag("public-listing-card")
+                        .semantics(mergeDescendants = true) {}
+                        .clickable { onOpenListing(listing.listingId) },
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.LocationOn, null, tint = TroOiGreen)
                         Spacer(Modifier.width(8.dp))

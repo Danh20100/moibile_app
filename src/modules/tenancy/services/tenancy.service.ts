@@ -95,7 +95,32 @@ export class TenancyService {
   async startEnding(id: string): Promise<TenancyProfile> {
     const tenancy = await this.findById(id);
     await this.assertTransition(id, 'ending');
-    return this.store({ ...tenancy, status: 'ending' });
+    const updated = await this.store({ ...tenancy, status: 'ending' });
+    const now = new Date().toISOString();
+    await this.transactions.run(async ({ repositories }) => {
+      if (repositories.notification) {
+        const room = await repositories.property?.findRoom(tenancy.roomId);
+        if (room) {
+          const prop = await repositories.property?.findProperty(room.propertyId);
+          if (prop) {
+            const org = await repositories.organization?.findOrganization(prop.organizationId);
+            if (org?.primaryOwnerUserId) {
+              await repositories.notification.createNotification({
+                notificationId: randomUUID(),
+                recipientUserId: org.primaryOwnerUserId,
+                category: 'MOVE_OUT',
+                messageOrPayloadReference: `tenancy:${id}`,
+                deliveryStatus: 'PENDING',
+                createdAt: now,
+                deliveredAt: null,
+                readAt: null,
+              });
+            }
+          }
+        }
+      }
+    });
+    return updated;
   }
 
   async resumeActive(id: string): Promise<TenancyProfile> {

@@ -27,7 +27,25 @@ export class TenancyNoticeService {
       contentOrNote: input.contentOrNote,
       issuedAt: input.issuedAt,
     };
-    await this.transactions.run(({ repositories }) => repositories.tenancy.insertNotice(this.toRecord(notice)));
+    await this.transactions.run(async ({ repositories }) => {
+      await repositories.tenancy.insertNotice(this.toRecord(notice));
+      if (repositories.notification) {
+        const participants = await repositories.tenancy.findParticipantsByTenancy(input.tenancyId);
+        const linked = participants.find((p) => p.userId && p.leftAt === null);
+        if (linked?.userId) {
+          await repositories.notification.createNotification({
+            notificationId: randomUUID(),
+            recipientUserId: linked.userId,
+            category: 'TENANCY_NOTICE',
+            messageOrPayloadReference: `tenancy_notice:${notice.id}`,
+            deliveryStatus: 'PENDING',
+            createdAt: input.issuedAt,
+            deliveredAt: null,
+            readAt: null,
+          });
+        }
+      }
+    });
     return notice;
   }
 
