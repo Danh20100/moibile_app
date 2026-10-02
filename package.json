@@ -20,6 +20,8 @@
     "db:migrate:down": "tsx scripts/database/migrate.ts down",
     "db:reset": "pnpm db:migrate:down && pnpm db:migrate:down && pnpm db:migrate",
     "db:seed": "tsx database/seeds/development.ts",
+    "e2e:seed": "node --env-file=.env --import tsx tests/e2e/seed/seed.ts",
+    "e2e:reset": "node --env-file=.env --import tsx tests/e2e/seed/reset.ts",
     "test:persistence:migration": "tsx --test tests/integration/persistence/migration-parity.integration.ts",
     "build": "nest build",
     "openapi:generate": "nest build && node scripts/openapi/generate.js",
