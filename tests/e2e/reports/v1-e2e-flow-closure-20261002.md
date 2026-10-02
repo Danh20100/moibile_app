@@ -7,7 +7,7 @@
 - **Owner:** Duy Anh
 - **Date:** 2026-10-02
 - **Branch:** `backend/v1-e2e-flow-closure`
-- **Final SHA:** `2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0`
+- **Final SHA:** `568fd716769bfaae2f133e4a3af652eea6033a70`
 - **Base/Staging SHA consumed:** `97a3897a3cd64da4fe0c5fb3baadcdc50101a8f6`
 - **Canonical/authority version:** Canonical Freeze v3.7 at `101e8a35b6f8951b846224f4aaa3d3d555f2ba54`
 - **OpenAPI/contract SHA:** `1988cb82b3f8317b53982e614ba94918ec9b0b1b` (`docs/api/openapi.json`)
@@ -15,7 +15,7 @@
 
 ### Verdict
 
-DISC-01 is GREEN on Pixel_8 (UI + HTTP + PostgreSQL + invariants). DISC-02 is GREEN after exposing Compose `testTag` as resource-id and relaunching after `clearState`; 5 consecutive runs all exited 0. Mandatory Node gates (`e2e:coverage`, `typecheck`, `test` 279/279, `test:conformance:database-v1` 57/57, `build`, `git diff --check`) exited 0. Cross-actor CX-01..CX-06 are proven only in in-memory service tests, not as authenticated Android E2E: `GOOGLE_CLIENT_ID` is empty, so Phase C did not run and AuthGuard was not bypassed. READY_TO_MERGE stays NO.
+Rework of the three reviewed blockers is in `568fd71`. DISC-01 PASS; DISC-02 5/5 after ADB recover + no Maestro instrumentation force-stop (`testTagsAsResourceId` unchanged). CX fixtures are V1-legal (PUBLISHED+VACANT vs UNPUBLISHED+OCCUPIED+ACTIVE). `pnpm test` 279/279 twice with `DATABASE_URL` unset in the shell. READY_TO_MERGE stays NO until an independent audit of this exact SHA.
 
 ## 2. Environment
 
@@ -52,7 +52,7 @@ DISC-01 is GREEN on Pixel_8 (UI + HTTP + PostgreSQL + invariants). DISC-02 is GR
 - [x] Notification (service + CX tests; channels remain OPEN)
 - [x] Review / Trust Report (CX-06 service test; moderation policy OPEN)
 
-This session’s code change is DISC-02 stability only (`testTagsAsResourceId`, Maestro relaunch, Windows Maestro wait). CX notification side effects were already in `1988cb8`.
+This session’s rework: Maestro/ADB runner (`25f7a71`), CX V1 fixtures (`1db741d`), cold-start `pnpm test` (`568fd71`). `testTagsAsResourceId` unchanged.
 
 ### Explicitly out of scope
 
@@ -102,12 +102,12 @@ Counts are case-file totals. **Executable** means Maestro/`pnpm e2e:flow` in thi
 | ------------------------ | ----------------------------------- | ---: | --------- | -------- |
 | Coverage                 | `pnpm e2e:coverage`                 |    0 | PASS      | 83/198/24/8 |
 | Typecheck                | `pnpm typecheck`                    |    0 | PASS      | `tsc --noEmit` both projects |
-| Full tests               | `pnpm test`                         |    0 | PASS      | 279 tests, 10 suites, 0 fail |
+| Full tests               | `pnpm test` (DATABASE_URL unset) x2 |    0 | PASS      | 279/279 then 279/279 |
 | DB conformance           | `pnpm test:conformance:database-v1` |    0 | PASS      | 57 tests, 0 fail |
 | Build                    | `pnpm build`                        |    0 | PASS      | `nest build` |
 | Diff hygiene             | `git diff --check`                  |    0 | PASS      | no whitespace errors |
 | DISC-01                  | `pnpm e2e:flow DISC-01`             |    0 | PASS      | Maestro + `tests/e2e/assertions/discovery.ts` |
-| DISC-02                  | `pnpm e2e:flow DISC-02` x5          |    0 | PASS      | 5/5 consecutive after stabilize |
+| DISC-02                  | `pnpm e2e:flow DISC-02` x5          |    0 | PASS      | 5/5 after ADB/Maestro harden (`25f7a71`) |
 | Android assemble         | `gradlew :app:assembleBackendDebug -Pandroid.overridePathCheck=true -PtrooiApiBaseUrl=http://10.0.2.2:3000/` with JBR |    0 | PASS | installed on `emulator-5554` |
 
 `android.overridePathCheck` was passed on the Gradle CLI only. `gradle.properties` was not edited.
@@ -231,16 +231,16 @@ Proven by `tests/core/cross-actor.behavior.test.ts` inside `pnpm test` (in-memor
 - Notification created after source event: PASS (`NEW_INQUIRY`, `inquiry:${id}`)
 - Notification source reference opens same Inquiry: PASS at payload reference; Android open-from-notification **not run**
 - No Booking/Reservation: PASS (no booking APIs called; Inquiry contract test rejects booking fields)
-- No Tenancy side effect: PASS in this test (pre-existing ACTIVE tenancy fixture unchanged by Inquiry create)
-- Room/Listing state unchanged: PASS (Listing `published`, Room `OCCUPIED`)
+- No Tenancy side effect: PASS (discovery fixture has zero non-terminal Tenancy)
+- Room/Listing state unchanged: PASS (Listing `published`, Room `VACANT`)
 
 Evidence:
 
 ```text
-test: CX-01: Searcher Inquiry creates notification for Listing operator without side effects
-PASS in pnpm test
+setupPublishedListing: VACANT + PUBLISHED, no non-terminal Tenancy
+setupOccupiedRental: OCCUPIED + ACTIVE + UNPUBLISHED Listing (CX-02..05)
+CX-01 Room remains VACANT
 HTTP Inquiry send from Android: BLOCKED (AuthGuard + empty GOOGLE_CLIENT_ID)
-InquiryController overwrites dto.senderUserId from CurrentUser when principal is present
 ```
 
 ### CX-02 — Incident
@@ -309,20 +309,28 @@ Exact channels are OPEN. Service-layer delivery/source only.
 - **Observed:** After `pm clear` + first launch, screenshot is empty white; `"Tìm phòng"` not in hierarchy for 15s. Maestro log also shows Windows `KeyValueStore` heartbeat file-lock (also present on passing runs).
 - **Reproduction:** Consecutive `pnpm e2e:flow DISC-02` with only `clearState: true` then immediate assert.
 - **Root cause:** First process after `pm clear` can present a blank Activity; Maestro marks launch COMPLETED before Compose tree exists. Heartbeat file-lock is a separate Windows Maestro 2.11 issue and did not uniquely correlate with pass/fail.
-- **Fix:** Second `launchApp: stopApp: true`; wait `id: v1-discovery-list`; Windows runner sleep 3000ms.
+- **Fix:** Second `launchApp: stopApp: true`; wait `id: v1-discovery-list`.
 - **Regression test:** five consecutive `pnpm e2e:flow DISC-02`
 - **Retest:** PASS 5/5
 - **Commit:** `2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0`
+
+### F-03 — Maestro/ADB consecutive-run instability (lock / offline / instrumentation EOF)
+
+- **Observed:** Review sample DISC-02 2 PASS / 3 FAIL. Failures were KeyValueStore file-lock, device offline, instrumentation EOFException — not Listing selector.
+- **Reproduction:** Consecutive `pnpm e2e:flow DISC-02` with `am force-stop dev.mobile.maestro.test` immediately before `maestro test`.
+- **Root cause:** Force-stopping Maestro instrumentation races the next dump (EOF). `wait-for-device` accepts `offline`. Shared `~/.maestro` KeyValueStore heartbeat from a leftover JVM.
+- **Fix:** Remove instrumentation force-stop; ADB recover until `get-state=device` and `sys.boot_completed=1`; wait/kill leftover Maestro `java.exe`; isolate `MAESTRO_HOME` per run.
+- **Regression test:** DISC-01 once + DISC-02 x5
+- **Retest:** PASS 5/5
+- **Commit:** `25f7a71`
 
 ## 10. Flakiness
 
 | Flow    | Runs | Pass | Fail | Failure mode | Status |
 | ------- | ---: | ---: | ---: | ------------ | ------ |
-| DISC-01 |    1 |    1 |    0 | none this session | GREEN (single run; was already documented GREEN) |
-| DISC-02 |    5 |    5 |    0 | none after F-01/F-02 | STABLE (5 consecutive) |
-| DISC-02 pre-fix | 5+4 | 2 | 7 | missing resource-id; blank frame after clearState | fixed |
-
-Pre-fix DISC-02 after APK with testTag but without `testTagsAsResourceId`: 0/5. After resource-id only: 2/5 (runs 1 and 3). After relaunch+wait: 5/5.
+| DISC-01 |    1 |    1 |    0 | none this rework | GREEN |
+| DISC-02 |    5 |    5 |    0 | none after F-03 | STABLE (5 consecutive) |
+| DISC-02 review sample | 5 | 2 | 3 | lock / offline / EOF | addressed in F-03 |
 
 ## 11. Authorization and security checks
 
@@ -373,11 +381,15 @@ Evidence/notes: `pnpm test:conformance:database-v1` FUTURE/OPEN static tests PAS
 ## 15. Commits
 
 ```text
-2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0 test: stabilize DISC-02 listing-card tap on Windows
-1988cb82b3f8317b53982e614ba94918ec9b0b1b feat: complete v1 cross-actor flows and notification side effects
+568fd716769bfaae2f133e4a3af652eea6033a70 test: make pnpm test independent of prior shell state
+1db741d test: split CX fixtures into legal V1 states
+25f7a71 test: harden Maestro ADB startup on Windows
+e102744 docs: record v1 e2e flow closure evidence
+2cb65ef test: stabilize DISC-02 listing-card tap on Windows
+1988cb8 feat: complete v1 cross-actor flows and notification side effects
 ```
 
-Staging `97a3897` is an ancestor. `git log HEAD..origin/integration/full-stack-sync-runtime-staging` empty after fetch. Branch is ahead by the two commits above (plus this report commit if recorded separately).
+Staging `97a3897` is an ancestor. Independent audit must use **exact** `568fd716769bfaae2f133e4a3af652eea6033a70` (or the docs commit immediately after this file if present).
 
 ## 16. Files/areas intentionally untouched
 
@@ -402,7 +414,7 @@ gradle/gradle-daemon-jvm.properties
 2. CX-02..CX-05 have no Maestro/Android executable flow (`spec_only` in `tests/e2e/journeys/CX-v1-cross-actor.yaml`).
 3. Docker `backend` image is older than HEAD; notification HTTP in that container was not rebuilt/retested.
 4. DISC-01-H02/F01 and DISC-02-H02/S01 are not in the Maestro YAML.
-5. Maestro 2.11 on Windows still logs heartbeat file-lock; did not fail the 5/5 DISC-02 series after F-02.
+5. Independent audit of SHA `568fd71` has **not** been run yet. Local 5/5 is not merge authority.
 
 ## 18. Final merge decision
 
@@ -412,6 +424,4 @@ READY_TO_MERGE: NO
 
 Reason:
 
-Mandatory static/unit gates and DISC-01/DISC-02 executable proofs are GREEN, including 5 consecutive DISC-02 runs. Merge is still blocked because authenticated cross-actor Android writes were not executed (no Google config), CX journeys are not Maestro-executable, and the running Docker backend image was not rebuilt to HEAD. Minimum remaining: configure real Google Web Client ID, run Phase C without bypassing AuthGuard, rebuild/redeploy backend image if CX HTTP is in merge scope, then re-gate.
-
-Tested HEAD: `2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0`.
+Three reviewed blockers were reworked locally. This report must **not** flip READY_TO_MERGE to YES on local evidence. Request an **independent audit against exact SHA `568fd716769bfaae2f133e4a3af652eea6033a70`**. PASS → consider YES. FAIL → continue rework.
