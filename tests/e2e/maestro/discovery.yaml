@@ -2,8 +2,7 @@ appId: com.trooi.app.backenddev
 ---
 - launchApp:
     clearState: true
-- tapOn:
-    point: '50%, 26%'
+- assertVisible: 'Tìm phòng'
 - scrollUntilVisible:
     element:
       text: 'Phong E2E - Thu Duc'

@@ -1,0 +1,17 @@
+appId: com.trooi.app.backenddev
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Tìm phòng'
+- scrollUntilVisible:
+    element:
+      text: 'Phong E2E - Thu Duc'
+    direction: DOWN
+    timeout: 10000
+- tapOn: 'Phong E2E - Thu Duc'
+- assertVisible: 'Thông tin công khai'
+- assertVisible: 'Giá đề xuất của tin đăng'
+- assertVisible: '3500000.00'
+- assertVisible: 'Liên hệ về tin đăng'
+- assertVisible: 'Đăng nhập để liên hệ'
+- assertNotVisible: 'Synthetic E2E address - not a real rental property'
