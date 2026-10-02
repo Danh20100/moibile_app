@@ -50,11 +50,16 @@ export class NotificationService {
   }
 
   private fromRecord(r: NotificationRecord): NotificationItem {
+    const separator = r.messageOrPayloadReference.indexOf(':');
+    const sourceType = separator > 0 ? r.messageOrPayloadReference.slice(0, separator) : null;
+    const sourceId = separator > 0 ? r.messageOrPayloadReference.slice(separator + 1) || null : null;
     return {
       id: r.notificationId,
       recipientUserId: r.recipientUserId,
       category: r.category,
       messageOrPayloadReference: r.messageOrPayloadReference,
+      sourceType,
+      sourceId,
       deliveryStatus: r.deliveryStatus,
       createdAt: r.createdAt,
       deliveredAt: r.deliveredAt,

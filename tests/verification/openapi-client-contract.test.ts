@@ -119,6 +119,7 @@ test('openapi: bearer security schemes defined and applied to protected operatio
     { path: '/organizations', method: 'post' },
     { path: '/properties', method: 'get' },
     { path: '/rooms', method: 'get' },
+    { path: '/rooms/{id}/operational-state', method: 'post' },
     { path: '/inquiries', method: 'post' },
     { path: '/finance/cycles', method: 'get' },
     { path: '/receipts', method: 'get' },

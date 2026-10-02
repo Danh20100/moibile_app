@@ -120,6 +120,10 @@ export function createCoreTestTransactionManager(): TransactionManager {
             (value) => value.roomId === roomId && value.status !== 'ARCHIVED',
           ),
         ),
+      findListingsByRoom: async (roomId: string) =>
+        Array.from(listings.values())
+          .filter((value) => value.roomId === roomId)
+          .map((value) => structuredClone(value)),
       findPublishedListings: async () =>
         Array.from(listings.values())
           .filter((value) => value.status === 'PUBLISHED')
@@ -278,6 +282,11 @@ export function createCoreTestTransactionManager(): TransactionManager {
         payments.set(v.paymentId, structuredClone(v));
       },
       findPayment: async (id: string) => structuredClone(payments.get(id)),
+      findPaymentsForTenancy: async (tenancyId: string) =>
+        [...payments.values()]
+          .filter((v) => v.tenancyId === tenancyId)
+          .sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt) || a.paymentId.localeCompare(b.paymentId))
+          .map((v) => structuredClone(v)),
       updatePayment: async (v: PaymentRecord) => {
         payments.set(v.paymentId, structuredClone(v));
       },

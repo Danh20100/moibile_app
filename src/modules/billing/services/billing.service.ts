@@ -6,9 +6,10 @@ import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persisten
 import { BillingTransactionCoordinator } from '../../../persistence/guards/billing-transaction-coordinator';
 import { FinanceTransactionCoordinator } from '../../../persistence/guards/finance-transaction-coordinator';
 import { TenancyService } from '../../tenancy/services/tenancy.service';
-import { BillingCycle, Charge, CorrectPaymentInput, CreateBillingCycleInput, Deposit, DepositEvent, DepositPaymentApplication, DepositSettlement, Payment, PaymentAllocation, RecordPaymentInput, SettleDepositInput } from '../contracts';
+import { BillingCycle, Charge, CorrectPaymentInput, CreateBillingCycleInput, Deposit, DepositEvent, DepositPaymentApplication, DepositProjection, DepositSettlement, DepositState, Payment, PaymentAllocation, RecordPaymentInput, SettleDepositInput } from '../contracts';
 
 function cents(v: DecimalString): bigint { if (!isNumeric18Scale2NonNegative(v)) throw new BadRequestException('Amount must be a non-negative decimal with at most two decimals'); const [w,f='']=v.split('.'); return BigInt(w)*100n+BigInt(f.padEnd(2,'0')); }
+function decimal(value: bigint): DecimalString { const safe=value<0n?0n:value; return `${safe/100n}.${(safe%100n).toString().padStart(2,'0')}`; }
 @Injectable()
 export class BillingService {
   private readonly billingGuard: BillingTransactionCoordinator; private readonly financeGuard: FinanceTransactionCoordinator;
@@ -69,8 +70,47 @@ export class BillingService {
     return v;
   }
   async findPaymentById(id:string):Promise<Payment>{const r=await this.tx.run(({repositories})=>repositories.finance.findPayment(id));if(!r)throw new NotFoundException(`Payment not found: ${id}`);return this.payment(r);}
+  async findPaymentsByTenancyId(tenancyId:string):Promise<Payment[]>{return (await this.tx.run(({repositories})=>repositories.finance.findPaymentsForTenancy(tenancyId))).map((r)=>this.payment(r));}
   async allocatePayment(paymentId:string,chargeId:string,amount:DecimalString):Promise<PaymentAllocation>{await this.usable(paymentId);if(cents(amount)<=0n)throw new BadRequestException('Applied amount must be positive');const v={id:randomUUID(),paymentId,chargeId,allocatedAmount:amount};await this.financeGuard.allocatePayment({paymentAllocationId:v.id,paymentId,chargeId,allocatedAmount:amount});return v;}
   async createDeposit(tenancyId:string):Promise<Deposit>{await this.tenancyService.findById(tenancyId);if(await this.tx.run(({repositories})=>repositories.finance.findDepositForTenancy(tenancyId)))throw new BadRequestException('Tenancy already has a Deposit lifecycle');const v={id:randomUUID(),tenancyId};await this.tx.run(({repositories})=>repositories.finance.insertDeposit({depositId:v.id,tenancyId}));return v;}
+  async findDepositById(id:string):Promise<Deposit>{const record=await this.tx.run(({repositories})=>repositories.finance.findDeposit(id));if(!record)throw new NotFoundException(`Deposit not found: ${id}`);return{id:record.depositId,tenancyId:record.tenancyId};}
+  async findDepositProjectionForTenancy(tenancyId:string):Promise<DepositProjection>{
+    await this.tenancyService.findById(tenancyId);
+    return this.tx.run(async({repositories})=>{
+      const deposit=await repositories.finance.findDepositForTenancy(tenancyId);
+      if(!deposit)throw new NotFoundException(`Deposit not found for Tenancy: ${tenancyId}`);
+      const [terms,fundedRaw,settledRaw]=await Promise.all([
+        repositories.tenancy.findTermsByTenancy(tenancyId),
+        repositories.finance.sumDepositFundedAmount(deposit.depositId),
+        repositories.finance.sumDepositSettledAmount(deposit.depositId),
+      ]);
+      const funded=cents(fundedRaw),settled=cents(settledRaw),held=funded-settled;
+      const ordered=[...terms].sort((a,b)=>a.version-b.version);
+      const latest=ordered.at(-1);
+      const requirements=new Set(ordered.map((term)=>term.agreedDepositRequirement));
+      const requirement=latest?.agreedDepositRequirement??null;
+      const blockedByOpenPolicy=requirements.size>1&&held>0n;
+      let state:DepositState|null=null;
+      if(!blockedByOpenPolicy&&requirement!==null){
+        const required=cents(requirement);
+        if(funded>0n&&settled>=funded)state='SETTLED';
+        else if(settled>0n&&settled<funded)state='PENDING_SETTLEMENT';
+        else if(required>0n&&funded===0n)state='EXPECTED';
+        else if(required>0n&&funded<required)state='PARTIALLY_HELD';
+        else if(required>0n&&funded>=required)state='HELD';
+      }
+      return{
+        id:deposit.depositId,
+        tenancyId,
+        requirementAmount:blockedByOpenPolicy?null:requirement,
+        fundedAmount:decimal(funded),
+        settledAmount:decimal(settled),
+        heldAmount:decimal(held),
+        state,
+        blockedByOpenPolicy,
+      };
+    });
+  }
   async applyPaymentToDeposit(paymentId:string,depositId:string,amount:DecimalString):Promise<DepositPaymentApplication>{await this.usable(paymentId);if(cents(amount)<=0n)throw new BadRequestException('Applied amount must be positive');const appliedAt=new Date().toISOString(),v={id:randomUUID(),paymentId,depositId,appliedAmount:amount,appliedAt};await this.financeGuard.applyPaymentToDeposit({depositPaymentApplicationId:v.id,paymentId,depositId,appliedAmount:amount,appliedAt},{depositEventId:randomUUID(),depositId,eventType:'RECEIVED',amount,occurredAt:appliedAt,paymentApplicationId:v.id,settlementId:null});return v;}
   async correctPayment(id:string,i:CorrectPaymentInput):Promise<Payment>{const old=await this.usable(id);if(cents(await this.tx.run(({repositories})=>repositories.finance.sumPaymentCommittedAmount(id)))>0n)throw new BadRequestException('Allocated Payment must be reversed before correction');const v={id:randomUUID(),...i,tenancyId:old.tenancyId};await this.financeGuard.correctPayment(id,this.paymentRecord(v),new Date().toISOString(),i.correctionNote);return v;}
   async settleDeposit(depositId:string,i:SettleDepositInput):Promise<DepositSettlement>{if(cents(i.refundedAmount)+cents(i.retainedAmount)<=0n)throw new BadRequestException('Settlement must refund or retain a positive amount');const v={id:randomUUID(),depositId,...i},events:DepositEventRecord[]=[];if(cents(i.refundedAmount)>0n)events.push(this.event(depositId,'REFUNDED',i.refundedAmount,i.settledAt,v.id));if(cents(i.retainedAmount)>0n)events.push(this.event(depositId,'RETAINED',i.retainedAmount,i.settledAt,v.id));await this.financeGuard.settleDeposit({depositSettlementId:v.id,depositId,...i},events);return v;}

@@ -98,11 +98,6 @@ export class CreateTermsAcknowledgementDto {
   tenancyParticipantId!: string;
 
   @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  userId!: string;
-
-  @ApiProperty()
   @IsDateString()
   acknowledgedAt!: string;
 }
@@ -116,11 +111,6 @@ export class IssueTenancyNoticeDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  issuedByUserId!: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
   contentOrNote!: string;
 
   @ApiProperty()
@@ -129,11 +119,6 @@ export class IssueTenancyNoticeDto {
 }
 
 export class AcknowledgeTenancyNoticeDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  userId!: string;
-
   @ApiProperty()
   @IsDateString()
   occurredAt!: string;

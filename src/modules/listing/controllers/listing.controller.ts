@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
-import type { ListingProfile } from '../contracts';
-import { ListingProfileDto, ListingTransitionContextDto, UpdateListingDto } from '../dto';
+import type { ListingProfile, ListingTransitionEventInput } from '../contracts';
+import { ListingProfileDto, UpdateListingDto } from '../dto';
 import { ListingService } from '../services/listing.service';
 
 @ApiTags('Listing')
@@ -23,6 +23,30 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Published listings', type: [ListingProfileDto] })
   async findPublic(): Promise<ListingProfile[]> {
     return this.listingService.findPublished();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get the current non-archived Listing for an operated Room' })
+  @ApiQuery({ name: 'roomId', type: String, required: true, description: 'Room ID' })
+  @ApiResponse({ status: 200, description: 'Current Listing for the Room', type: ListingProfileDto })
+  @ApiResponse({ status: 400, description: 'roomId query parameter is required' })
+  @ApiResponse({ status: 403, description: 'Current user does not operate the Room' })
+  @ApiResponse({ status: 404, description: 'Room or current Listing not found' })
+  async findCurrentByRoomId(
+    @Query('roomId') roomId: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    if (!roomId?.trim()) {
+      throw new BadRequestException('roomId query parameter is required');
+    }
+    if (user) {
+      await this.authz.assertOperatesRoom(user.userId, roomId);
+    }
+    const listing = await this.listingService.findCurrentByRoomId(roomId);
+    if (!listing) {
+      throw new NotFoundException(`Current Listing not found for Room: ${roomId}`);
+    }
+    return listing;
   }
 
   @Get(':id')
@@ -62,13 +86,14 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Unpublished listing', type: ListingProfileDto })
   async unpublish(
     @Param('id') id: string,
-    @Body() dto: ListingTransitionContextDto,
-    @CurrentUser() user?: VerifiedPrincipal,
+    @CurrentUser() user: VerifiedPrincipal,
   ): Promise<ListingProfile> {
-    if (user) {
-      await this.authz.assertOperatesListing(user.userId, id);
-    }
-    return this.listingService.transition(id, 'unpublished', dto);
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.transition(
+      id,
+      'unpublished',
+      this.commandContext('MANUAL_UNPUBLISH', user),
+    );
   }
 
   @Post(':id/archive')
@@ -77,12 +102,18 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Archived listing', type: ListingProfileDto })
   async archive(
     @Param('id') id: string,
-    @Body() dto: ListingTransitionContextDto,
-    @CurrentUser() user?: VerifiedPrincipal,
+    @CurrentUser() user: VerifiedPrincipal,
   ): Promise<ListingProfile> {
-    if (user) {
-      await this.authz.assertOperatesListing(user.userId, id);
-    }
-    return this.listingService.transition(id, 'archived', dto);
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.transition(id, 'archived', this.commandContext('MANUAL_ARCHIVE', user));
+  }
+
+  private commandContext(reasonCode: string, user: VerifiedPrincipal): ListingTransitionEventInput {
+    return {
+      reasonCode,
+      actorType: 'USER',
+      actorUserId: user.userId,
+      trigger: 'COMMAND',
+    };
   }
 }

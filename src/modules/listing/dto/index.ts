@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsNumber,
   IsDefined,
-  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -81,34 +80,6 @@ export class UpdateListingDto {
   publicLocationProjection?: PublicLocationProjectionDto;
 }
 
-export class ListingTransitionContextDto {
-  @ApiProperty({ description: 'Transition reason code' })
-  @IsString()
-  @IsNotEmpty()
-  reasonCode!: string;
-
-  @ApiProperty({ description: 'Opaque actor type' })
-  @IsString()
-  @IsNotEmpty()
-  actorType!: string;
-
-  @ApiPropertyOptional({ description: 'Actor user ID when applicable' })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  actorUserId?: string;
-
-  @ApiProperty({ description: 'Opaque transition trigger' })
-  @IsString()
-  @IsNotEmpty()
-  trigger!: string;
-
-  @ApiPropertyOptional({ description: 'Optional transition metadata' })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
-}
-
 export class CreateInquiryDto {
   @ApiProperty({ description: 'Listing ID' })
   @IsString()
@@ -163,6 +134,49 @@ export class ListingProfileDto {
 
   @ApiProperty({ description: 'Public location projection', type: PublicLocationProjectionDto })
   publicLocationProjection!: PublicLocationProjectionDto;
+}
+
+export class ListingStatusEventDto {
+  @ApiProperty({ description: 'Listing status event ID' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Listing ID' })
+  @IsString()
+  listingId!: string;
+
+  @ApiProperty({ enum: ['draft', 'published', 'unpublished', 'archived'] })
+  @IsString()
+  fromStatus!: 'draft' | 'published' | 'unpublished' | 'archived';
+
+  @ApiProperty({ enum: ['draft', 'published', 'unpublished', 'archived'] })
+  @IsString()
+  toStatus!: 'draft' | 'published' | 'unpublished' | 'archived';
+
+  @ApiProperty()
+  @IsString()
+  reasonCode!: string;
+
+  @ApiProperty()
+  @IsString()
+  actorType!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  actorUserId?: string;
+
+  @ApiProperty()
+  @IsString()
+  trigger!: string;
+
+  @ApiProperty()
+  @IsString()
+  occurredAt!: string;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  metadata?: Record<string, unknown>;
 }
 
 export class InquiryDto {

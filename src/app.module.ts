@@ -5,6 +5,8 @@ import { AuthGuard, ResourceAuthorizationModule } from './common/index';
 import { HealthController } from './health.controller';
 import { AuditTrustModule } from './modules/audit-trust';
 import { BillingModule } from './modules/billing';
+import { DashboardModule } from './modules/dashboard';
+import { HistoryModule } from './modules/history';
 import { IdentityAccessModule } from './modules/identity-access';
 import { IncidentModule } from './modules/incident';
 import { ListingModule } from './modules/listing';
@@ -24,6 +26,8 @@ import { NotificationModule } from './modules/notification';
     RoomModule,
     TenancyModule,
     BillingModule,
+    DashboardModule,
+    HistoryModule,
     ReceiptModule,
     IdentityAccessModule,
     IncidentModule,

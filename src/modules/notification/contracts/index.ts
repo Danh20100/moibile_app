@@ -5,6 +5,8 @@ export interface NotificationItem {
   recipientUserId: string;
   category: string;
   messageOrPayloadReference: string;
+  sourceType: string | null;
+  sourceId: string | null;
   deliveryStatus: string;
   createdAt: TimestampString;
   deliveredAt: TimestampString | null;

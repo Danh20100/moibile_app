@@ -35,6 +35,7 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
 const PUBLIC_PATHS = [
   { path: '/health', method: 'get' },
   { path: '/listings/public', method: 'get' },
+  { path: '/listings/public/search', method: 'get' },
   { path: '/identity-access/auth/google', method: 'post' },
 ];
 

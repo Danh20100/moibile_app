@@ -202,7 +202,7 @@ test('the public Room operational-state route is owned by RentalLifecycleControl
   ]);
 
   assert.doesNotMatch(roomController, /operational-state/);
-  assert.match(lifecycleController, /@Patch\('rooms\/:id\/operational-state'\)/);
+  assert.match(lifecycleController, /@Post\('rooms\/:id\/operational-state'\)/);
   assert.match(lifecycleController, /transitionRoomManually/);
 });
 

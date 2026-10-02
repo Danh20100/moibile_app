@@ -3,6 +3,7 @@ export * from './geography';
 export * from './identity.repository';
 export * from './incident.repository';
 export * from './listing.repository';
+export * from './listing-search.repository';
 export * from './notification.repository';
 export * from './organization.repository';
 export * from './property.repository';

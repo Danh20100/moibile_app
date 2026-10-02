@@ -20,7 +20,7 @@ function services() {
   const transactions = createCoreTestTransactionManager();
   const finance = new BillingService(tenancyLookup as never, transactions);
   const receipts = new ReceiptService(finance, transactions);
-  return { finance, receipts };
+  return { finance, receipts, transactions };
 }
 
 test('cycle owns terms provenance and current charge vocabulary only', async () => {
@@ -111,6 +111,65 @@ test('charge allocations and deposit applications share the payment amount cap',
     (await finance.listDepositEvents(deposit.id)).map((event) => event.eventType),
     ['RECEIVED'],
   );
+});
+
+test('deposit projection blocks OPEN requirement-change semantics after partial funding', async () => {
+  const { finance, transactions } = services();
+  await transactions.run(async ({ repositories }) => {
+    await repositories.tenancy.insertTerms({
+      tenancyTermsId: 'terms-deposit-v1',
+      tenancyId: 'tenancy-a',
+      version: 1,
+      rentAmount: '100.00',
+      agreedDepositRequirement: '100.00',
+      termStart: '2026-01-01',
+      termEnd: '2026-12-31',
+      billingDayOrDueDateRule: {},
+      electricityArrangement: {},
+      waterArrangement: {},
+      minimalRentalConditions: {},
+      effectiveFromCycleBoundary: '2026-01-01',
+    });
+  });
+  const deposit = await finance.createDeposit('tenancy-a');
+  const payment = await finance.recordPayment({
+    tenancyId: 'tenancy-a',
+    amount: '40.00',
+    source: 'MANUAL_CASH',
+    verification: 'USER_RECORDED',
+    confirmedAt: '2026-02-01T00:00:00.000Z',
+  });
+  await finance.applyPaymentToDeposit(payment.id, deposit.id, '40.00');
+
+  const partial = await finance.findDepositProjectionForTenancy('tenancy-a');
+  assert.equal(partial.requirementAmount, '100.00');
+  assert.equal(partial.fundedAmount, '40.00');
+  assert.equal(partial.state, 'PARTIALLY_HELD');
+  assert.equal(partial.blockedByOpenPolicy, false);
+
+  await transactions.run(async ({ repositories }) => {
+    await repositories.tenancy.insertTerms({
+      tenancyTermsId: 'terms-deposit-v2',
+      tenancyId: 'tenancy-a',
+      version: 2,
+      rentAmount: '100.00',
+      agreedDepositRequirement: '120.00',
+      termStart: '2026-01-01',
+      termEnd: '2026-12-31',
+      billingDayOrDueDateRule: {},
+      electricityArrangement: {},
+      waterArrangement: {},
+      minimalRentalConditions: {},
+      effectiveFromCycleBoundary: '2026-03-01',
+    });
+  });
+
+  const blocked = await finance.findDepositProjectionForTenancy('tenancy-a');
+  assert.equal(blocked.requirementAmount, null);
+  assert.equal(blocked.state, null);
+  assert.equal(blocked.blockedByOpenPolicy, true);
+  assert.equal(blocked.fundedAmount, '40.00');
+  assert.equal(blocked.heldAmount, '40.00');
 });
 
 test('confirmed payment correction voids old fact and requires a replacement payment', async () => {

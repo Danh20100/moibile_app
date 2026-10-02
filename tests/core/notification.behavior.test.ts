@@ -40,6 +40,8 @@ test('NotificationService: lists only notifications for the authenticated recipi
   assert.equal(listUser1.length, 1);
   assert.equal(listUser1[0]?.recipientUserId, user1);
   assert.equal(listUser1[0]?.category, 'NEW_INQUIRY');
+  assert.equal(listUser1[0]?.sourceType, 'inquiry');
+  assert.equal(listUser1[0]?.sourceId, '1');
 
   const listUser2 = await service.findByRecipient(user2);
   assert.equal(listUser2.length, 1);
@@ -104,6 +106,8 @@ test('NotificationService: markAsRead updates readAt without mutating source sta
   assert.equal(read.id, notifId);
   assert.ok(read.readAt !== null);
   assert.equal(read.deliveryStatus, 'DELIVERED');
+  assert.equal(read.sourceType, 'incident');
+  assert.equal(read.sourceId, '1');
 
   const reloaded = await service.findById(notifId, user);
   assert.equal(reloaded.readAt, read.readAt);

@@ -1,11 +1,14 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type {
   BillingCycle,
+  DepositEvent,
   DepositPaymentApplication,
+  DepositProjection,
+  DepositSettlement,
   Payment,
   PaymentAllocation,
 } from '../contracts';
@@ -13,10 +16,15 @@ import {
   ApplyAmountDto,
   BillingCycleDto,
   CreateBillingCycleDto,
+  CreateDepositDto,
+  DepositEventDto,
   DepositPaymentApplicationDto,
+  DepositProjectionDto,
+  DepositSettlementDto,
   PaymentAllocationDto,
   PaymentDto,
   RecordPaymentDto,
+  SettleDepositDto,
 } from '../dto';
 import { BillingService } from '../services/billing.service';
 
@@ -101,6 +109,24 @@ export class BillingController {
     return this.billingService.recordPayment(dto);
   }
 
+  @Get('payments')
+  @ApiOperation({ summary: 'List confirmed Payment records by Tenancy ID' })
+  @ApiQuery({ name: 'tenancyId', type: String, required: true })
+  @ApiResponse({ status: 200, description: 'Payment history for the Tenancy', type: [PaymentDto] })
+  @ApiResponse({ status: 403, description: 'Current user cannot read the Tenancy' })
+  async findPaymentsByTenancy(
+    @Query('tenancyId') tenancyId: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<Payment[]> {
+    if (!tenancyId?.trim()) {
+      throw new BadRequestException('tenancyId query parameter is required');
+    }
+    if (user) {
+      await this.authz.assertCanReadTenancy(user.userId, tenancyId);
+    }
+    return this.billingService.findPaymentsByTenancyId(tenancyId);
+  }
+
   @Get('payments/:id')
   @ApiOperation({ summary: 'Get payment by ID' })
   @ApiParam({ name: 'id', type: String })
@@ -129,6 +155,69 @@ export class BillingController {
       await this.authz.assertOperatesTenancy(user.userId, payment.tenancyId);
     }
     return this.billingService.allocatePayment(id, dto.targetId, dto.amount);
+  }
+
+  @Post('deposits')
+  @ApiOperation({ summary: 'Initialize the one-per-Tenancy Deposit lifecycle' })
+  @ApiResponse({ status: 201, description: 'Deposit lifecycle created', type: DepositProjectionDto })
+  @ApiResponse({ status: 403, description: 'Current user does not operate the Tenancy' })
+  async createDeposit(
+    @Body() dto: CreateDepositDto,
+    @CurrentUser() user: VerifiedPrincipal,
+  ): Promise<DepositProjection> {
+    await this.authz.assertOperatesTenancy(user.userId, dto.tenancyId);
+    await this.billingService.createDeposit(dto.tenancyId);
+    return this.billingService.findDepositProjectionForTenancy(dto.tenancyId);
+  }
+
+  @Get('deposits')
+  @ApiOperation({ summary: 'Get the source-backed Deposit projection for a Tenancy' })
+  @ApiQuery({ name: 'tenancyId', type: String, required: true })
+  @ApiResponse({ status: 200, description: 'Deposit projection', type: DepositProjectionDto })
+  @ApiResponse({ status: 403, description: 'Current user cannot read the Tenancy' })
+  @ApiResponse({ status: 404, description: 'Tenancy or Deposit lifecycle not found' })
+  async findDepositByTenancy(
+    @Query('tenancyId') tenancyId: string,
+    @CurrentUser() user: VerifiedPrincipal,
+  ): Promise<DepositProjection> {
+    if (!tenancyId?.trim()) {
+      throw new BadRequestException('tenancyId query parameter is required');
+    }
+    await this.authz.assertCanReadTenancy(user.userId, tenancyId);
+    return this.billingService.findDepositProjectionForTenancy(tenancyId);
+  }
+
+  @Get('deposits/:id/events')
+  @ApiOperation({ summary: 'List append-only Deposit events' })
+  @ApiParam({ name: 'id', type: String, description: 'Deposit ID' })
+  @ApiResponse({ status: 200, description: 'Deposit event history', type: [DepositEventDto] })
+  async findDepositEvents(
+    @Param('id') id: string,
+    @CurrentUser() user: VerifiedPrincipal,
+  ): Promise<DepositEvent[]> {
+    const deposit = await this.billingService.findDepositById(id);
+    await this.authz.assertCanReadTenancy(user.userId, deposit.tenancyId);
+    return this.billingService.listDepositEvents(id);
+  }
+
+  @Post('deposits/:id/settlements')
+  @ApiOperation({ summary: 'Record a Deposit refund/retain settlement' })
+  @ApiParam({ name: 'id', type: String, description: 'Deposit ID' })
+  @ApiResponse({ status: 201, description: 'Deposit settlement recorded', type: DepositSettlementDto })
+  async settleDeposit(
+    @Param('id') id: string,
+    @Body() dto: SettleDepositDto,
+    @CurrentUser() user: VerifiedPrincipal,
+  ): Promise<DepositSettlement> {
+    const deposit = await this.billingService.findDepositById(id);
+    await this.authz.assertOperatesTenancy(user.userId, deposit.tenancyId);
+    return this.billingService.settleDeposit(id, {
+      refundedAmount: dto.refundedAmount,
+      retainedAmount: dto.retainedAmount,
+      reasonOrNote: dto.reasonOrNote,
+      actedByUserId: user.userId,
+      settledAt: dto.settledAt,
+    });
   }
 
   @Post('payments/:id/deposit-applications')
