@@ -1543,6 +1543,45 @@
         ]
       }
     },
+    "/organizations/{organizationId}/dashboard": {
+      "get": {
+        "operationId": "DashboardController_findByOrganization",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardReadModelDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Organization"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the server-owned V1 operational Dashboard projection",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
     "/receipts": {
       "post": {
         "operationId": "ReceiptController_issue",
@@ -3863,6 +3902,69 @@
           "appliedAt"
         ]
       },
+      "DashboardRoomStateCountsDto": {
+        "type": "object",
+        "properties": {
+          "VACANT": {
+            "type": "number",
+            "example": 8
+          },
+          "OCCUPIED": {
+            "type": "number",
+            "example": 12
+          },
+          "MAINTENANCE": {
+            "type": "number",
+            "example": 2
+          },
+          "INACTIVE": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "VACANT",
+          "OCCUPIED",
+          "MAINTENANCE",
+          "INACTIVE"
+        ]
+      },
+      "DashboardReadModelDto": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "description": "Operated Organization ID"
+          },
+          "roomsByState": {
+            "$ref": "#/components/schemas/DashboardRoomStateCountsDto"
+          },
+          "activeTenancyCount": {
+            "type": "number",
+            "description": "Count of Tenancy rows whose current lifecycle status is ACTIVE"
+          },
+          "outstandingReceivable": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null until an authoritative dashboard finance aggregation scope is frozen; clients must not reconstruct it."
+          },
+          "confirmedPaymentTotal": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null until an authoritative dashboard finance aggregation scope is frozen; clients must not reconstruct it."
+          },
+          "openIncidentCount": {
+            "type": "number",
+            "description": "Count of Incidents in REPORTED, ACKNOWLEDGED, IN_PROGRESS, or RESOLVED state."
+          }
+        },
+        "required": [
+          "organizationId",
+          "roomsByState",
+          "activeTenancyCount",
+          "openIncidentCount"
+        ]
+      },
       "IssueReceiptDto": {
         "type": "object",
         "properties": {
@@ -4719,6 +4821,16 @@
           },
           "messageOrPayloadReference": {
             "type": "string"
+          },
+          "sourceType": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source feature type parsed from the authoritative notification reference."
+          },
+          "sourceId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source record ID parsed from the authoritative notification reference."
           },
           "deliveryStatus": {
             "type": "string"
