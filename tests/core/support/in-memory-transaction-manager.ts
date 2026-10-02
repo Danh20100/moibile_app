@@ -278,6 +278,11 @@ export function createCoreTestTransactionManager(): TransactionManager {
         payments.set(v.paymentId, structuredClone(v));
       },
       findPayment: async (id: string) => structuredClone(payments.get(id)),
+      findPaymentsForTenancy: async (tenancyId: string) =>
+        [...payments.values()]
+          .filter((v) => v.tenancyId === tenancyId)
+          .sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt) || a.paymentId.localeCompare(b.paymentId))
+          .map((v) => structuredClone(v)),
       updatePayment: async (v: PaymentRecord) => {
         payments.set(v.paymentId, structuredClone(v));
       },

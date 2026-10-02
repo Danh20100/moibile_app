@@ -45,6 +45,49 @@ export class UpdateIncidentStatusDto {
   closureReason?: string;
 }
 
+export class IncidentEventDto {
+  @ApiProperty({ example: 'evt_12345' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ example: 'inc_12345' })
+  @IsString()
+  incidentId!: string;
+
+  @ApiProperty({ example: 'STATUS_CHANGED' })
+  @IsString()
+  eventType!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  actorUserId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  attachmentReference?: string;
+
+  @ApiPropertyOptional({ enum: ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'] })
+  @IsOptional()
+  @IsString()
+  fromStatus?: IncidentStatus;
+
+  @ApiPropertyOptional({ enum: ['REPORTED', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'] })
+  @IsOptional()
+  @IsString()
+  toStatus?: IncidentStatus;
+
+  @ApiProperty()
+  @IsString()
+  occurredAt!: string;
+}
+
 export class IncidentTicketDto {
   @ApiProperty({ example: 'inc_12345' })
   @IsString()

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
@@ -99,6 +99,24 @@ export class BillingController {
       await this.authz.assertCanAccessTenancy(user.userId, dto.tenancyId);
     }
     return this.billingService.recordPayment(dto);
+  }
+
+  @Get('payments')
+  @ApiOperation({ summary: 'List confirmed Payment records by Tenancy ID' })
+  @ApiQuery({ name: 'tenancyId', type: String, required: true })
+  @ApiResponse({ status: 200, description: 'Payment history for the Tenancy', type: [PaymentDto] })
+  @ApiResponse({ status: 403, description: 'Current user cannot read the Tenancy' })
+  async findPaymentsByTenancy(
+    @Query('tenancyId') tenancyId: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<Payment[]> {
+    if (!tenancyId?.trim()) {
+      throw new BadRequestException('tenancyId query parameter is required');
+    }
+    if (user) {
+      await this.authz.assertCanReadTenancy(user.userId, tenancyId);
+    }
+    return this.billingService.findPaymentsByTenancyId(tenancyId);
   }
 
   @Get('payments/:id')

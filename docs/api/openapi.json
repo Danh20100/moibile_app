@@ -1373,6 +1373,46 @@
             "bearer": []
           }
         ]
+      },
+      "get": {
+        "operationId": "BillingController_findPaymentsByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment history for the Tenancy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot read the Tenancy"
+          }
+        },
+        "summary": "List confirmed Payment records by Tenancy ID",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/finance/payments/{id}": {
@@ -1830,6 +1870,52 @@
         ]
       }
     },
+    "/incidents/{id}/events": {
+      "get": {
+        "operationId": "IncidentController_listEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Incident ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident event timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentEventDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot access the Incident"
+          },
+          "404": {
+            "description": "Incident not found"
+          }
+        },
+        "summary": "Lấy timeline Incident Event theo thứ tự xảy ra",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/incidents/{id}": {
       "get": {
         "operationId": "IncidentController_findById",
@@ -1942,6 +2028,87 @@
           "Listing"
         ],
         "security": []
+      }
+    },
+    "/listings": {
+      "get": {
+        "operationId": "ListingController_findCurrentByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "query",
+            "description": "Room ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current Listing for the Room",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "roomId query parameter is required"
+          },
+          "403": {
+            "description": "Current user does not operate the Room"
+          },
+          "404": {
+            "description": "Room or current Listing not found"
+          }
+        },
+        "summary": "Get the current non-archived Listing for an operated Room",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RentalLifecycleController_createListing",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Listing created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new Listing",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
       }
     },
     "/listings/{id}": {
@@ -2227,43 +2394,6 @@
         "summary": "Get Inquiry by ID",
         "tags": [
           "Inquiry"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/listings": {
-      "post": {
-        "operationId": "RentalLifecycleController_createListing",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateListingDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Listing created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ListingProfileDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a new Listing",
-        "tags": [
-          "Rental lifecycle"
         ],
         "security": [
           {
@@ -3322,16 +3452,12 @@
           "tenancyParticipantId": {
             "type": "string"
           },
-          "userId": {
-            "type": "string"
-          },
           "acknowledgedAt": {
             "type": "string"
           }
         },
         "required": [
           "tenancyParticipantId",
-          "userId",
           "acknowledgedAt"
         ]
       },
@@ -3377,9 +3503,6 @@
             "type": "string",
             "description": "Opaque notice type; no Wave B enum is defined"
           },
-          "issuedByUserId": {
-            "type": "string"
-          },
           "contentOrNote": {
             "type": "string"
           },
@@ -3389,7 +3512,6 @@
         },
         "required": [
           "noticeType",
-          "issuedByUserId",
           "contentOrNote",
           "issuedAt"
         ]
@@ -3438,15 +3560,11 @@
       "AcknowledgeTenancyNoticeDto": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "string"
-          },
           "occurredAt": {
             "type": "string"
           }
         },
         "required": [
-          "userId",
           "occurredAt"
         ]
       },
@@ -4001,6 +4119,63 @@
           "category",
           "status",
           "createdAt"
+        ]
+      },
+      "IncidentEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "evt_12345"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "inc_12345"
+          },
+          "eventType": {
+            "type": "string",
+            "example": "STATUS_CHANGED"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "attachmentReference": {
+            "type": "string"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "incidentId",
+          "eventType",
+          "occurredAt"
         ]
       },
       "UpdateIncidentStatusDto": {

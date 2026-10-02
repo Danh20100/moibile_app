@@ -1,4 +1,14 @@
-import { Body, Controller, ForbiddenException, Get, Inject, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
@@ -175,11 +185,20 @@ export class TenancySupportController {
     @Body() dto: CreateTermsAcknowledgementDto,
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TermsAcknowledgement> {
-    if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
-      dto.userId = user.userId;
+    if (!user) {
+      throw new UnauthorizedException('Verified principal is required');
     }
-    return this.acknowledgements.acknowledge({ tenancyTermsId: termsId, ...dto });
+    await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
+    const terms = await this.terms.findById(termsId);
+    if (terms.tenancyId !== tenancyId) {
+      throw new NotFoundException(`Terms not found in Tenancy: ${termsId}`);
+    }
+    return this.acknowledgements.acknowledge({
+      tenancyTermsId: termsId,
+      tenancyParticipantId: dto.tenancyParticipantId,
+      userId: user.userId,
+      acknowledgedAt: dto.acknowledgedAt,
+    });
   }
 
   @Post(':tenancyId/notices')
@@ -191,11 +210,17 @@ export class TenancySupportController {
     @Body() dto: IssueTenancyNoticeDto,
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyNotice> {
-    if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
-      dto.issuedByUserId = user.userId;
+    if (!user) {
+      throw new UnauthorizedException('Verified principal is required');
     }
-    return this.notices.issue({ tenancyId, ...dto });
+    await this.authz.assertOperatesTenancy(user.userId, tenancyId);
+    return this.notices.issue({
+      tenancyId,
+      noticeType: dto.noticeType,
+      issuedByUserId: user.userId,
+      contentOrNote: dto.contentOrNote,
+      issuedAt: dto.issuedAt,
+    });
   }
 
   @Get(':tenancyId/notices')
@@ -223,10 +248,16 @@ export class TenancySupportController {
     @Body() dto: AcknowledgeTenancyNoticeDto,
     @CurrentUser() user?: VerifiedPrincipal,
   ): Promise<TenancyNotice> {
-    if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, tenancyId);
-      dto.userId = user.userId;
+    if (!user) {
+      throw new UnauthorizedException('Verified principal is required');
     }
-    return this.notices.acknowledge(noticeId, dto.userId, dto.occurredAt);
+    const notice = await this.notices.findById(noticeId);
+    if (notice.tenancyId !== tenancyId) {
+      throw new NotFoundException(`Notice not found in Tenancy: ${noticeId}`);
+    }
+    if (!(await this.authz.isParticipantInTenancy(user.userId, tenancyId))) {
+      throw new ForbiddenException('Only an active linked participant may acknowledge this notice');
+    }
+    return this.notices.acknowledge(noticeId, user.userId, dto.occurredAt);
   }
 }

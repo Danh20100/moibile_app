@@ -3,8 +3,8 @@ import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
-import type { IncidentTicket } from '../contracts';
-import { CreateIncidentDto, IncidentTicketDto, UpdateIncidentStatusDto } from '../dto';
+import type { IncidentEvent, IncidentTicket } from '../contracts';
+import { CreateIncidentDto, IncidentEventDto, IncidentTicketDto, UpdateIncidentStatusDto } from '../dto';
 import { IncidentService } from '../services/incident.service';
 
 @ApiTags('Incident')
@@ -60,6 +60,22 @@ export class IncidentController {
       return accessible.filter((inc): inc is IncidentTicket => inc !== null);
     }
     return this.incidentService.findByRoomId();
+  }
+
+  @Get(':id/events')
+  @ApiOperation({ summary: 'Lấy timeline Incident Event theo thứ tự xảy ra' })
+  @ApiParam({ name: 'id', type: String, description: 'Incident ID' })
+  @ApiResponse({ status: 200, description: 'Incident event timeline', type: [IncidentEventDto] })
+  @ApiResponse({ status: 403, description: 'Current user cannot access the Incident' })
+  @ApiResponse({ status: 404, description: 'Incident not found' })
+  async listEvents(
+    @Param('id') id: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<IncidentEvent[]> {
+    if (user) {
+      await this.authz.assertCanAccessIncident(user.userId, id);
+    }
+    return this.incidentService.listEvents(id);
   }
 
   @Get(':id')

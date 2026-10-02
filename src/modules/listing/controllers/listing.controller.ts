@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
@@ -23,6 +23,30 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Published listings', type: [ListingProfileDto] })
   async findPublic(): Promise<ListingProfile[]> {
     return this.listingService.findPublished();
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get the current non-archived Listing for an operated Room' })
+  @ApiQuery({ name: 'roomId', type: String, required: true, description: 'Room ID' })
+  @ApiResponse({ status: 200, description: 'Current Listing for the Room', type: ListingProfileDto })
+  @ApiResponse({ status: 400, description: 'roomId query parameter is required' })
+  @ApiResponse({ status: 403, description: 'Current user does not operate the Room' })
+  @ApiResponse({ status: 404, description: 'Room or current Listing not found' })
+  async findCurrentByRoomId(
+    @Query('roomId') roomId: string,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ListingProfile> {
+    if (!roomId?.trim()) {
+      throw new BadRequestException('roomId query parameter is required');
+    }
+    if (user) {
+      await this.authz.assertOperatesRoom(user.userId, roomId);
+    }
+    const listing = await this.listingService.findCurrentByRoomId(roomId);
+    if (!listing) {
+      throw new NotFoundException(`Current Listing not found for Room: ${roomId}`);
+    }
+    return listing;
   }
 
   @Get(':id')

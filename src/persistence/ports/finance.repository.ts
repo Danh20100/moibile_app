@@ -18,7 +18,7 @@ export interface FinanceRepository {
   insertCharge(input: ChargeRecord): Promise<void>; findCharge(id: string): Promise<ChargeRecord | undefined>; findChargesForCycle(cycleId: string): Promise<ChargeRecord[]>;
   insertUtilityConnection(input: UtilityConnectionRecord): Promise<void>; findUtilityConnection(id: string): Promise<UtilityConnectionRecord | undefined>;
   insertMeterReading(input: MeterReadingRecord): Promise<void>; findMeterReading(id: string): Promise<MeterReadingRecord | undefined>;
-  insertPayment(input: PaymentRecord): Promise<void>; findPayment(id: string): Promise<PaymentRecord | undefined>; updatePayment(input: PaymentRecord): Promise<void>; lockPayment(id: string): Promise<void>;
+  insertPayment(input: PaymentRecord): Promise<void>; findPayment(id: string): Promise<PaymentRecord | undefined>; findPaymentsForTenancy(tenancyId: string): Promise<PaymentRecord[]>; updatePayment(input: PaymentRecord): Promise<void>; lockPayment(id: string): Promise<void>;
   insertPaymentAllocation(input: PaymentAllocationRecord): Promise<void>; findPaymentAllocations(paymentId: string): Promise<PaymentAllocationRecord[]>; sumPaymentCommittedAmount(paymentId: string): Promise<DecimalString>; paymentHasCapacity(paymentId:string, additionalAmount:DecimalString):Promise<boolean>;
   insertPaymentClaim(input: PaymentClaimRecord): Promise<void>; findPaymentClaim(id: string): Promise<PaymentClaimRecord | undefined>; updatePaymentClaim(input: PaymentClaimRecord): Promise<void>;
   insertReceipt(input: ReceiptRecord): Promise<void>; findReceipt(id: string): Promise<ReceiptRecord | undefined>; findReceiptsForPayment(paymentId?: string): Promise<ReceiptRecord[]>; updateReceipt(input: ReceiptRecord): Promise<void>;
