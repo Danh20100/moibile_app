@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsNumber,
   IsDefined,
-  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -79,34 +78,6 @@ export class UpdateListingDto {
   @ValidateNested()
   @Type(() => PublicLocationProjectionDto)
   publicLocationProjection?: PublicLocationProjectionDto;
-}
-
-export class ListingTransitionContextDto {
-  @ApiProperty({ description: 'Transition reason code' })
-  @IsString()
-  @IsNotEmpty()
-  reasonCode!: string;
-
-  @ApiProperty({ description: 'Opaque actor type' })
-  @IsString()
-  @IsNotEmpty()
-  actorType!: string;
-
-  @ApiPropertyOptional({ description: 'Actor user ID when applicable' })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  actorUserId?: string;
-
-  @ApiProperty({ description: 'Opaque transition trigger' })
-  @IsString()
-  @IsNotEmpty()
-  trigger!: string;
-
-  @ApiPropertyOptional({ description: 'Optional transition metadata' })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
 }
 
 export class CreateInquiryDto {

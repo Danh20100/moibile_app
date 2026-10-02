@@ -2416,16 +2416,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ListingTransitionContextDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Unpublished listing",
@@ -2463,16 +2453,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ListingTransitionContextDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Archived listing",
@@ -2621,16 +2601,6 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ListingCommandContextDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Listing published",
@@ -4746,36 +4716,6 @@
           }
         }
       },
-      "ListingTransitionContextDto": {
-        "type": "object",
-        "properties": {
-          "reasonCode": {
-            "type": "string",
-            "description": "Transition reason code"
-          },
-          "actorType": {
-            "type": "string",
-            "description": "Opaque actor type"
-          },
-          "actorUserId": {
-            "type": "string",
-            "description": "Actor user ID when applicable"
-          },
-          "trigger": {
-            "type": "string",
-            "description": "Opaque transition trigger"
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Optional transition metadata"
-          }
-        },
-        "required": [
-          "reasonCode",
-          "actorType",
-          "trigger"
-        ]
-      },
       "CreateInquiryDto": {
         "type": "object",
         "properties": {
@@ -4873,41 +4813,9 @@
           "publicLocationProjection"
         ]
       },
-      "ListingCommandContextDto": {
-        "type": "object",
-        "properties": {
-          "reasonCode": {
-            "type": "string"
-          },
-          "actorType": {
-            "type": "string",
-            "description": "Opaque actor type"
-          },
-          "trigger": {
-            "type": "string",
-            "description": "Opaque command trigger"
-          }
-        },
-        "required": [
-          "reasonCode",
-          "actorType",
-          "trigger"
-        ]
-      },
       "TransitionRoomManuallyDto": {
         "type": "object",
         "properties": {
-          "reasonCode": {
-            "type": "string"
-          },
-          "actorType": {
-            "type": "string",
-            "description": "Opaque actor type"
-          },
-          "trigger": {
-            "type": "string",
-            "description": "Opaque command trigger"
-          },
           "operationalState": {
             "type": "string",
             "enum": [
@@ -4918,9 +4826,6 @@
           }
         },
         "required": [
-          "reasonCode",
-          "actorType",
-          "trigger",
           "operationalState"
         ]
       },
@@ -4938,25 +4843,12 @@
       "ActivateTenancyDto": {
         "type": "object",
         "properties": {
-          "reasonCode": {
-            "type": "string"
-          },
-          "actorType": {
-            "type": "string",
-            "description": "Opaque actor type"
-          },
-          "trigger": {
-            "type": "string",
-            "description": "Opaque command trigger"
-          },
           "occurredAt": {
-            "type": "string"
+            "type": "string",
+            "description": "Business-effective activation timestamp"
           }
         },
         "required": [
-          "reasonCode",
-          "actorType",
-          "trigger",
           "occurredAt"
         ]
       },

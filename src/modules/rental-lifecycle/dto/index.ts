@@ -1,24 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsIn, IsNotEmpty, IsString } from 'class-validator';
 
-export class ListingCommandContextDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  reasonCode!: string;
-
-  @ApiProperty({ description: 'Opaque actor type' })
-  @IsString()
-  @IsNotEmpty()
-  actorType!: string;
-
-  @ApiProperty({ description: 'Opaque command trigger' })
-  @IsString()
-  @IsNotEmpty()
-  trigger!: string;
-}
-
-export class TransitionRoomManuallyDto extends ListingCommandContextDto {
+export class TransitionRoomManuallyDto {
   @ApiProperty({ enum: ['vacant', 'maintenance', 'inactive'] })
   @IsIn(['vacant', 'maintenance', 'inactive'])
   operationalState!: 'vacant' | 'maintenance' | 'inactive';
@@ -31,8 +14,8 @@ export class CreateTenancyDto {
   roomId!: string;
 }
 
-export class ActivateTenancyDto extends ListingCommandContextDto {
-  @ApiProperty()
+export class ActivateTenancyDto {
+  @ApiProperty({ description: 'Business-effective activation timestamp' })
   @IsDateString()
   occurredAt!: string;
 }

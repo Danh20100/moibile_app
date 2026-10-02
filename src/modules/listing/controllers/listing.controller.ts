@@ -3,8 +3,8 @@ import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
-import type { ListingProfile } from '../contracts';
-import { ListingProfileDto, ListingTransitionContextDto, UpdateListingDto } from '../dto';
+import type { ListingProfile, ListingTransitionEventInput } from '../contracts';
+import { ListingProfileDto, UpdateListingDto } from '../dto';
 import { ListingService } from '../services/listing.service';
 
 @ApiTags('Listing')
@@ -86,13 +86,14 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Unpublished listing', type: ListingProfileDto })
   async unpublish(
     @Param('id') id: string,
-    @Body() dto: ListingTransitionContextDto,
-    @CurrentUser() user?: VerifiedPrincipal,
+    @CurrentUser() user: VerifiedPrincipal,
   ): Promise<ListingProfile> {
-    if (user) {
-      await this.authz.assertOperatesListing(user.userId, id);
-    }
-    return this.listingService.transition(id, 'unpublished', dto);
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.transition(
+      id,
+      'unpublished',
+      this.commandContext('MANUAL_UNPUBLISH', user),
+    );
   }
 
   @Post(':id/archive')
@@ -101,12 +102,18 @@ export class ListingController {
   @ApiResponse({ status: 200, description: 'Archived listing', type: ListingProfileDto })
   async archive(
     @Param('id') id: string,
-    @Body() dto: ListingTransitionContextDto,
-    @CurrentUser() user?: VerifiedPrincipal,
+    @CurrentUser() user: VerifiedPrincipal,
   ): Promise<ListingProfile> {
-    if (user) {
-      await this.authz.assertOperatesListing(user.userId, id);
-    }
-    return this.listingService.transition(id, 'archived', dto);
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.transition(id, 'archived', this.commandContext('MANUAL_ARCHIVE', user));
+  }
+
+  private commandContext(reasonCode: string, user: VerifiedPrincipal): ListingTransitionEventInput {
+    return {
+      reasonCode,
+      actorType: 'USER',
+      actorUserId: user.userId,
+      trigger: 'COMMAND',
+    };
   }
 }

@@ -104,6 +104,7 @@ function setupTestEnvironment() {
     propertyController,
     roomController,
     listingController,
+    listingService,
     inquiryController,
     tenancyController,
     tenancySupportController,
@@ -306,15 +307,18 @@ test('Resource Authorization: Listing & Rental Lifecycle permissions', async () 
     () =>
       env.lifecycleController.publishListing(
         listingA.id,
-        {
-          reasonCode: 'MANUAL_PUBLISH',
-          actorType: 'OPERATOR',
-          trigger: 'MANUAL',
-        },
         userB,
       ),
     (err: unknown) => err instanceof ForbiddenException,
   );
+
+  const publishedByOwner = await env.lifecycleController.publishListing(listingA.id, userA);
+  assert.equal(publishedByOwner.status, 'published');
+  const publishEvents = await env.listingService.listStatusEvents(listingA.id);
+  assert.equal(publishEvents.at(-1)?.reasonCode, 'MANUAL_PUBLISH');
+  assert.equal(publishEvents.at(-1)?.actorType, 'USER');
+  assert.equal(publishEvents.at(-1)?.actorUserId, userA.userId);
+  assert.equal(publishEvents.at(-1)?.trigger, 'COMMAND');
 
   // User B cannot update content of User A's listing -> 403 Forbidden
   await assert.rejects(
