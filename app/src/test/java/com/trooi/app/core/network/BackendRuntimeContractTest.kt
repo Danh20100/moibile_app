@@ -16,7 +16,11 @@ class BackendRuntimeContractTest {
 
     @Test fun publicListingMapsOnlyPublishedPublicProjection() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody(PUBLISHED_LISTING_JSON))
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"success":true,"data":$PUBLISHED_LISTING_JSON,"timestamp":"2026-10-02T00:00:00.000Z"}""",
+                ),
+            )
             server.start(InetAddress.getLoopbackAddress(), 0)
             val tokens = InMemoryAuthTokenProvider()
             val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))

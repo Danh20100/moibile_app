@@ -79,7 +79,7 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     private inline fun <T> TransportOutcome.decode(parser: (String) -> T): ApiOutcome<T> = when (this) {
         is TransportOutcome.Failure -> ApiOutcome.Failure(kind, httpStatus)
         is TransportOutcome.Success -> try {
-            ApiOutcome.Data(parser(document.rawBody))
+            ApiOutcome.Data(parser(BackendJsonCodec.unwrapResponseData(document.rawBody)))
         } catch (_: RuntimeException) {
             ApiOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)
         }

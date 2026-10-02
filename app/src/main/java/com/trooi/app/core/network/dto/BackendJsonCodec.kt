@@ -5,6 +5,17 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 
 object BackendJsonCodec {
+    fun unwrapResponseData(json: String): String {
+        val root = JsonParser.parseString(json)
+        if (!root.isJsonObject) return json
+        val envelope = root.asJsonObject
+        if (!envelope.has("success") || !envelope.has("data")) return json
+        if (!envelope.get("success").asBoolean) {
+            throw IllegalArgumentException("Backend response envelope reported failure")
+        }
+        return envelope.get("data").toString()
+    }
+
     fun encodeGoogleToken(idToken: String): String = JsonObject().apply {
         addProperty("idToken", idToken)
     }.toString()
