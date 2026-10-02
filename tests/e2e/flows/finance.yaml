@@ -1,0 +1,89 @@
+feature: finance
+flows:
+  - id: BILL-01
+    name: create-billing-cycle
+    actor: operator
+    status: spec_only
+    preconditions: [tenancy-with-applicable-terms]
+    steps: [create-cycle, record-supported-utility-inputs]
+    assertions: [cycle-linked-to-tenancy-and-terms, no-period-overlap, rent-electricity-water-only]
+  - id: BILL-02
+    name: tenant-views-charges
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [billing-cycle-with-charges]
+    steps: [open-tenant-portal, open-billing]
+    assertions: [charges-visible-for-linked-tenancy-only, billing-not-confused-with-payment]
+  - id: PAY-01
+    name: record-confirmed-payment
+    actor: operator
+    status: spec_only
+    preconditions: [active-or-ending-tenancy]
+    steps: [record-payment]
+    assertions: [payment-linked-to-tenancy, exact-amount, source-and-verification-persisted]
+  - id: PAY-02
+    name: allocate-payment-to-charge
+    actor: operator
+    status: spec_only
+    preconditions: [confirmed-payment, charge-same-tenancy]
+    steps: [allocate-payment]
+    assertions: [allocation-persisted, no-cross-tenancy-reference, payment-capacity-not-exceeded]
+  - id: PAY-03
+    name: apply-payment-to-deposit
+    actor: operator
+    status: spec_only
+    preconditions: [confirmed-payment, deposit-same-tenancy]
+    steps: [apply-payment-to-deposit]
+    assertions: [application-persisted, deposit-funded-from-payment, payment-capacity-not-exceeded]
+  - id: PAY-04
+    name: correct-confirmed-payment
+    actor: operator
+    status: spec_only
+    preconditions: [confirmed-payment]
+    steps: [void-or-reverse-payment, create-correct-payment]
+    assertions: [original-history-preserved, replacement-traceable, no-destructive-edit]
+  - id: CLAIM-01
+    name: submit-payment-claim
+    actor: linked-participant-user
+    status: open_policy
+    preconditions: [linked-tenancy, authoritative-evidence-contract]
+    steps: [submit-payment-evidence]
+    assertions: [claim-created, no-payment-created-before-confirmation, debt-not-auto-cleared]
+  - id: CLAIM-02
+    name: review-payment-claim
+    actor: authorized-reviewer
+    status: open_policy
+    preconditions: [pending-payment-claim, authoritative-review-permission]
+    steps: [review-claim, confirm-or-reject]
+    assertions:
+      [confirmed-path-creates-payment, rejected-path-does-not-create-payment, provenance-kept]
+  - id: DEP-01
+    name: view-deposit-state
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [terms-with-deposit-requirement]
+    steps: [open-deposit]
+    assertions:
+      [requirement-from-terms, funded-amount-from-payment-applications, settlement-state-derived]
+  - id: DEP-02
+    name: settle-deposit
+    actor: operator
+    status: spec_only
+    preconditions: [funded-deposit, eligible-closeout]
+    steps: [record-refund-and-retained-portions]
+    assertions:
+      [settlement-not-over-held-amount, reason-note-preserved, no-negative-inbound-payment]
+  - id: REC-01
+    name: issue-receipt
+    actor: operator
+    status: spec_only
+    preconditions: [eligible-confirmed-payment]
+    steps: [issue-receipt]
+    assertions: [receipt-issued, linked-payment-correct, at-most-one-current-receipt]
+  - id: REC-02
+    name: void-and-reissue-receipt
+    actor: operator
+    status: spec_only
+    preconditions: [issued-receipt]
+    steps: [void-receipt, issue-replacement]
+    assertions: [old-receipt-voided-not-deleted, replacement-traceable, one-current-receipt]

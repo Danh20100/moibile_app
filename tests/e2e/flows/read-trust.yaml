@@ -1,0 +1,72 @@
+feature: read-models-and-trust
+flows:
+  - id: PORTAL-01
+    name: tenant-portal-current-read
+    actor: linked-participant-user
+    status: requires_google
+    preconditions: [authenticated-linked-user, tenancy-read-fixtures]
+    steps: [authenticate, open-tenant-portal]
+    assertions: [only-linked-tenancy-visible, terms-billing-receipts-notices-scoped]
+  - id: PORTAL-02
+    name: former-tenant-history-readonly
+    actor: former-tenant
+    status: spec_only
+    preconditions: [ended-tenancy, retained-participant-history]
+    steps: [open-history]
+    assertions: [historical-data-readable, mutation-actions-hidden-or-denied]
+  - id: HIST-01
+    name: operational-history
+    actor: authorized-user
+    status: spec_only
+    preconditions: [business-events]
+    steps: [open-history, open-source-record]
+    assertions: [chronological-history, permission-scoped, source-facts-unchanged]
+  - id: DASH-01
+    name: operator-dashboard-read-model
+    actor: operator
+    status: requires_google
+    preconditions: [operator-relationship, operational-fixtures]
+    steps: [authenticate, open-operations-dashboard]
+    assertions:
+      [aggregates-derived-from-source-facts, detail-navigation-scoped, no-dashboard-write-authority]
+  - id: NOTIF-01
+    name: notification-to-source
+    actor: authorized-user
+    status: open_policy
+    preconditions: [business-event, authoritative-notification-channel-policy]
+    steps: [receive-notification, open-notification]
+    assertions:
+      [correct-recipient, routes-to-source-feature, read-state-does-not-mutate-business-state]
+  - id: REVIEW-01
+    name: former-tenant-review
+    actor: eligible-former-tenant
+    status: open_policy
+    preconditions: [ended-tenancy, linked-eligible-participant, authoritative-open-review-policies]
+    steps: [open-review-action, submit-rating-and-comment]
+    assertions:
+      [
+        eligibility-derived-from-rental-history,
+        review-not-personal-rating,
+        end-reason-alone-does-not-block,
+      ]
+  - id: REVIEW-02
+    name: operator-review-response
+    actor: operator
+    status: open_policy
+    preconditions: [review, authoritative-review-policy]
+    steps: [submit-operator-response]
+    assertions: [response-linked-to-review, at-most-one-operator-response]
+  - id: TRUST-01
+    name: submit-trust-report
+    actor: user-per-authoritative-policy
+    status: open_policy
+    preconditions: [listing-or-review-target, authoritative-login-evidence-rate-limit-policy]
+    steps: [choose-report-reason, submit-report]
+    assertions: [exactly-one-target, report-submitted, target-not-auto-removed]
+  - id: TRUST-02
+    name: moderate-trust-report
+    actor: authorized-moderator
+    status: open_policy
+    preconditions: [submitted-report, authoritative-moderation-permission]
+    steps: [move-under-review, resolve-or-reject]
+    assertions: [valid-lifecycle, report-history-preserved]

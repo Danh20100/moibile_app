@@ -1,0 +1,19 @@
+id: J04
+name: active-tenancy-monthly-operations
+status: spec_only
+flow_chain:
+  - PORTAL-01
+  - BILL-01
+  - BILL-02
+  - PAY-01
+  - PAY-02
+  - REC-01
+  - INC-01
+  - INC-02
+  - NOTICE-01
+  - NOTICE-02
+end_assertions:
+  - billing-payment-and-receipt-provenance-consistent
+  - tenant-reads-only-linked-tenancy
+  - incident-timeline-preserved
+  - notice-history-preserved

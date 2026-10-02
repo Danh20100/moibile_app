@@ -6,7 +6,11 @@ This directory owns deterministic data and cross-process E2E flows.
 
 - `fixtures/`: stable IDs and scenario data.
 - `seed/`: local-only seed/reset utilities.
-- `maestro/`: Android cross-screen flows.
+- `flows/`: atomic feature flow specifications.
+- `journeys/`: end-to-end chains made from atomic flow IDs.
+- `assertions/`: UI/API/DB/invariant assertion conventions.
+- `maestro/`: executable Android cross-screen flows.
+- `flow-catalog.yaml`: index and execution status for the V1 flow set.
 
 Android Compose instrumentation remains under `app/src/androidTest/`.
 

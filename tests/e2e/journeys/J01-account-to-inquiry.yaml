@@ -1,0 +1,16 @@
+id: J01
+name: account-lifecycle-to-room-inquiry
+status: requires_google
+purpose: first auth -> logout -> returning login -> find room -> open listing -> submit inquiry
+flow_chain:
+  - AUTH-01
+  - AUTH-04
+  - AUTH-02
+  - DISC-01
+  - DISC-02
+  - INQ-01
+end_assertions:
+  - one-user-row-for-google-principal
+  - published-listing-remains-public
+  - inquiry-created-for-selected-listing
+  - inquiry-does-not-create-booking-or-tenancy

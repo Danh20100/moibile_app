@@ -1,0 +1,15 @@
+id: J05
+name: moveout-to-former-tenant-history
+status: spec_only
+flow_chain:
+  - RENT-02
+  - RENT-04
+  - DEP-02
+  - PORTAL-02
+  - REVIEW-01
+end_assertions:
+  - tenancy-ended
+  - room-vacant
+  - deposit-settlement-within-held-amount
+  - former-tenant-history-remains-readable
+  - review-only-if-authoritatively-eligible

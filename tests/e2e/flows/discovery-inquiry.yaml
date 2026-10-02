@@ -1,0 +1,38 @@
+feature: discovery-inquiry
+flows:
+  - id: DISC-01
+    name: public-listing-feed
+    actor: guest
+    status: executable
+    preconditions: [published-listing-fixture]
+    steps: [launch-app, open-discovery]
+    assertions:
+      [http-200-public-listings, published-listing-visible, operational-address-not-exposed]
+  - id: DISC-02
+    name: public-listing-detail
+    actor: guest
+    status: executable
+    preconditions: [published-listing-fixture]
+    steps: [open-discovery, open-published-listing]
+    assertions: [listing-detail-visible, public-price-visible, public-location-projection-only]
+  - id: DISC-03
+    name: search-map-filter
+    actor: guest
+    status: open_policy
+    preconditions: [published-listings]
+    steps: [set-supported-filters, execute-search, inspect-list-and-map]
+    assertions: [published-only, public-location-only, filters-match-authoritative-vocabulary]
+  - id: INQ-01
+    name: submit-inquiry
+    actor: authenticated-user
+    status: requires_google
+    preconditions: [published-listing-fixture, authenticated-session]
+    steps: [open-listing, enter-contact-intent, submit-inquiry]
+    assertions: [http-201, success-ui, inquiry-row-created, room-and-tenancy-state-unchanged]
+  - id: INQ-02
+    name: operator-reads-inquiry
+    actor: operator
+    status: spec_only
+    preconditions: [operator-relationship, inquiry-fixture]
+    steps: [open-listing-inquiries, open-inquiry]
+    assertions: [authorized-inquiry-visible, foreign-inquiry-not-readable]

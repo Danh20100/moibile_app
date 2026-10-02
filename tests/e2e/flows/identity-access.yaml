@@ -1,0 +1,31 @@
+feature: identity-access
+flows:
+  - id: AUTH-01
+    name: first-google-auth-provisions-user
+    actor: unauthenticated-user
+    status: requires_google
+    preconditions: [valid-google-account, user-may-not-exist]
+    steps: [open-account, continue-with-google, backend-auth-google, backend-get-me]
+    assertions: [authenticated-ui, user-row-exists, capabilities-derived-from-relationships]
+  - id: AUTH-02
+    name: returning-google-login
+    actor: existing-user
+    status: requires_google
+    preconditions: [existing-user-row, valid-google-account]
+    steps: [continue-with-google, backend-auth-google, backend-get-me]
+    assertions: [same-user-identity, no-duplicate-user, correct-capabilities]
+  - id: AUTH-03
+    name: capability-routing
+    actor: authenticated-user
+    status: requires_google
+    preconditions: [relationship-fixture]
+    steps: [authenticate, refresh-session-context]
+    assertions:
+      [owner-navigation-only-if-operated-organization, tenant-navigation-only-if-linked-tenancy]
+  - id: AUTH-04
+    name: logout
+    actor: authenticated-user
+    status: requires_google
+    preconditions: [authenticated-session]
+    steps: [open-account, logout]
+    assertions: [bearer-cleared, protected-navigation-hidden, public-discovery-remains-available]

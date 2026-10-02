@@ -1,0 +1,62 @@
+version: 1
+source: docs/backlogs/v1
+features:
+  identity-access: [AUTH-01, AUTH-02, AUTH-03, AUTH-04]
+  discovery-inquiry: [DISC-01, DISC-02, DISC-03, INQ-01, INQ-02]
+  operator-setup: [ORG-01, ORG-02, PROP-01, ROOM-01, ROOM-02, ROOM-03, ROOM-04]
+  listing: [LIST-01, LIST-02, LIST-03, LIST-04, LIST-05, LIST-06]
+  rental:
+    [
+      TEN-01,
+      PART-01,
+      PART-02,
+      PART-03,
+      TERMS-01,
+      TERMS-02,
+      ACK-01,
+      RENT-01,
+      RENT-02,
+      RENT-03,
+      RENT-04,
+    ]
+  finance:
+    [
+      BILL-01,
+      BILL-02,
+      PAY-01,
+      PAY-02,
+      PAY-03,
+      PAY-04,
+      CLAIM-01,
+      CLAIM-02,
+      DEP-01,
+      DEP-02,
+      REC-01,
+      REC-02,
+    ]
+  operations: [INC-01, INC-02, INC-03, NOTICE-01, NOTICE-02]
+  read-trust:
+    [PORTAL-01, PORTAL-02, HIST-01, DASH-01, NOTIF-01, REVIEW-01, REVIEW-02, TRUST-01, TRUST-02]
+
+executable_now:
+  - DISC-01
+  - DISC-02
+
+requires_real_google_session:
+  - AUTH-01
+  - AUTH-02
+  - AUTH-03
+  - AUTH-04
+  - INQ-01
+  - PORTAL-01
+  - DASH-01
+
+policy_blocked:
+  - DISC-03
+  - CLAIM-01
+  - CLAIM-02
+  - NOTIF-01
+  - REVIEW-01
+  - REVIEW-02
+  - TRUST-01
+  - TRUST-02

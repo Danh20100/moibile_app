@@ -1,0 +1,44 @@
+feature: listing
+flows:
+  - id: LIST-01
+    name: create-draft-listing
+    actor: operator
+    status: spec_only
+    preconditions: [active-vacant-room, no-current-listing]
+    steps: [open-room, create-listing]
+    assertions: [listing-status-draft, listing-linked-to-room, one-current-listing-invariant]
+  - id: LIST-02
+    name: edit-listing-content
+    actor: operator
+    status: spec_only
+    preconditions: [draft-or-unpublished-listing]
+    steps: [edit-public-fields, save]
+    assertions: [backend-values-persisted, operational-location-not-copied-to-public-projection]
+  - id: LIST-03
+    name: publish-listing
+    actor: operator
+    status: spec_only
+    preconditions: [active-property, active-vacant-room, complete-draft]
+    steps: [publish]
+    assertions: [status-published, status-event-appended, listing-visible-in-public-discovery]
+  - id: LIST-04
+    name: unpublish-listing
+    actor: operator
+    status: spec_only
+    preconditions: [published-listing]
+    steps: [unpublish]
+    assertions: [status-unpublished, status-event-appended, listing-absent-from-public-discovery]
+  - id: LIST-05
+    name: republish-listing
+    actor: operator
+    status: spec_only
+    preconditions: [unpublished-listing, active-vacant-room]
+    steps: [republish]
+    assertions: [status-published, new-status-event, public-discovery-restored]
+  - id: LIST-06
+    name: archive-listing
+    actor: operator
+    status: spec_only
+    preconditions: [draft-or-unpublished-listing]
+    steps: [archive]
+    assertions: [status-archived, no-longer-current, cannot-republish]

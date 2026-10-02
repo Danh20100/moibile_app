@@ -1,0 +1,37 @@
+feature: operations
+flows:
+  - id: INC-01
+    name: report-incident
+    actor: authorized-room-user
+    status: spec_only
+    preconditions: [authorized-room-context]
+    steps: [create-incident, choose-supported-category, submit]
+    assertions: [incident-reported, incident-event-appended, room-linked-correctly]
+  - id: INC-02
+    name: process-incident
+    actor: operator
+    status: spec_only
+    preconditions: [reported-incident]
+    steps: [acknowledge, start-progress, resolve, close]
+    assertions: [state-machine-respected, timeline-append-only, closure-reason-valid]
+  - id: INC-03
+    name: reopen-resolved-incident
+    actor: operator
+    status: spec_only
+    preconditions: [resolved-incident]
+    steps: [reopen-to-in-progress]
+    assertions: [status-in-progress, previous-events-preserved]
+  - id: NOTICE-01
+    name: issue-tenancy-notice
+    actor: operator
+    status: spec_only
+    preconditions: [authorized-tenancy]
+    steps: [create-notice, issue-notice]
+    assertions: [notice-linked-to-tenancy, issuer-and-issued-at-persisted]
+  - id: NOTICE-02
+    name: acknowledge-tenancy-notice
+    actor: linked-participant-user
+    status: spec_only
+    preconditions: [issued-notice, authorized-recipient]
+    steps: [open-notice, acknowledge]
+    assertions: [ack-user-and-timestamp-persisted, history-preserved]
