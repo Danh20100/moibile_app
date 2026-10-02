@@ -1,7 +1,49 @@
 ﻿import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
-import { createServer } from 'node:net';
 import { after, before, describe, it } from 'node:test';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { join } from 'node:path';
+
+function parseDotEnv(filePath: string): Record<string, string> {
+  const parsed: Record<string, string> = {};
+  if (!existsSync(filePath)) return parsed;
+  for (const raw of readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 1) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    parsed[key] = value;
+  }
+  return parsed;
+}
+
+function fillMissingFromDotEnv(): Record<string, string> {
+  const fromFile = parseDotEnv(join(process.cwd(), '.env'));
+  const filled: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fromFile)) {
+    if (!process.env[key]?.trim() && value) filled[key] = value;
+  }
+  return filled;
+}
+
+function requireDatabaseUrl(env: NodeJS.ProcessEnv): string {
+  const url = env.DATABASE_URL?.trim();
+  if (!url) {
+    throw new Error(
+      'DATABASE_URL is required for runtime HTTP access audit. Set it or add it to .env; this test does not inherit a previous e2e shell.',
+    );
+  }
+  return url;
+}
 
 async function reservePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -25,7 +67,7 @@ async function waitForServer(
   child: ChildProcess,
   getStderr: () => string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 150; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     if (child.exitCode !== null) {
       throw new Error(
         `Server process exited prematurely with code ${child.exitCode}. Output: ${getStderr()}`,
@@ -42,22 +84,32 @@ async function waitForServer(
   throw new Error(`Server did not become ready: ${url}. Output: ${getStderr()}`);
 }
 
+function stopChild(child: ChildProcess | undefined): void {
+  if (!child?.pid) return;
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    return;
+  }
+  child.kill('SIGTERM');
+}
+
 describe('runtime HTTP access audit', () => {
   let child: ChildProcess;
   let baseUrl: string;
 
   before(async () => {
+    const filled = fillMissingFromDotEnv();
+    const env: NodeJS.ProcessEnv = { ...process.env, ...filled };
+    const databaseUrl = requireDatabaseUrl(env);
     const port = await reservePort();
     baseUrl = `http://127.0.0.1:${port}`;
     let stderr = '';
     child = spawn(process.execPath, ['build/main.js'], {
       cwd: process.cwd(),
       env: {
-        ...process.env,
+        ...env,
         PORT: String(port),
-        DATABASE_URL:
-          process.env.DATABASE_URL?.trim() ||
-          'postgresql://trooi:trooi_local@localhost:5432/trooi_dev',
+        DATABASE_URL: databaseUrl,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -68,7 +120,7 @@ describe('runtime HTTP access audit', () => {
   });
 
   after(() => {
-    child.kill();
+    stopChild(child);
   });
 
   it('keeps the health endpoint public', async () => {
