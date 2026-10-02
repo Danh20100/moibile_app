@@ -13,10 +13,61 @@ function cents(v: DecimalString): bigint { if (!isNumeric18Scale2NonNegative(v))
 export class BillingService {
   private readonly billingGuard: BillingTransactionCoordinator; private readonly financeGuard: FinanceTransactionCoordinator;
   constructor(@Inject(TenancyService) private readonly tenancyService: TenancyService,@Inject(TRANSACTION_MANAGER) private readonly tx:TransactionManager){this.billingGuard=new BillingTransactionCoordinator(tx);this.financeGuard=new FinanceTransactionCoordinator(tx);}
-  async createCycle(i:CreateBillingCycleInput):Promise<BillingCycle>{await this.tenancyService.findById(i.tenancyId);if(i.periodStart>i.periodEnd||!i.charges.length)throw new BadRequestException('Billing Cycle period and charges are required');const r:BillingCycleRecord={billingCycleId:randomUUID(),tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd};const charges=i.charges.map((x):Charge=>{if(!['RENT','ELECTRICITY','WATER'].includes(x.type)||cents(x.amount)<=0n)throw new BadRequestException('Charge type and positive amount are required');return{id:randomUUID(),billingCycleId:r.billingCycleId,...x};});await this.billingGuard.createBillingCycle(r,charges.map(x=>this.chargeRecord(x)));return{id:r.billingCycleId,tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd,charges};}
+  async createCycle(i:CreateBillingCycleInput):Promise<BillingCycle>{
+    await this.tenancyService.findById(i.tenancyId);
+    if(i.periodStart>i.periodEnd||!i.charges.length)throw new BadRequestException('Billing Cycle period and charges are required');
+    const r:BillingCycleRecord={billingCycleId:randomUUID(),tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd};
+    const charges=i.charges.map((x):Charge=>{if(!['RENT','ELECTRICITY','WATER'].includes(x.type)||cents(x.amount)<=0n)throw new BadRequestException('Charge type and positive amount are required');return{id:randomUUID(),billingCycleId:r.billingCycleId,...x};});
+    await this.billingGuard.createBillingCycle(r,charges.map(x=>this.chargeRecord(x)));
+    const now = new Date().toISOString();
+    await this.tx.run(async ({ repositories }) => {
+      if (repositories.notification) {
+        const participants = await repositories.tenancy?.findParticipantsByTenancy(i.tenancyId);
+        const linked = participants?.find((p) => p.userId && p.leftAt === null);
+        if (linked?.userId) {
+          await repositories.notification.createNotification({
+            notificationId: randomUUID(),
+            recipientUserId: linked.userId,
+            category: 'PAYMENT_DUE',
+            messageOrPayloadReference: `billing_cycle:${r.billingCycleId}`,
+            deliveryStatus: 'PENDING',
+            createdAt: now,
+            deliveredAt: null,
+            readAt: null,
+          });
+        }
+      }
+    });
+    return{id:r.billingCycleId,tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd,charges};
+  }
   async findById(id:string){const r=await this.tx.run(({repositories})=>repositories.finance.findBillingCycle(id));if(!r)throw new NotFoundException(`Billing Cycle not found: ${id}`);return this.cycle(r,await this.tx.run(({repositories})=>repositories.finance.findChargesForCycle(id)));}
   async findByTenancyId(id?:string){const rs=await this.tx.run(({repositories})=>repositories.finance.findBillingCyclesForTenancy(id));return Promise.all(rs.map(async r=>this.cycle(r,await this.tx.run(({repositories})=>repositories.finance.findChargesForCycle(r.billingCycleId)))));}
-  async recordPayment(i:RecordPaymentInput):Promise<Payment>{await this.tenancyService.findById(i.tenancyId);if(cents(i.amount)<=0n)throw new BadRequestException('Payment amount must be positive');const v={id:randomUUID(),...i};await this.tx.run(({repositories})=>repositories.finance.insertPayment(this.paymentRecord(v)));return v;}
+  async recordPayment(i:RecordPaymentInput):Promise<Payment>{
+    await this.tenancyService.findById(i.tenancyId);
+    if(cents(i.amount)<=0n)throw new BadRequestException('Payment amount must be positive');
+    const v={id:randomUUID(),...i};
+    const now = new Date().toISOString();
+    await this.tx.run(async ({repositories})=>{
+      await repositories.finance.insertPayment(this.paymentRecord(v));
+      if (repositories.notification) {
+        const participants = await repositories.tenancy?.findParticipantsByTenancy(i.tenancyId);
+        const linked = participants?.find((p) => p.userId && p.leftAt === null);
+        if (linked?.userId) {
+          await repositories.notification.createNotification({
+            notificationId: randomUUID(),
+            recipientUserId: linked.userId,
+            category: 'PAYMENT_CONFIRMED',
+            messageOrPayloadReference: `payment:${v.id}`,
+            deliveryStatus: 'PENDING',
+            createdAt: now,
+            deliveredAt: null,
+            readAt: null,
+          });
+        }
+      }
+    });
+    return v;
+  }
   async findPaymentById(id:string):Promise<Payment>{const r=await this.tx.run(({repositories})=>repositories.finance.findPayment(id));if(!r)throw new NotFoundException(`Payment not found: ${id}`);return this.payment(r);}
   async allocatePayment(paymentId:string,chargeId:string,amount:DecimalString):Promise<PaymentAllocation>{await this.usable(paymentId);if(cents(amount)<=0n)throw new BadRequestException('Applied amount must be positive');const v={id:randomUUID(),paymentId,chargeId,allocatedAmount:amount};await this.financeGuard.allocatePayment({paymentAllocationId:v.id,paymentId,chargeId,allocatedAmount:amount});return v;}
   async createDeposit(tenancyId:string):Promise<Deposit>{await this.tenancyService.findById(tenancyId);if(await this.tx.run(({repositories})=>repositories.finance.findDepositForTenancy(tenancyId)))throw new BadRequestException('Tenancy already has a Deposit lifecycle');const v={id:randomUUID(),tenancyId};await this.tx.run(({repositories})=>repositories.finance.insertDeposit({depositId:v.id,tenancyId}));return v;}
