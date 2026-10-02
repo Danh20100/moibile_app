@@ -2566,6 +2566,85 @@
         ]
       }
     },
+    "/listings/public/search": {
+      "get": {
+        "description": "Uses only Listing publicLocationProjection. Exact operational Property location is never returned. Room/property type remains OPEN and is not exposed here.",
+        "operationId": "PublicListingSearchController_find",
+        "parameters": [
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": -90,
+              "maximum": 90,
+              "example": 10.776,
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": -180,
+              "maximum": 180,
+              "example": 106.7,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusMeters",
+            "required": true,
+            "in": "query",
+            "description": "Radius in meters over public Listing projection coordinates",
+            "schema": {
+              "minimum": 0,
+              "example": 5000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2000000.00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "5000000.00",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicListingSearchResultDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search PUBLISHED Listings by public projection radius and frozen price-range filters",
+        "tags": [
+          "Listing"
+        ],
+        "security": []
+      }
+    },
     "/identity-access/auth/google": {
       "post": {
         "operationId": "IdentityAccessController_authenticateWithGoogle",
@@ -4983,6 +5062,47 @@
           "contactIntentOrMessage",
           "status",
           "createdAt"
+        ]
+      },
+      "PublicListingSearchResultDto": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "publicTitle": {
+            "type": "string"
+          },
+          "publicDescription": {
+            "type": "string"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "publicLocation": {
+            "type": "object",
+            "example": {
+              "latitude": 10.776,
+              "longitude": 106.7
+            }
+          },
+          "distanceMeters": {
+            "type": "number",
+            "example": 842.5
+          }
+        },
+        "required": [
+          "listingId",
+          "roomId",
+          "publicTitle",
+          "publicDescription",
+          "publicPriceProjection",
+          "publicLocation",
+          "distanceMeters"
         ]
       },
       "VerifyGoogleTokenDto": {
