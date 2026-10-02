@@ -1,4 +1,4 @@
-import { Body, Controller, Inject, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
@@ -52,7 +52,7 @@ export class RentalLifecycleController {
     return this.coordinator.publishListing(id, this.commandContext('MANUAL_PUBLISH', user));
   }
 
-  @Patch('rooms/:id/operational-state')
+  @Post('rooms/:id/operational-state')
   @ApiOperation({ summary: 'Transition room operational state manually' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Room operational state updated', type: RoomProfileDto })

@@ -2788,7 +2788,7 @@
       }
     },
     "/rooms/{id}/operational-state": {
-      "patch": {
+      "post": {
         "operationId": "RentalLifecycleController_transitionRoomManually",
         "parameters": [
           {
