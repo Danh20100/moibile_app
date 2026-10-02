@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-alpine AS builder
+FROM node:22.22.3-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@12.8.1 --activate
@@ -12,7 +12,7 @@ COPY nest-cli.json tsconfig.json ./
 COPY src ./src
 RUN pnpm build
 
-FROM node:22-alpine AS runner
+FROM node:22.22.3-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
