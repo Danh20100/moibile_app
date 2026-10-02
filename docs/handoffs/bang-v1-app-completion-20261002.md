@@ -9,6 +9,14 @@
 
 ---
 
+## Master checklist
+
+Use this as the single tracking source for the 3 app POVs:
+
+`docs/design/v1-app-pov-checklist.md`
+
+Update the checklist while redesigning/implementing. Do not maintain a separate undocumented feature list.
+
 ## 1. Goal
 
 Complete the missing Android V1 functionality that is already defined by the current Canonical/domain and, where available, the published OpenAPI contract.
