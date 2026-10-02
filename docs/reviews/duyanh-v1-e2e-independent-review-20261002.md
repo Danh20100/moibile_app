@@ -1,15 +1,15 @@
 # Independent Review — V1 E2E Flow Closure
 
-**Reviewer:** Integration / coordinator audit  
-**Date:** 2026-10-02  
-**Branch:** `backend/v1-e2e-flow-closure`  
-**Current reviewed branch head:** `e1027443220ecc8b7e4a0ec7a3b662dbdbd94321`  
-**Implementation candidate documented by Duy Anh:** `2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0`  
+**Reviewer:** Integration / coordinator audi
+**Date:** 2026-10-02
+**Branch:** `backend/v1-e2e-flow-closure`
+**Current reviewed branch head:** `e1027443220ecc8b7e4a0ec7a3b662dbdbd94321`
+**Implementation candidate documented by Duy Anh:** `2cb65ef2f71b221bf560dcd007d5c5c86cac6bb0`
 **Previous reviewed implementation:** `1988cb82b3f8317b53982e614ba94918ec9b0b1b`
 
-## Reviewer verdict
+## Reviewer verdic
 
-```text
+```tex
 READY_TO_MERGE: NO
 ```
 
@@ -19,7 +19,7 @@ Two important blockers remain in the latest branch: (1) DISC-02 is still not sta
 
 ---
 
-## 1. Resolved / improved since the initial audit
+## 1. Resolved / improved since the initial audi
 
 ### 1.1 DISC-02 selector exposure was fixed
 
@@ -37,8 +37,8 @@ at the app scaffold, while the Listing card keeps:
 
 This fixes the original selector problem. In the independent follow-up audit, successful runs now resolve:
 
-```text
-id: v1-discovery-list
+```tex
+id: v1-discovery-lis
 id: public-listing-card
 ```
 
@@ -56,7 +56,7 @@ The report now explicitly says CX-01..CX-06 are proven by `tests/core/cross-acto
 
 The latest report keeps:
 
-```text
+```tex
 READY_TO_MERGE: NO
 ```
 
@@ -64,7 +64,7 @@ because authenticated cross-actor Android execution and other Phase C work remai
 
 ---
 
-## 2. BLOCKER — DISC-02 is still flaky on the coordinator host
+## 2. BLOCKER — DISC-02 is still flaky on the coordinator hos
 
 After the `testTagsAsResourceId` and relaunch/wait fixes were pushed, the latest reviewed APK was rebuilt and installed on Pixel_8 / Android 16.
 
@@ -76,9 +76,9 @@ pnpm e2e:flow DISC-02
 
 executed five consecutive times.
 
-### Latest independent result
+### Latest independent resul
 
-```text
+```tex
 Runs: 5
 Pass: 2
 Fail: 3
@@ -88,9 +88,9 @@ LATEST_AUDIT_SUMMARY pass=2 fail=3
 
 Runs 4 and 5 completed the full flow:
 
-```text
+```tex
 Launch app
--> wait id: v1-discovery-list
+-> wait id: v1-discovery-lis
 -> find id: public-listing-card
 -> tap Listing card
 -> Listing Detail assertions
@@ -106,8 +106,8 @@ The failed runs now fail earlier at Maestro/ADB session startup rather than at t
 
 Observed errors include:
 
-```text
-Failed to record heartbeat
+```tex
+Failed to record heartbea
 The process cannot access the file because another process has locked a portion of the file
 
 Command failed (host:transport:emulator-5554): device offline
@@ -123,7 +123,7 @@ The current runner increases the Windows delay from 750 ms to 3000 ms, but that 
 
 Duy Anh's report records a passing 5/5 series under a different Java/Android environment. The coordinator host audit uses:
 
-```text
+```tex
 Maestro 2.11.0
 Android Studio JBR / Java 25.0.3
 Pixel_8
@@ -147,13 +147,13 @@ Do not revert the resource-id fix; it is useful. Instead stabilize Maestro sessi
 
 On the supported Windows environment, run:
 
-```text
+```tex
 DISC-02 five consecutive times
 ```
 
 and obtain:
 
-```text
+```tex
 5 PASS
 0 FAIL
 ```
@@ -168,7 +168,7 @@ The latest branch does not change `tests/core/cross-actor.behavior.test.ts::setu
 
 It still directly creates:
 
-```text
+```tex
 Room.operationalState = OCCUPIED
 Listing.status = PUBLISHED
 Tenancy.status = ACTIVE
@@ -176,7 +176,7 @@ Tenancy.status = ACTIVE
 
 and the latest report still records CX-01 as:
 
-```text
+```tex
 Listing published
 Room OCCUPIED
 pre-existing ACTIVE tenancy unchanged
@@ -186,7 +186,7 @@ That is not a valid V1 state.
 
 Frozen publication invariant:
 
-```text
+```tex
 Listing = PUBLISHED
 => Room = VACANT
 => Room lifecycle = ACTIVE
@@ -203,7 +203,7 @@ Split fixtures by scenario.
 
 **Discovery / Inquiry / CX-01:**
 
-```text
+```tex
 Property ACTIVE
 Room ACTIVE + VACANT
 Listing PUBLISHED
@@ -212,7 +212,7 @@ No ACTIVE tenancy on that Room
 
 **Rental / Incident / Billing / Notice / Move-out / CX-02..CX-05:**
 
-```text
+```tex
 Property ACTIVE
 Room ACTIVE + OCCUPIED
 Tenancy ACTIVE or the required lifecycle state
@@ -223,7 +223,7 @@ Prefer authoritative services/lifecycle transitions when practical instead of di
 
 Add a regression assertion that the shared test fixtures never treat:
 
-```text
+```tex
 PUBLISHED Listing + OCCUPIED Room
 ```
 
@@ -237,7 +237,7 @@ Until this is fixed, CX-01's service-level invariant evidence is not trustworthy
 
 Earlier independent cold run on the same implementation line produced:
 
-```text
+```tex
 279 discovered
 275 pass
 4 cancelled
@@ -248,7 +248,7 @@ because the runtime HTTP access audit did not see the spawned server become read
 
 An immediate warm rerun produced:
 
-```text
+```tex
 279 pass
 0 fail
 0 cancelled
@@ -271,7 +271,7 @@ No commit after that finding changes the runtime access test/readiness logic, so
 
 The latest report is much better here. Keep the following distinction in all subsequent reports:
 
-```text
+```tex
 83 flows / 198 cases
 = static/spec coverage inventory
 
@@ -296,11 +296,11 @@ Do not collapse these into a single "198 passed" number.
 
 For a cross-actor flow to be called full E2E, evidence still needs:
 
-```text
+```tex
 Actor A Android action
--> authenticated HTTP request
+-> authenticated HTTP reques
 -> NestJS authorization
--> real PostgreSQL source fact
+-> real PostgreSQL source fac
 -> Notification row / delivery projection
 -> Actor B authenticated read
 -> source feature opens
@@ -329,7 +329,7 @@ For the final merge candidate, record:
 
 ---
 
-## 8. Required rework checklist
+## 8. Required rework checklis
 
 - [x] Expose Compose test tags as Android resource IDs.
 - [x] Correct report from `READY_TO_MERGE: YES` to `NO`.
@@ -353,7 +353,7 @@ At the final candidate:
 ```powershell
 pnpm e2e:coverage
 pnpm typecheck
-pnpm test
+pnpm tes
 pnpm test:conformance:database-v1
 pnpm build
 git diff --check
@@ -363,9 +363,9 @@ pnpm e2e:flow DISC-02
 
 Additionally:
 
-```text
+```tex
 DISC-02: 5 consecutive live runs
-Cross-actor service tests: rerun after valid fixture split
+Cross-actor service tests: rerun after valid fixture spli
 Backend Docker image: rebuilt to candidate HEAD for HTTP evidence
 Phase C: real Google-authenticated execution where required
 ```
@@ -390,7 +390,7 @@ Phase C: real Google-authenticated execution where required
 
 ## Current independent status
 
-```text
+```tex
 Static V1 coverage: PASS
 Typecheck: PASS
 Android latest build/install: PASS
@@ -398,7 +398,7 @@ DISC-02 selector/resource-id fix: VERIFIED WORKING when Maestro session starts
 DISC-02 latest independent consecutive run: 2 PASS / 3 FAIL
 Failure class: Maestro/ADB session startup (file-lock, device offline, instrumentation EOF)
 CX in-memory Notification behavior: useful, but CX-01 fixture invalid
-Cold-start full test gate: previously reproduced nondeterministic; no fix yet
+Cold-start full test gate: previously reproduced nondeterministic; no fix ye
 Authenticated Phase C: NOT RUN
 READY_TO_MERGE: NO
 ```
