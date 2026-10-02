@@ -38,7 +38,7 @@ A feature chỉ được xem là hoàn tất khi phần liên quan đã có đ�
 - [ ] Loading state
 - [ ] Empty state
 - [ ] Error / retry state
-- [ ] Search by location — PARTIAL: client-side public area search on loaded PUBLISHED listings; no server search parameters or E2E evidence yet.
+- [ ] Search by location — BLOCKED_BACKEND: public Listing DTO exposes coordinates but no textual area/search query. Removed the non-functional client-side area filter; do not derive public area from private operational address.
 - [ ] Price filter — PARTIAL: inclusive numeric VND range on published public projection; no server query/E2E evidence yet.
 - [ ] Availability filter — BLOCKED_BACKEND: public Listing OpenAPI currently has no availability field or query.
 - [ ] Room/property type filter — **OPEN**

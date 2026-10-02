@@ -33,10 +33,9 @@ fun V1DiscoveryScreen(
     onProbeTransport: (() -> Unit)? = null,
 ) {
     // Do not render Room or locally invented listings: only public PUBLISHED projection.
-    var area by rememberSaveable { mutableStateOf("") }
     var minPrice by rememberSaveable { mutableStateOf("") }
     var maxPrice by rememberSaveable { mutableStateOf("") }
-    val filter = PublicDiscoveryFilters(area, minPrice.trim(), maxPrice.trim())
+    val filter = PublicDiscoveryFilters(minPrice.trim(), maxPrice.trim())
     val listings = filter.apply(state.read.publicListings)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-discovery-list"),
@@ -55,12 +54,7 @@ fun V1DiscoveryScreen(
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel("Lọc trên tin đăng công khai") {
-                OutlinedTextField(
-                    value = area, onValueChange = { area = it },
-                    label = { Text("Khu vực công khai") },
-                    modifier = Modifier.fillMaxWidth().testTag("discovery-filter-location"),
-                    singleLine = true,
-                )
+                V1Pending("Tìm theo khu vực tạm thời chưa khả dụng: đang chờ Backend cung cấp hợp đồng tìm kiếm vị trí công khai.")
                 OutlinedTextField(
                     value = minPrice, onValueChange = { minPrice = it },
                     label = { Text("Giá thấp nhất (VND)") },
@@ -77,8 +71,8 @@ fun V1DiscoveryScreen(
                     Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("discovery-filter-error"))
                 }
                 Text(
-                    "Lọc trên kết quả GET /listings/public đã tải; Availability chưa có trong public DTO. " +
-                        "Không dùng địa chỉ vận hành hoặc suy đoán trạng thái phòng.",
+                    "Bộ lọc giá áp dụng trên kết quả GET /listings/public đã tải. " +
+                        "Tìm kiếm khu vực và Availability chưa có hợp đồng Backend; không dùng địa chỉ vận hành.",
                     color = TroOiMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -88,7 +82,7 @@ fun V1DiscoveryScreen(
             item { V1Panel("Đang tải tin đăng") { V1Pending("Đang đọc public Listing projection từ Backend.") } }
         } else if (listings.isEmpty()) {
             item { V1Panel("Không có kết quả") {
-                V1Pending(if (filter.area.isNotBlank() || filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
+                V1Pending(if (filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
                     "Không có tin đăng PUBLISHED phù hợp bộ lọc trong dữ liệu đang tải."
                 } else "Chưa có dữ liệu Listing PUBLISHED từ Backend.")
             } }

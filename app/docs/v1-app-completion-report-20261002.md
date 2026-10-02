@@ -3,6 +3,7 @@
 - Branch: `frontend/v1-app-completion`
 - Staging baseline consumed: `97a3897a3cd64da4fe0c5fb3baadcdc50101a8f6`; no staging merge.
 - Fast-forward baseline: `b66eab938d8d555ff3405fac264cac0ad0df6367`.
+- Reviewed prior head: `c0817a230b6a5c7b3c0d53b6c0900b1836deaaeb`; this follow-up addresses only the reviewed location-search defect and associated documentation/tests.
 - OpenAPI Git blob: `a6ae746a52a28d646c0c1f1fe06b9b8c61bc95f4`.
 - Feature commit: `e071ba4f3c2619965b6e55c34a0da309a09ac9b3`.
 - Contract-test commit: `4dfd11028b9501d251b18452c812da899128d68a`.
@@ -16,7 +17,7 @@
 - Rental draft creation/cancel; ACTIVE move-out to ENDING; ENDING resume/checkout; participants list/add/link/leave; Terms and Notices reading.
 - Billing Cycle read/create restricted to RENT, ELECTRICITY, WATER; confirmed manual Payment recording, allocation, Receipt read/issue/void.
 - Incident list/report/detail and frozen lifecycle transitions with fresh backend state.
-- Public Discovery filters area and numeric price on loaded PUBLISHED data; stable Listing semantic tag for DISC-02.
+- Public Discovery filters numeric price only on loaded PUBLISHED data; the non-functional text location filter was removed after review. Public location search is BLOCKED_BACKEND. Stable Listing semantic tag for DISC-02 remains unchanged.
 - Google-backed access stays relationship-derived; late authorized callbacks are guarded against logout; no global UserRole.
 
 ## Exact backend/domain blockers (NOT implemented or faked)
@@ -25,6 +26,7 @@
 |---|---|---|
 | Current Listing per Room | Room-linked Listing index/read endpoint or current Listing ID on Room | Only known Listing ID detail is exposed; no Room Listing discovery. |
 | Listing lifecycle / Tenancy activation / manual Room transition | Documented allowed reasonCode, actorType, trigger and actor origin for published opaque command DTOs | Client must not invent identity or lifecycle intent. |
+| Public location search | Authoritative public textual area label or location-search endpoint/query | Current public Listing DTO has public coordinates but no textual area/search parameter. Backend mapping currently returns a constant area placeholder; no truthful client-side text search is possible. Removed/disabled the fake area input. Never read private operational addresses. |
 | Public availability filter | Availability in public Listing DTO/query | Cannot derive public availability from operational Room state. |
 | Map/List synchronization | Verified public map integration and on-device checks | Public coordinates exist, but proper map interaction is unfinished. |
 | Terms creation / version acknowledgement | Fully specified Terms nested value objects and safe derived acknowledgement actor | Cannot guess policy objects or submit client-authoritative user identity. |
@@ -65,3 +67,17 @@ FUTURE absent from implemented app flows: subscription/pricing/quota; CSV/Excel;
 - Run seeded Android device E2E (including DISC-01/DISC-02), authorized API/DB invariant checks and cross-actor journeys before changing READY_TO_REVIEW to YES.
 - Master tracking remains `docs/design/v1-app-pov-checklist.md`; partial work is deliberately unchecked until design + backend + Android + E2E evidence exists.
 - Intentionally untouched: `docs/database/v1/canonical.md`, ERD/schema/migrations, backend implementation, staging/main and local secrets. No merge to staging or force push.
+
+## Review follow-up: non-functional location filter (after reviewed head c0817a2)
+
+- Resolution: **option 1 / BLOCKED_BACKEND**. The public Listing mapping still has the constant `publicAreaLabel = "Vị trí công khai"`; the published DTO provides public coordinates, not a textual area/search parameter. Removed the misleading location text input and `PublicDiscoveryFilters.area`; show an explicit pending notice instead. No private operational address is used or exposed.
+- Price-range filtering remains available on numeric published price projections; no availability search or server-side geographic search is claimed. Existing per-listing Compose semantic tag and DISC-02 YAML are unchanged.
+- Targeted regression coverage: `PublicDiscoveryFiltersTest` checks that placeholder-only listings remain in the unfiltered PUBLISHED feed, price boundaries, exclusion of draft/unpublished listings and invalid input.
+- Static guard: no active `discovery-filter-location`, `value = area` or `filter.area` references remain. `git diff --check` passes.
+- A first unconstrained all-variant Gradle attempt failed when Windows ran out of resources during concurrent KSP tasks. Retried serially without changing project Gradle configuration:
+  - `gradlew.bat --no-daemon --max-workers=1 --no-parallel testDebugUnitTest lintDebug assembleDebug --console=plain`: **PASS** (1m 17s).
+  - `gradlew.bat --no-daemon --max-workers=1 --no-parallel lintBackendDebug assembleBackendDebug assembleDebugAndroidTest bundleRelease --console=plain`: **PASS** (2m 16s).
+- Verified JUnit XML: **34 tests, 0 failures, 0 errors**; Debug Lint **0 errors / 27 warnings**; Backend Debug Lint **0 errors / 25 warnings**; debug/backendDebug APK and release AAB compiled.
+- Unchanged Web sanity gates rerun: `npm run check` **PASS**, `npm test` **9/9 PASS**, `npm run test:browser` **4 HTTP routes + Chrome PASS**.
+- **Not executed:** on-device Android E2E, seeded live DISC-01/DISC-02, root `pnpm e2e:coverage` or independent Android CI. No new claims about backend/Figma acceptance.
+- No staging merge, no worker-branch integration and no changes to Duy Anh's overlapping DISC-02 files. **READY_TO_REVIEW remains NO.**

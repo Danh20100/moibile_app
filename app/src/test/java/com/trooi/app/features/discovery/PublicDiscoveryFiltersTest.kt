@@ -13,9 +13,11 @@ class PublicDiscoveryFiltersTest {
         PublicListingCard("4", "Hidden", "Quận 3, HCM", null, "5000000.00", ListingVisibility.UNPUBLISHED),
     )
 
-    @Test fun onlyPublishedCardsAppearEvenIfFilterMatchesPrivateListings() {
+    @Test fun onlyPublishedCardsAppearInUnfilteredPublicFeed() {
         assertEquals(listOf("1", "2"), PublicDiscoveryFilters().apply(sample).map { it.listingId })
-        assertEquals(listOf("1"), PublicDiscoveryFilters(area = "phu nhuan").apply(sample).map { it.listingId })
+        // A constant public-area placeholder must never masquerade as searchable geography.
+        val placeholderOnly = sample.map { it.copy(publicAreaLabel = "Vị trí công khai") }
+        assertEquals(listOf("1", "2"), PublicDiscoveryFilters().apply(placeholderOnly).map { it.listingId })
     }
 
     @Test fun inclusivePublicPriceRangeNeverIncludesDraft() {
