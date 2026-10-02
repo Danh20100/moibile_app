@@ -136,6 +136,49 @@ export class ListingProfileDto {
   publicLocationProjection!: PublicLocationProjectionDto;
 }
 
+export class ListingStatusEventDto {
+  @ApiProperty({ description: 'Listing status event ID' })
+  @IsString()
+  id!: string;
+
+  @ApiProperty({ description: 'Listing ID' })
+  @IsString()
+  listingId!: string;
+
+  @ApiProperty({ enum: ['draft', 'published', 'unpublished', 'archived'] })
+  @IsString()
+  fromStatus!: 'draft' | 'published' | 'unpublished' | 'archived';
+
+  @ApiProperty({ enum: ['draft', 'published', 'unpublished', 'archived'] })
+  @IsString()
+  toStatus!: 'draft' | 'published' | 'unpublished' | 'archived';
+
+  @ApiProperty()
+  @IsString()
+  reasonCode!: string;
+
+  @ApiProperty()
+  @IsString()
+  actorType!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  actorUserId?: string;
+
+  @ApiProperty()
+  @IsString()
+  trigger!: string;
+
+  @ApiProperty()
+  @IsString()
+  occurredAt!: string;
+
+  @ApiPropertyOptional({ type: Object })
+  @IsOptional()
+  metadata?: Record<string, unknown>;
+}
+
 export class InquiryDto {
   @ApiProperty({ description: 'Inquiry ID', example: 'inq_12345' })
   @IsString()

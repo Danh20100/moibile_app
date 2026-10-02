@@ -7,6 +7,8 @@ import { ResourceAuthorizationService } from '../../src/common/auth/resource-aut
 import type { VerifiedPrincipal } from '../../src/modules/identity-access/contracts';
 import { BillingController } from '../../src/modules/billing/controllers/billing.controller';
 import { BillingService } from '../../src/modules/billing/services/billing.service';
+import { HistoryController } from '../../src/modules/history/controllers/history.controller';
+import { RentalHistoryService } from '../../src/modules/history/services/rental-history.service';
 import { IncidentController } from '../../src/modules/incident/controllers/incident.controller';
 import { IncidentService } from '../../src/modules/incident/services/incident.service';
 import { InquiryController } from '../../src/modules/listing/controllers/inquiry.controller';
@@ -98,6 +100,18 @@ function setupTestEnvironment() {
   const incidentService = new IncidentService(roomService, transactions);
   const incidentController = new IncidentController(incidentService, authz);
 
+  const rentalHistoryService = new RentalHistoryService(
+    tenancyService,
+    termsService,
+    billingService,
+    receiptService,
+    noticeService,
+    incidentService,
+    roomService,
+    listingService,
+  );
+  const historyController = new HistoryController(rentalHistoryService, authz);
+
   return {
     authz,
     orgController,
@@ -112,6 +126,7 @@ function setupTestEnvironment() {
     billingController,
     receiptController,
     incidentController,
+    historyController,
   };
 }
 
@@ -742,10 +757,138 @@ test('Resource Authorization: Incidents scoping and role boundaries', async () =
   assert.deepEqual(operatorTimeline.map((event) => event.id), tenantTimeline.map((event) => event.id));
 });
 
+test('Resource Authorization: operator Room history composes source-backed listing, rental, finance, and incident facts', async () => {
+  const env = setupTestEnvironment();
+  const operator = createPrincipal('operator-room-history');
+  const tenant = createPrincipal('tenant-room-history');
+  const stranger = createPrincipal('stranger-room-history');
+
+  const org = await env.orgController.create({ name: 'Operational History Org' }, operator);
+  const property = await env.propertyController.create(
+    {
+      organizationId: org.id,
+      name: 'Operational History Property',
+      operationalAddressText: 'Private source address',
+      operationalLocation: { latitude: 10.77, longitude: 106.69 },
+      publicLocationProjection: { latitude: 10.771, longitude: 106.691 },
+    },
+    operator,
+  );
+  const room = await env.roomController.create(
+    { propertyId: property.id, nameOrLabel: 'OH-01' },
+    operator,
+  );
+  const listing = await env.lifecycleController.createListing(
+    {
+      roomId: room.id,
+      publicTitle: 'Operational History Listing',
+      publicDescription: 'Public history fixture',
+      publicPriceProjection: '3000000.00',
+      publicLocationProjection: { latitude: 10.771, longitude: 106.691 },
+    },
+    operator,
+  );
+  await env.lifecycleController.publishListing(listing.id, operator);
+
+  const tenancy = await env.lifecycleController.createTenancy({ roomId: room.id }, operator);
+  await env.tenancySupportController.addParticipant(
+    tenancy.id,
+    {
+      userId: tenant.userId,
+      role: 'PRIMARY',
+      joinedAt: '2026-09-01T00:00:00.000Z',
+    },
+    operator,
+  );
+  await env.lifecycleController.activateTenancy(
+    tenancy.id,
+    { occurredAt: '2026-09-01T00:00:00.000Z' },
+    operator,
+  );
+  const terms = await env.tenancySupportController.createTerms(
+    tenancy.id,
+    {
+      version: 1,
+      rentAmount: '3000000.00',
+      agreedDepositRequirement: '3000000.00',
+      termStart: '2026-09-01',
+      termEnd: '2027-08-31',
+      billingDayOrDueDateRule: {},
+      electricityArrangement: {},
+      waterArrangement: {},
+      minimalRentalConditions: {},
+      effectiveFromCycleBoundary: '2026-09-01',
+    },
+    operator,
+  );
+  const cycle = await env.billingController.createCycle(
+    {
+      tenancyId: tenancy.id,
+      tenancyTermsId: terms.id,
+      periodStart: '2026-09-01',
+      periodEnd: '2026-09-30',
+      charges: [{ type: 'RENT', amount: '3000000.00' }],
+    },
+    operator,
+  );
+  const payment = await env.billingController.recordPayment(
+    {
+      tenancyId: tenancy.id,
+      amount: '3000000.00',
+      source: 'MANUAL_TRANSFER',
+      verification: 'USER_RECORDED',
+      confirmedAt: '2026-09-05T00:00:00.000Z',
+    },
+    operator,
+  );
+  const receipt = await env.receiptController.issue({ paymentId: payment.id }, operator);
+  const deposit = await env.billingController.createDeposit({ tenancyId: tenancy.id }, operator);
+  await env.billingController.applyDeposit(
+    payment.id,
+    { targetId: deposit.id, amount: '1000000.00' },
+    operator,
+  );
+  const incident = await env.incidentController.create(
+    { roomId: room.id, category: 'PLUMBING' },
+    tenant,
+  );
+
+  const history = await env.historyController.findByRoom(room.id, operator);
+  assert.equal(history.room.id, room.id);
+  assert.equal(history.room.operationalState, 'occupied');
+  assert.deepEqual(history.listings.map((item) => item.listing.id), [listing.id]);
+  assert.equal(history.listings[0]?.events.length, 2);
+  assert.deepEqual(
+    [...(history.listings[0]?.events ?? [])].map((event) => event.toStatus).sort(),
+    ['published', 'unpublished'].sort(),
+  );
+  assert.ok(
+    (history.listings[0]?.events ?? []).every(
+      (event, index, all) => index === 0 ||
+        all[index - 1].occurredAt < event.occurredAt ||
+        (all[index - 1].occurredAt === event.occurredAt && all[index - 1].id <= event.id),
+    ),
+  );
+  assert.deepEqual(history.tenancies.map((item) => item.tenancy.id), [tenancy.id]);
+  assert.deepEqual(history.tenancies[0]?.billingCycles.map((item) => item.id), [cycle.id]);
+  assert.deepEqual(history.tenancies[0]?.payments.map((item) => item.payment.id), [payment.id]);
+  assert.deepEqual(history.tenancies[0]?.payments[0]?.receipts.map((item) => item.id), [receipt.id]);
+  assert.equal(history.tenancies[0]?.deposit?.projection.id, deposit.id);
+  assert.deepEqual(history.tenancies[0]?.deposit?.events.map((event) => event.eventType), ['RECEIVED']);
+  assert.deepEqual(history.incidents.map((item) => item.incident.id), [incident.id]);
+  assert.deepEqual(history.incidents[0]?.events.map((event) => event.toStatus), ['REPORTED']);
+
+  await assert.rejects(
+    () => env.historyController.findByRoom(room.id, stranger),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
+});
+
 test('Resource Authorization: former tenant keeps historical reads but loses operational writes', async () => {
   const env = setupTestEnvironment();
   const operator = createPrincipal('operator-history');
   const formerTenant = createPrincipal('former-tenant');
+  const stranger = createPrincipal('history-stranger');
 
   const org = await env.orgController.create({ name: 'History Org' }, operator);
   const property = await env.propertyController.create(
@@ -829,6 +972,23 @@ test('Resource Authorization: former tenant keeps historical reads but loses ope
     [payment.id],
   );
   assert.equal((await env.receiptController.findById(receipt.id, formerTenant)).id, receipt.id);
+
+  const history = await env.historyController.findByTenancy(tenancy.id, formerTenant);
+  assert.equal(history.tenancy.id, tenancy.id);
+  assert.deepEqual(history.terms.map((item) => item.id), [terms.id]);
+  assert.deepEqual(history.payments.map((item) => item.payment.id), [payment.id]);
+  assert.deepEqual(history.payments[0]?.receipts.map((item) => item.id), [receipt.id]);
+  assert.deepEqual(history.notices, []);
+  assert.deepEqual(history.incidents, []);
+  assert.equal(history.deposit, null);
+
+  const operatorHistory = await env.historyController.findByTenancy(tenancy.id, operator);
+  assert.equal(operatorHistory.tenancy.id, tenancy.id);
+
+  await assert.rejects(
+    () => env.historyController.findByTenancy(tenancy.id, stranger),
+    (err: unknown) => err instanceof ForbiddenException,
+  );
 
   await assert.rejects(
     () =>

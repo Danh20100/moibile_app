@@ -21,6 +21,7 @@ export interface ListingRepository {
   createListing(input: CreateListingInput): Promise<void>;
   findListing(listingId: string): Promise<ListingRecord | undefined>;
   findCurrentListingByRoom(roomId: string): Promise<ListingRecord | undefined>;
+  findListingsByRoom(roomId: string): Promise<ListingRecord[]>;
   findPublishedListings(): Promise<ListingRecord[]>;
   updateListing(record: ListingRecord): Promise<void>;
   insertStatusEvent(input: CreateListingStatusEventInput): Promise<void>;

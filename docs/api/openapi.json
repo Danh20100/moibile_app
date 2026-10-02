@@ -1749,6 +1749,90 @@
         ]
       }
     },
+    "/tenancies/{tenancyId}/history": {
+      "get": {
+        "operationId": "HistoryController_findByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalHistoryProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user has no operator or participant history access"
+          },
+          "404": {
+            "description": "Tenancy not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read source-backed rental history for an operated or historically linked Tenancy",
+        "tags": [
+          "History"
+        ]
+      }
+    },
+    "/rooms/{roomId}/history": {
+      "get": {
+        "operationId": "HistoryController_findByRoom",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOperationalHistoryProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Room"
+          },
+          "404": {
+            "description": "Room not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read source-backed operational history for an operated Room",
+        "tags": [
+          "History"
+        ]
+      }
+    },
     "/receipts": {
       "post": {
         "operationId": "ReceiptController_issue",
@@ -1887,112 +1971,6 @@
         "summary": "Void a receipt",
         "tags": [
           "Receipt"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/identity-access/auth/google": {
-      "post": {
-        "operationId": "IdentityAccessController_authenticateWithGoogle",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyGoogleTokenDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Xác thực thành công và trả về thông tin user profile",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VerifiedPrincipalDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Token không hợp lệ hoặc đã hết hạn"
-          }
-        },
-        "summary": "Xác thực người dùng qua Google ID Token (Android Credential Manager)",
-        "tags": [
-          "Identity & Access"
-        ],
-        "security": []
-      }
-    },
-    "/identity-access/me": {
-      "get": {
-        "operationId": "IdentityAccessController_getSessionContext",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Session context thành công",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionContextDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Chưa xác thực hoặc token không hợp lệ"
-          }
-        },
-        "summary": "Lấy session context của user hiện tại từ relationship thật",
-        "tags": [
-          "Identity & Access"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/identity-access/users/{id}": {
-      "get": {
-        "operationId": "IdentityAccessController_findUserById",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "User ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Thông tin identity profile",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserReferenceDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không tìm thấy user"
-          }
-        },
-        "summary": "Lấy thông tin digital identity profile theo ID",
-        "tags": [
-          "Identity & Access"
         ],
         "security": [
           {
@@ -2580,6 +2558,112 @@
         "summary": "Get Inquiry by ID",
         "tags": [
           "Inquiry"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/auth/google": {
+      "post": {
+        "operationId": "IdentityAccessController_authenticateWithGoogle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyGoogleTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Xác thực thành công và trả về thông tin user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedPrincipalDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn"
+          }
+        },
+        "summary": "Xác thực người dùng qua Google ID Token (Android Credential Manager)",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": []
+      }
+    },
+    "/identity-access/me": {
+      "get": {
+        "operationId": "IdentityAccessController_getSessionContext",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session context thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionContextDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chưa xác thực hoặc token không hợp lệ"
+          }
+        },
+        "summary": "Lấy session context của user hiện tại từ relationship thật",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/users/{id}": {
+      "get": {
+        "operationId": "IdentityAccessController_findUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin identity profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserReferenceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy user"
+          }
+        },
+        "summary": "Lấy thông tin digital identity profile theo ID",
+        "tags": [
+          "Identity & Access"
         ],
         "security": [
           {
@@ -4277,18 +4361,6 @@
           "openIncidentCount"
         ]
       },
-      "IssueReceiptDto": {
-        "type": "object",
-        "properties": {
-          "paymentId": {
-            "type": "string",
-            "description": "Confirmed Payment ID"
-          }
-        },
-        "required": [
-          "paymentId"
-        ]
-      },
       "ReceiptRecordDto": {
         "type": "object",
         "properties": {
@@ -4323,6 +4395,594 @@
           "paymentId",
           "status",
           "issuedAt"
+        ]
+      },
+      "RentalPaymentHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/PaymentDto"
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptRecordDto"
+            }
+          }
+        },
+        "required": [
+          "payment",
+          "receipts"
+        ]
+      },
+      "IncidentTicketDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "inc_12345"
+          },
+          "roomId": {
+            "type": "string",
+            "example": "room_12345"
+          },
+          "reportedByUserId": {
+            "type": "string",
+            "description": "Reported by user ID"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ELECTRICAL",
+              "PLUMBING",
+              "ACCESS_SECURITY",
+              "ROOM_FACILITY",
+              "APPLIANCE",
+              "OTHER"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "closureReason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "roomId",
+          "category",
+          "status",
+          "createdAt"
+        ]
+      },
+      "IncidentEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "evt_12345"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "inc_12345"
+          },
+          "eventType": {
+            "type": "string",
+            "example": "STATUS_CHANGED"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "attachmentReference": {
+            "type": "string"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "incidentId",
+          "eventType",
+          "occurredAt"
+        ]
+      },
+      "RentalIncidentHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "incident": {
+            "$ref": "#/components/schemas/IncidentTicketDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentEventDto"
+            }
+          }
+        },
+        "required": [
+          "incident",
+          "events"
+        ]
+      },
+      "RentalDepositHistoryDto": {
+        "type": "object",
+        "properties": {
+          "projection": {
+            "$ref": "#/components/schemas/DepositProjectionDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositEventDto"
+            }
+          }
+        },
+        "required": [
+          "projection",
+          "events"
+        ]
+      },
+      "RentalHistoryProjectionDto": {
+        "type": "object",
+        "properties": {
+          "tenancy": {
+            "$ref": "#/components/schemas/TenancyProfileDto"
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyTermsDto"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalPaymentHistoryEntryDto"
+            }
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyNoticeDto"
+            }
+          },
+          "incidents": {
+            "description": "Room incidents whose createdAt falls inside the Tenancy occupancy window; this is a read projection, not a new Incident-to-Tenancy source relation.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalIncidentHistoryEntryDto"
+            }
+          },
+          "deposit": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RentalDepositHistoryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tenancy",
+          "terms",
+          "payments",
+          "notices",
+          "incidents"
+        ]
+      },
+      "PublicLocationProjectionDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "example": 10.77
+          },
+          "longitude": {
+            "type": "number",
+            "example": 106.69
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "ListingProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Listing ID",
+            "example": "list_12345"
+          },
+          "roomId": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "status": {
+            "type": "string",
+            "description": "Listing status",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ],
+            "example": "published"
+          },
+          "publicTitle": {
+            "type": "string",
+            "description": "Public title"
+          },
+          "publicDescription": {
+            "type": "string",
+            "description": "Public description"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "description": "Exact numeric(18,2)-compatible public price",
+            "example": "3500000.00"
+          },
+          "publicLocationProjection": {
+            "description": "Public location projection",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLocationProjectionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "roomId",
+          "status",
+          "publicTitle",
+          "publicDescription",
+          "publicPriceProjection",
+          "publicLocationProjection"
+        ]
+      },
+      "ListingStatusEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Listing status event ID"
+          },
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "actorType": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "listingId",
+          "fromStatus",
+          "toStatus",
+          "reasonCode",
+          "actorType",
+          "trigger",
+          "occurredAt"
+        ]
+      },
+      "ListingOperationalHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "listing": {
+            "$ref": "#/components/schemas/ListingProfileDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingStatusEventDto"
+            }
+          }
+        },
+        "required": [
+          "listing",
+          "events"
+        ]
+      },
+      "TenancyFinanceHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "tenancy": {
+            "$ref": "#/components/schemas/TenancyProfileDto"
+          },
+          "billingCycles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingCycleDto"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalPaymentHistoryEntryDto"
+            }
+          },
+          "deposit": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RentalDepositHistoryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tenancy",
+          "billingCycles",
+          "payments"
+        ]
+      },
+      "RoomOperationalHistoryProjectionDto": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomProfileDto"
+          },
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingOperationalHistoryEntryDto"
+            }
+          },
+          "tenancies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyFinanceHistoryEntryDto"
+            }
+          },
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalIncidentHistoryEntryDto"
+            }
+          }
+        },
+        "required": [
+          "room",
+          "listings",
+          "tenancies",
+          "incidents"
+        ]
+      },
+      "IssueReceiptDto": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Confirmed Payment ID"
+          }
+        },
+        "required": [
+          "paymentId"
+        ]
+      },
+      "CreateIncidentDto": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "reportedByUserId": {
+            "type": "string",
+            "description": "Reported by user ID"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ELECTRICAL",
+              "PLUMBING",
+              "ACCESS_SECURITY",
+              "ROOM_FACILITY",
+              "APPLIANCE",
+              "OTHER"
+            ],
+            "example": "ELECTRICAL"
+          }
+        },
+        "required": [
+          "roomId",
+          "category"
+        ]
+      },
+      "UpdateIncidentStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ],
+            "example": "IN_PROGRESS"
+          },
+          "actorUserId": {
+            "type": "string",
+            "description": "Actor user ID"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note"
+          },
+          "closureReason": {
+            "type": "string",
+            "description": "Closure reason"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateListingDto": {
+        "type": "object",
+        "properties": {
+          "publicTitle": {
+            "type": "string",
+            "description": "Public listing title"
+          },
+          "publicDescription": {
+            "type": "string",
+            "description": "Public listing description"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "description": "Exact numeric(18,2)-compatible public price"
+          },
+          "publicLocationProjection": {
+            "$ref": "#/components/schemas/PublicLocationProjectionDto"
+          }
+        }
+      },
+      "CreateInquiryDto": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID"
+          },
+          "senderUserId": {
+            "type": "string",
+            "description": "Sender User ID when the sender has an account"
+          },
+          "contactIntentOrMessage": {
+            "type": "string",
+            "description": "Contact intent or message"
+          },
+          "status": {
+            "type": "string",
+            "description": "Opaque Inquiry status; no Wave B lifecycle is defined"
+          }
+        },
+        "required": [
+          "listingId",
+          "contactIntentOrMessage",
+          "status"
+        ]
+      },
+      "InquiryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Inquiry ID",
+            "example": "inq_12345"
+          },
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID",
+            "example": "list_12345"
+          },
+          "senderUserId": {
+            "type": "string",
+            "description": "Sender user ID"
+          },
+          "contactIntentOrMessage": {
+            "type": "string",
+            "description": "Contact intent or message"
+          },
+          "status": {
+            "type": "string",
+            "description": "Inquiry status"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Creation timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "listingId",
+          "contactIntentOrMessage",
+          "status",
+          "createdAt"
         ]
       },
       "VerifyGoogleTokenDto": {
@@ -4448,336 +5108,6 @@
         },
         "required": [
           "userId"
-        ]
-      },
-      "CreateIncidentDto": {
-        "type": "object",
-        "properties": {
-          "roomId": {
-            "type": "string",
-            "description": "Room ID",
-            "example": "room_12345"
-          },
-          "reportedByUserId": {
-            "type": "string",
-            "description": "Reported by user ID"
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "ELECTRICAL",
-              "PLUMBING",
-              "ACCESS_SECURITY",
-              "ROOM_FACILITY",
-              "APPLIANCE",
-              "OTHER"
-            ],
-            "example": "ELECTRICAL"
-          }
-        },
-        "required": [
-          "roomId",
-          "category"
-        ]
-      },
-      "IncidentTicketDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "inc_12345"
-          },
-          "roomId": {
-            "type": "string",
-            "example": "room_12345"
-          },
-          "reportedByUserId": {
-            "type": "string",
-            "description": "Reported by user ID"
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "ELECTRICAL",
-              "PLUMBING",
-              "ACCESS_SECURITY",
-              "ROOM_FACILITY",
-              "APPLIANCE",
-              "OTHER"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "REPORTED",
-              "ACKNOWLEDGED",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
-            ]
-          },
-          "closureReason": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "closedAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "roomId",
-          "category",
-          "status",
-          "createdAt"
-        ]
-      },
-      "IncidentEventDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "evt_12345"
-          },
-          "incidentId": {
-            "type": "string",
-            "example": "inc_12345"
-          },
-          "eventType": {
-            "type": "string",
-            "example": "STATUS_CHANGED"
-          },
-          "actorUserId": {
-            "type": "string"
-          },
-          "note": {
-            "type": "string"
-          },
-          "attachmentReference": {
-            "type": "string"
-          },
-          "fromStatus": {
-            "type": "string",
-            "enum": [
-              "REPORTED",
-              "ACKNOWLEDGED",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
-            ]
-          },
-          "toStatus": {
-            "type": "string",
-            "enum": [
-              "REPORTED",
-              "ACKNOWLEDGED",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
-            ]
-          },
-          "occurredAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "incidentId",
-          "eventType",
-          "occurredAt"
-        ]
-      },
-      "UpdateIncidentStatusDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "ACKNOWLEDGED",
-              "IN_PROGRESS",
-              "RESOLVED",
-              "CLOSED",
-              "REJECTED"
-            ],
-            "example": "IN_PROGRESS"
-          },
-          "actorUserId": {
-            "type": "string",
-            "description": "Actor user ID"
-          },
-          "note": {
-            "type": "string",
-            "description": "Note"
-          },
-          "closureReason": {
-            "type": "string",
-            "description": "Closure reason"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "PublicLocationProjectionDto": {
-        "type": "object",
-        "properties": {
-          "latitude": {
-            "type": "number",
-            "example": 10.77
-          },
-          "longitude": {
-            "type": "number",
-            "example": 106.69
-          }
-        },
-        "required": [
-          "latitude",
-          "longitude"
-        ]
-      },
-      "ListingProfileDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Listing ID",
-            "example": "list_12345"
-          },
-          "roomId": {
-            "type": "string",
-            "description": "Room ID",
-            "example": "room_12345"
-          },
-          "status": {
-            "type": "string",
-            "description": "Listing status",
-            "enum": [
-              "draft",
-              "published",
-              "unpublished",
-              "archived"
-            ],
-            "example": "published"
-          },
-          "publicTitle": {
-            "type": "string",
-            "description": "Public title"
-          },
-          "publicDescription": {
-            "type": "string",
-            "description": "Public description"
-          },
-          "publicPriceProjection": {
-            "type": "string",
-            "description": "Exact numeric(18,2)-compatible public price",
-            "example": "3500000.00"
-          },
-          "publicLocationProjection": {
-            "description": "Public location projection",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PublicLocationProjectionDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "roomId",
-          "status",
-          "publicTitle",
-          "publicDescription",
-          "publicPriceProjection",
-          "publicLocationProjection"
-        ]
-      },
-      "UpdateListingDto": {
-        "type": "object",
-        "properties": {
-          "publicTitle": {
-            "type": "string",
-            "description": "Public listing title"
-          },
-          "publicDescription": {
-            "type": "string",
-            "description": "Public listing description"
-          },
-          "publicPriceProjection": {
-            "type": "string",
-            "description": "Exact numeric(18,2)-compatible public price"
-          },
-          "publicLocationProjection": {
-            "$ref": "#/components/schemas/PublicLocationProjectionDto"
-          }
-        }
-      },
-      "CreateInquiryDto": {
-        "type": "object",
-        "properties": {
-          "listingId": {
-            "type": "string",
-            "description": "Listing ID"
-          },
-          "senderUserId": {
-            "type": "string",
-            "description": "Sender User ID when the sender has an account"
-          },
-          "contactIntentOrMessage": {
-            "type": "string",
-            "description": "Contact intent or message"
-          },
-          "status": {
-            "type": "string",
-            "description": "Opaque Inquiry status; no Wave B lifecycle is defined"
-          }
-        },
-        "required": [
-          "listingId",
-          "contactIntentOrMessage",
-          "status"
-        ]
-      },
-      "InquiryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Inquiry ID",
-            "example": "inq_12345"
-          },
-          "listingId": {
-            "type": "string",
-            "description": "Listing ID",
-            "example": "list_12345"
-          },
-          "senderUserId": {
-            "type": "string",
-            "description": "Sender user ID"
-          },
-          "contactIntentOrMessage": {
-            "type": "string",
-            "description": "Contact intent or message"
-          },
-          "status": {
-            "type": "string",
-            "description": "Inquiry status"
-          },
-          "createdAt": {
-            "type": "string",
-            "description": "Creation timestamp"
-          }
-        },
-        "required": [
-          "id",
-          "listingId",
-          "contactIntentOrMessage",
-          "status",
-          "createdAt"
         ]
       },
       "CreateListingDto": {

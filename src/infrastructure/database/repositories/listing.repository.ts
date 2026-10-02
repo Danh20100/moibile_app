@@ -31,6 +31,13 @@ export class PostgresListingRepository implements ListingRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findListingsByRoom(roomId: string): Promise<ListingRecord[]> {
+    try {
+      return (await this.listingSelect().where('room_id', '=', roomId).orderBy('listing_id').execute())
+        .map((row) => this.mapListing(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async findPublishedListings(): Promise<ListingRecord[]> {
     try { return (await this.listingSelect().where('status', '=', 'PUBLISHED').orderBy('listing_id').execute()).map((row) => this.mapListing(row)); }
     catch (error) { throw mapPostgresError(error); }

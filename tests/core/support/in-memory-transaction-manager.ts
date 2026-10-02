@@ -120,6 +120,10 @@ export function createCoreTestTransactionManager(): TransactionManager {
             (value) => value.roomId === roomId && value.status !== 'ARCHIVED',
           ),
         ),
+      findListingsByRoom: async (roomId: string) =>
+        Array.from(listings.values())
+          .filter((value) => value.roomId === roomId)
+          .map((value) => structuredClone(value)),
       findPublishedListings: async () =>
         Array.from(listings.values())
           .filter((value) => value.status === 'PUBLISHED')
