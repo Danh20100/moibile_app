@@ -15,8 +15,8 @@ test('public spatial search returns only published in-range public projections a
   await runMigrations('up', url);
   const db = createDatabaseClient({ url, maxPoolSize: 2, connectionTimeoutMs: 5000 });
   try {
-    await sql`INSERT INTO users VALUES ('10000000-0000-4000-8000-000000000001')`.execute(db);
-    await sql`INSERT INTO organizations VALUES ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','Org')`.execute(db);
+    await sql`INSERT INTO users VALUES ('90000000-0000-4000-8000-000000000001')`.execute(db);
+    await sql`INSERT INTO organizations VALUES ('20000000-0000-4000-8000-000000000001','90000000-0000-4000-8000-000000000001','Org')`.execute(db);
     for (const [i, lon, status] of [
       ['1', 106.7001, 'PUBLISHED'],
       ['2', 107.5, 'PUBLISHED'],
@@ -69,6 +69,23 @@ test('public spatial search returns only published in-range public projections a
       RangeError,
     );
   } finally {
+    await db.deleteFrom('listings').where('listing_id', 'in', [
+      '50000000-0000-4000-8000-000000000001',
+      '50000000-0000-4000-8000-000000000002',
+      '50000000-0000-4000-8000-000000000003',
+    ]).execute();
+    await db.deleteFrom('rooms').where('room_id', 'in', [
+      '40000000-0000-4000-8000-000000000001',
+      '40000000-0000-4000-8000-000000000002',
+      '40000000-0000-4000-8000-000000000003',
+    ]).execute();
+    await db.deleteFrom('properties').where('property_id', 'in', [
+      '30000000-0000-4000-8000-000000000001',
+      '30000000-0000-4000-8000-000000000002',
+      '30000000-0000-4000-8000-000000000003',
+    ]).execute();
+    await db.deleteFrom('organizations').where('organization_id', '=', '20000000-0000-4000-8000-000000000001').execute();
+    await db.deleteFrom('users').where('user_id', '=', '90000000-0000-4000-8000-000000000001').execute();
     await db.destroy();
   }
 });
