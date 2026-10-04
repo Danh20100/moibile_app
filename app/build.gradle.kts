@@ -34,8 +34,8 @@ android {
         applicationId = "com.trooi.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "1.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_API_BASE_URL", "\"$escapedBackendApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")

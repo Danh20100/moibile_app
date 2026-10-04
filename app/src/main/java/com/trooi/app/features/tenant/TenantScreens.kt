@@ -42,7 +42,6 @@ fun V1DiscoveryScreen(
     onContextSwitcher: (() -> Unit)? = null,
     onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
     onResetSearch: (() -> Unit)? = null,
-    onProbeTransport: (() -> Unit)? = null,
 ) {
     // Public coordinates are an internal search contract, never raw product inputs.
     val context = LocalContext.current
@@ -101,14 +100,6 @@ fun V1DiscoveryScreen(
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
-        if (onProbeTransport != null) {
-            item {
-                V1Panel("Kiểm tra kết nối API · Backend Debug") {
-                    V1Pending("HTTP diagnostic trên backendDebug; business UI dùng DTO OpenAPI đã GREEN.")
-                    V1Action("Kiểm tra GET /listings/public", onProbeTransport)
-                }
-            }
-        }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel("Bạn muốn ở đâu?") {
@@ -118,17 +109,6 @@ fun V1DiscoveryScreen(
                     "Dùng vị trí hiện tại",
                     useCurrentLocation,
                     modifier = Modifier.fillMaxWidth().testTag("discovery-use-current-location"),
-                )
-                V1SecondaryAction(
-                    "Chọn trên bản đồ",
-                    onClick = {},
-                    modifier = Modifier.fillMaxWidth().testTag("discovery-open-map-picker"),
-                    enabled = false,
-                )
-                Text(
-                    "Map picker chưa được wire với provider; app không fallback sang bắt người dùng nhập latitude/longitude.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
                 )
                 Text("Bán kính", fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -142,13 +122,13 @@ fun V1DiscoveryScreen(
                     }
                 }
                 OutlinedTextField(
-                    value = minPrice, onValueChange = { minPrice = it },
+                    value = minPrice, onValueChange = { minPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá thấp nhất (VND)") },
                     modifier = Modifier.fillMaxWidth().testTag("discovery-filter-min-price"),
                     singleLine = true,
                 )
                 OutlinedTextField(
-                    value = maxPrice, onValueChange = { maxPrice = it },
+                    value = maxPrice, onValueChange = { maxPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá cao nhất (VND)") },
                     modifier = Modifier.fillMaxWidth().testTag("discovery-filter-max-price"),
                     singleLine = true,
@@ -183,8 +163,7 @@ fun V1DiscoveryScreen(
                     }, enabled = !state.runtimeLoading)
                 }
                 Text(
-                    "App chuyển vị trí đã chọn thành latitude/longitude nội bộ rồi gửi radius và khoảng giá tới Backend. " +
-                        "Textual geocoder/area và Availability vẫn OPEN; không dùng địa chỉ vận hành.",
+                    "Kết quả tìm kiếm chỉ dùng vị trí công khai của tin đăng.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -193,7 +172,7 @@ fun V1DiscoveryScreen(
         item {
             LedgerSectionTitle(
                 "Quanh vị trí đã chọn",
-                "Listing PUBLISHED từ public projection",
+                "Các phòng đang được công khai",
             )
         }
         if (state.runtimeLoading && listings.isEmpty()) {
@@ -202,7 +181,7 @@ fun V1DiscoveryScreen(
             item { V1Panel("Không có kết quả") {
                 V1Pending(if (filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
                     "Không có tin đăng PUBLISHED phù hợp bộ lọc trong dữ liệu đang tải."
-                } else "Chưa có dữ liệu Listing PUBLISHED từ Backend.")
+                } else "Hiện chưa có phòng nào được đăng công khai.")
             } }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
@@ -297,7 +276,7 @@ fun V1ListingDetailScreen(
             item {
                 LedgerMoney(
                     amount = listing.askingPriceLabel ?: "Giá chưa công khai",
-                    context = "Giá công khai của Listing · không phải Payment/Billing fact",
+                    context = "Giá đang được công khai trên tin đăng",
                 )
             }
             item {
@@ -315,13 +294,13 @@ fun V1ListingDetailScreen(
                     Spacer(Modifier.height(8.dp))
                 }
                 Text(
-                    "Vị trí chỉ dùng public projection do Backend cung cấp; địa chỉ vận hành không xuất hiện ở đây.",
+                    "Tin đăng chỉ hiển thị vị trí công khai; địa chỉ vận hành chi tiết không được công khai.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (listing.publicGeoPoint == null) {
                     Spacer(Modifier.height(8.dp))
-                    V1Pending("Chưa có public map projection.")
+                    V1Pending("Tin đăng chưa có vị trí hiển thị trên bản đồ.")
                 }
             }
             item { LedgerDivider() }
@@ -451,7 +430,7 @@ fun V1AccountScreen(
     onLogout: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        item { V1PageTitle("Tài khoản", "Quyền được xác định bằng quan hệ thực tế, không phải vai trò toàn cục") }
+        item { V1PageTitle("Tài khoản", "Quản lý đăng nhập và không gian sử dụng") }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel(state.displayName.ifBlank { "Khách truy cập" }) {

@@ -58,7 +58,7 @@ fun V1TenantHomeScreen(
         if (current == null) {
             item {
                 V1Panel("Chưa có lượt thuê") {
-                    V1Pending("Backend chưa liên kết Tenancy nào với tài khoản.")
+                    V1Pending("Tài khoản chưa có lượt thuê nào.")
                 }
             }
         } else {
@@ -75,9 +75,9 @@ fun V1TenantHomeScreen(
                 LedgerMoney(
                     amount = outstanding ?: "Chưa có khoản phải thu",
                     context = if (finance?.charges.isNullOrEmpty()) {
-                        "Backend chưa trả Billing/Charge cho lượt thuê này."
+                        "Chưa có khoản phải thu cho lượt thuê này."
                     } else {
-                        "Khoản phải thu theo Billing source · không suy ra từ Payment."
+                        "Khoản cần thanh toán hiện tại."
                     },
                     tone = if (outstanding == null) LedgerTone.Neutral else LedgerTone.Warning,
                 )
@@ -111,11 +111,11 @@ fun V1TenantHomeScreen(
                 Spacer(Modifier.height(8.dp))
                 val payment = finance?.payments?.firstOrNull()
                 if (payment == null) {
-                    V1Pending("Chưa có Payment được Backend ghi nhận.")
+                    V1Pending("Chưa có khoản thanh toán nào được ghi nhận.")
                 } else {
                     LedgerAttentionRow(
                         title = payment.amountLabel,
-                        supporting = payment.confirmationLabel ?: "Payment source chưa có nhãn xác nhận",
+                        supporting = payment.confirmationLabel ?: "Chưa có trạng thái xác nhận",
                         tone = LedgerTone.Success,
                     )
                 }
@@ -138,11 +138,11 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
         item {
             V1PageTitle(
                 "Thanh toán",
-                "Khoản phải thu, tiền đã nhận, tiền cọc và biên nhận được giữ thành các source riêng.",
+                "Theo dõi khoản phải thu, tiền đã nhận, tiền cọc và biên nhận.",
             )
         }
         if (rentals.isEmpty()) {
-            item { V1Panel("Chưa có dữ liệu") { V1Pending("Không có Tenancy được liên kết.") } }
+            item { V1Panel("Chưa có dữ liệu") { V1Pending("Tài khoản chưa có lượt thuê.") } }
         }
         items(rentals, key = { "tenant-finance-" + it.tenancyId }) { tenancy ->
             val finance = state.read.tenantFinanceByTenancy[tenancy.tenancyId]
@@ -155,18 +155,18 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             LedgerMoney(
                 amount = primaryCharge?.outstandingLabel ?: primaryCharge?.amountLabel ?: "Chưa có khoản phải thu",
-                context = "Billing/Charge source · không phải số tiền đã nhận",
+                context = "Khoản cần thanh toán hiện tại",
                 tone = if (primaryCharge == null) LedgerTone.Neutral else LedgerTone.Warning,
             )
             Spacer(Modifier.height(12.dp))
             LedgerSectionTitle("Các khoản trong kỳ")
             if (finance?.charges.isNullOrEmpty()) {
-                V1Pending("Chưa có Billing/Charge.")
+                V1Pending("Chưa có khoản phải thu.")
             } else {
                 finance!!.charges.forEach { charge ->
                     LedgerAttentionRow(
                         title = charge.label,
-                        supporting = charge.outstandingLabel ?: "Backend chưa trả outstanding",
+                        supporting = charge.outstandingLabel ?: "Chưa có số tiền còn phải trả",
                         amount = charge.amountLabel,
                         tone = LedgerTone.Warning,
                     )
@@ -175,12 +175,12 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
             LedgerDivider()
             LedgerSectionTitle("Tiền đã nhận")
             if (finance?.payments.isNullOrEmpty()) {
-                V1Pending("Chưa có Payment được xác nhận.")
+                V1Pending("Chưa có khoản thanh toán được xác nhận.")
             } else {
                 finance!!.payments.forEach { payment ->
                     LedgerAttentionRow(
                         title = payment.amountLabel,
-                        supporting = payment.confirmationLabel ?: "Payment source",
+                        supporting = payment.confirmationLabel ?: "Đã ghi nhận thanh toán",
                         tone = LedgerTone.Success,
                     )
                 }
@@ -189,17 +189,17 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
             LedgerSectionTitle("Tiền cọc")
             val deposit = finance?.deposits?.firstOrNull()
             if (deposit == null) {
-                V1Pending("Chưa có Deposit projection.")
+                V1Pending("Chưa có thông tin tiền cọc.")
             } else {
-                V1Metric("Yêu cầu theo Terms", deposit.requiredLabel ?: "Chưa có")
-                V1Metric("Đã funded", deposit.fundedLabel ?: "Chưa có")
-                V1Metric("Đang giữ", deposit.heldLabel ?: "Chưa có")
+                V1Metric("Mức cọc yêu cầu", deposit.requiredLabel ?: "Chưa có")
+                V1Metric("Đã nộp", deposit.fundedLabel ?: "Chưa có")
+                V1Metric("Đang được giữ", deposit.heldLabel ?: "Chưa có")
                 LedgerStateLabel(deposit.state ?: "Chưa có trạng thái", LedgerTone.Neutral)
             }
             LedgerDivider()
             LedgerSectionTitle("Biên nhận")
             if (finance?.receipts.isNullOrEmpty()) {
-                V1Pending("Chưa có Receipt từ confirmed Payment.")
+                V1Pending("Chưa có biên nhận.")
             } else {
                 finance!!.receipts.forEach { receipt ->
                     LedgerAttentionRow(
@@ -226,9 +226,9 @@ fun V1TenantIncidentsScreen(state: TroOiUiState, onRental: () -> Unit) {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Sự cố", "Timeline append-only theo Room của Tenancy được liên kết") }
+        item { V1PageTitle("Sự cố", "Theo dõi trạng thái và lịch sử xử lý") }
         if (incidents.isEmpty()) {
-            item { V1Panel("Không có sự cố") { V1Pending("Chưa có Incident trong các phòng được liên kết.") } }
+            item { V1Panel("Không có sự cố") { V1Pending("Chưa có sự cố trong phòng của bạn.") } }
         } else {
             items(incidents, key = { "tenant-incident-" + it.incidentId }) { incident ->
                 LedgerSectionTitle(incident.title)
@@ -242,7 +242,7 @@ fun V1TenantIncidentsScreen(state: TroOiUiState, onRental: () -> Unit) {
                 )
                 Spacer(Modifier.height(8.dp))
                 if (incident.timeline.isEmpty()) {
-                    V1Pending("Chưa có Incident Event.")
+                    V1Pending("Chưa có cập nhật xử lý.")
                 } else {
                     incident.timeline.forEach { event ->
                         LedgerHistoryEvent(
@@ -258,7 +258,7 @@ fun V1TenantIncidentsScreen(state: TroOiUiState, onRental: () -> Unit) {
         item {
             V1Panel("Báo hoặc xem chi tiết") {
                 V1Pending(
-                    "Thao tác ghi vẫn đi qua Rental Workspace và chỉ cập nhật UI sau khi Backend xác nhận.",
+                    "Mở Nhà tôi để xem chi tiết hoặc gửi cập nhật.",
                 )
                 V1Action("Mở Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
             }

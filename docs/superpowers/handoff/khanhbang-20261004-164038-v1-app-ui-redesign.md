@@ -5,7 +5,7 @@
 - Branch: `frontend/v1-app-ui-redesign`
 - Native implementation commit: `a2c799f feat(android): implement room ledger app redesign`
 - Parent implementation checkpoint: `frontend/v1-ux-warning-fixes @ bbbc07b799ac7713be9354ea06480f3de05429f7`
-- Design source: `design/app-ui-redesign @ 530a518b6652ea385001a5e976272c277ebbde9b`
+- Latest design authority reviewed: `design/app-ui-redesign @ e9d3883` (`docs/designs/v1/`)
 - Design commits cherry-picked into this branch:
   - `4197017 design: redesign Android product universe atlas`
   - `f8aaa31 docs(design): consolidate app design artifacts`
@@ -17,7 +17,7 @@
 
 ## Design authority
 
-Native implementation follows `docs/designs/DESIGN.md`, `PRODUCT.md`, the interactive Product Universe artifact and the POV checklist.
+Native implementation was re-audited against the latest versioned V1 authority on `design/app-ui-redesign`: `docs/designs/v1/DESIGN.md`, `PRODUCT.md`, the interactive Product Universe artifact and `app-pov-checklist.md`. The newer design commits version/repoint the V1 artifacts; no conflicting V1 visual or interaction contract was found.
 
 Creative north star: **The Room Ledger**.
 
@@ -151,31 +151,72 @@ skipped     0
 
 Build warnings are deprecations only (for example legacy `hiltViewModel` package and mirrored icon guidance); no gate failed.
 
-## Remaining Task 1–6 runtime evidence
+## Physical-device Task 1–6 E2E — PASS
 
-The only remaining Task 1–6 gate is physical-device E2E after this redesign:
+Device runtime used the installed `backendDebug` APK `versionName=1.0.1` with ADB reverse `tcp:3000 -> tcp:3000` and the real Google Web Client ID.
 
-1. Fresh Google sign-in:
-   Credential Manager → Google ID token → `POST /identity-access/auth/google` → `GET /identity-access/me`.
-2. Guest:
-   Discovery/Search → Listing → Inquiry.
-3. Tenant:
-   Trang chủ → Nhà tôi → Thanh toán → Sự cố, including former-tenant read-only behavior when applicable.
-4. Landlord:
-   Dashboard → Property/Room → Listing → Finance → Incident.
-5. Notification:
-   List → Detail → Mark read → source navigation.
+1. **Fresh Google authentication — PASS**
+   - Logged out to Guest first.
+   - Credential Manager account chooser completed successfully.
+   - Backend-authenticated session resolved to Context Switcher.
+   - `/me` capability result was reflected by 2 linked Tenancies and 2 operated Organizations; no global business role was used.
 
-At the latest runtime check, the backend is live on port 3000 with the configured Google Web Client ID, and the final `backendDebug` APK was rebuilt with the same Web Client ID. The physical Android device is currently not visible to ADB, so these journeys cannot be truthfully marked PASS yet.
+2. **Guest — PASS**
+   - Public Listing rendered from backend spatial/public projection.
+   - Listing detail showed public area and price while operational address stayed private.
+   - Unauthenticated Inquiry required Google login.
+   - Authenticated Inquiry submitted through the UI and persisted as `NEW` with the server-derived sender user.
+   - Backend automatically created the corresponding `NEW_INQUIRY` Notification.
+
+3. **Tenant — PASS**
+   - Tenant Home rendered the active Room, current Charge, Incident and Notice.
+   - `Nhà tôi` listed both active and ended Tenancies.
+   - Finance rendered Billing/Charge, confirmed Payment, Deposit and Receipt as distinct source records.
+   - Incident screen rendered backend IncidentEvent chronology.
+   - Former Tenancy `ENDED` opened read-only history; Terms explicitly stated that ended-tenancy terms can only be reviewed and no acknowledgement/write action was presented.
+
+4. **Landlord/operator — PASS**
+   - Dashboard rendered authoritative room-state counts, active-tenancy count and open Incident attention.
+   - Room/property workspace loaded the E2E organization and room hierarchy; Room detail/current Listing was exercised during the same installed APK session.
+   - Finance rendered receivable, received Payment, Deposit and Receipt lanes separately.
+   - Incident board rendered the open backend Incident and history.
+   - No crash/ANR was recorded while traversing these flows.
+
+5. **Notification — PASS**
+   - Notification list rendered Incident, Payment and the newly generated Inquiry notification.
+   - Detail rendered category, source reference and delivery/read facts.
+   - Mark-read updated the authoritative notification record with `DELIVERED` and non-null `read_at`.
+   - `PAYMENT_CONFIRMED` source navigation routed to Tenant Finance using `sourceType/sourceId`.
+   - Unsupported Inquiry source navigation stayed safely on detail rather than inventing a destination.
+
+## Final automated verification
+
+```text
+Android unit tests          52 / 52 PASS
+:app:assembleDebug          PASS
+:app:assembleBackendDebug   PASS
+:app:lintDebug              PASS
+git diff --check            PASS
+
+Backend tests               284 / 284 PASS
+backend typecheck           PASS
+backend lint                PASS
+backend build               PASS
+DB conformance              57 / 57 PASS
+E2E coverage                83 atomic flows / 198 cases PASS
+```
+
+Two compile regressions discovered during the final audit (`tenancyStatusLabel` and `roomStateLabel`) were fixed before the final Android gates and physical-device E2E.
 
 ### Non-blocking for Task 1–6 / defer to V2 or later quality work
 
-- Native interactive map provider / map picker. Current-location + radius spatial search already satisfies the Task 1–6 contract; raw lat/lng is not exposed.
-- Persistent process-restart session restore. Task 1–6 requires real Google authentication/session, not restart persistence.
-- TalkBack traversal, large-font-scale validation and predictive-Back visual verification. These are redesign/accessibility quality follow-ups, not original Task 1–6 acceptance gates.
+- Native interactive map provider / map picker.
+- Persistent process-restart session restore.
+- TalkBack traversal, large-font-scale validation and predictive-Back visual verification.
+- Further V2 visual redesign work.
 
 ## Review status
 
-`READY_TO_REVIEW: NO`
+`READY_TO_REVIEW: YES`
 
-Reason: automated backend and Android gates are green, runtime OAuth configuration is ready, but the required physical-device Google/Guest/Tenant/Landlord/Notification E2E evidence cannot be captured while the phone is disconnected from ADB.
+Reason: Task 1–6 backend contracts, Android automated gates, fresh real Google authentication, Guest/Tenant/former-tenant/Landlord/Notification physical-device journeys and final crash checks all have passing evidence. No merge to staging has been performed.

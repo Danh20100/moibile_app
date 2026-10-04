@@ -20,6 +20,8 @@ class UxWarningRegressionTest {
         assertTrue(ui.contains("1 km"))
         assertTrue(ui.contains("3 km"))
         assertTrue(ui.contains("5 km"))
+        assertFalse(ui.contains("Backend Debug"))
+        assertFalse(ui.contains("discovery-open-map-picker"))
     }
 
     @Test
@@ -31,7 +33,7 @@ class UxWarningRegressionTest {
         listOf("Trang chủ", "Nhà tôi", "Thanh toán", "Sự cố", "Tài khoản").forEach {
             assertTrue(app.contains("\"$it\""))
         }
-        assertTrue(switcher.contains("Một tài khoản · nhiều context"))
+        assertTrue(switcher.contains("Chọn nơi bạn muốn sử dụng"))
     }
 
     @Test

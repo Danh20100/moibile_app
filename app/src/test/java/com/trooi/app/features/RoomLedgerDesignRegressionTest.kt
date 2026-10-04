@@ -80,7 +80,7 @@ class RoomLedgerDesignRegressionTest {
         assertTrue(operator.contains("Lịch sử phòng"))
         assertTrue(rental.contains("Các khoản trong kỳ"))
         assertTrue(rental.contains("IncidentEvent append-only"))
-        assertTrue(context.contains("Một tài khoản · nhiều context"))
+        assertTrue(context.contains("Chọn nơi bạn muốn sử dụng"))
         assertTrue(app.contains("Mở lại không gian của bạn"))
     }
 }

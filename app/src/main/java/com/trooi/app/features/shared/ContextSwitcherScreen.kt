@@ -33,7 +33,7 @@ fun V1ContextSwitcherScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item { TextButton(onClick = onBack) { Text("← Quay lại") } }
-        item { V1PageTitle("Chọn không gian", "Một tài khoản · nhiều context được Backend cấp quyền") }
+        item { V1PageTitle("Chọn không gian", "Chọn nơi bạn muốn sử dụng") }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -52,7 +52,7 @@ fun V1ContextSwitcherScreen(
                 Column {
                     Text(state.displayName.ifBlank { "Tài khoản TrọƠi" }, style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Capability được suy ra từ relationship, không phải USER.role.",
+                        "Các mục bên dưới dựa trên quyền truy cập của tài khoản.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -84,7 +84,7 @@ fun V1ContextSwitcherScreen(
                 ContextWorkspaceRow(
                     monogram = state.access.operatedOrganizationIds.size.toString(),
                     title = "Vận hành phòng",
-                    subtitle = "${state.access.operatedOrganizationIds.size} Organization được cấp quyền",
+                    subtitle = "${state.access.operatedOrganizationIds.size} khu trọ được cấp quyền quản lý",
                     onClick = onOperations,
                 )
             }

@@ -21,19 +21,19 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Tổng quan", "Không gian vận hành · source-backed dashboard") }
+        item { V1PageTitle("Tổng quan", "Tình hình vận hành hôm nay") }
         if (state.demoPreview) item { V1PreviewNotice() }
         if (organizations.isEmpty()) {
-            item { V1Panel("Không gian vận hành") { V1Pending("Tài khoản chưa được liên kết với Organization.") } }
+            item { V1Panel("Không gian vận hành") { V1Pending("Tài khoản chưa được cấp quyền quản lý khu trọ nào.") } }
         }
         items(organizations, key = { it.organizationId }) { org ->
             val projection = state.read.dashboardByOrganization[org.organizationId]
             val orgPropertyIds = state.read.properties.filter { it.organizationId == org.organizationId }.mapTo(mutableSetOf()) { it.propertyId }
             val orgRoomIds = state.read.operationalRooms.filter { it.propertyId in orgPropertyIds }.mapTo(mutableSetOf()) { it.roomId }
             val orgIncidents = state.read.incidents.filter { it.roomId in orgRoomIds }
-            LedgerSectionTitle(org.displayName, "Dashboard không sở hữu business mutation")
+            LedgerSectionTitle(org.displayName, "Tổng quan vận hành")
             if (projection == null) {
-                V1Panel("Dashboard") { V1Pending("Chưa có Dashboard projection từ Backend cho Organization này.") }
+                V1Panel("Tổng quan") { V1Pending("Chưa có dữ liệu tổng quan cho khu trọ này.") }
             } else {
                 val attentionCount = (projection.openIncidentCount ?: 0) +
                     if (projection.outstandingReceivableLabel != null) 1 else 0
@@ -44,7 +44,7 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                 ) {
                     LedgerSectionTitle(
                         if (attentionCount == 0) "Không có việc nổi bật" else "$attentionCount việc cần chú ý",
-                        "Chỉ tổng hợp source facts Backend đã trả",
+                        "Các mục đang cần bạn chú ý",
                     )
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -61,7 +61,7 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                 projection.outstandingReceivableLabel?.let { amount ->
                     LedgerAttentionRow(
                         title = "Khoản cần thu",
-                        supporting = "Outstanding receivable · nguồn Dashboard projection",
+                        supporting = "Khoản còn cần thu",
                         amount = amount,
                         tone = LedgerTone.Warning,
                     )
@@ -69,7 +69,7 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                 projection.openIncidentCount?.takeIf { it > 0 }?.let { count ->
                     LedgerAttentionRow(
                         title = "$count sự cố đang mở",
-                        supporting = "Mở bảng sự cố để xem source record",
+                        supporting = "Mở mục Sự cố để xem chi tiết",
                         tone = LedgerTone.Clay,
                     )
                 }
@@ -80,7 +80,7 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                     V1Metric("Lượt thuê đang hoạt động", it.toString())
                 }
                 projection.confirmedPaymentTotalLabel?.let {
-                    V1Metric("Payment đã xác nhận", it)
+                    V1Metric("Tiền đã nhận", it)
                 }
                 if (orgIncidents.isNotEmpty()) {
                     LedgerDivider()
@@ -90,7 +90,7 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                     LedgerHistoryEvent(
                         source = "Sự cố",
                         title = recent.title,
-                        occurredAt = event?.occurredAtLabel ?: "Backend chưa trả thời điểm sự kiện",
+                        occurredAt = event?.occurredAtLabel ?: "Chưa có thời điểm cập nhật",
                         supporting = event?.description ?: recent.lifecycle.name,
                     )
                 }
@@ -139,14 +139,14 @@ fun V1OwnerPropertiesScreen(state: TroOiUiState) {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Phòng", "Organization → Property → Room → Listing") }
+        item { V1PageTitle("Phòng", "Quản lý khu trọ, phòng và tin đăng") }
         if (state.demoPreview) item { V1PreviewNotice() }
-        if (organizations.isEmpty()) item { V1Panel("Organization") { V1Pending() } }
+        if (organizations.isEmpty()) item { V1Panel("Khu trọ") { V1Pending("Chưa có khu trọ được cấp quyền quản lý.") } }
         items(organizations, key = { it.organizationId }) { org ->
             LedgerSectionTitle(org.displayName, "Sổ phòng theo quyền vận hành")
             val owned = properties.filter { it.organizationId == org.organizationId }
             if (owned.isEmpty()) {
-                V1Pending("Không có Property trong quyền truy cập hiện tại.")
+                V1Pending("Chưa có khu nhà nào trong khu trọ này.")
             }
             owned.forEach { property ->
                 Text(property.displayName, style = MaterialTheme.typography.titleMedium)
@@ -157,7 +157,7 @@ fun V1OwnerPropertiesScreen(state: TroOiUiState) {
                         title = room.label,
                         supporting = buildString {
                             append(room.operationalState.name)
-                            listing?.let { append(" · Listing ${it.visibility.name}") }
+                            listing?.let { append(" · Tin đăng ${it.visibility.name}") }
                         },
                         tone = when (room.operationalState) {
                             RoomOperationalState.OCCUPIED -> LedgerTone.Success
@@ -190,32 +190,32 @@ fun V1OwnerFinanceScreen(state: TroOiUiState) {
         if (state.demoPreview) item { V1PreviewNotice() }
         if (organizations.isEmpty()) item { V1Panel("Không gian vận hành") { V1Pending() } }
         items(organizations, key = { it.organizationId }) { org ->
-            LedgerSectionTitle(org.displayName, "Finance source records")
+            LedgerSectionTitle(org.displayName, "Tổng hợp tài chính")
             val finance = state.read.operatorFinanceByOrganization[org.organizationId]
             if (finance == null) {
-                V1Panel("Tài chính") { V1Pending("Đang chờ projection tài chính theo Organization từ Backend.") }
+                V1Panel("Tài chính") { V1Pending("Chưa có dữ liệu tài chính cho khu trọ này.") }
             } else {
                 FinanceLane(
                     title = "Khoản cần thu",
-                    subtitle = "Billing / Charge",
+                    subtitle = "Các khoản phải thu",
                     values = finance.charges.map { it.label to it.amountLabel },
                     tone = LedgerTone.Warning,
                 )
                 FinanceLane(
                     title = "Tiền đã nhận",
-                    subtitle = "Confirmed Payment",
-                    values = finance.confirmedPayments.map { "Payment" to it.amountLabel },
+                    subtitle = "Các khoản đã nhận",
+                    values = finance.confirmedPayments.map { "Thanh toán" to it.amountLabel },
                     tone = LedgerTone.Success,
                 )
                 FinanceLane(
                     title = "Tiền cọc",
-                    subtitle = "Deposit projection",
-                    values = finance.deposits.map { "Deposit" to (it.heldLabel ?: it.fundedLabel ?: "Chưa có số liệu") },
+                    subtitle = "Tiền cọc đang quản lý",
+                    values = finance.deposits.map { "Tiền cọc" to (it.heldLabel ?: it.fundedLabel ?: "Chưa có số liệu") },
                     tone = LedgerTone.Clay,
                 )
                 FinanceLane(
                     title = "Biên nhận",
-                    subtitle = "Evidence từ confirmed Payment",
+                    subtitle = "Biên nhận đã phát hành",
                     values = finance.receipts.map { it.receiptId to it.issuedAtLabel },
                     tone = LedgerTone.Neutral,
                 )
@@ -251,11 +251,11 @@ fun V1OwnerIncidentsScreen(state: TroOiUiState) {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Sự cố cần xử lý", "Incident lifecycle và event history từ Backend") }
+        item { V1PageTitle("Sự cố cần xử lý", "Theo dõi trạng thái và lịch sử xử lý") }
         if (state.demoPreview) item { V1PreviewNotice() }
         if (incidents.isEmpty()) item { V1Panel("Danh sách sự cố") { V1Pending() } }
         items(incidents, key = { it.incidentId }) { incident ->
-            LedgerSectionTitle(incident.title, "Room ${incident.roomId}")
+            LedgerSectionTitle(incident.title, "Phòng ${incident.roomId}")
             LedgerStateLabel(
                 incident.lifecycle.name,
                 tone = if (incident.lifecycle == IncidentLifecycle.RESOLVED || incident.lifecycle == IncidentLifecycle.CLOSED) {
@@ -263,7 +263,7 @@ fun V1OwnerIncidentsScreen(state: TroOiUiState) {
                 } else LedgerTone.Warning,
             )
             if (incident.timeline.isEmpty()) {
-                V1Pending("Chưa có Incident Event.")
+                V1Pending("Chưa có cập nhật xử lý.")
             } else {
                 incident.timeline.forEach { event ->
                     LedgerHistoryEvent(
@@ -273,9 +273,7 @@ fun V1OwnerIncidentsScreen(state: TroOiUiState) {
                     )
                 }
             }
-            if (incident.serverActions.isNotEmpty()) {
-                V1Pending("Action Backend cho phép: ${incident.serverActions.joinToString()}")
-            }
+
             LedgerDivider()
         }
     }

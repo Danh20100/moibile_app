@@ -30,16 +30,16 @@ fun V1GuestMapScreen(
         item {
             V1PageTitle(
                 "Bản đồ",
-                "Chỉ dùng public location projection; không lộ địa chỉ vận hành.",
+                "Xem các phòng đang được công khai theo khu vực.",
             )
         }
         item {
             LedgerMediaPlaceholder(
                 title = "Bản đồ công khai",
                 subtitle = if (listings.isEmpty()) {
-                    "Chưa có Listing PUBLISHED để đặt marker."
+                    "Hiện chưa có phòng nào để hiển thị trên bản đồ."
                 } else {
-                    "${listings.count { it.publicGeoPoint != null }} vị trí công khai sẵn sàng cho map provider."
+                    "${listings.count { it.publicGeoPoint != null }} phòng có vị trí công khai."
                 },
                 modifier = Modifier.height(230.dp),
             )
@@ -53,7 +53,7 @@ fun V1GuestMapScreen(
             }
         }
         if (listings.isNotEmpty()) {
-            item { LedgerSectionTitle("Phòng trên bản đồ", "Danh sách dùng cùng public projection với Discovery") }
+            item { LedgerSectionTitle("Phòng trên bản đồ", "Chạm vào một phòng để xem chi tiết") }
             items(listings, key = { "map-listing-" + it.listingId }) { listing ->
                 Row(
                     modifier = Modifier
@@ -94,8 +94,7 @@ fun V1GuestActivityScreen(state: TroOiUiState) {
         item {
             V1Panel("Yêu cầu liên hệ") {
                 V1Pending(
-                    "Inquiry submit đã dùng Backend thật, nhưng danh sách lịch sử Inquiry của Guest " +
-                        "chưa có read adapter trong FrontendReadSnapshot. Không dựng activity giả ở client.",
+                    "Lịch sử yêu cầu liên hệ chưa khả dụng ở phiên bản này.",
                 )
             }
         }
@@ -103,7 +102,7 @@ fun V1GuestActivityScreen(state: TroOiUiState) {
             item {
                 LedgerSectionTitle(
                     "Thông báo liên quan",
-                    "Notification vẫn là projection; mở source không làm thay đổi business state.",
+                    "Các thông báo gần đây liên quan đến tài khoản của bạn.",
                 )
             }
             items(state.read.notifications.take(5), key = { "guest-activity-notification-" + it.notificationId }) { row ->

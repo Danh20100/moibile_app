@@ -26,12 +26,13 @@ fun V1NotificationCenterScreen(
         modifier = Modifier.fillMaxSize().testTag("notification-center"),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {        item { V1PageTitle("Thông báo", "Notification Center từ Backend") }
+    ) {
+        item { V1PageTitle("Thông báo", "Các cập nhật mới nhất cho tài khoản của bạn") }
         item { TextButton(onClick = onBack) { Text("← Quay lại") } }
         if (state.runtimeLoading && state.read.notifications.isEmpty()) {
             item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         } else if (state.read.notifications.isEmpty()) {
-            item { V1Panel("Không có thông báo") { Text("Backend chưa trả Notification nào.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            item { V1Panel("Không có thông báo") { Text("Bạn chưa có thông báo nào.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         } else {
             items(state.read.notifications, key = { "notification-" + it.notificationId }) { notification ->
                 NotificationRow(notification, onOpen)
@@ -53,7 +54,9 @@ private fun NotificationRow(notification: NotificationCard, onOpen: (String) -> 
         Text(notification.createdAtLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (notification.readAtLabel == null) "Chưa đọc" else "Đã đọc", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-}@Composable
+}
+
+@Composable
 fun V1NotificationDetailScreen(
     state: TroOiUiState,
     notificationId: String,
@@ -72,21 +75,19 @@ fun V1NotificationDetailScreen(
         if (state.runtimeLoading && notification == null) {
             item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         } else if (notification == null) {
-            item { V1Panel("Thông báo không khả dụng") { Text("Không tìm thấy Notification được Backend cấp quyền.") } }
+            item { V1Panel("Thông báo không khả dụng") { Text("Không tìm thấy thông báo này.") } }
         } else {
             item {
                 V1Panel(notification.category) {
                     Text(notification.message)
-                    V1Metric("Delivery status", notification.deliveryStatus)
-                    V1Metric("Created at", notification.createdAtLabel)
-                    V1Metric("Read at", notification.readAtLabel ?: "Chưa đọc")
-                    V1Metric("Source type", notification.sourceType ?: "Không có")
-                    V1Metric("Source ID", notification.sourceId ?: "Không có")
+                    V1Metric("Trạng thái gửi", notification.deliveryStatus)
+                    V1Metric("Tạo lúc", notification.createdAtLabel)
+                    V1Metric("Đọc lúc", notification.readAtLabel ?: "Chưa đọc")
                     if (notification.readAtLabel == null) {
                         V1Action("Đánh dấu đã đọc", { onMarkRead(notification.notificationId) })
                     }
                     if (!notification.sourceType.isNullOrBlank() && !notification.sourceId.isNullOrBlank()) {
-                        V1Action("Mở nguồn liên quan", { onOpenSource(notification.notificationId) })
+                        V1Action("Xem nội dung liên quan", { onOpenSource(notification.notificationId) })
                     }
                 }
             }

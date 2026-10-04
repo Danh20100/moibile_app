@@ -51,7 +51,25 @@ export class GoogleAuthIdTokenVerifier implements GoogleIdTokenVerifier {
         idToken,
         audience: this.clientId,
       });
-    } catch {
+    } catch (error) {
+      let audienceMatches: boolean | null = null;
+      try {
+        const payloadPart = idToken.split('.')[1];
+        if (payloadPart) {
+          const payload = JSON.parse(
+            Buffer.from(payloadPart, 'base64url').toString('utf8'),
+          ) as { aud?: string | string[] };
+          audienceMatches = Array.isArray(payload.aud)
+            ? payload.aud.includes(this.clientId)
+            : payload.aud === this.clientId;
+        }
+      } catch {
+        audienceMatches = null;
+      }
+      console.warn('Google ID token verification diagnostic', {
+        audienceMatches,
+        providerError: error instanceof Error ? error.message : 'unknown',
+      });
       throw new GoogleIdentityVerificationError(
         'PROVIDER_ERROR',
         'Google ID token verification failed.',

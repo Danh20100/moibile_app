@@ -7,6 +7,7 @@ import kotlinx.coroutines.runBlocking
 import java.net.InetAddress
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -50,6 +51,18 @@ class BackendTransportTest {
             assertEquals("Bearer test-google-id-token", server.takeRequest().getHeader("Authorization"))
             assertNull(tokens.token())
             assertEquals(TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED), client.get("protected-read", true))
+        }
+    }
+
+    @Test fun idempotentGetRetriesOneTransientConnectionFailure() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+            server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":[]}").addHeader("Content-Type", "application/json"))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val client = BackendClient(localUrl(server), InMemoryAuthTokenProvider(), true)
+            val result = client.get("listings/public")
+            assertTrue(result is TransportOutcome.Success)
+            assertEquals(2, server.requestCount)
         }
     }
 

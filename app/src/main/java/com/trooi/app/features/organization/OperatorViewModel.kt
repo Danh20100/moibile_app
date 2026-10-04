@@ -161,7 +161,7 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
     }
 
     fun createOrganization(name: String) = write {
-        require(name.isNotBlank()) { "Nhập tên Organization" }
+        require(name.isNotBlank()) { "Nhập tên khu trọ" }
         val created = api.createOrganization(name.trim())
         val refreshed = api.organization(created.id)
         val granted = api.sessionAccess()
@@ -172,19 +172,19 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
     }
 
     fun renameOrganization(id: String, name: String) = write {
-        require(id in access.operatedOrganizationIds && name.isNotBlank()) { "Organization hoặc tên không hợp lệ" }
+        require(id in access.operatedOrganizationIds && name.isNotBlank()) { "Khu trọ hoặc tên không hợp lệ" }
         api.editOrganization(id, name.trim())
         _ui.update { it.copy(organization = api.organization(id)) }
     }
 
     fun createProperty(organizationId: String, name: String, address: String, opLat: Double, opLng: Double, publicLat: Double, publicLng: Double) = write {
-        require(organizationId in access.operatedOrganizationIds && name.isNotBlank() && address.isNotBlank()) { "Điền đủ thông tin Property" }
+        require(organizationId in access.operatedOrganizationIds && name.isNotBlank() && address.isNotBlank()) { "Điền đủ thông tin khu nhà" }
         val created = api.createProperty(organizationId, name.trim(), address.trim(), opLat, opLng, publicLat, publicLng)
         _ui.update { it.copy(property = api.property(created.id), stack = it.stack + OperatorRoute.Property(created.id, organizationId)) }
     }
 
     fun renameProperty(id: String, organizationId: String, name: String) = write {
-        require(organizationId in access.operatedOrganizationIds && name.isNotBlank()) { "Thông tin Property không hợp lệ" }
+        require(organizationId in access.operatedOrganizationIds && name.isNotBlank()) { "Thông tin khu nhà không hợp lệ" }
         api.editProperty(id, name.trim())
         _ui.update { it.copy(property = api.property(id)) }
     }
@@ -240,7 +240,7 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         viewModelScope.launch {
             try {
                 operation()
-                if (revision == current) _ui.update { it.copy(busy = false, success = "Backend đã xác nhận thay đổi.") }
+                if (revision == current) _ui.update { it.copy(busy = false, success = "Đã lưu thay đổi.") }
             } catch (error: Exception) { fail(current, error) }
         }
     }
@@ -256,9 +256,9 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         val kind = if (error is V1RequestException) error.kind.name else "VALIDATION_OR_RESPONSE"
         val status = if (error is V1RequestException) error.status else null
         val detail = when (status) {
-            403 -> "Backend từ chối truy cập (403)."
-            404 -> "Không tìm thấy tài nguyên (404)."
-            409 -> "Xung đột quy tắc nghiệp vụ (409); tải lại dữ liệu trước khi thử."
+            403 -> "Bạn không có quyền thực hiện thao tác này."
+            404 -> "Không tìm thấy dữ liệu cần thao tác."
+            409 -> "Dữ liệu đã thay đổi hoặc thao tác không còn hợp lệ. Hãy tải lại và thử lại."
             else -> error.message ?: "Không thể hoàn thành yêu cầu."
         }
         _ui.update { it.copy(busy = false, error = detail, errorKind = kind) }

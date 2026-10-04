@@ -22,13 +22,13 @@ fun InquiryComposer(
     val completed = state.inquiryCompletedListingId == listingId
     LaunchedEffect(completed) { if (completed) message = "" }
     V1Panel("Liên hệ về tin đăng", modifier = Modifier.testTag("inquiry-composer")) {
-        Text("Inquiry là nhu cầu liên hệ; không giữ phòng, không tạo Booking hay Tenancy.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Gửi yêu cầu liên hệ không đồng nghĩa với giữ phòng.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (!state.isAuthenticated) {
             V1Pending("Đăng nhập Google trước khi gửi yêu cầu.")
             V1Action("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
         } else if (completed) {
-            Text("Backend đã ghi nhận Inquiry.", modifier = Modifier.testTag("inquiry-success"))
-            V1Pending("Không tự tạo Notification. Chủ trọ nhận được khi Backend hỗ trợ delivery.")
+            Text("Đã gửi yêu cầu liên hệ.", modifier = Modifier.testTag("inquiry-success"))
+            V1Pending("Bạn có thể theo dõi phản hồi khi có cập nhật mới.")
         } else {
             OutlinedTextField(
                 value = message,
@@ -49,7 +49,7 @@ fun InquiryComposer(
                 enabled = message.isNotBlank() && !state.submittingInquiry,
                 modifier = Modifier.fillMaxWidth().testTag("inquiry-submit"),
             )
-            Text("Chỉ hiển thị thành công sau khi Backend xác nhận.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Yêu cầu chỉ được báo thành công sau khi gửi hoàn tất.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

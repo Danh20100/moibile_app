@@ -97,7 +97,7 @@ class RentalViewModel @Inject constructor(
                 else -> linked
             }
             if (linked != target) {
-                _ui.update { it.copy(error = "Không được mở Tenancy khác.", errorKind = "FORBIDDEN") }
+                _ui.update { it.copy(error = "Bạn không có quyền mở lượt thuê này.", errorKind = "FORBIDDEN") }
                 return
             }
         }
@@ -179,7 +179,7 @@ class RentalViewModel @Inject constructor(
     }
 
     fun createTenancy(roomId: String) = write {
-        require(!_ui.value.tenantMode) { "Người thuê không thể tự tạo Tenancy." }
+        require(!_ui.value.tenantMode) { "Người thuê không thể tự tạo lượt thuê." }
         val created = api.createTenancy(roomId)
         val verified = api.tenancy(created.id)
         require(verified.roomId == roomId) { "Backend trả Tenancy sai Room." }
@@ -221,7 +221,7 @@ class RentalViewModel @Inject constructor(
     }
 
     fun acknowledgeTerms(tenancyId: String, termsId: String, participantId: String) = write {
-        require(participantId.isNotBlank()) { "Chọn Tenancy Participant cần xác nhận Terms." }
+        require(participantId.isNotBlank()) { "Chọn người cần xác nhận điều khoản." }
         api.acknowledgeTerms(tenancyId, termsId, participantId)
     }
 
@@ -238,13 +238,13 @@ class RentalViewModel @Inject constructor(
     }
 
     fun createBilling(id: String, termsId: String, from: String, to: String, type: String, amount: String) = write {
-        require(!_ui.value.tenantMode) { "Tenant có quyền xem, không tự tạo Billing." }
+        require(!_ui.value.tenantMode) { "Người thuê chỉ có quyền xem khoản phải thu." }
         api.createBilling(id, termsId, from, to, listOf(type to amount))
         _ui.update { it.copy(billing = api.billingCycles(id)) }
     }
 
     fun recordPayment(id: String, amount: String, source: String) = write {
-        require(!_ui.value.tenantMode) { "Chỉ Operator ghi nhận tiền đã thực nhận." }
+        require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể ghi nhận tiền đã nhận." }
         val recorded = api.recordPayment(id, amount, source)
         _ui.update {
             it.copy(
@@ -255,7 +255,7 @@ class RentalViewModel @Inject constructor(
     }
 
     fun createDeposit(tenancyId: String) = write {
-        require(!_ui.value.tenantMode) { "Chỉ Operator tạo Deposit projection." }
+        require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể tạo thông tin tiền cọc." }
         val created = api.createDeposit(tenancyId)
         require(created.tenancyId == tenancyId) { "Backend trả Deposit sai Tenancy." }
         _ui.update {
@@ -323,7 +323,7 @@ class RentalViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 block()
-                if (revision == current) _ui.update { it.copy(busy = false, success = "Backend xác nhận thành công.") }
+                if (revision == current) _ui.update { it.copy(busy = false, success = "Đã cập nhật thành công.") }
             } catch (error: Exception) { fail(current, error) }
         }
     }
@@ -339,9 +339,9 @@ class RentalViewModel @Inject constructor(
         val kind = (error as? V1RequestException)?.kind?.name ?: "VALIDATION_OR_RESPONSE"
         val status = (error as? V1RequestException)?.status
         val description = when (status) {
-            403 -> "Backend từ chối truy cập."
-            404 -> "Không tìm thấy đối tượng."
-            409 -> "Backend từ chối do xung đột lifecycle, thử tải lại."
+            403 -> "Bạn không có quyền thực hiện thao tác này."
+            404 -> "Không tìm thấy dữ liệu cần thao tác."
+            409 -> "Dữ liệu đã thay đổi hoặc thao tác không còn hợp lệ. Hãy tải lại và thử lại."
             else -> error.message ?: "Không thể tải hoặc ghi dữ liệu."
         }
         _ui.update { it.copy(busy = false, error = description, errorKind = kind) }

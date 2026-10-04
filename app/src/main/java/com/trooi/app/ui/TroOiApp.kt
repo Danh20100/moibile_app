@@ -140,7 +140,6 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onContextSwitcher = if (state.isAuthenticated) viewModel::openContextSwitcher else null,
                         onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
                         onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
-                        onProbeTransport = if (BuildConfig.BACKEND_BACKED && BuildConfig.DEBUG) viewModel::probePublicTransport else null,
                     )
                     AppPage.GuestMap -> V1GuestMapScreen(state, viewModel::openListing)
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)

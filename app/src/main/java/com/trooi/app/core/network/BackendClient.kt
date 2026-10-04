@@ -1,5 +1,6 @@
 package com.trooi.app.core.network
 
+import android.util.Log
 import com.trooi.app.core.network.dto.ErrorKind
 import com.trooi.app.core.network.dto.TransportDocument
 import com.trooi.app.core.network.dto.TransportOutcome
@@ -42,13 +43,13 @@ class BackendClient(
         path: String,
         authenticated: Boolean = false,
         query: Map<String, String> = emptyMap(),
-    ): TransportOutcome = execute(path, authenticated, query) { builder -> builder.get() }
+    ): TransportOutcome = execute(path, authenticated, query, retryOnIOException = true) { builder -> builder.get() }
 
     suspend fun postJson(
         path: String,
         json: String,
         authenticated: Boolean = false,
-    ): TransportOutcome = execute(path, authenticated, emptyMap()) { builder ->
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
         builder.post(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 
@@ -56,12 +57,12 @@ class BackendClient(
         path: String,
         json: String,
         authenticated: Boolean = true,
-    ): TransportOutcome = execute(path, authenticated, emptyMap()) { builder ->
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
         builder.patch(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 
     suspend fun postEmpty(path: String, authenticated: Boolean = true): TransportOutcome =
-        execute(path, authenticated, emptyMap()) { builder ->
+        execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
             builder.post(ByteArray(0).toRequestBody(null))
         }
 
@@ -69,6 +70,7 @@ class BackendClient(
         path: String,
         authenticated: Boolean,
         query: Map<String, String>,
+        retryOnIOException: Boolean,
         configure: (Request.Builder) -> Request.Builder,
     ): TransportOutcome = withContext(Dispatchers.IO) {
         val base = try {
@@ -91,30 +93,43 @@ class BackendClient(
         var builder = Request.Builder().url(target)
         if (authenticated) builder = builder.tag(BearerCall::class.java, BearerCall())
         val request = configure(builder).build()
-        try {
-            client.newCall(request).execute().use { response ->
-                val status = response.code
-                when {
-                    status == 401 && authenticated -> {
-                        if (tokens.token() == requestToken) tokens.clear()
-                        TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED, status)
+        val attempts = if (retryOnIOException) 2 else 1
+        repeat(attempts) { attempt ->
+            try {
+                return@withContext client.newCall(request).execute().use { response ->
+                    val status = response.code
+                    when {
+                        status == 401 && authenticated -> {
+                            if (tokens.token() == requestToken) tokens.clear()
+                            TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED, status)
+                        }
+                        status == 403 -> TransportOutcome.Failure(ErrorKind.FORBIDDEN, status)
+                        !response.isSuccessful -> TransportOutcome.Failure(ErrorKind.HTTP_ERROR, status)
+                        else -> TransportOutcome.Success(
+                            status,
+                            TransportDocument(response.body?.string().orEmpty(), response.header("Content-Type")),
+                        )
                     }
-                    status == 403 -> TransportOutcome.Failure(ErrorKind.FORBIDDEN, status)
-                    !response.isSuccessful -> TransportOutcome.Failure(ErrorKind.HTTP_ERROR, status)
-                    else -> TransportOutcome.Success(
-                        status,
-                        TransportDocument(response.body?.string().orEmpty(), response.header("Content-Type")),
-                    )
+                }
+            } catch (error: IOException) {
+                if (attempt + 1 < attempts) {
+                    warn("Transient GET I/O failure path=$path type=${error::class.java.simpleName}; retrying once")
+                } else {
+                    warn("I/O failure path=$path type=${error::class.java.simpleName} message=${error.message}")
+                    return@withContext TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)
                 }
             }
-        } catch (_: IOException) {
-            TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)
         }
+        return@withContext TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)
     }
 
     private fun isSafeRelativePath(path: String): Boolean =
         path.isNotBlank() && !path.startsWith("/") && !path.contains("..") &&
             !path.contains('?') && !path.contains('#') && !path.contains("://")
+
+    private fun warn(message: String) {
+        runCatching { Log.w("TroOiBackendClient", message) }
+    }
 
     private companion object {
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()

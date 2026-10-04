@@ -59,19 +59,19 @@ fun V1OperatorWorkspace(
             V1PageTitle(
                 when (route) {
                     OperatorRoute.Organizations -> "Không gian vận hành"
-                    is OperatorRoute.Organization -> "Organization"
-                    is OperatorRoute.Dashboard -> "Dashboard"
-                    is OperatorRoute.Properties -> "Property"
-                    is OperatorRoute.Property -> "Chi tiết Property"
-                    is OperatorRoute.Rooms -> "Room"
-                    is OperatorRoute.Room -> "Chi tiết Room"
-                    is OperatorRoute.RoomHistory -> "Lịch sử Room"
-                    is OperatorRoute.Listing -> "Quản lý Listing"
+                    is OperatorRoute.Organization -> "Khu trọ"
+                    is OperatorRoute.Dashboard -> "Tổng quan"
+                    is OperatorRoute.Properties -> "Khu nhà"
+                    is OperatorRoute.Property -> "Chi tiết khu nhà"
+                    is OperatorRoute.Rooms -> "Phòng"
+                    is OperatorRoute.Room -> "Chi tiết phòng"
+                    is OperatorRoute.RoomHistory -> "Lịch sử phòng"
+                    is OperatorRoute.Listing -> "Quản lý tin đăng"
                     is OperatorRoute.Rentals -> "Quản lý lượt thuê"
-                    is OperatorRoute.Inquiries -> "Inquiry Inbox"
-                    is OperatorRoute.Inquiry -> "Chi tiết Inquiry"
+                    is OperatorRoute.Inquiries -> "Yêu cầu liên hệ"
+                    is OperatorRoute.Inquiry -> "Chi tiết liên hệ"
                 },
-                "Dữ liệu và trạng thái chỉ được cập nhật sau khi Backend xác nhận.",
+                "Quản lý thông tin và trạng thái vận hành.",
             )
         }
         if (ui.stack.size > 1) item { TextButton(onClick = { model.back() }) { Text("← Quay lại") } }
@@ -91,17 +91,17 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Rentals -> Unit // Rendered above as a separate nested workflow.
             OperatorRoute.Organizations -> {
                 if (!ui.busy && ui.organizations.isEmpty()) item {
-                    V1Panel("Chưa có Organization") { V1Pending("Tạo workspace mới hoặc đợi Backend cấp quyền truy cập.") }
+                    V1Panel("Chưa có khu trọ") { V1Pending("Tạo khu trọ mới hoặc chờ được cấp quyền quản lý.") }
                 }
                 items(ui.organizations, key = { "org-" + it.id }) { org ->
-                    V1Row(org.name, "Mở Organization", "org-" + org.id) {
+                    V1Row(org.name, "Mở khu trọ", "org-" + org.id) {
                         model.open(OperatorRoute.Organization(org.id))
                     }
                 }
                 item {
-                    V1Panel("Tạo Organization") {
+                    V1Panel("Tạo khu trọ") {
                         V1Input(name, { name = it }, "Tên workspace", "organization-name")
-                        V1Action("Tạo Organization", { model.createOrganization(name) },
+                        V1Action("Tạo khu trọ", { model.createOrganization(name) },
                             enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -110,10 +110,10 @@ fun V1OperatorWorkspace(
                 ui.organization?.takeIf { it.id == route.id }?.let { org ->
                     item {
                         V1Panel(org.name) {
-                            V1Input(name, { name = it }, "Tên Organization mới", "organization-edit-name")
+                            V1Input(name, { name = it }, "Tên khu trọ mới", "organization-edit-name")
                             V1Action("Lưu tên", { model.renameOrganization(org.id, name) }, enabled = !ui.busy && name.isNotBlank())
-                            V1Action("Dashboard", { model.open(OperatorRoute.Dashboard(org.id)) })
-                            V1Action("Quản lý Property", { model.open(OperatorRoute.Properties(org.id)) })
+                            V1Action("Tổng quan", { model.open(OperatorRoute.Dashboard(org.id)) })
+                            V1Action("Quản lý khu nhà", { model.open(OperatorRoute.Properties(org.id)) })
                         }
                     }
                 }
@@ -121,42 +121,42 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Dashboard -> {
                 ui.dashboard?.takeIf { it.organizationId == route.organizationId }?.let { dashboard ->
                     item {
-                        V1Panel("Dashboard theo Backend") {
-                            V1Metric("Room · VACANT", dashboard.roomsByState.vacant.toString())
-                            V1Metric("Room · OCCUPIED", dashboard.roomsByState.occupied.toString())
-                            V1Metric("Room · MAINTENANCE", dashboard.roomsByState.maintenance.toString())
-                            V1Metric("Room · INACTIVE", dashboard.roomsByState.inactive.toString())
-                            V1Metric("Active tenancies", dashboard.activeTenancyCount.toString())
-                            V1Metric("Open incidents", dashboard.openIncidentCount.toString())
+                        V1Panel("Tổng quan") {
+                            V1Metric("Phòng trống", dashboard.roomsByState.vacant.toString())
+                            V1Metric("Có người thuê", dashboard.roomsByState.occupied.toString())
+                            V1Metric("Đang bảo trì", dashboard.roomsByState.maintenance.toString())
+                            V1Metric("Ngừng sử dụng", dashboard.roomsByState.inactive.toString())
+                            V1Metric("Lượt thuê đang hoạt động", dashboard.activeTenancyCount.toString())
+                            V1Metric("Sự cố đang mở", dashboard.openIncidentCount.toString())
                             V1Metric(
-                                "Outstanding receivable",
-                                dashboard.outstandingReceivable ?: "Chưa có authoritative aggregate",
+                                "Khoản còn cần thu",
+                                dashboard.outstandingReceivable ?: "Chưa có số liệu tổng hợp",
                             )
                             V1Metric(
-                                "Confirmed payment total",
-                                dashboard.confirmedPaymentTotal ?: "Chưa có authoritative aggregate",
+                                "Tiền đã nhận",
+                                dashboard.confirmedPaymentTotal ?: "Chưa có số liệu tổng hợp",
                             )
                         }
                     }
                 }
             }
             is OperatorRoute.Properties -> {
-                if (!ui.busy && ui.properties.isEmpty()) item { V1Panel("Property") { V1Pending("Chưa có Property trong Organization này.") } }
+                if (!ui.busy && ui.properties.isEmpty()) item { V1Panel("Khu nhà") { V1Pending("Chưa có khu nhà trong khu trọ này.") } }
                 items(ui.properties, key = { "property-" + it.id }) { property ->
                     V1Row(property.name, "Mở khu nhà", "property-" + property.id) {
                         model.open(OperatorRoute.Property(property.id, route.organizationId))
                     }
                 }
                 item {
-                    V1Panel("Tạo Property") {
-                        Text("Operational location chỉ gửi Backend; public location được nhập riêng.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        V1Input(name, { name = it }, "Tên Property", "property-name")
+                    V1Panel("Tạo khu nhà") {
+                        Text("Địa chỉ vận hành được giữ riêng với vị trí công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        V1Input(name, { name = it }, "Tên khu nhà", "property-name")
                         V1Input(address, { address = it }, "Địa chỉ vận hành (riêng tư)", "private-address")
                         V1Input(opLat, { opLat = it }, "Operational latitude", "operational-latitude")
                         V1Input(opLng, { opLng = it }, "Operational longitude", "operational-longitude")
                         V1Input(publicLat, { publicLat = it }, "Public latitude (tọa độ công khai)", "public-latitude")
                         V1Input(publicLng, { publicLng = it }, "Public longitude (tọa độ công khai)", "public-longitude")
-                        V1Action("Tạo Property", {
+                        V1Action("Tạo khu nhà", {
                             val coordinates = listOf(opLat, opLng, publicLat, publicLng).map(String::toDoubleOrNull)
                             if (coordinates.all { it != null }) model.createProperty(
                                 route.organizationId, name, address,
@@ -172,12 +172,12 @@ fun V1OperatorWorkspace(
                 ui.property?.takeIf { it.id == route.id }?.let { property ->
                     item {
                         V1Panel(property.name) {
-                            Text("Mọi thay đổi địa chỉ vận hành phải đi qua Backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            V1Input(name, { name = it }, "Tên Property mới", "property-edit-name")
+                            Text("Địa chỉ vận hành không xuất hiện trên tin đăng công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            V1Input(name, { name = it }, "Tên khu nhà mới", "property-edit-name")
                             V1Action("Lưu tên", {
                                 model.renameProperty(route.id, route.organizationId, name)
                             }, enabled = !ui.busy && name.isNotBlank())
-                            V1Action("Danh sách Room", {
+                            V1Action("Danh sách phòng", {
                                 model.open(OperatorRoute.Rooms(route.id, route.organizationId))
                             })
                         }
@@ -185,16 +185,16 @@ fun V1OperatorWorkspace(
                 }
             }
             is OperatorRoute.Rooms -> {
-                if (!ui.busy && ui.rooms.isEmpty()) item { V1Panel("Room") { V1Pending("Chưa có Room.") } }
+                if (!ui.busy && ui.rooms.isEmpty()) item { V1Panel("Phòng") { V1Pending("Chưa có phòng nào.") } }
                 items(ui.rooms, key = { "room-" + it.id }) { room ->
-                    V1Row(room.name, room.state + " · " + room.lifecycle, "room-" + room.id) {
+                    V1Row(room.name, operatorRoomStateLabel(room.state) + " · " + recordLifecycleLabel(room.lifecycle), "room-" + room.id) {
                         model.open(OperatorRoute.Room(room.id, route.propertyId, route.organizationId))
                     }
                 }
                 item {
-                    V1Panel("Tạo Room") {
+                    V1Panel("Tạo phòng") {
                         V1Input(name, { name = it }, "Tên hoặc mã phòng", "room-name")
-                        V1Action("Tạo Room", {
+                        V1Action("Tạo phòng", {
                             model.createRoom(route.propertyId, route.organizationId, name)
                         }, enabled = !ui.busy && name.isNotBlank())
                     }
@@ -223,7 +223,7 @@ fun V1OperatorWorkspace(
                         )
                     }
                     item {
-                        LedgerSectionTitle("Nguồn hiện tại", "Room state và Listing hiện hành từ Backend")
+                        LedgerSectionTitle("Thông tin hiện tại", "Trạng thái phòng và tin đăng đang áp dụng")
                         Spacer(Modifier.height(8.dp))
                         V1Metric("Trạng thái vận hành", room.state)
                         V1Metric("Vòng đời record", room.lifecycle)
@@ -233,18 +233,18 @@ fun V1OperatorWorkspace(
                     }
                     item {
                         V1Panel("Thao tác phòng") {
-                            V1Input(name, { name = it }, "Tên Room mới", "room-edit-name")
+                            V1Input(name, { name = it }, "Tên phòng mới", "room-edit-name")
                             V1Action("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
                             if (room.state != "vacant") {
-                                V1SecondaryAction("Chuyển sang VACANT", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
+                                V1SecondaryAction("Đánh dấu phòng trống", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
                             }
                             if (room.state != "maintenance") {
-                                V1SecondaryAction("Chuyển sang MAINTENANCE", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
+                                V1SecondaryAction("Chuyển sang bảo trì", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
                             }
                             if (room.state != "inactive") {
-                                V1SecondaryAction("Chuyển sang INACTIVE", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
+                                V1SecondaryAction("Ngừng sử dụng phòng", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
                             }
-                            V1Pending("OCCUPIED do Tenancy activation sở hữu; không có manual transition sang OCCUPIED.")
+                            V1Pending("Trạng thái có người thuê được cập nhật tự động khi lượt thuê được kích hoạt.")
                         }
                     }
                     item {
@@ -260,14 +260,14 @@ fun V1OperatorWorkspace(
                     }
                 }
                 if (!ui.busy && ui.listing?.roomId != route.id) item {
-                    V1Panel("Tạo Listing DRAFT cho Room") {
-                        V1Pending("Backend kiểm tra tối đa một Listing hiện hành; nếu trùng sẽ từ chối bằng conflict.")
+                    V1Panel("Tạo tin đăng cho phòng") {
+                        V1Pending("Mỗi phòng chỉ có một tin đăng hiện hành.")
                         V1Input(name, { name = it }, "Tiêu đề công khai", "listing-title")
                         V1Input(description, { description = it }, "Mô tả công khai", "listing-description")
-                        V1Input(price, { price = it }, "Giá công khai (số)", "listing-price")
-                        V1Input(publicLat, { publicLat = it }, "Vĩ độ công khai", "listing-public-latitude")
-                        V1Input(publicLng, { publicLng = it }, "Kinh độ công khai", "listing-public-longitude")
-                        V1Action("Tạo DRAFT", {
+                        V1Input(price, { price = it.filter(Char::isDigit).take(16) }, "Giá công khai (VND)", "listing-price")
+                        V1Input(publicLat, { publicLat = it }, "Vĩ độ công khai · thiết lập nâng cao", "listing-public-latitude")
+                        V1Input(publicLng, { publicLng = it }, "Kinh độ công khai · thiết lập nâng cao", "listing-public-longitude")
+                        V1Action("Tạo bản nháp", {
                             model.createListing(route, name, description, price,
                                 publicLat.toDouble(), publicLng.toDouble())
                         }, enabled = !ui.busy && name.isNotBlank() && description.isNotBlank() &&
@@ -278,10 +278,10 @@ fun V1OperatorWorkspace(
                 }
                 ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->
                     item {
-                        V1Panel("Listing hiện tại") {
-                            V1Metric("Listing ID", listing.id)
-                            V1Metric("Status", listing.status)
-                            V1Action("Mở Listing", {
+                        V1Panel("Tin đăng hiện tại") {
+                            V1Metric("Mã tin đăng", listing.id)
+                            V1Metric("Trạng thái", listingStatusLabel(listing.status))
+                            V1Action("Mở tin đăng", {
                                 model.open(OperatorRoute.Listing(listing.id, route.id, route.propertyId, route.organizationId))
                             }, enabled = !ui.busy)
                         }
@@ -298,10 +298,10 @@ fun V1OperatorWorkspace(
                         )
                     }
                     item {
-                        LedgerSectionTitle("Dòng thời gian Listing", "Read-only projection")
+                        LedgerSectionTitle("Lịch sử tin đăng", "Chỉ đọc")
                         Spacer(Modifier.height(8.dp))
                         if (history.listings.isEmpty()) {
-                            V1Pending("Chưa có Listing history từ Backend.")
+                            V1Pending("Chưa có lịch sử tin đăng.")
                         } else {
                             history.listings.forEach { entry ->
                                 if (entry.events.isEmpty()) {
@@ -325,36 +325,36 @@ fun V1OperatorWorkspace(
                     }
                     item {
                         LedgerDivider()
-                        LedgerSectionTitle("Lượt thuê & tài chính", "Source records theo Tenancy")
+                        LedgerSectionTitle("Lượt thuê & tài chính", "Lịch sử liên quan đến phòng")
                         Spacer(Modifier.height(8.dp))
                         if (history.tenancies.isEmpty()) {
-                            V1Pending("Chưa có Tenancy history từ Backend.")
+                            V1Pending("Chưa có lịch sử lượt thuê.")
                         } else {
                             history.tenancies.forEach { entry ->
                                 LedgerAttentionRow(
-                                    title = "Tenancy ${entry.tenancy.id}",
-                                    supporting = "${entry.tenancy.status} · ${entry.billingCycles.size} Billing Cycle",
+                                    title = "Lượt thuê ${entry.tenancy.id}",
+                                    supporting = "${entry.tenancy.status} · ${entry.billingCycles.size} kỳ thanh toán",
                                     tone = LedgerTone.Neutral,
                                 )
                                 entry.payments.forEach { paymentEntry ->
                                     LedgerAttentionRow(
-                                        title = "Payment ${paymentEntry.payment.id}",
+                                        title = "Thanh toán ${paymentEntry.payment.id}",
                                         supporting = paymentEntry.payment.confirmedAt,
                                         amount = paymentEntry.payment.amount,
                                         tone = LedgerTone.Success,
                                     )
                                     paymentEntry.receipts.forEach { receipt ->
                                         LedgerAttentionRow(
-                                            title = "Receipt ${receipt.id}",
+                                            title = "Biên nhận ${receipt.id}",
                                             supporting = receipt.status,
                                             tone = LedgerTone.Neutral,
                                         )
                                     }
                                 }
                                 entry.deposit?.let { depositHistory ->
-                                    V1Metric("Deposit held", depositHistory.projection.heldAmount)
+                                    V1Metric("Tiền cọc đang giữ", depositHistory.projection.heldAmount)
                                     LedgerStateLabel(
-                                        depositHistory.projection.state ?: "Chưa có authoritative state",
+                                        depositHistory.projection.state ?: "Chưa có trạng thái",
                                         LedgerTone.Clay,
                                     )
                                 }
@@ -363,10 +363,10 @@ fun V1OperatorWorkspace(
                     }
                     item {
                         LedgerDivider()
-                        LedgerSectionTitle("Sự cố", "IncidentEvent append-only")
+                        LedgerSectionTitle("Sự cố", "Lịch sử xử lý")
                         Spacer(Modifier.height(8.dp))
                         if (history.incidents.isEmpty()) {
-                            V1Pending("Chưa có Incident history từ Backend.")
+                            V1Pending("Chưa có lịch sử sự cố.")
                         } else {
                             history.incidents.forEach { entry ->
                                 if (entry.events.isEmpty()) {
@@ -394,32 +394,31 @@ fun V1OperatorWorkspace(
                 ui.listing?.takeIf { it.id == route.id && it.roomId == route.roomId }?.let { listing ->
                     item {
                         V1Panel(listing.title) {
-                            V1Metric("Listing Status", listing.status)
+                            V1Metric("Trạng thái", listingStatusLabel(listing.status))
                             V1Metric("Giá công khai", listing.price)
                             V1Input(name, { name = it }, "Tiêu đề mới", "listing-edit-title")
                             V1Input(description, { description = it }, "Mô tả mới", "listing-edit-description")
-                            V1Input(price, { price = it }, "Giá mới", "listing-edit-price")
-                            V1Action("Lưu Listing", { model.editListing(route, name, description, price) },
+                            V1Input(price, { price = it.filter(Char::isDigit).take(16) }, "Giá mới (VND)", "listing-edit-price")
+                            V1Action("Lưu tin đăng", { model.editListing(route, name, description, price) },
                                 enabled = !ui.busy && listing.status != "archived" &&
                                     name.isNotBlank() && description.isNotBlank() &&
                                     price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
                             if (listing.status == "draft" || listing.status == "unpublished") {
-                                V1Action("Publish", { model.publishListing(route) }, enabled = !ui.busy)
+                                V1Action("Đăng tin", { model.publishListing(route) }, enabled = !ui.busy)
                             }
                             if (listing.status == "published") {
-                                V1Action("Unpublish", { model.unpublishListing(route) }, enabled = !ui.busy)
+                                V1Action("Ẩn tin", { model.unpublishListing(route) }, enabled = !ui.busy)
                             }
                             if (listing.status != "archived") {
-                                V1Action("Archive", { model.archiveListing(route) }, enabled = !ui.busy)
+                                V1Action("Lưu trữ", { model.archiveListing(route) }, enabled = !ui.busy)
                             }
-                            V1Pending("Lifecycle được Backend xác nhận; Android không gửi reasonCode/actor/trigger.")
                             V1Action("Inbox liên hệ", { model.open(OperatorRoute.Inquiries(listing.id)) })
                         }
                     }
                 }
             }
             is OperatorRoute.Inquiries -> {
-                if (!ui.busy && ui.inquiries.isEmpty()) item { V1Panel("Inbox") { V1Pending("Chưa có Inquiry cho Listing này.") } }
+                if (!ui.busy && ui.inquiries.isEmpty()) item { V1Panel("Yêu cầu liên hệ") { V1Pending("Chưa có yêu cầu liên hệ cho tin đăng này.") } }
                 items(ui.inquiries, key = { "inquiry-" + it.id }) { entry ->
                     V1Row(entry.message, entry.status, "inquiry-" + entry.id) {
                         model.open(OperatorRoute.Inquiry(entry.id, route.listingId))
@@ -429,11 +428,10 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Inquiry -> {
                 ui.inquiry?.takeIf { it.id == route.id && it.listingId == route.listingId }?.let { entry ->
                     item {
-                        V1Panel("Inquiry · " + entry.id) {
+                        V1Panel("Yêu cầu liên hệ") {
                             Text(entry.message)
-                            V1Metric("Status do Backend cung cấp", entry.status)
-                            Text("Sender ID: " + (entry.senderUserId ?: "Không có thông tin công khai"))
-                            V1Pending("Inquiry không tự tạo Booking, Tenancy hoặc Notification.")
+                            V1Metric("Trạng thái", entry.status)
+                            V1Pending("Yêu cầu liên hệ không tự động giữ phòng hoặc tạo lượt thuê.")
                         }
                     }
                 }
@@ -456,4 +454,26 @@ fun V1OperatorWorkspace(
         Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Mở chi tiết →", fontWeight = FontWeight.SemiBold)
     }
+}
+
+private fun operatorRoomStateLabel(value: String): String = when (value.lowercase()) {
+    "occupied" -> "Có người thuê"
+    "vacant" -> "Phòng trống"
+    "maintenance" -> "Đang bảo trì"
+    "inactive" -> "Ngừng sử dụng"
+    else -> value
+}
+
+private fun recordLifecycleLabel(value: String): String = when (value.lowercase()) {
+    "active" -> "Đang hoạt động"
+    "archived" -> "Đã lưu trữ"
+    else -> value
+}
+
+private fun listingStatusLabel(value: String): String = when (value.lowercase()) {
+    "draft" -> "Bản nháp"
+    "published" -> "Đang công khai"
+    "unpublished" -> "Đang ẩn"
+    "archived" -> "Đã lưu trữ"
+    else -> value
 }
