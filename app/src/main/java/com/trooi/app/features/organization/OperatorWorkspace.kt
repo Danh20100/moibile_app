@@ -149,7 +149,7 @@ fun V1OperatorWorkspace(
                 }
                 item {
                     V1Panel("Tạo Property") {
-                        Text("Operational location chỉ gửi Backend; public location được nhập riêng.", color = TroOiMuted)
+                        Text("Operational location chỉ gửi Backend; public location được nhập riêng.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         V1Input(name, { name = it }, "Tên Property", "property-name")
                         V1Input(address, { address = it }, "Địa chỉ vận hành (riêng tư)", "private-address")
                         V1Input(opLat, { opLat = it }, "Operational latitude", "operational-latitude")
@@ -172,7 +172,7 @@ fun V1OperatorWorkspace(
                 ui.property?.takeIf { it.id == route.id }?.let { property ->
                     item {
                         V1Panel(property.name) {
-                            Text("Mọi thay đổi địa chỉ vận hành phải đi qua Backend.", color = TroOiMuted)
+                            Text("Mọi thay đổi địa chỉ vận hành phải đi qua Backend.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             V1Input(name, { name = it }, "Tên Property mới", "property-edit-name")
                             V1Action("Lưu tên", {
                                 model.renameProperty(route.id, route.organizationId, name)
@@ -203,28 +203,60 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Room -> {
                 ui.room?.takeIf { it.id == route.id }?.let { room ->
                     item {
-                        V1Panel(room.name) {
-                            V1Metric("Operational State", room.state)
-                            V1Metric("Record Lifecycle", room.lifecycle)
+                        val roomStateLabel = when (room.state.lowercase()) {
+                            "occupied" -> "Có người thuê"
+                            "vacant" -> "Phòng trống"
+                            "maintenance" -> "Đang bảo trì"
+                            "inactive" -> "Ngừng sử dụng"
+                            else -> room.state
+                        }
+                        RoomLedgerPlate(
+                            roomLabel = room.name,
+                            contextLabel = "Sổ phòng",
+                            stateLabel = roomStateLabel,
+                        )
+                    }
+                    item {
+                        LedgerNavStrip(
+                            active = "Tổng quan",
+                            items = listOf("Tổng quan", "Tin đăng", "Lượt thuê", "Tài chính", "Sự cố", "Lịch sử"),
+                        )
+                    }
+                    item {
+                        LedgerSectionTitle("Nguồn hiện tại", "Room state và Listing hiện hành từ Backend")
+                        Spacer(Modifier.height(8.dp))
+                        V1Metric("Trạng thái vận hành", room.state)
+                        V1Metric("Vòng đời record", room.lifecycle)
+                        ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->
+                            V1Metric("Tin đăng hiện tại", "${listing.status} · ${listing.price}")
+                        }
+                    }
+                    item {
+                        V1Panel("Thao tác phòng") {
                             V1Input(name, { name = it }, "Tên Room mới", "room-edit-name")
                             V1Action("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
                             if (room.state != "vacant") {
-                                V1Action("Chuyển sang VACANT", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
+                                V1SecondaryAction("Chuyển sang VACANT", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
                             }
                             if (room.state != "maintenance") {
-                                V1Action("Chuyển sang MAINTENANCE", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
+                                V1SecondaryAction("Chuyển sang MAINTENANCE", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
                             }
                             if (room.state != "inactive") {
-                                V1Action("Chuyển sang INACTIVE", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
+                                V1SecondaryAction("Chuyển sang INACTIVE", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
                             }
-                            V1Pending("OCCUPIED không phải manual transition; Backend vẫn quyết định transition nào hợp lệ.")
-                            V1Action("Tenancy / Billing / Incident", {
-                                model.open(OperatorRoute.Rentals(room.id, route.organizationId))
-                            })
-                            V1Action("Lịch sử vận hành Room", {
-                                model.open(OperatorRoute.RoomHistory(room.id, route.propertyId, route.organizationId))
-                            })
+                            V1Pending("OCCUPIED do Tenancy activation sở hữu; không có manual transition sang OCCUPIED.")
                         }
+                    }
+                    item {
+                        LedgerSectionTitle("Mở bản ghi nguồn")
+                        Spacer(Modifier.height(8.dp))
+                        V1SecondaryAction("Lượt thuê · Tài chính · Sự cố", {
+                            model.open(OperatorRoute.Rentals(room.id, route.organizationId))
+                        }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        V1SecondaryAction("Lịch sử đầy đủ", {
+                            model.open(OperatorRoute.RoomHistory(room.id, route.propertyId, route.organizationId))
+                        }, modifier = Modifier.fillMaxWidth())
                     }
                 }
                 if (!ui.busy && ui.listing?.roomId != route.id) item {
@@ -259,54 +291,99 @@ fun V1OperatorWorkspace(
             is OperatorRoute.RoomHistory -> {
                 ui.roomHistory?.takeIf { it.room.id == route.id }?.let { history ->
                     item {
-                        V1Panel("Room · ${history.room.nameOrLabel}") {
-                            V1Metric("Operational state", history.room.operationalState)
-                            V1Metric("Record lifecycle", history.room.recordLifecycle)
-                        }
+                        RoomLedgerPlate(
+                            roomLabel = history.room.nameOrLabel,
+                            contextLabel = "Lịch sử phòng",
+                            stateLabel = history.room.operationalState,
+                        )
                     }
                     item {
-                        V1Panel("Listing history") {
-                            if (history.listings.isEmpty()) V1Pending("Chưa có Listing history từ Backend.")
+                        LedgerSectionTitle("Dòng thời gian Listing", "Read-only projection")
+                        Spacer(Modifier.height(8.dp))
+                        if (history.listings.isEmpty()) {
+                            V1Pending("Chưa có Listing history từ Backend.")
+                        } else {
                             history.listings.forEach { entry ->
-                                V1Metric("Listing ${entry.listing.id}", entry.listing.status)
-                                entry.events.forEach { event ->
-                                    Text(
-                                        "${event.fromStatus} → ${event.toStatus} · ${event.occurredAt}",
-                                        color = TroOiMuted,
+                                if (entry.events.isEmpty()) {
+                                    LedgerAttentionRow(
+                                        title = "Listing ${entry.listing.id}",
+                                        supporting = entry.listing.status,
+                                        tone = LedgerTone.Neutral,
                                     )
+                                } else {
+                                    entry.events.forEach { event ->
+                                        LedgerHistoryEvent(
+                                            source = "Tin đăng",
+                                            title = "${event.fromStatus} → ${event.toStatus}",
+                                            occurredAt = event.occurredAt,
+                                            supporting = "Listing ${entry.listing.id}",
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                     item {
-                        V1Panel("Tenancy / Finance history") {
-                            if (history.tenancies.isEmpty()) V1Pending("Chưa có Tenancy history từ Backend.")
+                        LedgerDivider()
+                        LedgerSectionTitle("Lượt thuê & tài chính", "Source records theo Tenancy")
+                        Spacer(Modifier.height(8.dp))
+                        if (history.tenancies.isEmpty()) {
+                            V1Pending("Chưa có Tenancy history từ Backend.")
+                        } else {
                             history.tenancies.forEach { entry ->
-                                V1Metric("Tenancy ${entry.tenancy.id}", entry.tenancy.status)
-                                Text("Billing cycles: ${entry.billingCycles.size}", color = TroOiMuted)
+                                LedgerAttentionRow(
+                                    title = "Tenancy ${entry.tenancy.id}",
+                                    supporting = "${entry.tenancy.status} · ${entry.billingCycles.size} Billing Cycle",
+                                    tone = LedgerTone.Neutral,
+                                )
                                 entry.payments.forEach { paymentEntry ->
-                                    V1Metric("Payment ${paymentEntry.payment.id}", paymentEntry.payment.amount)
+                                    LedgerAttentionRow(
+                                        title = "Payment ${paymentEntry.payment.id}",
+                                        supporting = paymentEntry.payment.confirmedAt,
+                                        amount = paymentEntry.payment.amount,
+                                        tone = LedgerTone.Success,
+                                    )
                                     paymentEntry.receipts.forEach { receipt ->
-                                        Text("Receipt ${receipt.id} · ${receipt.status}", color = TroOiMuted)
+                                        LedgerAttentionRow(
+                                            title = "Receipt ${receipt.id}",
+                                            supporting = receipt.status,
+                                            tone = LedgerTone.Neutral,
+                                        )
                                     }
                                 }
                                 entry.deposit?.let { depositHistory ->
                                     V1Metric("Deposit held", depositHistory.projection.heldAmount)
-                                    V1Metric(
-                                        "Deposit state",
+                                    LedgerStateLabel(
                                         depositHistory.projection.state ?: "Chưa có authoritative state",
+                                        LedgerTone.Clay,
                                     )
                                 }
                             }
                         }
                     }
                     item {
-                        V1Panel("Incident history") {
-                            if (history.incidents.isEmpty()) V1Pending("Chưa có Incident history từ Backend.")
+                        LedgerDivider()
+                        LedgerSectionTitle("Sự cố", "IncidentEvent append-only")
+                        Spacer(Modifier.height(8.dp))
+                        if (history.incidents.isEmpty()) {
+                            V1Pending("Chưa có Incident history từ Backend.")
+                        } else {
                             history.incidents.forEach { entry ->
-                                V1Metric(entry.incident.category, entry.incident.status)
-                                entry.events.forEach { event ->
-                                    Text("${event.eventType} · ${event.occurredAt}", color = TroOiMuted)
+                                if (entry.events.isEmpty()) {
+                                    LedgerAttentionRow(
+                                        title = entry.incident.category,
+                                        supporting = entry.incident.status,
+                                        tone = LedgerTone.Warning,
+                                    )
+                                } else {
+                                    entry.events.forEach { event ->
+                                        LedgerHistoryEvent(
+                                            source = "Sự cố",
+                                            title = event.eventType,
+                                            occurredAt = event.occurredAt,
+                                            supporting = entry.incident.category,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -376,7 +453,7 @@ fun V1OperatorWorkspace(
 
 @Composable private fun V1Row(title: String, detail: String, tag: String, onOpen: () -> Unit) {
     V1Panel(title, modifier = Modifier.fillMaxWidth().testTag(tag).clickable(onClick = onOpen)) {
-        Text(detail, style = MaterialTheme.typography.bodySmall, color = TroOiMuted)
+        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Mở chi tiết →", fontWeight = FontWeight.SemiBold)
     }
 }

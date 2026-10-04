@@ -60,6 +60,8 @@ class TroOiViewModel @Inject constructor(
     fun openSignUp() = open(AppPage.AuthSignUp)
     fun openForgotPassword() = open(AppPage.AuthForgotPassword)
     fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
+    fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
+    fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
     fun openAccount() = open(AppPage.Account)
     fun openContextSwitcher() = open(AppPage.ContextSwitcher)
     fun openTenantHome() = openContext(AppContext.TENANT, AppPage.TenantHome)

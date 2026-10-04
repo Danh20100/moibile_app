@@ -30,14 +30,18 @@ fun AuthWelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(TroOiBackground)
+            .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        Surface(shape = RoundedCornerShape(28.dp), color = TroOiGreen, modifier = Modifier.size(88.dp)) {
+        Surface(
+            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomEnd = 12.dp, bottomStart = 4.dp),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(80.dp),
+        ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.HomeWork, contentDescription = null, tint = Color.White, modifier = Modifier.size(48.dp))
+                Icon(Icons.Rounded.HomeWork, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(48.dp))
             }
         }
         Spacer(Modifier.height(22.dp))
@@ -46,7 +50,7 @@ fun AuthWelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
         Text(
             "Tìm phòng. Quản lý nhà trọ.",
             style = MaterialTheme.typography.bodyLarge,
-            color = TroOiMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.weight(1f))
@@ -55,16 +59,16 @@ fun AuthWelcomeScreen(onLogin: () -> Unit, onSignUp: () -> Unit) {
         OutlinedButton(
             onClick = onSignUp,
             modifier = Modifier.fillMaxWidth().height(54.dp),
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, TroOiGreen),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
         ) {
-            Text("Tạo tài khoản", color = TroOiGreen, fontWeight = FontWeight.Bold)
+            Text("Tạo tài khoản", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(12.dp))
         Text(
             "Tiếp tục nghĩa là bạn đồng ý với Điều khoản và Chính sách quyền riêng tư.",
             style = MaterialTheme.typography.labelMedium,
-            color = TroOiMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
     }
@@ -93,7 +97,7 @@ fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -
                 }
             },
         )
-        TextButton(onClick = onForgotPassword, modifier = Modifier.align(Alignment.End)) { Text("Quên mật khẩu?", color = TroOiGreen) }
+        TextButton(onClick = onForgotPassword, modifier = Modifier.align(Alignment.End)) { Text("Quên mật khẩu?", color = MaterialTheme.colorScheme.primary) }
         TroOiPrimaryButton(
             text = "Đăng nhập",
             onClick = { onLogin(identifier.trim(), password) },
@@ -102,8 +106,8 @@ fun LoginScreen(onBack: () -> Unit, onSignUp: () -> Unit, onForgotPassword: () -
         )
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("Chưa có tài khoản?", color = TroOiMuted)
-            TextButton(onClick = onSignUp) { Text("Đăng ký", color = TroOiGreen, fontWeight = FontWeight.Bold) }
+            Text("Chưa có tài khoản?", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onSignUp) { Text("Đăng ký", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -156,15 +160,15 @@ fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, Str
         }
         Spacer(Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.Top) {
-            Checkbox(checked = accepted, onCheckedChange = { accepted = it }, colors = CheckboxDefaults.colors(checkedColor = TroOiGreen))
-            Text("Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.", style = MaterialTheme.typography.bodyMedium, color = TroOiMuted, modifier = Modifier.padding(top = 12.dp))
+            Checkbox(checked = accepted, onCheckedChange = { accepted = it }, colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary))
+            Text("Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         }
         Spacer(Modifier.height(12.dp))
         TroOiPrimaryButton("Tạo tài khoản", { onSignUp(fullName, phone, email, password) }, Modifier.fillMaxWidth().height(54.dp), enabled = valid)
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            Text("Đã có tài khoản?", color = TroOiMuted)
-            TextButton(onClick = onLogin) { Text("Đăng nhập", color = TroOiGreen, fontWeight = FontWeight.Bold) }
+            Text("Đã có tài khoản?", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onLogin) { Text("Đăng nhập", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -172,7 +176,7 @@ fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, Str
 @Composable
 private fun AuthFormScaffold(onBack: () -> Unit, title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().background(TroOiBackground).verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(20.dp),
     ) {
         IconButton(onClick = onBack, modifier = Modifier.offset(x = (-10).dp)) { Icon(Icons.Rounded.ArrowBack, "Quay lại", tint = TroOiText) }
         Spacer(Modifier.height(10.dp))
@@ -180,7 +184,7 @@ private fun AuthFormScaffold(onBack: () -> Unit, title: String, subtitle: String
         Spacer(Modifier.height(24.dp))
         Text(title, style = MaterialTheme.typography.headlineLarge)
         Spacer(Modifier.height(6.dp))
-        Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = TroOiMuted)
+        Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(26.dp))
         content()
         Spacer(Modifier.height(28.dp))
@@ -207,13 +211,13 @@ private fun AuthTextField(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = visualTransformation,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = TroOiGreen,
-            focusedLabelColor = TroOiGreen,
-            unfocusedBorderColor = TroOiLine,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
         ),
     )
 }

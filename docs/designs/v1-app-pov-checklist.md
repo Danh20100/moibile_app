@@ -542,3 +542,48 @@ window.TroOiAtlas.verify() // { screens: 85, errors: [] }
 Validation used headless Chrome against the local HTML, not an Android emulator. The artifact has sample records, labeled room-media and map placeholders, and preview-only actions. It does not call APIs or record money, contact requests, incident updates or lifecycle transitions.
 
 Current public-search contract supports location/radius and price bounds. Textual geocoding, room-type and availability filters remain unavailable. Payment Claim has no committed endpoint. Provider launch does not confirm payment; gateway integration remains FUTURE. Review eligibility/moderation and public Trust reporting policy remain unresolved. These limitations are presented separately from unchanged V1 / OPEN / FUTURE inventory classification.
+
+
+## Native Compose implementation — 2026-10-04
+
+This section records implementation evidence on branch `frontend/v1-app-ui-redesign`. It does not rewrite the historical HTML-artifact evidence above.
+
+- [x] Port Room Ledger light/dark semantic palette into the Compose theme.
+- [x] Port typography, 8/10/12/20dp shape hierarchy, flat paper surfaces and 48dp action targets.
+- [x] Add native Room Ledger primitives: room plate, state label, attention row, amount/context block, media placeholder, chronology event, ledger navigation and divider.
+- [x] Guest root navigation matches `Trang chủ / Bản đồ / Hoạt động / Tài khoản`.
+- [x] Tenant root navigation matches `Trang chủ / Nhà tôi / Thanh toán / Sự cố / Tài khoản`.
+- [x] Landlord root navigation matches `Tổng quan / Phòng / Tài chính / Sự cố / Tài khoản`.
+- [x] Expanded windows (>=600dp) use a native NavigationRail instead of stretching phone bottom navigation.
+- [x] Edge-to-edge Activity is preserved; Scaffold uses safe-drawing insets and app content uses IME padding.
+- [x] Native Context Switcher renders Discovery / Tenant / Operations from backend-derived relationships, not a global role.
+- [x] Guest Home and Listing Detail use public projection only; operational address remains private.
+- [x] Tenant Home is room-first and attention-first with source-backed Charge, Payment, Notice and Incident facts.
+- [x] Tenant Finance keeps Billing / Payment / Deposit / Receipt visually and semantically distinct.
+- [x] Tenant Incident surfaces use backend Incident / IncidentEvent chronology.
+- [x] Landlord Dashboard is attention-first and renders only authoritative Dashboard / Incident projections.
+- [x] Landlord Room detail uses the six-part Room Ledger hierarchy while keeping existing backend command boundaries.
+- [x] Room history is read-only chronology composed from Listing, Tenancy, Payment, Receipt, Deposit and Incident source records.
+- [x] Landlord Finance keeps owed / received / deposit / receipt lanes separate.
+- [x] Billing detail renders period, Terms provenance and individual Charges without inventing aggregate/outstanding semantics.
+- [x] Incident detail renders authoritative state plus append-only event chronology; transitions remain backend commands.
+- [x] Google-auth in-progress UI uses the Session/pre-shell visual language without claiming persistent session restore.
+- [x] Source-level Room Ledger regression tests protect palette, component family, 3-POV navigation, representative surfaces, adaptive rail and insets.
+- [x] Android gates: `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:assembleBackendDebug`, `:app:lintDebug` all pass.
+- [x] Backend default suite remains green: 284/284.
+- [x] `git diff --check` passes.
+
+### Native implementation boundaries still open
+
+- [ ] Real native map provider / interactive map picker is not wired. Do not replace it with raw latitude/longitude inputs.
+- [ ] Persistent process-restart session restore is not implemented; the current `AuthTokenProvider` is in-memory.
+- [ ] Fresh Google sign-in and full Guest / Tenant / Landlord / Notification physical-device journeys have not been captured after this redesign.
+- [ ] TalkBack traversal, large font-scale behavior and predictive-Back animation have not been physically verified after this redesign.
+- [ ] Map/geocoder textual area semantics, Availability vocabulary and other canonical OPEN items remain OPEN.
+
+
+### Task 1–6 acceptance clarification — 2026-10-04
+
+For the current V1 completion gate, native map-provider integration, process-restart session persistence, TalkBack/font-scale verification and predictive-Back visual verification are **not** blockers. They remain valid V2 / quality follow-up work.
+
+The remaining V1 acceptance evidence is limited to fresh Google authentication plus real-device Guest, Tenant, Landlord and Notification journeys. At the latest check the physical device was not visible to ADB, so those items remain unverified rather than failed.

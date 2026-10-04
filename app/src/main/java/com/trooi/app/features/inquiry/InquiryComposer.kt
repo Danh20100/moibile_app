@@ -22,7 +22,7 @@ fun InquiryComposer(
     val completed = state.inquiryCompletedListingId == listingId
     LaunchedEffect(completed) { if (completed) message = "" }
     V1Panel("Liên hệ về tin đăng", modifier = Modifier.testTag("inquiry-composer")) {
-        Text("Inquiry là nhu cầu liên hệ; không giữ phòng, không tạo Booking hay Tenancy.", color = TroOiMuted)
+        Text("Inquiry là nhu cầu liên hệ; không giữ phòng, không tạo Booking hay Tenancy.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (!state.isAuthenticated) {
             V1Pending("Đăng nhập Google trước khi gửi yêu cầu.")
             V1Action("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
@@ -49,7 +49,7 @@ fun InquiryComposer(
                 enabled = message.isNotBlank() && !state.submittingInquiry,
                 modifier = Modifier.fillMaxWidth().testTag("inquiry-submit"),
             )
-            Text("Chỉ hiển thị thành công sau khi Backend xác nhận.", color = TroOiMuted)
+            Text("Chỉ hiển thị thành công sau khi Backend xác nhận.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

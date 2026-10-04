@@ -11,6 +11,8 @@ sealed interface AppPage {
     data object AuthForgotPassword : AppPage
     data object ContextSwitcher : AppPage
     data object Discovery : AppPage
+    data object GuestMap : AppPage
+    data object GuestActivity : AppPage
     data class ListingDetail(val listingId: String) : AppPage
     data object TenantHome : AppPage
     data object TenantRental : AppPage

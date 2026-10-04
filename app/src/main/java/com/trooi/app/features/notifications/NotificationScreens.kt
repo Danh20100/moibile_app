@@ -31,7 +31,7 @@ fun V1NotificationCenterScreen(
         if (state.runtimeLoading && state.read.notifications.isEmpty()) {
             item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         } else if (state.read.notifications.isEmpty()) {
-            item { V1Panel("Không có thông báo") { Text("Backend chưa trả Notification nào.", color = TroOiMuted) } }
+            item { V1Panel("Không có thông báo") { Text("Backend chưa trả Notification nào.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         } else {
             items(state.read.notifications, key = { "notification-" + it.notificationId }) { notification ->
                 NotificationRow(notification, onOpen)
@@ -50,8 +50,8 @@ private fun NotificationRow(notification: NotificationCard, onOpen: (String) -> 
             .clickable { onOpen(notification.notificationId) },
     ) {
         Text(notification.message)
-        Text(notification.createdAtLabel, color = TroOiMuted)
-        Text(if (notification.readAtLabel == null) "Chưa đọc" else "Đã đọc", color = TroOiMuted)
+        Text(notification.createdAtLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (notification.readAtLabel == null) "Chưa đọc" else "Đã đọc", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }@Composable
 fun V1NotificationDetailScreen(

@@ -220,13 +220,29 @@ fun V1RentalWorkspace(
                 }
             }
             is RentalRoute.Billing -> {
-                if (state.billing.isEmpty() && !state.busy) item { V1Panel("Billing") { V1Pending("Chưa có Billing Cycle.") } }
+                if (state.billing.isEmpty() && !state.busy) {
+                    item { V1Panel("Kỳ thanh toán") { V1Pending("Chưa có Billing Cycle.") } }
+                }
                 items(state.billing, key = { it.id }) { cycle ->
-                    V1Panel("Billing · " + cycle.id) {
-                        Text("Kỳ: ${cycle.from} → ${cycle.to}")
-                        V1Metric("Terms version ID", cycle.termsId)
-                        cycle.charges.forEach { V1Metric(it.type + " · " + it.id, it.amount) }
+                    LedgerSectionTitle("Kỳ thanh toán", "${cycle.from} → ${cycle.to}")
+                    LedgerStateLabel("Billing source · ${cycle.id}", LedgerTone.Warning)
+                    Spacer(Modifier.height(8.dp))
+                    V1Metric("Điều khoản áp dụng", cycle.termsId)
+                    Spacer(Modifier.height(8.dp))
+                    LedgerSectionTitle("Các khoản trong kỳ")
+                    if (cycle.charges.isEmpty()) {
+                        V1Pending("Billing Cycle chưa có Charge.")
+                    } else {
+                        cycle.charges.forEach { charge ->
+                            LedgerAttentionRow(
+                                title = charge.type,
+                                supporting = "Charge · ${charge.id}",
+                                amount = charge.amount,
+                                tone = LedgerTone.Warning,
+                            )
+                        }
                     }
+                    LedgerDivider()
                 }
                 if (!state.tenantMode) item {
                     V1Panel("Tạo Billing Cycle") {
@@ -239,7 +255,7 @@ fun V1RentalWorkspace(
                             model.createBilling(route.id, name, extra, extra2, choice, price)
                         }, enabled = !state.busy && name.isNotBlank() && extra.isNotBlank() && extra2.isNotBlank() &&
                             choice.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
-                        V1Pending("Backend duy trì số tiền phải thu; không tự tính outstanding từ UI.")
+                        V1Pending("Backend duy trì nghĩa vụ phải thu; UI không tự tính aggregate/outstanding.")
                     }
                 }
             }
@@ -370,7 +386,7 @@ fun V1RentalWorkspace(
                             history.payments.forEach { entry ->
                                 V1Metric("Payment " + entry.payment.id, "${entry.payment.amount} · ${entry.payment.confirmedAt}")
                                 entry.receipts.forEach { receipt ->
-                                    Text("Receipt ${receipt.id} · ${receipt.status} · ${receipt.issuedAt}", color = TroOiMuted)
+                                    Text("Receipt ${receipt.id} · ${receipt.status} · ${receipt.issuedAt}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -387,7 +403,7 @@ fun V1RentalWorkspace(
                             history.incidents.forEach { entry ->
                                 V1Metric(entry.incident.category, entry.incident.status)
                                 entry.events.forEach { event ->
-                                    Text("${event.eventType} · ${event.occurredAt}", color = TroOiMuted)
+                                    Text("${event.eventType} · ${event.occurredAt}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -399,7 +415,7 @@ fun V1RentalWorkspace(
                                 V1Metric("Settled", depositHistory.projection.settledAmount)
                                 V1Metric("Held", depositHistory.projection.heldAmount)
                                 depositHistory.events.forEach { event ->
-                                    Text("${event.eventType} · ${event.amount} · ${event.occurredAt}", color = TroOiMuted)
+                                    Text("${event.eventType} · ${event.amount} · ${event.occurredAt}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         }
@@ -428,32 +444,55 @@ fun V1RentalWorkspace(
             is RentalRoute.Incident -> {
                 state.incident?.takeIf { it.id == route.id && it.roomId == route.roomId }?.let { incident ->
                     item {
-                        V1Panel("Incident · " + incident.id) {
-                            V1Metric("Danh mục", incident.category)
-                            V1Metric("Status do Backend xác nhận", incident.status)
-                            V1Metric("Created", incident.createdAt)
-                            if (incident.closureReason != null) V1Metric("Closure reason", incident.closureReason)
-                            if (!state.tenantMode) {
-                                val targets = V1RentalGateway.INCIDENT_TRANSITIONS[incident.status].orEmpty().toList()
-                                if (targets.isNotEmpty()) {
-                                    V1Choice(targets, choice, { choice = it }, "Transition")
-                                    V1Input(extra, { extra = it }, "Operator note (optional)", "incident-note")
-                                    if (choice == "CLOSED") V1Input(extra2, { extra2 = it }, "Closure reason", "incident-closure")
-                                    V1Action("Gửi transition", {
+                        LedgerSectionTitle(incident.category, "Incident · ${incident.id}")
+                        Spacer(Modifier.height(8.dp))
+                        LedgerStateLabel(
+                            incident.status,
+                            tone = if (incident.status == "RESOLVED" || incident.status == "CLOSED") {
+                                LedgerTone.Success
+                            } else {
+                                LedgerTone.Warning
+                            },
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        V1Metric("Tạo lúc", incident.createdAt)
+                        incident.closureReason?.let { V1Metric("Lý do đóng", it) }
+                    }
+                    item {
+                        LedgerSectionTitle("Tiến trình xử lý", "IncidentEvent append-only từ Backend")
+                        Spacer(Modifier.height(8.dp))
+                        if (state.incidentEvents.isEmpty()) {
+                            V1Pending("Chưa có Incident Event.")
+                        } else {
+                            state.incidentEvents.forEach { event ->
+                                val transition = if (event.fromStatus != null || event.toStatus != null) {
+                                    "${event.fromStatus ?: "-"} → ${event.toStatus ?: "-"}"
+                                } else {
+                                    event.eventType
+                                }
+                                LedgerHistoryEvent(
+                                    source = "Sự cố",
+                                    title = transition,
+                                    occurredAt = event.occurredAt,
+                                    supporting = event.note?.takeIf { it.isNotBlank() },
+                                )
+                            }
+                        }
+                    }
+                    if (!state.tenantMode) {
+                        item {
+                            val targets = V1RentalGateway.INCIDENT_TRANSITIONS[incident.status].orEmpty().toList()
+                            if (targets.isNotEmpty()) {
+                                V1Panel("Cập nhật xử lý") {
+                                    V1Choice(targets, choice, { choice = it }, "Transition Backend cho phép")
+                                    V1Input(extra, { extra = it }, "Ghi chú operator (optional)", "incident-note")
+                                    if (choice == "CLOSED") {
+                                        V1Input(extra2, { extra2 = it }, "Lý do đóng", "incident-closure")
+                                    }
+                                    V1Action("Gửi cập nhật", {
                                         model.transitionIncident(incident.id, choice, extra, extra2)
                                     }, enabled = !state.busy && choice.isNotBlank() &&
                                         (choice != "CLOSED" || incident.status == "RESOLVED" || extra2.isNotBlank()))
-                                }
-                            }
-                            if (state.incidentEvents.isEmpty()) {
-                                V1Pending("Chưa có Incident Event.")
-                            } else {
-                                state.incidentEvents.forEach { event ->
-                                    V1Metric(event.eventType, event.occurredAt)
-                                    if (event.fromStatus != null || event.toStatus != null) {
-                                        Text("${event.fromStatus ?: "-"} → ${event.toStatus ?: "-"}")
-                                    }
-                                    event.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = TroOiMuted) }
                                 }
                             }
                         }
@@ -480,7 +519,7 @@ fun V1RentalWorkspace(
 }
 @Composable private fun V1Link(title: String, subtitle: String, tag: String, onClick: () -> Unit) {
     V1Panel(title, modifier = Modifier.testTag(tag).clickable(onClick = onClick)) {
-        Text(subtitle, color = TroOiMuted)
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Mở →")
     }
 }

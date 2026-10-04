@@ -31,7 +31,7 @@ class UxWarningRegressionTest {
         listOf("Trang chủ", "Nhà tôi", "Thanh toán", "Sự cố", "Tài khoản").forEach {
             assertTrue(app.contains("\"$it\""))
         }
-        assertTrue(switcher.contains("Một tài khoản có thể có nhiều context"))
+        assertTrue(switcher.contains("Một tài khoản · nhiều context"))
     }
 
     @Test

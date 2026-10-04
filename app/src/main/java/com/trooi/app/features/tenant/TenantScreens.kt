@@ -39,6 +39,7 @@ import com.trooi.app.ui.theme.*
 fun V1DiscoveryScreen(
     state: TroOiUiState,
     onOpenListing: (String) -> Unit,
+    onContextSwitcher: (() -> Unit)? = null,
     onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
     onResetSearch: (() -> Unit)? = null,
     onProbeTransport: (() -> Unit)? = null,
@@ -83,7 +84,23 @@ fun V1DiscoveryScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        item { V1PageTitle("Tìm phòng", "Khám phá tin đăng đang công khai") }
+        item { V1PageTitle("TrọƠi", "Khám phá phòng") }
+        if (onContextSwitcher != null) {
+            item {
+                V1SecondaryAction(
+                    "Không gian khám phá",
+                    onContextSwitcher,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        item {
+            Text(
+                "Tìm phòng\nquanh bạn.",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+        }
         if (onProbeTransport != null) {
             item {
                 V1Panel("Kiểm tra kết nối API · Backend Debug") {
@@ -94,15 +111,15 @@ fun V1DiscoveryScreen(
         }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
-            V1Panel("Lọc trên tin đăng công khai") {
-                Text("Khu vực muốn tìm", fontWeight = FontWeight.Bold)
+            V1Panel("Bạn muốn ở đâu?") {
+                Text("Khu vực tìm kiếm", fontWeight = FontWeight.Bold)
                 V1Pending(locationMessage ?: "Chọn vị trí để app tạo tâm spatial search ở lớp nội bộ.")
                 V1Action(
                     "Dùng vị trí hiện tại",
                     useCurrentLocation,
                     modifier = Modifier.fillMaxWidth().testTag("discovery-use-current-location"),
                 )
-                V1Action(
+                V1SecondaryAction(
                     "Chọn trên bản đồ",
                     onClick = {},
                     modifier = Modifier.fillMaxWidth().testTag("discovery-open-map-picker"),
@@ -110,7 +127,7 @@ fun V1DiscoveryScreen(
                 )
                 Text(
                     "Map picker chưa được wire với provider; app không fallback sang bắt người dùng nhập latitude/longitude.",
-                    color = TroOiMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text("Bán kính", fontWeight = FontWeight.Bold)
@@ -168,10 +185,16 @@ fun V1DiscoveryScreen(
                 Text(
                     "App chuyển vị trí đã chọn thành latitude/longitude nội bộ rồi gửi radius và khoảng giá tới Backend. " +
                         "Textual geocoder/area và Availability vẫn OPEN; không dùng địa chỉ vận hành.",
-                    color = TroOiMuted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
+        }
+        item {
+            LedgerSectionTitle(
+                "Quanh vị trí đã chọn",
+                "Listing PUBLISHED từ public projection",
+            )
         }
         if (state.runtimeLoading && listings.isEmpty()) {
             item { V1Panel("Đang tải tin đăng") { V1Pending("Đang đọc public Listing projection từ Backend.") } }
@@ -183,25 +206,60 @@ fun V1DiscoveryScreen(
             } }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
-                V1Panel(
-                    listing.title,
+                Surface(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .testTag("public-listing-" + listing.listingId)
                         .clickable { onOpenListing(listing.listingId) },
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.LocationOn, null, tint = TroOiGreen)
-                        Spacer(Modifier.width(8.dp))
-                        Text(listing.publicAreaLabel, style = MaterialTheme.typography.bodyMedium, color = TroOiMuted)
+                    Column(
+                        Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        LedgerMediaPlaceholder(
+                            title = "Không gian minh họa · Chưa có ảnh phòng",
+                            subtitle = "Ảnh minh họa không phải bằng chứng tài sản.",
+                            modifier = Modifier.height(118.dp),
+                        )
+                        Text(listing.title, style = MaterialTheme.typography.titleLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                listing.publicAreaLabel,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            listing.askingPriceLabel ?: "Giá chưa được công khai",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        listing.distanceMeters?.let {
+                            Text(
+                                "Khoảng cách công khai: ${it.toInt()} m",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        if (listing.amenities.isNotEmpty()) {
+                            Text(
+                                listing.amenities.joinToString(" · "),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        }
+                        Text(
+                            "Xem thông tin và liên hệ →",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
-                    Text(listing.askingPriceLabel ?: "Giá chưa được công khai", style = MaterialTheme.typography.titleLarge, color = TroOiGreen)
-                    listing.distanceMeters?.let {
-                        Text("Khoảng cách theo public projection: ${it.toInt()} m", color = TroOiMuted)
-                    }
-                    if (listing.amenities.isNotEmpty()) {
-                        Text(listing.amenities.joinToString(" · "), color = TroOiMuted, style = MaterialTheme.typography.labelMedium)
-                    }
-                    Text("Xem thông tin và liên hệ →", style = MaterialTheme.typography.labelMedium, color = TroOiGreen)
                 }
             }
         }
@@ -223,20 +281,50 @@ fun V1ListingDetailScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        item { TextButton(onClick = onBack) { Text("← Quay lại", color = TroOiGreen) } }
+        item { TextButton(onClick = onBack) { Text("← Quay lại", color = MaterialTheme.colorScheme.primary) } }
         if (state.demoPreview) item { V1PreviewNotice() }
         if (listing == null) {
             item { V1Panel("Tin đăng không khả dụng") { V1Pending("Chỉ tin đăng PUBLISHED mới xuất hiện trong Discovery.") } }
         } else {
+            item {
+                LedgerMediaPlaceholder(
+                    title = "Không gian minh họa · Chưa có ảnh phòng",
+                    subtitle = "Media placeholder được gắn nhãn; không trình bày như ảnh thật của tài sản.",
+                    modifier = Modifier.height(220.dp),
+                )
+            }
             item { V1PageTitle(listing.title, listing.publicAreaLabel) }
             item {
-                V1Panel("Thông tin công khai") {
-                    V1Metric("Giá đề xuất của tin đăng", listing.askingPriceLabel ?: "Chưa công khai")
-                    if (listing.amenities.isNotEmpty()) Text(listing.amenities.joinToString(" · "), color = TroOiMuted)
-                    Text("Vị trí trên bản đồ chỉ dùng projection công khai do Backend cung cấp.", color = TroOiMuted)
-                    if (listing.publicGeoPoint == null) V1Pending("Chưa có public map projection.")
+                LedgerMoney(
+                    amount = listing.askingPriceLabel ?: "Giá chưa công khai",
+                    context = "Giá công khai của Listing · không phải Payment/Billing fact",
+                )
+            }
+            item {
+                LedgerStateLabel("Tin đăng đang công khai", LedgerTone.Success)
+            }
+            item {
+                LedgerSectionTitle("Thông tin công khai")
+                Spacer(Modifier.height(8.dp))
+                if (listing.amenities.isNotEmpty()) {
+                    Text(
+                        listing.amenities.joinToString(" · "),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    "Vị trí chỉ dùng public projection do Backend cung cấp; địa chỉ vận hành không xuất hiện ở đây.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (listing.publicGeoPoint == null) {
+                    Spacer(Modifier.height(8.dp))
+                    V1Pending("Chưa có public map projection.")
                 }
             }
+            item { LedgerDivider() }
             item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry) }
         }
     }
@@ -276,7 +364,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                         if (rentals.isEmpty()) V1Pending("Không có lượt thuê được Backend liên kết với tài khoản.")
                         else rentals.forEach {
                             Text(it.roomLabel, fontWeight = FontWeight.SemiBold)
-                            Text("Tenancy: ${it.lifecycle}", color = TroOiMuted)
+                            Text("Tenancy: ${it.lifecycle}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     PortalArea.TERMS -> {
@@ -333,7 +421,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
         items(PortalArea.entries.toList(), key = { it.name }) { section ->
             Surface(
                 modifier = Modifier.fillMaxWidth().clickable { selected = section },
-                color = if (selected == section) TroOiGreenSoft else Color.White,
+                color = if (selected == section) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(1.dp, TroOiLine),
             ) {
@@ -342,9 +430,9 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                     Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) {
                         Text(section.title, fontWeight = FontWeight.Bold, color = TroOiText)
-                        Text(section.description, style = MaterialTheme.typography.labelMedium, color = TroOiMuted)
+                        Text(section.description, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("›", style = MaterialTheme.typography.titleLarge, color = TroOiGreen)
+                    Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
