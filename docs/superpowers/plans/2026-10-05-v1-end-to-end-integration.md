@@ -554,4 +554,4 @@ Still OPEN/FUTURE: geocoder/type/availability, Payment Claim evidence/confirmati
 
 Self-review at plan-writing time: dependencies/interfaces and all spec sections mapped; replay endpoint simplified; terminal transitions/provider stage consistent; numeric defaults separated from product invariants; DB overlap evidence and device commands explicit. Files marked create are future deliverables, not files claimed present. Runtime/provider/build gates in this plan are expected outcomes, **not executed PASS results**.
 
-This plan has not started execution. User must review plan and choose execution method (subagent-driven or native) before product changes.
+Execution status — 2026-10-05: user approved this plan and subagent-driven execution. Task 0 is complete; Task 1 documentation/browser boundary is completed pending final review. Later task gates are not yet complete; approval and Task 1 evidence do not claim runtime delivery or merge readiness.
