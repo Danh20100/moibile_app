@@ -6,7 +6,7 @@ import { createCoreTestTransactionManager } from '../../core/support/in-memory-t
 describe('finance lifecycle edge-case audit', () => {
   it('rejects an invalid negative Payment at the business boundary', async () => {
     const service = new BillingService({ findById: async () => ({ id: 'tenancy_reference' }) } as never, createCoreTestTransactionManager());
-    await assert.rejects(() => service.recordPayment({ tenancyId: 'tenancy_reference', amount: '-10.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() }));
+    await assert.rejects(() => service.recordPayment({ tenancyId: 'tenancy_reference', amount: '-10.00', source: 'MANUAL_CASH', confirmedAt: new Date().toISOString() }));
   });
 
   it('rejects overlapping Billing Cycles for one Tenancy', async () => {

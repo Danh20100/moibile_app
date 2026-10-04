@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+
+import { RecordPaymentDto } from '../../src/modules/billing/dto';
 
 import { BillingService } from '../../src/modules/billing/services/billing.service';
 import { ReceiptService } from '../../src/modules/receipt/services/receipt.service';
@@ -68,7 +71,6 @@ test('payment allocation cannot cross tenancy or exceed payment amount', async (
     tenancyId: 'tenancy-a',
     amount: '100.00',
     source: 'MANUAL_TRANSFER',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-09-05T00:00:00.000Z',
   });
 
@@ -97,7 +99,6 @@ test('charge allocations and deposit applications share the payment amount cap',
     tenancyId: 'tenancy-a',
     amount: '100.00',
     source: 'MANUAL_CASH',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-09-05T00:00:00.000Z',
   });
 
@@ -136,7 +137,6 @@ test('deposit projection blocks OPEN requirement-change semantics after partial 
     tenancyId: 'tenancy-a',
     amount: '40.00',
     source: 'MANUAL_CASH',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-02-01T00:00:00.000Z',
   });
   await finance.applyPaymentToDeposit(payment.id, deposit.id, '40.00');
@@ -178,17 +178,16 @@ test('confirmed payment correction voids old fact and requires a replacement pay
     tenancyId: 'tenancy-a',
     amount: '100.00',
     source: 'MANUAL_CASH',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-09-05T00:00:00.000Z',
   });
   const replacement = await finance.correctPayment(payment.id, {
     amount: '90.00',
     source: 'MANUAL_CASH',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-09-06T00:00:00.000Z',
     correctionNote: 'Corrected counting error',
   });
 
+  assert.equal(replacement.verification, 'USER_RECORDED');
   assert.equal((await finance.findPaymentById(payment.id)).replacementPaymentId, replacement.id);
   assert.ok((await finance.findPaymentById(payment.id)).voidedOrReversedAt);
 });
@@ -199,7 +198,6 @@ test('receipt is evidence for confirmed payment and keeps issued/voided history'
     tenancyId: 'tenancy-a',
     amount: '100.00',
     source: 'MANUAL_TRANSFER',
-    verification: 'PROVIDER_VERIFIED',
     confirmedAt: '2026-09-05T00:00:00.000Z',
   });
   const issued = await receipts.issue(payment.id);
@@ -216,7 +214,7 @@ test('receipt is evidence for confirmed payment and keeps issued/voided history'
 test('deposit settlement appends refunded and retained provenance events', async () => {
   const { finance } = services();
   const deposit = await finance.createDeposit('tenancy-a');
-  const payment = await finance.recordPayment({ tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: '2026-09-29T00:00:00.000Z' });
+  const payment = await finance.recordPayment({ tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', confirmedAt: '2026-09-29T00:00:00.000Z' });
   await finance.applyPaymentToDeposit(payment.id, deposit.id, '100.00');
   const settlement = await finance.settleDeposit(deposit.id, {
     refundedAmount: '70.00',
@@ -230,4 +228,22 @@ test('deposit settlement appends refunded and retained provenance events', async
     (await finance.listDepositEvents(deposit.id)).map((event) => event.eventType),
     ['RECEIVED', 'REFUNDED', 'RETAINED'],
   );
+});
+
+test('manual service rejects parsed provider provenance before recording or correcting', async () => {
+  const { finance } = services();
+  const manual = { tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', confirmedAt: '2026-10-05T00:00:00.000Z' };
+  for (const provenance of [{ source: 'GATEWAY' }, { verification: 'PROVIDER_VERIFIED' }, { verification: 'USER_RECORDED' }]) {
+    const input = plainToInstance(RecordPaymentDto, { ...manual, ...provenance });
+    await assert.rejects(() => finance.recordPayment(input), BadRequestException);
+    assert.deepEqual(await finance.findPaymentsByTenancyId(manual.tenancyId), []);
+  }
+  const original = await finance.recordPayment(plainToInstance(RecordPaymentDto, manual));
+  assert.equal(original.verification, 'USER_RECORDED');
+  for (const provenance of [{ source: 'GATEWAY' }, { verification: 'PROVIDER_VERIFIED' }, { verification: 'USER_RECORDED' }]) {
+    const input = Object.assign(plainToInstance(RecordPaymentDto, { ...manual, ...provenance }), { correctionNote: 'Correction' });
+    await assert.rejects(() => finance.correctPayment(original.id, input), BadRequestException);
+    assert.deepEqual(await finance.findPaymentById(original.id), original);
+    assert.equal((await finance.findPaymentsByTenancyId(manual.tenancyId)).length, 1);
+  }
 });

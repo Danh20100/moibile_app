@@ -111,7 +111,7 @@ describe('architecture contract audit', () => {
   it('rejects a payment allocation that exceeds the confirmed Payment amount', async () => {
     const service = new BillingService({ findById: async () => ({ id: 'ten_1' }) } as never, createCoreFoundationHarness().transactions);
     const cycle = await service.createCycle({ tenancyId: 'ten_1', tenancyTermsId: 'terms_1', periodStart: '2099-01-01', periodEnd: '2099-01-31', charges: [{ type: 'RENT', amount: '1000000.00' }] });
-    const payment = await service.recordPayment({ tenancyId: 'ten_1', amount: '1000000.00', source: 'MANUAL_CASH', verification: 'USER_RECORDED', confirmedAt: new Date().toISOString() });
+    const payment = await service.recordPayment({ tenancyId: 'ten_1', amount: '1000000.00', source: 'MANUAL_CASH', confirmedAt: new Date().toISOString() });
     await assert.rejects(() => service.allocatePayment(payment.id, cycle.charges[0]!.id, '1500000.00'), BadRequestException);
   });
 

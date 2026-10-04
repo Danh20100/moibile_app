@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsDateString, IsIn, IsNotEmpty, IsOptional, IsString, Matches, ValidateNested } from 'class-validator';
-import type { ChargeType, DepositState, PaymentSource, PaymentVerification } from '../contracts';
+import type { ChargeType, DepositState, ManualPaymentSource, PaymentSource, PaymentVerification } from '../contracts';
 
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
@@ -52,13 +52,9 @@ export class RecordPaymentDto {
   @Matches(MONEY)
   amount!: string;
 
-  @ApiProperty({ enum: ['MANUAL_CASH', 'MANUAL_TRANSFER', 'GATEWAY'], example: 'MANUAL_TRANSFER' })
-  @IsIn(['MANUAL_CASH', 'MANUAL_TRANSFER', 'GATEWAY'])
-  source!: PaymentSource;
-
-  @ApiProperty({ enum: ['USER_RECORDED', 'PROVIDER_VERIFIED'], example: 'USER_RECORDED' })
-  @IsIn(['USER_RECORDED', 'PROVIDER_VERIFIED'])
-  verification!: PaymentVerification;
+  @ApiProperty({ enum: ['MANUAL_CASH', 'MANUAL_TRANSFER'], example: 'MANUAL_TRANSFER' })
+  @IsIn(['MANUAL_CASH', 'MANUAL_TRANSFER'])
+  source!: ManualPaymentSource;
 
   @ApiProperty({ example: '2026-10-05T08:00:00.000Z' })
   @IsDateString()

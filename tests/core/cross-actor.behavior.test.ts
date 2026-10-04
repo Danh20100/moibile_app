@@ -225,7 +225,6 @@ test('CX-03: Billing cycle due and payment confirmed notify linked tenant', asyn
     tenancyId: activeTenancyId,
     amount: '3000000.00',
     source: 'MANUAL_TRANSFER',
-    verification: 'USER_RECORDED',
     confirmedAt: '2026-10-05T00:00:00.000Z',
   });
 

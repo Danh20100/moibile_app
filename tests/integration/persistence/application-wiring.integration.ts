@@ -61,7 +61,7 @@ test('core application state remains readable after database client restart', as
   const acknowledgement = await first.acknowledgements.acknowledge({ tenancyTermsId: terms.id, tenancyParticipantId: participant.id, userId: ownerId, acknowledgedAt: '2026-09-29T00:01:00.000Z' });
   const notice = await first.notices.issue({ tenancyId: tenancy.id, noticeType: 'GENERAL', issuedByUserId: ownerId, contentOrNote: 'Persisted notice', issuedAt: '2026-09-29T00:02:00.000Z' });
   const cycle = await first.billing.createCycle({ tenancyId: tenancy.id, tenancyTermsId: terms.id, periodStart: '2026-10-01', periodEnd: '2026-10-31', charges: [{ type: 'RENT', amount: '3500000.00' }] });
-  const payment = await first.billing.recordPayment({ tenancyId: tenancy.id, amount: '3500000.00', source: 'MANUAL_TRANSFER', verification: 'PROVIDER_VERIFIED', confirmedAt: '2026-10-01T00:00:00.000Z' });
+  const payment = await first.billing.recordPayment({ tenancyId: tenancy.id, amount: '3500000.00', source: 'MANUAL_TRANSFER', confirmedAt: '2026-10-01T00:00:00.000Z' });
   await first.billing.allocatePayment(payment.id, cycle.charges[0]!.id, '1000000.00');
   const deposit = await first.billing.createDeposit(tenancy.id);
   await first.billing.applyPaymentToDeposit(payment.id, deposit.id, '2500000.00');
