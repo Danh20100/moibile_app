@@ -6,7 +6,9 @@ import com.google.gson.JsonParser
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.network.dto.BackendJsonCodec
+import com.trooi.app.core.network.dto.DashboardTransport
 import com.trooi.app.core.network.dto.ErrorKind
+import com.trooi.app.core.network.dto.RoomOperationalHistoryTransport
 import com.trooi.app.core.network.dto.TransportOutcome
 import javax.inject.Inject
 
@@ -57,7 +59,25 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
         read(client.postJson("rooms", fields("propertyId" to propertyId, "nameOrLabel" to label).toString(), true), ::room)
     suspend fun editRoom(id: String, label: String): V1Room =
         read(client.patchJson("rooms/${segment(id)}", fields("nameOrLabel" to label).toString()), ::room)
+    suspend fun transitionRoomOperationalState(id: String, state: String): V1Room {
+        require(state in setOf("vacant", "maintenance", "inactive")) {
+            "Chỉ được chuyển Room thủ công sang vacant/maintenance/inactive"
+        }
+        return read(
+            client.postJson(
+                "rooms/${segment(id)}/operational-state",
+                fields("operationalState" to state).toString(),
+                true,
+            ),
+            ::room,
+        )
+    }
 
+    suspend fun currentListing(roomId: String): V1Listing? {
+        val outcome = client.get("listings", true, mapOf("roomId" to roomId))
+        if (outcome is TransportOutcome.Failure && outcome.httpStatus == 404) return null
+        return read(outcome, ::listing)
+    }
     suspend fun listing(id: String): V1Listing = read(client.get("listings/${segment(id)}", true), ::listing)
     suspend fun createListing(roomId: String, title: String, description: String, price: String, lat: Double, lng: Double): V1Listing {
         val body = fields(
@@ -70,6 +90,18 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
         read(client.patchJson("listings/${segment(id)}", fields(
             "publicTitle" to title, "publicDescription" to description, "publicPriceProjection" to price,
         ).toString()), ::listing)
+    suspend fun publishListing(id: String): V1Listing =
+        read(client.postEmpty("listings/${segment(id)}/publish", authenticated = true), ::listing)
+    suspend fun unpublishListing(id: String): V1Listing =
+        read(client.postEmpty("listings/${segment(id)}/unpublish", authenticated = true), ::listing)
+    suspend fun archiveListing(id: String): V1Listing =
+        read(client.postEmpty("listings/${segment(id)}/archive", authenticated = true), ::listing)
+
+    suspend fun dashboard(organizationId: String): DashboardTransport =
+        BackendJsonCodec.dashboard(body(client.get("organizations/${segment(organizationId)}/dashboard", true)))
+
+    suspend fun roomHistory(roomId: String): RoomOperationalHistoryTransport =
+        BackendJsonCodec.roomHistory(body(client.get("rooms/${segment(roomId)}/history", true)))
 
     suspend fun inquiries(listingId: String): List<V1Inquiry> =
         list(client.get("inquiries", true, mapOf("listingId" to listingId)), ::inquiry)

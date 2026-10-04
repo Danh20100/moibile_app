@@ -61,7 +61,9 @@ class BackendClient(
     }
 
     suspend fun postEmpty(path: String, authenticated: Boolean = true): TransportOutcome =
-        postJson(path, "{}", authenticated)
+        execute(path, authenticated, emptyMap()) { builder ->
+            builder.post(ByteArray(0).toRequestBody(null))
+        }
 
     private suspend fun execute(
         path: String,

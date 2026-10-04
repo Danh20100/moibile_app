@@ -19,14 +19,72 @@ data class RentalBilling(val id: String, val tenancyId: String, val termsId: Str
 data class RentalPayment(val id: String, val tenancyId: String, val amount: String, val source: String, val verification: String, val confirmedAt: String)
 data class RentalReceipt(val id: String, val paymentId: String, val status: String, val issuedAt: String, val voidedAt: String?)
 data class RentalIncident(val id: String, val roomId: String, val category: String, val status: String, val createdAt: String, val closureReason: String?)
+data class RentalDeposit(
+    val id: String,
+    val tenancyId: String,
+    val requirementAmount: String?,
+    val fundedAmount: String,
+    val settledAmount: String,
+    val heldAmount: String,
+    val state: String?,
+    val blockedByOpenPolicy: Boolean,
+)
+data class RentalDepositEvent(
+    val id: String,
+    val depositId: String,
+    val eventType: String,
+    val amount: String,
+    val occurredAt: String,
+)
+data class RentalDepositSettlement(
+    val id: String,
+    val depositId: String,
+    val refundedAmount: String,
+    val retainedAmount: String,
+    val reasonOrNote: String,
+    val settledAt: String,
+)
+data class RentalIncidentEvent(
+    val id: String,
+    val incidentId: String,
+    val eventType: String,
+    val note: String?,
+    val fromStatus: String?,
+    val toStatus: String?,
+    val occurredAt: String,
+)
+data class RentalPaymentHistory(
+    val payment: RentalPayment,
+    val receipts: List<RentalReceipt>,
+)
+data class RentalIncidentHistory(
+    val incident: RentalIncident,
+    val events: List<RentalIncidentEvent>,
+)
+data class RentalDepositHistory(
+    val projection: RentalDeposit,
+    val events: List<RentalDepositEvent>,
+)
+data class RentalHistory(
+    val tenancy: RentalTenancy,
+    val terms: List<RentalTerms>,
+    val payments: List<RentalPaymentHistory>,
+    val notices: List<RentalNotice>,
+    val incidents: List<RentalIncidentHistory>,
+    val deposit: RentalDepositHistory?,
+)
 
 /** Server-only business transitions. No optimistic Room, Tenancy, Payment or Incident mutation. */
 class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     suspend fun tenancies(roomId: String): List<RentalTenancy> =
         list(client.get("tenancies", true, mapOf("roomId" to roomId)), ::tenancy)
     suspend fun tenancy(id: String): RentalTenancy = read(client.get("tenancies/${segment(id)}", true), ::tenancy)
+    suspend fun history(id: String): RentalHistory =
+        read(client.get("tenancies/${segment(id)}/history", true), ::rentalHistory)
     suspend fun createTenancy(roomId: String): RentalTenancy =
         read(client.postJson("tenancies", obj("roomId" to roomId).toString(), true), ::tenancy)
+    suspend fun activateTenancy(id: String, at: String = Instant.now().toString()): RentalTenancy =
+        read(client.postJson("tenancies/${segment(id)}/activate", obj("occurredAt" to at).toString(), true), ::tenancy)
     suspend fun cancelDraft(id: String): RentalTenancy =
         read(client.postEmpty("tenancies/${segment(id)}/cancel"), ::tenancy)
     suspend fun startEnding(id: String): RentalTenancy =
@@ -57,8 +115,46 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         list(client.get("tenancies/${segment(id)}/terms", true), ::terms)
     suspend fun termsDetail(id: String, termId: String): RentalTerms =
         read(client.get("tenancies/${segment(id)}/terms/${segment(termId)}", true), ::terms)
+    suspend fun acknowledgeTerms(
+        tenancyId: String,
+        termsId: String,
+        participantId: String,
+        at: String = Instant.now().toString(),
+    ): JsonObject = read(
+        client.postJson(
+            "tenancies/${segment(tenancyId)}/terms/${segment(termsId)}/acknowledgements",
+            obj("tenancyParticipantId" to participantId, "acknowledgedAt" to at).toString(),
+            true,
+        ),
+        ::identity,
+    )
     suspend fun notices(id: String): List<RentalNotice> =
         list(client.get("tenancies/${segment(id)}/notices", true), ::notice)
+    suspend fun issueNotice(
+        tenancyId: String,
+        type: String,
+        content: String,
+        at: String = Instant.now().toString(),
+    ): RentalNotice = read(
+        client.postJson(
+            "tenancies/${segment(tenancyId)}/notices",
+            obj("noticeType" to type, "contentOrNote" to content, "issuedAt" to at).toString(),
+            true,
+        ),
+        ::notice,
+    )
+    suspend fun acknowledgeNotice(
+        tenancyId: String,
+        noticeId: String,
+        at: String = Instant.now().toString(),
+    ): RentalNotice = read(
+        client.postJson(
+            "tenancies/${segment(tenancyId)}/notices/${segment(noticeId)}/acknowledge",
+            obj("occurredAt" to at).toString(),
+            true,
+        ),
+        ::notice,
+    )
 
     suspend fun billingCycles(id: String): List<RentalBilling> =
         list(client.get("finance/cycles", true, mapOf("tenancyId" to id)), ::billing)
@@ -76,6 +172,8 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         return read(client.postJson("finance/cycles", body.toString(), true), ::billing)
     }
 
+    suspend fun payments(tenancyId: String): List<RentalPayment> =
+        list(client.get("finance/payments", true, mapOf("tenancyId" to tenancyId)), ::payment)
     suspend fun payment(id: String): RentalPayment = read(client.get("finance/payments/${segment(id)}", true), ::payment)
     suspend fun recordPayment(tenancyId: String, amount: String, source: String, at: String = Instant.now().toString()): RentalPayment {
         require(source in setOf("MANUAL_CASH", "MANUAL_TRANSFER") && validMoney(amount)) { "Chỉ ghi nhận tiền đã thực nhận từ nguồn manual" }
@@ -89,6 +187,40 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
             obj("amount" to amount, "targetId" to chargeId).toString(), true), ::identity)
     }
 
+    suspend fun deposit(tenancyId: String): RentalDeposit? {
+        val outcome = client.get("finance/deposits", true, mapOf("tenancyId" to tenancyId))
+        if (outcome is TransportOutcome.Failure && outcome.httpStatus == 404) return null
+        return read(outcome, ::deposit)
+    }
+    suspend fun createDeposit(tenancyId: String): RentalDeposit =
+        read(client.postJson("finance/deposits", obj("tenancyId" to tenancyId).toString(), true), ::deposit)
+    suspend fun depositEvents(depositId: String): List<RentalDepositEvent> =
+        list(client.get("finance/deposits/${segment(depositId)}/events", true), ::depositEvent)
+    suspend fun settleDeposit(
+        depositId: String,
+        refundedAmount: String,
+        retainedAmount: String,
+        reason: String,
+        at: String = Instant.now().toString(),
+    ): RentalDepositSettlement {
+        require(validMoney(refundedAmount) && validMoney(retainedAmount) && reason.isNotBlank()) {
+            "Settlement cần refunded/retained amount hợp lệ và lý do"
+        }
+        return read(
+            client.postJson(
+                "finance/deposits/${segment(depositId)}/settlements",
+                obj(
+                    "refundedAmount" to refundedAmount,
+                    "retainedAmount" to retainedAmount,
+                    "reasonOrNote" to reason,
+                    "settledAt" to at,
+                ).toString(),
+                true,
+            ),
+            ::depositSettlement,
+        )
+    }
+
     suspend fun receipts(paymentId: String? = null): List<RentalReceipt> =
         list(client.get("receipts", true, paymentId?.let { mapOf("paymentId" to it) } ?: emptyMap()), ::receipt)
     suspend fun receipt(id: String): RentalReceipt = read(client.get("receipts/${segment(id)}", true), ::receipt)
@@ -100,6 +232,8 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     suspend fun incidents(roomId: String): List<RentalIncident> =
         list(client.get("incidents", true, mapOf("roomId" to roomId)), ::incident)
     suspend fun incident(id: String): RentalIncident = read(client.get("incidents/${segment(id)}", true), ::incident)
+    suspend fun incidentEvents(id: String): List<RentalIncidentEvent> =
+        list(client.get("incidents/${segment(id)}/events", true), ::incidentEvent)
     suspend fun reportIncident(roomId: String, category: String): RentalIncident {
         require(category in INCIDENT_CATEGORIES) { "Incident category không hợp lệ" }
         // reportedByUserId is deliberately omitted; server must authorize/derive identity.
@@ -133,6 +267,52 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     private fun receipt(x: JsonObject) = RentalReceipt(x.req("id"), x.req("paymentId"), x.req("status"), x.req("issuedAt"), x.opt("voidedAt"))
     private fun incident(x: JsonObject) = RentalIncident(x.req("id"), x.req("roomId"), x.req("category"), x.req("status"),
         x.req("createdAt"), x.opt("closureReason"))
+    private fun deposit(x: JsonObject) = RentalDeposit(
+        id = x.req("id"),
+        tenancyId = x.req("tenancyId"),
+        requirementAmount = x.opt("requirementAmount"),
+        fundedAmount = x.req("fundedAmount"),
+        settledAmount = x.req("settledAmount"),
+        heldAmount = x.req("heldAmount"),
+        state = x.opt("state"),
+        blockedByOpenPolicy = x.get("blockedByOpenPolicy")?.asBoolean
+            ?: throw V1RequestException(ErrorKind.INVALID_RESPONSE),
+    )
+    private fun depositEvent(x: JsonObject) = RentalDepositEvent(
+        x.req("id"), x.req("depositId"), x.req("eventType"), x.req("amount"), x.req("occurredAt"),
+    )
+    private fun depositSettlement(x: JsonObject) = RentalDepositSettlement(
+        x.req("id"), x.req("depositId"), x.req("refundedAmount"), x.req("retainedAmount"),
+        x.req("reasonOrNote"), x.req("settledAt"),
+    )
+    private fun incidentEvent(x: JsonObject) = RentalIncidentEvent(
+        x.req("id"), x.req("incidentId"), x.req("eventType"), x.opt("note"),
+        x.opt("fromStatus"), x.opt("toStatus"), x.req("occurredAt"),
+    )
+    private fun rentalHistory(x: JsonObject) = RentalHistory(
+        tenancy = tenancy(x.requiredObject("tenancy")),
+        terms = x.requiredArray("terms").map { terms(it.asJsonObject) },
+        payments = x.requiredArray("payments").map { paymentHistory(it.asJsonObject) },
+        notices = x.requiredArray("notices").map { notice(it.asJsonObject) },
+        incidents = x.requiredArray("incidents").map { incidentHistory(it.asJsonObject) },
+        deposit = x.get("deposit")?.takeUnless { it.isJsonNull }?.asJsonObject?.let(::depositHistory),
+    )
+    private fun paymentHistory(x: JsonObject) = RentalPaymentHistory(
+        payment = payment(x.requiredObject("payment")),
+        receipts = x.requiredArray("receipts").map { receipt(it.asJsonObject) },
+    )
+    private fun incidentHistory(x: JsonObject) = RentalIncidentHistory(
+        incident = incident(x.requiredObject("incident")),
+        events = x.requiredArray("events").map { incidentEvent(it.asJsonObject) },
+    )
+    private fun depositHistory(x: JsonObject) = RentalDepositHistory(
+        projection = deposit(x.requiredObject("projection")),
+        events = x.requiredArray("events").map { depositEvent(it.asJsonObject) },
+    )
+    private fun JsonObject.requiredObject(name: String): JsonObject =
+        get(name)?.takeUnless { it.isJsonNull }?.asJsonObject ?: throw V1RequestException(ErrorKind.INVALID_RESPONSE)
+    private fun JsonObject.requiredArray(name: String): JsonArray =
+        get(name)?.takeUnless { it.isJsonNull }?.asJsonArray ?: throw V1RequestException(ErrorKind.INVALID_RESPONSE)
     private fun identity(x: JsonObject) = x
     private fun obj(vararg props: Pair<String, String>) = JsonObject().apply { props.forEach { addProperty(it.first, it.second) } }
     private fun JsonObject.req(name: String): String =

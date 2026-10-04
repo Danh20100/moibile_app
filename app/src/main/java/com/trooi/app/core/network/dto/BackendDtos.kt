@@ -1,6 +1,10 @@
 package com.trooi.app.core.network.dto
 
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+
 data class PublicLocationTransport(val latitude: Double, val longitude: Double)
+
 data class PublicListingTransport(
     val id: String,
     val roomId: String,
@@ -9,6 +13,26 @@ data class PublicListingTransport(
     val publicDescription: String,
     val publicPriceProjection: String,
     val publicLocation: PublicLocationTransport,
+)
+
+data class ListingTransport(
+    val id: String,
+    val roomId: String,
+    val status: String,
+    val publicTitle: String,
+    val publicDescription: String,
+    val publicPriceProjection: String,
+    val publicLocation: PublicLocationTransport,
+)
+
+data class PublicListingSearchResultTransport(
+    val listingId: String,
+    val roomId: String,
+    val publicTitle: String,
+    val publicDescription: String,
+    val publicPriceProjection: String,
+    val publicLocation: PublicLocationTransport,
+    val distanceMeters: Double,
 )
 
 data class VerifiedPrincipalTransport(
@@ -32,12 +56,14 @@ data class SessionContextTransport(
 )
 
 data class OrganizationTransport(val id: String, val name: String, val primaryOwnerUserId: String)
+
 data class PropertyTransport(
     val id: String,
     val organizationId: String,
     val name: String,
     val lifecycleStatus: String,
 )
+
 data class RoomTransport(
     val id: String,
     val propertyId: String,
@@ -45,6 +71,7 @@ data class RoomTransport(
     val operationalState: String,
     val recordLifecycle: String,
 )
+
 data class TenancyTransport(
     val id: String,
     val roomId: String,
@@ -53,6 +80,7 @@ data class TenancyTransport(
     val endedAt: String?,
     val endReason: String?,
 )
+
 data class TenancyTermsTransport(
     val id: String,
     val tenancyId: String,
@@ -62,8 +90,27 @@ data class TenancyTermsTransport(
     val termStart: String,
     val termEnd: String,
     val effectiveFromCycleBoundary: String,
+    val billingDayOrDueDateRule: JsonObject = JsonObject(),
+    val electricityArrangement: JsonObject = JsonObject(),
+    val waterArrangement: JsonObject = JsonObject(),
+    val minimalRentalConditions: JsonObject = JsonObject(),
 )
-data class ChargeTransport(val id: String, val billingCycleId: String, val type: String, val amount: String)
+
+data class TermsAcknowledgementTransport(
+    val id: String,
+    val tenancyTermsId: String,
+    val tenancyParticipantId: String,
+    val userId: String,
+    val acknowledgedAt: String,
+)
+
+data class ChargeTransport(
+    val id: String,
+    val billingCycleId: String,
+    val type: String,
+    val amount: String,
+)
+
 data class BillingCycleTransport(
     val id: String,
     val tenancyId: String,
@@ -72,6 +119,7 @@ data class BillingCycleTransport(
     val periodEnd: String,
     val charges: List<ChargeTransport>,
 )
+
 data class IncidentTransport(
     val id: String,
     val roomId: String,
@@ -82,6 +130,19 @@ data class IncidentTransport(
     val createdAt: String,
     val closedAt: String?,
 )
+
+data class IncidentEventTransport(
+    val id: String,
+    val incidentId: String,
+    val eventType: String,
+    val actorUserId: String?,
+    val note: String?,
+    val attachmentReference: String?,
+    val fromStatus: String?,
+    val toStatus: String?,
+    val occurredAt: String,
+)
+
 data class InquiryTransport(
     val id: String,
     val listingId: String,
@@ -109,6 +170,9 @@ data class PaymentTransport(
     val source: String,
     val verification: String,
     val confirmedAt: String,
+    val voidedOrReversedAt: String? = null,
+    val correctionNote: String? = null,
+    val replacementPaymentId: String? = null,
 )
 
 data class ReceiptTransport(
@@ -118,4 +182,120 @@ data class ReceiptTransport(
     val issuedAt: String,
     val voidedAt: String?,
     val replacementReceiptId: String?,
+)
+
+data class DashboardRoomStateCountsTransport(
+    val vacant: Int,
+    val occupied: Int,
+    val maintenance: Int,
+    val inactive: Int,
+)
+
+data class DashboardTransport(
+    val organizationId: String,
+    val roomsByState: DashboardRoomStateCountsTransport,
+    val activeTenancyCount: Int,
+    val outstandingReceivable: String?,
+    val confirmedPaymentTotal: String?,
+    val openIncidentCount: Int,
+)
+
+data class NotificationTransport(
+    val id: String,
+    val recipientUserId: String,
+    val category: String,
+    val messageOrPayloadReference: String,
+    val sourceType: String?,
+    val sourceId: String?,
+    val deliveryStatus: String,
+    val createdAt: String,
+    val deliveredAt: JsonElement?,
+    val readAt: JsonElement?,
+)
+
+data class DepositProjectionTransport(
+    val id: String,
+    val tenancyId: String,
+    val requirementAmount: String?,
+    val fundedAmount: String,
+    val settledAmount: String,
+    val heldAmount: String,
+    val state: String?,
+    val blockedByOpenPolicy: Boolean,
+)
+
+data class DepositEventTransport(
+    val id: String,
+    val depositId: String,
+    val eventType: String,
+    val amount: String,
+    val occurredAt: String,
+    val paymentApplicationId: String?,
+    val settlementId: String?,
+)
+
+data class DepositSettlementTransport(
+    val id: String,
+    val depositId: String,
+    val refundedAmount: String,
+    val retainedAmount: String,
+    val reasonOrNote: String,
+    val actedByUserId: String,
+    val settledAt: String,
+)
+
+data class RentalPaymentHistoryEntryTransport(
+    val payment: PaymentTransport,
+    val receipts: List<ReceiptTransport>,
+)
+
+data class RentalIncidentHistoryEntryTransport(
+    val incident: IncidentTransport,
+    val events: List<IncidentEventTransport>,
+)
+
+data class RentalDepositHistoryTransport(
+    val projection: DepositProjectionTransport,
+    val events: List<DepositEventTransport>,
+)
+
+data class RentalHistoryTransport(
+    val tenancy: TenancyTransport,
+    val terms: List<TenancyTermsTransport>,
+    val payments: List<RentalPaymentHistoryEntryTransport>,
+    val notices: List<TenancyNoticeTransport>,
+    val incidents: List<RentalIncidentHistoryEntryTransport>,
+    val deposit: RentalDepositHistoryTransport?,
+)
+
+data class ListingStatusEventTransport(
+    val id: String,
+    val listingId: String,
+    val fromStatus: String,
+    val toStatus: String,
+    val reasonCode: String,
+    val actorType: String,
+    val actorUserId: String?,
+    val trigger: String,
+    val occurredAt: String,
+    val metadata: JsonObject?,
+)
+
+data class ListingOperationalHistoryEntryTransport(
+    val listing: ListingTransport,
+    val events: List<ListingStatusEventTransport>,
+)
+
+data class TenancyFinanceHistoryEntryTransport(
+    val tenancy: TenancyTransport,
+    val billingCycles: List<BillingCycleTransport>,
+    val payments: List<RentalPaymentHistoryEntryTransport>,
+    val deposit: RentalDepositHistoryTransport?,
+)
+
+data class RoomOperationalHistoryTransport(
+    val room: RoomTransport,
+    val listings: List<ListingOperationalHistoryEntryTransport>,
+    val tenancies: List<TenancyFinanceHistoryEntryTransport>,
+    val incidents: List<RentalIncidentHistoryEntryTransport>,
 )

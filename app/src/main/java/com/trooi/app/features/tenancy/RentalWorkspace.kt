@@ -37,6 +37,9 @@ fun V1RentalWorkspace(
     var selected by remember(state.route) { mutableStateOf("") }
     var price by remember(state.route) { mutableStateOf("") }
     val route = state.route
+    val tenantReadOnly = state.tenantMode && state.linkedTenancyStatus?.lowercase().let {
+        it == "ended" || it == "cancelled"
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-rental-workflow"),
@@ -53,7 +56,9 @@ fun V1RentalWorkspace(
                     is RentalRoute.Notices -> "Thông báo Tenancy"
                     is RentalRoute.Billing -> "Kỳ tính tiền"
                     is RentalRoute.Payment -> "Khoản tiền đã nhận"
+                    is RentalRoute.Deposit -> "Tiền cọc"
                     is RentalRoute.Receipts -> "Biên nhận"
+                    is RentalRoute.History -> "Lịch sử lượt thuê"
                     is RentalRoute.Incidents -> "Sự cố"
                     is RentalRoute.Incident -> "Chi tiết sự cố"
                 },
@@ -95,8 +100,10 @@ fun V1RentalWorkspace(
                             V1Metric("Trạng thái do Backend xác nhận", tenancy.status)
                             if (tenancy.startedAt != null) V1Metric("Bắt đầu", tenancy.startedAt)
                             if (tenancy.endedAt != null) V1Metric("Kết thúc", tenancy.endedAt)
-                            if (!state.tenantMode && tenancy.status.equals("draft", true))
+                            if (!state.tenantMode && tenancy.status.equals("draft", true)) {
+                                V1Action("Kích hoạt Tenancy", { model.transitionTenancy(route.id, "activate") }, enabled = !state.busy)
                                 V1Action("Huỷ DRAFT", { model.transitionTenancy(route.id, "cancel") }, enabled = !state.busy)
+                            }
                             if (tenancy.status.equals("active", true))
                                 V1Action(if (state.tenantMode) "Yêu cầu bắt đầu trả phòng" else "Bắt đầu kết thúc Tenancy",
                                     { model.transitionTenancy(route.id, "ending") }, enabled = !state.busy)
@@ -116,10 +123,11 @@ fun V1RentalWorkspace(
                             V1Action("Notices", { model.open(RentalRoute.Notices(route.id)) })
                             V1Action("Billing", { model.open(RentalRoute.Billing(route.id)) })
                             V1Action("Payment", { model.open(RentalRoute.Payment(route.id)) })
+                            V1Action("Deposit", { model.open(RentalRoute.Deposit(route.id)) })
                             V1Action("Receipts", { model.open(RentalRoute.Receipts(route.id)) })
+                            V1Action("History", { model.open(RentalRoute.History(route.id)) })
                             V1Action("Incidents / Tickets", { model.open(RentalRoute.Incidents(tenancy.roomId)) })
                             if (tenancy.status.equals("ended", true)) V1Pending("Tenancy đã kết thúc: chỉ đọc lịch sử, không ghi lifecycle mới.")
-                            if (!state.tenantMode) V1Pending("Activate cần command context đã thống nhất; không đoán reasonCode/trigger.")
                         }
                     }
                 }
@@ -156,12 +164,31 @@ fun V1RentalWorkspace(
                         V1Metric("Cọc yêu cầu theo Terms", terms.depositRequirement)
                         V1Metric("Hiệu lực", terms.effectiveFrom)
                         Text("Từ ${terms.termStart} đến ${terms.termEnd}")
+                        val activeParticipants = state.participants.filter { it.leftAt == null }
+                        if (tenantReadOnly) {
+                            V1Pending("Lượt thuê đã kết thúc: Terms chỉ đọc, không gửi acknowledgement mới.")
+                        } else if (activeParticipants.isNotEmpty()) {
+                            V1Choice(
+                                activeParticipants.map { it.id },
+                                selected,
+                                { selected = it },
+                                "Tenancy Participant xác nhận",
+                            )
+                            V1Action(
+                                "Xác nhận Terms v${terms.version}",
+                                { model.acknowledgeTerms(route.id, terms.id, selected) },
+                                enabled = !state.busy && selected in activeParticipants.map { it.id },
+                            )
+                        } else {
+                            V1Pending("Chưa có Tenancy Participant đang hoạt động để xác nhận Terms.")
+                        }
                     }
                 }
-                item { V1Panel("Terms acknowledgement") {
-                    V1Pending("GET terms version khả dụng. POST acknowledgement cần định nghĩa server-derived actor/participant; không tạo cờ termsAccepted toàn Tenancy.")
-                    V1Pending("Create Terms cần schema chi tiết cho rule objects trước khi xây editor.")
-                } }
+                item {
+                    V1Panel("Terms editor") {
+                        V1Pending("Create Terms vẫn chờ schema rule objects đầy đủ; không tự dựng điều khoản ở client.")
+                    }
+                }
             }
             is RentalRoute.Notices -> {
                 if (state.notices.isEmpty() && !state.busy) item { V1Panel("Notices") { V1Pending() } }
@@ -170,11 +197,27 @@ fun V1RentalWorkspace(
                         Text(notice.content)
                         V1Metric("Đã phát", notice.issuedAt)
                         V1Metric("Xác nhận xem", notice.acknowledgedAt ?: "Chưa xác nhận")
+                        if (notice.acknowledgedAt == null && !tenantReadOnly) {
+                            V1Action(
+                                "Xác nhận đã xem",
+                                { model.acknowledgeNotice(route.id, notice.id) },
+                                enabled = !state.busy,
+                            )
+                        }
                     }
                 }
-                item { V1Panel("Issuing / acknowledging") {
-                    V1Pending("Các command hiện yêu cầu issuedByUserId/userId từ client. Chờ Backend derive identity; không giả mạo xác nhận pháp lý.")
-                } }
+                if (!state.tenantMode) item {
+                    V1Panel("Phát hành Notice") {
+                        V1Input(name, { name = it }, "Notice type theo contract", "notice-type")
+                        V1Input(extra, { extra = it }, "Nội dung Notice", "notice-content")
+                        V1Action(
+                            "Phát hành Notice",
+                            { model.issueNotice(route.id, name, extra) },
+                            enabled = !state.busy && name.isNotBlank() && extra.isNotBlank(),
+                        )
+                        V1Pending("Backend tự xác định người phát hành; client không gửi issuedByUserId.")
+                    }
+                }
             }
             is RentalRoute.Billing -> {
                 if (state.billing.isEmpty() && !state.busy) item { V1Panel("Billing") { V1Pending("Chưa có Billing Cycle.") } }
@@ -201,12 +244,15 @@ fun V1RentalWorkspace(
                 }
             }
             is RentalRoute.Payment -> {
-                item {
-                    V1Panel("Tra cứu Payment") {
-                        V1Pending("Hiện OpenAPI chưa có GET Payment list by Tenancy; chỉ tra cứu ID đã được Backend cung cấp.")
-                        V1Input(name, { name = it }, "Payment ID", "payment-id")
-                        V1Action("Mở Payment", { model.lookupPayment(name) }, enabled = !state.busy && name.isNotBlank())
-                    }
+                if (state.payments.isEmpty() && !state.busy) {
+                    item { V1Panel("Payments") { V1Pending("Chưa có Payment theo Tenancy.") } }
+                }
+                items(state.payments, key = { "payment-" + it.id }) { pay ->
+                    V1Link(
+                        "Payment · " + pay.id,
+                        "${pay.amount} · ${pay.verification}",
+                        "payment-" + pay.id,
+                    ) { model.lookupPayment(pay.id) }
                 }
                 state.payment?.takeIf { it.tenancyId == route.id }?.let { pay ->
                     item {
@@ -223,7 +269,6 @@ fun V1RentalWorkspace(
                                 }, enabled = !state.busy && extra.isNotBlank() && extra2.isNotBlank())
                                 V1Action("Phát hành Receipt", { model.issueReceipt(pay.id) }, enabled = !state.busy)
                             }
-                            V1Pending("Deposit Application cần Deposit ID được Backend trả về; không đoán ID.")
                         }
                     }
                 }
@@ -235,6 +280,59 @@ fun V1RentalWorkspace(
                         V1Action("Xác nhận đã nhận tiền", {
                             model.recordPayment(route.id, price, choice)
                         }, enabled = !state.busy && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && choice.isNotBlank())
+                    }
+                }
+            }
+            is RentalRoute.Deposit -> {
+                val deposit = state.deposit
+                if (deposit == null && !state.busy) {
+                    item {
+                        V1Panel("Deposit") {
+                            V1Pending("Chưa có Deposit projection cho Tenancy này.")
+                            if (!state.tenantMode) {
+                                V1Action("Tạo Deposit", { model.createDeposit(route.id) }, enabled = !state.busy)
+                            }
+                        }
+                    }
+                }
+                deposit?.let { value ->
+                    item {
+                        V1Panel("Deposit · " + value.id) {
+                            V1Metric("Yêu cầu theo Terms", value.requirementAmount ?: "Chưa có")
+                            V1Metric("Funded", value.fundedAmount)
+                            V1Metric("Settled", value.settledAmount)
+                            V1Metric("Held", value.heldAmount)
+                            V1Metric("State", value.state ?: "Chưa có")
+                            V1Metric("Policy", if (value.blockedByOpenPolicy) "Settlement đang bị chặn" else "Có thể yêu cầu settlement")
+                        }
+                    }
+                    if (state.depositEvents.isEmpty() && !state.busy) {
+                        item { V1Panel("Deposit events") { V1Pending("Chưa có Deposit Event.") } }
+                    }
+                    items(state.depositEvents, key = { "deposit-event-" + it.id }) { event ->
+                        V1Panel(event.eventType) {
+                            V1Metric("Amount", event.amount)
+                            V1Metric("Occurred at", event.occurredAt)
+                        }
+                    }
+                    if (!state.tenantMode) item {
+                        V1Panel("Deposit settlement") {
+                            if (value.blockedByOpenPolicy) {
+                                V1Pending("Backend trả blockedByOpenPolicy=true; client không cho phép settlement.")
+                            } else {
+                                V1Input(price, { price = it }, "Refunded amount", "deposit-refunded")
+                                V1Input(extra, { extra = it }, "Retained amount", "deposit-retained")
+                                V1Input(extra2, { extra2 = it }, "Lý do / ghi chú", "deposit-settlement-reason")
+                                V1Action(
+                                    "Gửi settlement",
+                                    { model.settleDeposit(route.id, price, extra, extra2) },
+                                    enabled = !state.busy &&
+                                        price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) &&
+                                        extra.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) &&
+                                        extra2.isNotBlank(),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -251,6 +349,68 @@ fun V1RentalWorkspace(
                     }
                 }
             }
+            is RentalRoute.History -> {
+                state.history?.takeIf { it.tenancy.id == route.id }?.let { history ->
+                    item {
+                        V1Panel("Tenancy · " + history.tenancy.id) {
+                            V1Metric("Status", history.tenancy.status)
+                            history.tenancy.startedAt?.let { V1Metric("Started", it) }
+                            history.tenancy.endedAt?.let { V1Metric("Ended", it) }
+                        }
+                    }
+                    if (history.terms.isNotEmpty()) item {
+                        V1Panel("Terms history") {
+                            history.terms.forEach { term ->
+                                V1Metric("v" + term.version, "${term.rentAmount} · ${term.effectiveFrom}")
+                            }
+                        }
+                    }
+                    if (history.payments.isNotEmpty()) item {
+                        V1Panel("Payment / Receipt history") {
+                            history.payments.forEach { entry ->
+                                V1Metric("Payment " + entry.payment.id, "${entry.payment.amount} · ${entry.payment.confirmedAt}")
+                                entry.receipts.forEach { receipt ->
+                                    Text("Receipt ${receipt.id} · ${receipt.status} · ${receipt.issuedAt}", color = TroOiMuted)
+                                }
+                            }
+                        }
+                    }
+                    if (history.notices.isNotEmpty()) item {
+                        V1Panel("Notice history") {
+                            history.notices.forEach { notice ->
+                                V1Metric(notice.type, notice.issuedAt)
+                            }
+                        }
+                    }
+                    if (history.incidents.isNotEmpty()) item {
+                        V1Panel("Incident history") {
+                            history.incidents.forEach { entry ->
+                                V1Metric(entry.incident.category, entry.incident.status)
+                                entry.events.forEach { event ->
+                                    Text("${event.eventType} · ${event.occurredAt}", color = TroOiMuted)
+                                }
+                            }
+                        }
+                    }
+                    history.deposit?.let { depositHistory ->
+                        item {
+                            V1Panel("Deposit history") {
+                                V1Metric("Funded", depositHistory.projection.fundedAmount)
+                                V1Metric("Settled", depositHistory.projection.settledAmount)
+                                V1Metric("Held", depositHistory.projection.heldAmount)
+                                depositHistory.events.forEach { event ->
+                                    Text("${event.eventType} · ${event.amount} · ${event.occurredAt}", color = TroOiMuted)
+                                }
+                            }
+                        }
+                    }
+                    if (history.terms.isEmpty() && history.payments.isEmpty() && history.notices.isEmpty() &&
+                        history.incidents.isEmpty() && history.deposit == null
+                    ) {
+                        item { V1Panel("History") { V1Pending("Backend chưa trả thêm sự kiện lịch sử cho Tenancy này.") } }
+                    }
+                }
+            }
             is RentalRoute.Incidents -> {
                 if (state.incidents.isEmpty() && !state.busy) item { V1Panel("Incidents") { V1Pending("Chưa có Incident.") } }
                 items(state.incidents, key = { it.id }) { incident ->
@@ -258,7 +418,7 @@ fun V1RentalWorkspace(
                         model.open(RentalRoute.Incident(incident.id, route.roomId))
                     }
                 }
-                item {
+                if (!tenantReadOnly) item {
                     V1Panel("Báo Incident") {
                         V1Choice(V1RentalGateway.INCIDENT_CATEGORIES.toList(), choice, { choice = it }, "Danh mục")
                         V1Action("Gửi Incident", { model.reportIncident(route.roomId, choice) }, enabled = !state.busy && choice.isNotBlank())
@@ -285,7 +445,17 @@ fun V1RentalWorkspace(
                                         (choice != "CLOSED" || incident.status == "RESOLVED" || extra2.isNotBlank()))
                                 }
                             }
-                            V1Pending("Event timeline cần Backend Incident Event API; chỉ hiển thị status server hiện cung cấp.")
+                            if (state.incidentEvents.isEmpty()) {
+                                V1Pending("Chưa có Incident Event.")
+                            } else {
+                                state.incidentEvents.forEach { event ->
+                                    V1Metric(event.eventType, event.occurredAt)
+                                    if (event.fromStatus != null || event.toStatus != null) {
+                                        Text("${event.fromStatus ?: "-"} → ${event.toStatus ?: "-"}")
+                                    }
+                                    event.note?.takeIf { it.isNotBlank() }?.let { Text(it, color = TroOiMuted) }
+                                }
+                            }
                         }
                     }
                 }

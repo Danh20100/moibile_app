@@ -44,7 +44,7 @@ fun V1TenantFlow(state: TroOiUiState, onFindRooms: () -> Unit, onUnauthorized: (
         }
         item {
             V1Panel("Mỗi chức năng có màn hình riêng") {
-                V1Pending("Trong chi tiết: Terms, Billing, Payment, Receipts, Notices, Incidents, Move-out. Deposit settlement/Payment Claim/History vẫn chờ hợp đồng Backend hoặc policy.")
+                V1Pending("Trong chi tiết: Terms, Billing, Payment, Receipts, Notices, Incidents, Deposit và History đều đọc theo Backend. Lượt thuê đã kết thúc chỉ được xem lịch sử.")
                 V1Action("Tìm phòng khác", onFindRooms)
             }
         }

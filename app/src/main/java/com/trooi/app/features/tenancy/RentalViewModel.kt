@@ -19,7 +19,9 @@ sealed interface RentalRoute {
     data class Notices(val id: String) : RentalRoute
     data class Billing(val id: String) : RentalRoute
     data class Payment(val id: String) : RentalRoute
+    data class Deposit(val id: String) : RentalRoute
     data class Receipts(val id: String) : RentalRoute
+    data class History(val id: String) : RentalRoute
     data class Incidents(val roomId: String) : RentalRoute
     data class Incident(val id: String, val roomId: String) : RentalRoute
 }
@@ -27,6 +29,7 @@ sealed interface RentalRoute {
 data class RentalUiState(
     val roomId: String = "",
     val tenantMode: Boolean = false,
+    val linkedTenancyStatus: String? = null,
     val stack: List<RentalRoute> = listOf(RentalRoute.Tenancies),
     val busy: Boolean = false,
     val error: String? = null,
@@ -38,10 +41,15 @@ data class RentalUiState(
     val terms: List<RentalTerms> = emptyList(),
     val notices: List<RentalNotice> = emptyList(),
     val billing: List<RentalBilling> = emptyList(),
+    val payments: List<RentalPayment> = emptyList(),
     val payment: RentalPayment? = null,
+    val deposit: RentalDeposit? = null,
+    val depositEvents: List<RentalDepositEvent> = emptyList(),
     val receipts: List<RentalReceipt> = emptyList(),
     val incidents: List<RentalIncident> = emptyList(),
     val incident: RentalIncident? = null,
+    val incidentEvents: List<RentalIncidentEvent> = emptyList(),
+    val history: RentalHistory? = null,
     val roomAfterCheckout: V1Room? = null,
 ) {
     val route: RentalRoute get() = stack.last()
@@ -83,7 +91,9 @@ class RentalViewModel @Inject constructor(
                 is RentalRoute.Notices -> route.id
                 is RentalRoute.Billing -> route.id
                 is RentalRoute.Payment -> route.id
+                is RentalRoute.Deposit -> route.id
                 is RentalRoute.Receipts -> route.id
+                is RentalRoute.History -> route.id
                 else -> linked
             }
             if (linked != target) {
@@ -93,7 +103,9 @@ class RentalViewModel @Inject constructor(
         }
         _ui.update { it.copy(stack = it.stack + route, error = null, errorKind = null, success = null,
             tenancies = emptyList(), tenancy = null, participants = emptyList(), terms = emptyList(),
-            notices = emptyList(), billing = emptyList(), payment = null, receipts = emptyList(), incidents = emptyList(), incident = null) }
+            notices = emptyList(), billing = emptyList(), payments = emptyList(), payment = null,
+            deposit = null, depositEvents = emptyList(), receipts = emptyList(), incidents = emptyList(),
+            incident = null, incidentEvents = emptyList(), history = null) }
         load()
     }
 
@@ -117,24 +129,49 @@ class RentalViewModel @Inject constructor(
                     is RentalRoute.Tenancy -> publish(current) {
                         val t = api.tenancy(route.id)
                         require(u.roomId.isBlank() || t.roomId == u.roomId) { "Tenancy không thuộc Room được chọn." }
-                        it.copy(tenancy = t, roomId = t.roomId)
+                        it.copy(
+                            tenancy = t,
+                            roomId = t.roomId,
+                            linkedTenancyStatus = if (u.tenantMode) t.status else it.linkedTenancyStatus,
+                        )
                     }
                     is RentalRoute.Participants -> publish(current) { it.copy(participants = api.participants(route.id)) }
-                    is RentalRoute.Terms -> publish(current) { it.copy(terms = api.terms(route.id)) }
+                    is RentalRoute.Terms -> publish(current) {
+                        it.copy(terms = api.terms(route.id), participants = api.participants(route.id))
+                    }
                     is RentalRoute.Notices -> publish(current) { it.copy(notices = api.notices(route.id)) }
                     is RentalRoute.Billing -> publish(current) { it.copy(billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id }) }
-                    is RentalRoute.Payment -> publish(current) { it.copy(payment = null) }
-                    is RentalRoute.Receipts -> publish(current) {
-                        val scoped = api.receipts().filter { receipt ->
-                            api.payment(receipt.paymentId).tenancyId == route.id
+                    is RentalRoute.Payment -> publish(current) {
+                        it.copy(payments = api.payments(route.id).filter { payment -> payment.tenancyId == route.id }, payment = null)
+                    }
+                    is RentalRoute.Deposit -> publish(current) {
+                        val deposit = api.deposit(route.id)?.also {
+                            require(it.tenancyId == route.id) { "Deposit không thuộc Tenancy hiện tại." }
                         }
-                        it.copy(receipts = scoped)
+                        it.copy(
+                            deposit = deposit,
+                            depositEvents = deposit?.let { value -> api.depositEvents(value.id) }
+                                ?.filter { event -> event.depositId == deposit.id }
+                                .orEmpty(),
+                        )
+                    }
+                    is RentalRoute.Receipts -> publish(current) {
+                        val paymentIds = api.payments(route.id).filter { it.tenancyId == route.id }.mapTo(mutableSetOf()) { it.id }
+                        it.copy(receipts = api.receipts().filter { receipt -> receipt.paymentId in paymentIds })
+                    }
+                    is RentalRoute.History -> publish(current) {
+                        val history = api.history(route.id)
+                        require(history.tenancy.id == route.id) { "History không thuộc Tenancy hiện tại." }
+                        it.copy(history = history)
                     }
                     is RentalRoute.Incidents -> publish(current) { it.copy(incidents = api.incidents(route.roomId).filter { b -> b.roomId == route.roomId }) }
                     is RentalRoute.Incident -> publish(current) {
                         val incident = api.incident(route.id)
                         require(incident.roomId == route.roomId) { "Incident không thuộc Room được chọn." }
-                        it.copy(incident = incident)
+                        it.copy(
+                            incident = incident,
+                            incidentEvents = api.incidentEvents(route.id).filter { event -> event.incidentId == route.id },
+                        )
                     }
                 }
             } catch (error: Exception) { fail(current, error) }
@@ -153,6 +190,7 @@ class RentalViewModel @Inject constructor(
         val old = api.tenancy(id)
         val tenant = _ui.value.tenantMode
         val updated = when (action) {
+            "activate" -> { require(!tenant && old.status.equals("draft", true)); api.activateTenancy(id) }
             "cancel" -> { require(!tenant && old.status.equals("draft", true)); api.cancelDraft(id) }
             "ending" -> { require(old.status.equals("active", true)); api.startEnding(id) }
             "resume" -> { require(!tenant && old.status.equals("ending", true)); api.resume(id) }
@@ -182,6 +220,23 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(participants = api.participants(id)) }
     }
 
+    fun acknowledgeTerms(tenancyId: String, termsId: String, participantId: String) = write {
+        require(participantId.isNotBlank()) { "Chọn Tenancy Participant cần xác nhận Terms." }
+        api.acknowledgeTerms(tenancyId, termsId, participantId)
+    }
+
+    fun issueNotice(tenancyId: String, type: String, content: String) = write {
+        require(!_ui.value.tenantMode) { "Tenant không phát hành Notice." }
+        require(type.isNotBlank() && content.isNotBlank()) { "Notice cần type và nội dung." }
+        api.issueNotice(tenancyId, type.trim(), content.trim())
+        _ui.update { it.copy(notices = api.notices(tenancyId)) }
+    }
+
+    fun acknowledgeNotice(tenancyId: String, noticeId: String) = write {
+        api.acknowledgeNotice(tenancyId, noticeId)
+        _ui.update { it.copy(notices = api.notices(tenancyId)) }
+    }
+
     fun createBilling(id: String, termsId: String, from: String, to: String, type: String, amount: String) = write {
         require(!_ui.value.tenantMode) { "Tenant có quyền xem, không tự tạo Billing." }
         api.createBilling(id, termsId, from, to, listOf(type to amount))
@@ -191,7 +246,32 @@ class RentalViewModel @Inject constructor(
     fun recordPayment(id: String, amount: String, source: String) = write {
         require(!_ui.value.tenantMode) { "Chỉ Operator ghi nhận tiền đã thực nhận." }
         val recorded = api.recordPayment(id, amount, source)
-        _ui.update { it.copy(payment = api.payment(recorded.id)) }
+        _ui.update {
+            it.copy(
+                payments = api.payments(id).filter { payment -> payment.tenancyId == id },
+                payment = api.payment(recorded.id),
+            )
+        }
+    }
+
+    fun createDeposit(tenancyId: String) = write {
+        require(!_ui.value.tenantMode) { "Chỉ Operator tạo Deposit projection." }
+        val created = api.createDeposit(tenancyId)
+        require(created.tenancyId == tenancyId) { "Backend trả Deposit sai Tenancy." }
+        _ui.update {
+            it.copy(deposit = created, depositEvents = api.depositEvents(created.id))
+        }
+    }
+
+    fun settleDeposit(tenancyId: String, refunded: String, retained: String, reason: String) = write {
+        require(!_ui.value.tenantMode) { "Tenant không thực hiện Deposit settlement." }
+        val deposit = _ui.value.deposit ?: error("Chưa có Deposit từ Backend.")
+        require(deposit.tenancyId == tenancyId && !deposit.blockedByOpenPolicy) {
+            "Deposit đang bị policy Backend chặn settlement."
+        }
+        api.settleDeposit(deposit.id, refunded, retained, reason)
+        val fresh = api.deposit(tenancyId) ?: error("Deposit không còn khả dụng sau settlement.")
+        _ui.update { it.copy(deposit = fresh, depositEvents = api.depositEvents(fresh.id)) }
     }
 
     fun lookupPayment(id: String) = write {
@@ -228,7 +308,12 @@ class RentalViewModel @Inject constructor(
     fun transitionIncident(id: String, status: String, note: String?, closure: String?) = write {
         require(!_ui.value.tenantMode) { "Tenant không cập nhật Incident status." }
         val fresh = api.transitionIncident(id, status, note, closure)
-        _ui.update { it.copy(incident = api.incident(fresh.id)) }
+        _ui.update {
+            it.copy(
+                incident = api.incident(fresh.id),
+                incidentEvents = api.incidentEvents(fresh.id).filter { event -> event.incidentId == fresh.id },
+            )
+        }
     }
 
     private fun write(block: suspend () -> Unit) {

@@ -1,6 +1,8 @@
 package com.trooi.app.core.network
 
 import com.trooi.app.core.data.BackendTroOiRepository
+import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.IncidentLifecycle
 import com.trooi.app.core.model.ListingVisibility
 import com.trooi.app.core.network.dto.*
 import java.net.InetAddress
@@ -122,10 +124,166 @@ class BackendRuntimeContractTest {
             "2026-09-30T01:00:00.000Z \u00B7 ISSUED",
             read.tenantFinanceByTenancy["tenancy-1"]?.receipts?.single()?.issuedAtLabel,
         )
-        assertTrue(read.dashboardByOrganization.isEmpty())
+        assertTrue(read.operatorListings.isEmpty())
+        assertEquals(1, read.tenantFinanceByTenancy["tenancy-1"]?.payments?.size)
+        val deposit = read.tenantFinanceByTenancy["tenancy-1"]?.deposits?.single()
+        assertTrue(deposit?.blockedByOpenPolicy == true)
+        assertNull(deposit?.requiredLabel)
+        val dashboard = read.dashboardByOrganization["org-1"]
+        assertEquals(1, dashboard?.activeTenancyCount)
+        assertNull(dashboard?.outstandingReceivableLabel)
+        assertNull(dashboard?.confirmedPaymentTotalLabel)
     }
 
-    private class FakeRuntimeApi : BackendApi {
+    @Test fun authoritativeOperatorListingAndIncidentTimelinePreserveBackendScopeAndOrder() = runBlocking {
+        val incident = IncidentTransport(
+            id = "incident-1",
+            roomId = "room-1",
+            reportedByUserId = null,
+            category = "PLUMBING",
+            status = "ACKNOWLEDGED",
+            closureReason = null,
+            createdAt = "2026-10-03T01:00:00Z",
+            closedAt = null,
+        )
+        val events = listOf(
+            IncidentEventTransport(
+                id = "event-2",
+                incidentId = "incident-1",
+                eventType = "STATUS_CHANGED",
+                actorUserId = null,
+                note = "Đã tiếp nhận",
+                attachmentReference = null,
+                fromStatus = "REPORTED",
+                toStatus = "ACKNOWLEDGED",
+                occurredAt = "2026-10-03T03:00:00Z",
+            ),
+            IncidentEventTransport(
+                id = "event-1",
+                incidentId = "incident-1",
+                eventType = "REPORTED",
+                actorUserId = null,
+                note = null,
+                attachmentReference = null,
+                fromStatus = null,
+                toStatus = null,
+                occurredAt = "2026-10-03T02:00:00Z",
+            ),
+        )
+        val api = FakeRuntimeApi(
+            currentListing = ListingTransport(
+                id = "listing-1",
+                roomId = "room-1",
+                status = "draft",
+                publicTitle = "P101",
+                publicDescription = "Draft",
+                publicPriceProjection = "3500000.00",
+                publicLocation = PublicLocationTransport(10.77, 106.69),
+            ),
+            incidentRows = listOf(incident),
+            incidentEventRows = mapOf("incident-1" to events),
+        )
+        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider())
+
+        val read = repository.refreshAuthorizedRead(
+            AccessCapabilities(operatedOrganizationIds = setOf("org-1")),
+        ).getOrThrow()
+
+        assertEquals(listOf("listing-1"), read.operatorListings.map { it.listingId })
+        assertEquals(ListingVisibility.DRAFT, read.operatorListings.single().visibility)
+        assertEquals(listOf("event-2", "event-1"), read.incidents.single().timeline.map { it.eventId })
+        assertEquals(IncidentLifecycle.ACKNOWLEDGED, read.incidents.single().lifecycle)
+        assertTrue(read.properties.none { it.organizationId == "org-foreign" })
+        assertTrue(read.operationalRooms.none { it.roomId == "room-foreign" })
+    }
+
+    private class FakeRuntimeApi(
+        private val currentListing: ListingTransport? = null,
+        private val incidentRows: List<IncidentTransport> = emptyList(),
+        private val incidentEventRows: Map<String, List<IncidentEventTransport>> = emptyMap(),
+    ) : BackendApi {
+        private fun <T> unsupported(): ApiOutcome<T> = throw UnsupportedOperationException()
+
+        override suspend fun searchPublicListings(
+            latitude: Double,
+            longitude: Double,
+            radiusMeters: Double,
+            minPrice: String?,
+            maxPrice: String?,
+        ) = unsupported<List<PublicListingSearchResultTransport>>()
+        override suspend fun getDashboard(organizationId: String) = ApiOutcome.Data(
+            DashboardTransport(
+                organizationId = organizationId,
+                roomsByState = DashboardRoomStateCountsTransport(0, 1, 0, 0),
+                activeTenancyCount = 1,
+                outstandingReceivable = null,
+                confirmedPaymentTotal = null,
+                openIncidentCount = 0,
+            ),
+        )
+        override suspend fun transitionRoomOperationalState(id: String, operationalState: String) =
+            unsupported<RoomTransport>()
+        override suspend fun getCurrentListing(roomId: String): ApiOutcome<ListingTransport> =
+            currentListing?.takeIf { it.roomId == roomId }?.let { ApiOutcome.Data(it) }
+                ?: ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
+        override suspend fun publishListing(id: String) = unsupported<ListingTransport>()
+        override suspend fun unpublishListing(id: String) = unsupported<ListingTransport>()
+        override suspend fun archiveListing(id: String) = unsupported<ListingTransport>()
+        override suspend fun activateTenancy(id: String, occurredAt: String) = unsupported<TenancyTransport>()
+        override suspend fun getTenancyHistory(id: String) = unsupported<RentalHistoryTransport>()
+        override suspend fun getRoomHistory(id: String) = unsupported<RoomOperationalHistoryTransport>()
+        override suspend fun acknowledgeTerms(
+            tenancyId: String,
+            termsId: String,
+            tenancyParticipantId: String,
+            acknowledgedAt: String,
+        ) = unsupported<TermsAcknowledgementTransport>()
+        override suspend fun issueNotice(
+            tenancyId: String,
+            noticeType: String,
+            contentOrNote: String,
+            issuedAt: String,
+        ) = unsupported<TenancyNoticeTransport>()
+        override suspend fun acknowledgeNotice(tenancyId: String, noticeId: String, occurredAt: String) =
+            unsupported<TenancyNoticeTransport>()
+        override suspend fun getPayments(tenancyId: String) = ApiOutcome.Data(
+            listOf(
+                PaymentTransport(
+                    "payment-1",
+                    tenancyId,
+                    "3500000.00",
+                    "MANUAL_TRANSFER",
+                    "USER_RECORDED",
+                    "2026-09-30T00:00:00.000Z",
+                ),
+            ),
+        )
+        override suspend fun createDeposit(tenancyId: String) = unsupported<DepositProjectionTransport>()
+        override suspend fun getDeposit(tenancyId: String) = ApiOutcome.Data(
+            DepositProjectionTransport(
+                id = "deposit-1",
+                tenancyId = tenancyId,
+                requirementAmount = null,
+                fundedAmount = "0.00",
+                settledAmount = "0.00",
+                heldAmount = "0.00",
+                state = null,
+                blockedByOpenPolicy = true,
+            ),
+        )
+        override suspend fun getDepositEvents(id: String) = unsupported<List<DepositEventTransport>>()
+        override suspend fun settleDeposit(
+            id: String,
+            refundedAmount: String,
+            retainedAmount: String,
+            reasonOrNote: String,
+            settledAt: String,
+        ) = unsupported<DepositSettlementTransport>()
+        override suspend fun getIncidentEvents(id: String) = ApiOutcome.Data(incidentEventRows[id].orEmpty())
+        override suspend fun getNotifications() = ApiOutcome.Data(emptyList<NotificationTransport>())
+        override suspend fun getNotification(id: String) = unsupported<NotificationTransport>()
+        override suspend fun markNotificationRead(id: String) = unsupported<NotificationTransport>()
+
         override suspend fun getPublicListings() = ApiOutcome.Data(
             listOf(PublicListingTransport("listing-1", "room-1", "published", "Phòng sáng", "Mô tả", "3500000.00", PublicLocationTransport(10.77, 106.69))),
         )
@@ -178,7 +336,9 @@ class BackendRuntimeContractTest {
         override suspend fun getReceipts() = ApiOutcome.Data(
             listOf(ReceiptTransport("receipt-1", "payment-1", "ISSUED", "2026-09-30T01:00:00.000Z", null, null)),
         )
-        override suspend fun getIncidents(roomId: String) = ApiOutcome.Data(emptyList<IncidentTransport>())
+        override suspend fun getIncidents(roomId: String) = ApiOutcome.Data(
+            incidentRows.filter { it.roomId == roomId },
+        )
         override suspend fun createInquiry(listingId: String, message: String) = ApiOutcome.Data(
             InquiryTransport("inquiry-1", listingId, "user-1", message, "NEW", "2026-09-30T00:00:00.000Z"),
         )

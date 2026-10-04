@@ -21,6 +21,8 @@ import com.trooi.app.features.auth.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
+import com.trooi.app.features.notifications.V1NotificationCenterScreen
+import com.trooi.app.features.notifications.V1NotificationDetailScreen
 import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
@@ -36,7 +38,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
     // Only root Discovery may close the app; swipes in nested screens navigate safely.
-    BackHandler(enabled = state.page !is AppPage.ListingDetail) {
+    BackHandler(
+        enabled = state.page !is AppPage.ListingDetail &&
+            state.page !is AppPage.NotificationDetail && state.page != AppPage.Notifications,
+    ) {
         if (state.page != AppPage.Discovery) {
             viewModel.goBack()
         } else {
@@ -101,7 +106,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onSubmit = viewModel::requestPasswordReset,
                     )
                     AppPage.Discovery -> V1DiscoveryScreen(
-                        state, viewModel::openListing,
+                        state = state,
+                        onOpenListing = viewModel::openListing,
+                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
+                        onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
                         onProbeTransport = if (BuildConfig.BACKEND_BACKED && BuildConfig.DEBUG) viewModel::probePublicTransport else null,
                     )
                     is AppPage.ListingDetail -> V1ListingDetailScreen(
@@ -114,6 +122,18 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                     AppPage.TenantPortal -> if (BuildConfig.BACKEND_BACKED) {
                         V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
+                    AppPage.Notifications -> V1NotificationCenterScreen(
+                        state = state,
+                        onOpen = viewModel::openNotification,
+                        onBack = viewModel::goBack,
+                    )
+                    is AppPage.NotificationDetail -> V1NotificationDetailScreen(
+                        state = state,
+                        notificationId = page.notificationId,
+                        onBack = viewModel::goBack,
+                        onMarkRead = viewModel::markNotificationRead,
+                        onOpenSource = viewModel::openNotificationSource,
+                    )
                     AppPage.Account -> V1AccountScreen(
                         state = state,
                         googleOnly = BuildConfig.BACKEND_BACKED,
@@ -121,6 +141,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onSignUp = viewModel::openSignUp,
                         onDiscovery = viewModel::openDiscovery,
                         onTenantPortal = viewModel::openTenantPortal,
+                        onNotifications = viewModel::openNotifications,
                         onOperations = viewModel::openOperations,
                         onLogout = viewModel::logout,
                     )

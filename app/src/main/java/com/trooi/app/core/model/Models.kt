@@ -9,6 +9,8 @@ sealed interface AppPage {
     data object Discovery : AppPage
     data class ListingDetail(val listingId: String) : AppPage
     data object TenantPortal : AppPage
+    data object Notifications : AppPage
+    data class NotificationDetail(val notificationId: String) : AppPage
     data object Account : AppPage
     data object OwnerDashboard : AppPage
     data object OwnerProperties : AppPage
@@ -38,5 +40,6 @@ fun canOpenPage(page: AppPage, authenticated: Boolean, access: AccessCapabilitie
             authenticated && access.allows(ClientArea.OPERATIONS)
         AppPage.OwnerProperties -> authenticated
         AppPage.TenantPortal -> authenticated && access.allows(ClientArea.TENANT_PORTAL)
+        AppPage.Notifications, is AppPage.NotificationDetail -> authenticated
         else -> true
     }

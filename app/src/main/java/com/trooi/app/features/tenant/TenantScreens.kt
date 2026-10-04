@@ -30,13 +30,24 @@ import com.trooi.app.ui.theme.*
 fun V1DiscoveryScreen(
     state: TroOiUiState,
     onOpenListing: (String) -> Unit,
+    onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
+    onResetSearch: (() -> Unit)? = null,
     onProbeTransport: (() -> Unit)? = null,
 ) {
     // Do not render Room or locally invented listings: only public PUBLISHED projection.
     var minPrice by rememberSaveable { mutableStateOf("") }
     var maxPrice by rememberSaveable { mutableStateOf("") }
+    var centerLat by rememberSaveable { mutableStateOf("") }
+    var centerLng by rememberSaveable { mutableStateOf("") }
+    var radiusMeters by rememberSaveable { mutableStateOf("") }
     val filter = PublicDiscoveryFilters(minPrice.trim(), maxPrice.trim())
     val listings = filter.apply(state.read.publicListings)
+    val latitude = centerLat.toDoubleOrNull()
+    val longitude = centerLng.toDoubleOrNull()
+    val radius = radiusMeters.toDoubleOrNull()
+    val spatialSearchValid = latitude != null && latitude in -90.0..90.0 &&
+        longitude != null && longitude in -180.0..180.0 && radius != null && radius > 0.0 &&
+        filter.validationMessage() == null
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-discovery-list"),
         contentPadding = PaddingValues(18.dp),
@@ -54,7 +65,24 @@ fun V1DiscoveryScreen(
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel("Lọc trên tin đăng công khai") {
-                V1Pending("Tìm theo khu vực tạm thời chưa khả dụng: đang chờ Backend cung cấp hợp đồng tìm kiếm vị trí công khai.")
+                OutlinedTextField(
+                    value = centerLat, onValueChange = { centerLat = it },
+                    label = { Text("Vĩ độ tâm tìm kiếm") },
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-latitude"),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = centerLng, onValueChange = { centerLng = it },
+                    label = { Text("Kinh độ tâm tìm kiếm") },
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-longitude"),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = radiusMeters, onValueChange = { radiusMeters = it },
+                    label = { Text("Bán kính (mét)") },
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-radius"),
+                    singleLine = true,
+                )
                 OutlinedTextField(
                     value = minPrice, onValueChange = { minPrice = it },
                     label = { Text("Giá thấp nhất (VND)") },
@@ -70,9 +98,34 @@ fun V1DiscoveryScreen(
                 filter.validationMessage()?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("discovery-filter-error"))
                 }
+                if (onSearch != null) {
+                    V1Action(
+                        "Tìm theo bán kính",
+                        {
+                            onSearch(
+                                latitude!!,
+                                longitude!!,
+                                radius!!,
+                                minPrice.trim().takeIf { it.isNotEmpty() },
+                                maxPrice.trim().takeIf { it.isNotEmpty() },
+                            )
+                        },
+                        enabled = spatialSearchValid && !state.runtimeLoading,
+                    )
+                }
+                if (onResetSearch != null) {
+                    V1Action("Hiển thị lại tất cả tin công khai", {
+                        centerLat = ""
+                        centerLng = ""
+                        radiusMeters = ""
+                        minPrice = ""
+                        maxPrice = ""
+                        onResetSearch()
+                    }, enabled = !state.runtimeLoading)
+                }
                 Text(
-                    "Bộ lọc giá áp dụng trên kết quả GET /listings/public đã tải. " +
-                        "Tìm kiếm khu vực và Availability chưa có hợp đồng Backend; không dùng địa chỉ vận hành.",
+                    "Spatial search gửi public latitude/longitude, radius và khoảng giá tới Backend. " +
+                        "Availability vẫn chưa có contract; không dùng địa chỉ vận hành.",
                     color = TroOiMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -100,6 +153,9 @@ fun V1DiscoveryScreen(
                         Text(listing.publicAreaLabel, style = MaterialTheme.typography.bodyMedium, color = TroOiMuted)
                     }
                     Text(listing.askingPriceLabel ?: "Giá chưa được công khai", style = MaterialTheme.typography.titleLarge, color = TroOiGreen)
+                    listing.distanceMeters?.let {
+                        Text("Khoảng cách theo public projection: ${it.toInt()} m", color = TroOiMuted)
+                    }
                     if (listing.amenities.isNotEmpty()) {
                         Text(listing.amenities.joinToString(" · "), color = TroOiMuted, style = MaterialTheme.typography.labelMedium)
                     }
@@ -205,7 +261,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                     }
                     PortalArea.PAYMENT -> {
                         val payments = scopedFinance.flatMap { it.payments }
-                        if (payments.isEmpty()) V1Pending("Chưa có Payment theo Tenancy. Payment Claim đang chờ API.")
+                        if (payments.isEmpty()) V1Pending("Chưa có Payment theo Tenancy.")
                         else payments.forEach {
                             V1Metric("Payment", it.amountLabel)
                             V1Pending(it.confirmationLabel ?: "Chưa có trạng thái xác nhận")
@@ -261,6 +317,7 @@ fun V1AccountScreen(
     onSignUp: () -> Unit,
     onDiscovery: () -> Unit,
     onTenantPortal: () -> Unit,
+    onNotifications: () -> Unit,
     onOperations: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -279,6 +336,7 @@ fun V1AccountScreen(
                     )
                     if (!googleOnly) TextButton(onClick = onSignUp) { Text("Tạo tài khoản") }
                 } else {
+                    V1Action("Thông báo", onNotifications, modifier = Modifier.fillMaxWidth())
                     if (state.access.allows(ClientArea.TENANT_PORTAL)) {
                         V1Action("My Rental / Tenant Portal", onTenantPortal, modifier = Modifier.fillMaxWidth())
                     }

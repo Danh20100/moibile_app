@@ -3,6 +3,8 @@ package com.trooi.app.features.organization
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.network.dto.DashboardTransport
+import com.trooi.app.core.network.dto.RoomOperationalHistoryTransport
 import com.trooi.app.features.shared.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -16,10 +18,12 @@ import kotlinx.coroutines.launch
 sealed interface OperatorRoute {
     data object Organizations : OperatorRoute
     data class Organization(val id: String) : OperatorRoute
+    data class Dashboard(val organizationId: String) : OperatorRoute
     data class Properties(val organizationId: String) : OperatorRoute
     data class Property(val id: String, val organizationId: String) : OperatorRoute
     data class Rooms(val propertyId: String, val organizationId: String) : OperatorRoute
     data class Room(val id: String, val propertyId: String, val organizationId: String) : OperatorRoute
+    data class RoomHistory(val id: String, val propertyId: String, val organizationId: String) : OperatorRoute
     data class Listing(val id: String, val roomId: String, val propertyId: String, val organizationId: String) : OperatorRoute
     data class Rentals(val roomId: String, val organizationId: String) : OperatorRoute
     data class Inquiries(val listingId: String) : OperatorRoute
@@ -35,10 +39,12 @@ data class OperatorUiState(
     val organizationCreatedRevision: Int = 0,
     val organizations: List<V1Organization> = emptyList(),
     val organization: V1Organization? = null,
+    val dashboard: DashboardTransport? = null,
     val properties: List<V1Property> = emptyList(),
     val property: V1Property? = null,
     val rooms: List<V1Room> = emptyList(),
     val room: V1Room? = null,
+    val roomHistory: RoomOperationalHistoryTransport? = null,
     val listing: V1Listing? = null,
     val inquiries: List<V1Inquiry> = emptyList(),
     val inquiry: V1Inquiry? = null,
@@ -74,10 +80,12 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         val authorized = when (route) {
             is OperatorRoute.Organizations -> true
             is OperatorRoute.Organization -> route.id in access.operatedOrganizationIds
+            is OperatorRoute.Dashboard -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Properties -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Property -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Rooms -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Room -> route.organizationId in access.operatedOrganizationIds
+            is OperatorRoute.RoomHistory -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Listing -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Rentals -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Inquiries, is OperatorRoute.Inquiry -> true // Only reachable from an authorized Listing.
@@ -87,8 +95,8 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
             return
         }
         _ui.update { it.copy(stack = it.stack + route, success = null, error = null, errorKind = null,
-            organizations = emptyList(), organization = null, properties = emptyList(), property = null,
-            rooms = emptyList(), room = null, listing = null, inquiries = emptyList(), inquiry = null) }
+            organizations = emptyList(), organization = null, dashboard = null, properties = emptyList(), property = null,
+            rooms = emptyList(), room = null, roomHistory = null, listing = null, inquiries = emptyList(), inquiry = null) }
         load()
     }
 
@@ -113,6 +121,11 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
                         publish(requestId) { it.copy(organizations = data) }
                     }
                     is OperatorRoute.Organization -> publish(requestId) { it.copy(organization = api.organization(route.id)) }
+                    is OperatorRoute.Dashboard -> publish(requestId) {
+                        val dashboard = api.dashboard(route.organizationId)
+                        require(dashboard.organizationId == route.organizationId) { "Dashboard không thuộc Organization hiện tại." }
+                        it.copy(dashboard = dashboard)
+                    }
                     is OperatorRoute.Properties -> publish(requestId) {
                         it.copy(properties = api.properties(route.organizationId).filter { p -> p.organizationId == route.organizationId })
                     }
@@ -120,7 +133,20 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
                     is OperatorRoute.Rooms -> publish(requestId) {
                         it.copy(rooms = api.rooms(route.propertyId).filter { room -> room.propertyId == route.propertyId })
                     }
-                    is OperatorRoute.Room -> publish(requestId) { it.copy(room = api.room(route.id)) }
+                    is OperatorRoute.Room -> publish(requestId) {
+                        val room = api.room(route.id)
+                        require(room.propertyId == route.propertyId) { "Room không thuộc Property hiện tại." }
+                        val listing = api.currentListing(route.id)
+                        require(listing == null || listing.roomId == room.id) { "Listing không thuộc Room hiện tại." }
+                        it.copy(room = room, listing = listing)
+                    }
+                    is OperatorRoute.RoomHistory -> publish(requestId) {
+                        val history = api.roomHistory(route.id)
+                        require(history.room.id == route.id && history.room.propertyId == route.propertyId) {
+                            "Room history không thuộc Room hiện tại."
+                        }
+                        it.copy(roomHistory = history)
+                    }
                     is OperatorRoute.Listing -> publish(requestId) {
                         val listing = api.listing(route.id)
                         require(listing.roomId == route.roomId) { "Listing không thuộc Room hiện tại." }
@@ -175,6 +201,13 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         _ui.update { it.copy(room = api.room(id)) }
     }
 
+    fun transitionRoomState(route: OperatorRoute.Room, state: String) = write {
+        require(route.organizationId in access.operatedOrganizationIds) { "Không có quyền với Organization này." }
+        val updated = api.transitionRoomOperationalState(route.id, state)
+        require(updated.propertyId == route.propertyId) { "Room không thuộc Property hiện tại." }
+        _ui.update { it.copy(room = updated) }
+    }
+
     fun createListing(room: OperatorRoute.Room, title: String, description: String, price: String, lat: Double, lng: Double) = write {
         require(title.isNotBlank() && description.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?"))) {
             "Thiếu title/description hoặc giá không hợp lệ"
@@ -187,6 +220,17 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         require(title.isNotBlank() && description.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?"))) { "Thông tin Listing không hợp lệ" }
         api.editListing(route.id, title.trim(), description.trim(), price)
         _ui.update { it.copy(listing = api.listing(route.id)) }
+    }
+
+    fun publishListing(route: OperatorRoute.Listing) = updateListing(route) { api.publishListing(route.id) }
+    fun unpublishListing(route: OperatorRoute.Listing) = updateListing(route) { api.unpublishListing(route.id) }
+    fun archiveListing(route: OperatorRoute.Listing) = updateListing(route) { api.archiveListing(route.id) }
+
+    private fun updateListing(route: OperatorRoute.Listing, command: suspend () -> V1Listing) = write {
+        require(route.organizationId in access.operatedOrganizationIds) { "Không có quyền với Organization này." }
+        val updated = command()
+        require(updated.id == route.id && updated.roomId == route.roomId) { "Backend trả Listing sai phạm vi Room." }
+        _ui.update { it.copy(listing = updated) }
     }
 
     private fun write(operation: suspend () -> Unit) {

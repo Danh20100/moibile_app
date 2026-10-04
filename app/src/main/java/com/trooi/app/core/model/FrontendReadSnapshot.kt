@@ -30,6 +30,17 @@ data class TenancyNoticeCard(
     val acknowledgedAtLabel: String? = null,
 )
 
+data class NotificationCard(
+    val notificationId: String,
+    val category: String,
+    val message: String,
+    val deliveryStatus: String,
+    val createdAtLabel: String,
+    val readAtLabel: String? = null,
+    val sourceType: String? = null,
+    val sourceId: String? = null,
+)
+
 /** Read projections do not own or mutate business facts. */
 data class FrontendReadSnapshot(
     val publicListings: List<PublicListingCard> = emptyList(),
@@ -43,6 +54,7 @@ data class FrontendReadSnapshot(
     val operatorFinanceByOrganization: Map<String, OperatorFinanceProjection> = emptyMap(),
     val incidents: List<IncidentCard> = emptyList(),
     val dashboardByOrganization: Map<String, DashboardReadModel> = emptyMap(),
+    val notifications: List<NotificationCard> = emptyList(),
 )
 
 /** Enforce relationship boundaries in client projections as defense-in-depth. */

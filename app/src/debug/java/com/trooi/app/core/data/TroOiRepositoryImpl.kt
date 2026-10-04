@@ -3,6 +3,7 @@ package com.trooi.app.core.data
 import com.trooi.app.core.demo.DemoData
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.FrontendReadSnapshot
+import com.trooi.app.core.model.NotificationCard
 import com.trooi.app.core.model.PublicListingCard
 import javax.inject.Inject
 
@@ -15,6 +16,14 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
 
     override suspend fun refreshPublicListings(): Result<List<PublicListingCard>> =
         Result.success(DemoData.read.publicListings)
+
+    override suspend fun searchPublicListings(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        minPrice: String?,
+        maxPrice: String?,
+    ): Result<List<PublicListingCard>> = Result.success(DemoData.read.publicListings)
 
     override suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession> =
         Result.failure(IllegalStateException("Preview debug không dùng Google runtime authentication."))
@@ -41,4 +50,10 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
 
     override suspend fun submitInquiry(listingId: String, message: String): Result<Unit> =
         Result.failure(IllegalStateException("Preview không tạo Inquiry thật."))
+
+    override suspend fun loadNotification(notificationId: String): Result<NotificationCard> =
+        Result.failure(IllegalStateException("Preview không tải Notification thật."))
+
+    override suspend fun markNotificationRead(notificationId: String): Result<Unit> =
+        Result.failure(IllegalStateException("Preview không cập nhật Notification thật."))
 }

@@ -62,10 +62,72 @@ class TroOiViewModel @Inject constructor(
     fun openDiscovery() = open(AppPage.Discovery)
     fun openAccount() = open(AppPage.Account)
     fun openTenantPortal() = open(AppPage.TenantPortal)
+    fun openNotifications() = open(AppPage.Notifications)
     fun openOperations() = open(AppPage.OwnerDashboard)
     fun openOwnerProperties() = open(AppPage.OwnerProperties)
     fun openOwnerFinance() = open(AppPage.OwnerFinance)
     fun openOwnerIncidents() = open(AppPage.OwnerIncidents)
+
+    fun openNotification(notificationId: String) {
+        if (!_state.value.isAuthenticated) return
+        open(AppPage.NotificationDetail(notificationId))
+        val generation = sessionGeneration
+        _state.update { it.copy(runtimeLoading = true) }
+        viewModelScope.launch {
+            repository.loadNotification(notificationId).fold(
+                onSuccess = { card ->
+                    if (generation == sessionGeneration) _state.update { current ->
+                        val rows = current.read.notifications.filterNot { it.notificationId == card.notificationId } + card
+                        current.copy(runtimeLoading = false, read = current.read.copy(notifications = rows))
+                    }
+                },
+                onFailure = { error ->
+                    if (generation == sessionGeneration) {
+                        _state.update { it.copy(runtimeLoading = false) }
+                        showMessage(error.message ?: "Không tải được Notification.")
+                    }
+                },
+            )
+        }
+    }
+
+    fun markNotificationRead(notificationId: String) {
+        if (!_state.value.isAuthenticated) return
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            repository.markNotificationRead(notificationId).fold(
+                onSuccess = {
+                    if (generation == sessionGeneration) openNotification(notificationId)
+                },
+                onFailure = { error ->
+                    if (generation == sessionGeneration) showMessage(error.message ?: "Không đánh dấu được Notification.")
+                },
+            )
+        }
+    }
+
+    fun openNotificationSource(notificationId: String) {
+        val notification = _state.value.read.notifications.firstOrNull { it.notificationId == notificationId }
+            ?: return showMessage("Notification không còn khả dụng.")
+        val sourceId = notification.sourceId?.takeIf { it.isNotBlank() }
+            ?: return showMessage("Notification không có sourceId để điều hướng.")
+        when (notification.sourceType?.uppercase()) {
+            "LISTING" -> openListing(sourceId)
+            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) openTenantPortal()
+                else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
+                else showMessage("Bạn không có quan hệ truy cập Tenancy nguồn.")
+            "INCIDENT" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerIncidents()
+                else if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantPortal()
+                else showMessage("Bạn không có quyền mở Incident nguồn.")
+            "ROOM", "PROPERTY", "ORGANIZATION" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
+                else showMessage("Bạn không có quyền mở nguồn vận hành.")
+            "PAYMENT", "RECEIPT", "DEPOSIT", "BILLING_CYCLE", "CHARGE" ->
+                if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantPortal()
+                else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerFinance()
+                else showMessage("Bạn không có quyền mở nguồn tài chính.")
+            else -> showMessage("Loại nguồn Notification chưa có route an toàn; vẫn giữ trang chi tiết.")
+        }
+    }
 
     fun openListing(listingId: String) {
         if (publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == listingId }) {
@@ -139,6 +201,35 @@ class TroOiViewModel @Inject constructor(
             )
         }
     }
+
+    fun searchPublicListings(
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        minPrice: String?,
+        maxPrice: String?,
+    ) {
+        if (!BuildConfig.BACKEND_BACKED || _state.value.runtimeLoading) return
+        _state.update { it.copy(runtimeLoading = true) }
+        viewModelScope.launch {
+            repository.searchPublicListings(latitude, longitude, radiusMeters, minPrice, maxPrice).fold(
+                onSuccess = { listings ->
+                    _state.update { current ->
+                        current.copy(
+                            runtimeLoading = false,
+                            read = current.read.copy(publicListings = publicDiscoveryFeed(listings)),
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(runtimeLoading = false) }
+                    showMessage(error.message ?: "Không tìm được tin đăng quanh vị trí công khai.")
+                },
+            )
+        }
+    }
+
+    fun reloadPublicListings() = refreshPublicListings()
 
     private fun refreshAuthorizedRead(access: AccessCapabilities) {
         val generation = sessionGeneration
@@ -286,6 +377,8 @@ class TroOiViewModel @Inject constructor(
     fun goBack() {
         val destination = when (_state.value.page) {
             AppPage.AuthForgotPassword -> AppPage.AuthLogin
+            is AppPage.NotificationDetail -> AppPage.Notifications
+            AppPage.Notifications -> AppPage.Account
             else -> AppPage.Discovery
         }
         open(destination)

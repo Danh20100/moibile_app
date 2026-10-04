@@ -29,6 +29,7 @@ data class PublicListingCard(
     val askingPriceLabel: String?,
     val visibility: ListingVisibility,
     val amenities: List<String> = emptyList(),
+    val distanceMeters: Double? = null,
 )
 
 /** A discovery feed may render only published public Listing projections. */
@@ -62,7 +63,16 @@ data class TenancyCard(
 data class ChargeCard(val chargeId: String, val label: String, val amountLabel: String, val outstandingLabel: String?)
 data class PaymentCard(val paymentId: String, val amountLabel: String, val confirmationLabel: String?)
 data class PaymentAllocationCard(val allocationId: String, val paymentId: String, val chargeId: String, val amountLabel: String)
-data class DepositCard(val tenancyId: String, val requiredLabel: String?, val fundedLabel: String?, val settlementLabel: String?)
+data class DepositCard(
+    val tenancyId: String,
+    val requiredLabel: String?,
+    val fundedLabel: String?,
+    val settlementLabel: String?,
+    val depositId: String? = null,
+    val heldLabel: String? = null,
+    val state: String? = null,
+    val blockedByOpenPolicy: Boolean = false,
+)
 data class ReceiptCard(val receiptId: String, val confirmedPaymentId: String, val issuedAtLabel: String)
 
 enum class IncidentLifecycle { REPORTED, ACKNOWLEDGED, IN_PROGRESS, RESOLVED, REJECTED, CLOSED }

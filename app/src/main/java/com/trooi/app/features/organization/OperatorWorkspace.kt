@@ -43,7 +43,6 @@ fun V1OperatorWorkspace(
     var publicLng by remember(ui.route) { mutableStateOf("") }
     var description by remember(ui.route) { mutableStateOf("") }
     var price by remember(ui.route) { mutableStateOf("") }
-    var existingListingId by remember(ui.route) { mutableStateOf("") }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
         V1RentalWorkspace(roomId = rental.roomId, onExit = { model.back() }, onUnauthorized = onUnauthorized)
@@ -61,10 +60,12 @@ fun V1OperatorWorkspace(
                 when (route) {
                     OperatorRoute.Organizations -> "Không gian vận hành"
                     is OperatorRoute.Organization -> "Organization"
+                    is OperatorRoute.Dashboard -> "Dashboard"
                     is OperatorRoute.Properties -> "Property"
                     is OperatorRoute.Property -> "Chi tiết Property"
                     is OperatorRoute.Rooms -> "Room"
                     is OperatorRoute.Room -> "Chi tiết Room"
+                    is OperatorRoute.RoomHistory -> "Lịch sử Room"
                     is OperatorRoute.Listing -> "Quản lý Listing"
                     is OperatorRoute.Rentals -> "Quản lý lượt thuê"
                     is OperatorRoute.Inquiries -> "Inquiry Inbox"
@@ -111,7 +112,30 @@ fun V1OperatorWorkspace(
                         V1Panel(org.name) {
                             V1Input(name, { name = it }, "Tên Organization mới", "organization-edit-name")
                             V1Action("Lưu tên", { model.renameOrganization(org.id, name) }, enabled = !ui.busy && name.isNotBlank())
+                            V1Action("Dashboard", { model.open(OperatorRoute.Dashboard(org.id)) })
                             V1Action("Quản lý Property", { model.open(OperatorRoute.Properties(org.id)) })
+                        }
+                    }
+                }
+            }
+            is OperatorRoute.Dashboard -> {
+                ui.dashboard?.takeIf { it.organizationId == route.organizationId }?.let { dashboard ->
+                    item {
+                        V1Panel("Dashboard theo Backend") {
+                            V1Metric("Room · VACANT", dashboard.roomsByState.vacant.toString())
+                            V1Metric("Room · OCCUPIED", dashboard.roomsByState.occupied.toString())
+                            V1Metric("Room · MAINTENANCE", dashboard.roomsByState.maintenance.toString())
+                            V1Metric("Room · INACTIVE", dashboard.roomsByState.inactive.toString())
+                            V1Metric("Active tenancies", dashboard.activeTenancyCount.toString())
+                            V1Metric("Open incidents", dashboard.openIncidentCount.toString())
+                            V1Metric(
+                                "Outstanding receivable",
+                                dashboard.outstandingReceivable ?: "Chưa có authoritative aggregate",
+                            )
+                            V1Metric(
+                                "Confirmed payment total",
+                                dashboard.confirmedPaymentTotal ?: "Chưa có authoritative aggregate",
+                            )
                         }
                     }
                 }
@@ -184,14 +208,26 @@ fun V1OperatorWorkspace(
                             V1Metric("Record Lifecycle", room.lifecycle)
                             V1Input(name, { name = it }, "Tên Room mới", "room-edit-name")
                             V1Action("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
-                            V1Pending("Không cho chỉnh OCCUPIED thủ công. Transition cần command context được Backend chấp nhận.")
+                            if (room.state != "vacant") {
+                                V1Action("Chuyển sang VACANT", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
+                            }
+                            if (room.state != "maintenance") {
+                                V1Action("Chuyển sang MAINTENANCE", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
+                            }
+                            if (room.state != "inactive") {
+                                V1Action("Chuyển sang INACTIVE", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
+                            }
+                            V1Pending("OCCUPIED không phải manual transition; Backend vẫn quyết định transition nào hợp lệ.")
                             V1Action("Tenancy / Billing / Incident", {
                                 model.open(OperatorRoute.Rentals(room.id, route.organizationId))
+                            })
+                            V1Action("Lịch sử vận hành Room", {
+                                model.open(OperatorRoute.RoomHistory(room.id, route.propertyId, route.organizationId))
                             })
                         }
                     }
                 }
-                item {
+                if (!ui.busy && ui.listing?.roomId != route.id) item {
                     V1Panel("Tạo Listing DRAFT cho Room") {
                         V1Pending("Backend kiểm tra tối đa một Listing hiện hành; nếu trùng sẽ từ chối bằng conflict.")
                         V1Input(name, { name = it }, "Tiêu đề công khai", "listing-title")
@@ -208,13 +244,72 @@ fun V1OperatorWorkspace(
                             (publicLng.toDoubleOrNull()?.let { it in -180.0..180.0 } == true))
                     }
                 }
-                item {
-                    V1Panel("Listing đã có") {
-                        V1Pending("OpenAPI hiện thiếu GET Listing theo Room: chỉ mở ID đã biết và Backend sẽ kiểm tra liên kết.")
-                        V1Input(existingListingId, { existingListingId = it }, "Listing ID", "operator-known-listing-id")
-                        V1Action("Xem Listing", {
-                            model.open(OperatorRoute.Listing(existingListingId.trim(), route.id, route.propertyId, route.organizationId))
-                        }, enabled = !ui.busy && existingListingId.matches(Regex("[A-Za-z0-9_-]{1,128}")))
+                ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->
+                    item {
+                        V1Panel("Listing hiện tại") {
+                            V1Metric("Listing ID", listing.id)
+                            V1Metric("Status", listing.status)
+                            V1Action("Mở Listing", {
+                                model.open(OperatorRoute.Listing(listing.id, route.id, route.propertyId, route.organizationId))
+                            }, enabled = !ui.busy)
+                        }
+                    }
+                }
+            }
+            is OperatorRoute.RoomHistory -> {
+                ui.roomHistory?.takeIf { it.room.id == route.id }?.let { history ->
+                    item {
+                        V1Panel("Room · ${history.room.nameOrLabel}") {
+                            V1Metric("Operational state", history.room.operationalState)
+                            V1Metric("Record lifecycle", history.room.recordLifecycle)
+                        }
+                    }
+                    item {
+                        V1Panel("Listing history") {
+                            if (history.listings.isEmpty()) V1Pending("Chưa có Listing history từ Backend.")
+                            history.listings.forEach { entry ->
+                                V1Metric("Listing ${entry.listing.id}", entry.listing.status)
+                                entry.events.forEach { event ->
+                                    Text(
+                                        "${event.fromStatus} → ${event.toStatus} · ${event.occurredAt}",
+                                        color = TroOiMuted,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        V1Panel("Tenancy / Finance history") {
+                            if (history.tenancies.isEmpty()) V1Pending("Chưa có Tenancy history từ Backend.")
+                            history.tenancies.forEach { entry ->
+                                V1Metric("Tenancy ${entry.tenancy.id}", entry.tenancy.status)
+                                Text("Billing cycles: ${entry.billingCycles.size}", color = TroOiMuted)
+                                entry.payments.forEach { paymentEntry ->
+                                    V1Metric("Payment ${paymentEntry.payment.id}", paymentEntry.payment.amount)
+                                    paymentEntry.receipts.forEach { receipt ->
+                                        Text("Receipt ${receipt.id} · ${receipt.status}", color = TroOiMuted)
+                                    }
+                                }
+                                entry.deposit?.let { depositHistory ->
+                                    V1Metric("Deposit held", depositHistory.projection.heldAmount)
+                                    V1Metric(
+                                        "Deposit state",
+                                        depositHistory.projection.state ?: "Chưa có authoritative state",
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        V1Panel("Incident history") {
+                            if (history.incidents.isEmpty()) V1Pending("Chưa có Incident history từ Backend.")
+                            history.incidents.forEach { entry ->
+                                V1Metric(entry.incident.category, entry.incident.status)
+                                entry.events.forEach { event ->
+                                    Text("${event.eventType} · ${event.occurredAt}", color = TroOiMuted)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -231,7 +326,16 @@ fun V1OperatorWorkspace(
                                 enabled = !ui.busy && listing.status != "archived" &&
                                     name.isNotBlank() && description.isNotBlank() &&
                                     price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
-                            V1Pending("Publish / unpublish / archive yêu cầu backend công bố reasonCode/actorType/trigger hợp lệ; không tự suy đoán.")
+                            if (listing.status == "draft" || listing.status == "unpublished") {
+                                V1Action("Publish", { model.publishListing(route) }, enabled = !ui.busy)
+                            }
+                            if (listing.status == "published") {
+                                V1Action("Unpublish", { model.unpublishListing(route) }, enabled = !ui.busy)
+                            }
+                            if (listing.status != "archived") {
+                                V1Action("Archive", { model.archiveListing(route) }, enabled = !ui.busy)
+                            }
+                            V1Pending("Lifecycle được Backend xác nhận; Android không gửi reasonCode/actor/trigger.")
                             V1Action("Inbox liên hệ", { model.open(OperatorRoute.Inquiries(listing.id)) })
                         }
                     }
