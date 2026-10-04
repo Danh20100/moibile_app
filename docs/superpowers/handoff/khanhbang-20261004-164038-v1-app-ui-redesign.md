@@ -3,15 +3,15 @@
 ## Metadata
 
 - Branch: `frontend/v1-app-ui-redesign`
-- Current committed HEAD before native implementation commit: `db67dda254a55d02ae6aeaeb2a04987a61755863`
+- Native implementation commit: `a2c799f feat(android): implement room ledger app redesign`
 - Parent implementation checkpoint: `frontend/v1-ux-warning-fixes @ bbbc07b799ac7713be9354ea06480f3de05429f7`
 - Design source: `design/app-ui-redesign @ 530a518b6652ea385001a5e976272c277ebbde9b`
 - Design commits cherry-picked into this branch:
   - `4197017 design: redesign Android product universe atlas`
   - `f8aaa31 docs(design): consolidate app design artifacts`
   - `db67dda design: rebuild Android app atlas visual system`
-- Native Compose redesign changes: currently uncommitted
-- Push of this branch: NOT PERFORMED
+- Native Compose redesign changes: committed in `a2c799f`
+- Push of this branch: pending final metadata commit
 - Merge: NOT PERFORMED
 - PR: NOT OPENED
 
