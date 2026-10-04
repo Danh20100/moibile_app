@@ -65,7 +65,7 @@ FUTURE absent from implemented app flows: subscription/pricing/quota; CSV/Excel;
 - Finish OpenAPI-supported workflows where contract is sufficient, and coordinate unclear actor/opaque fields with Backend. Only consume backend changes through the coordinator-approved staging integration path.
 - Receive Figma, maintain feature-scoped ViewModel/Repository boundaries, complete relevant loading/empty/error/retry/denied/read-only state design.
 - Run seeded Android device E2E (including DISC-01/DISC-02), authorized API/DB invariant checks and cross-actor journeys before changing READY_TO_REVIEW to YES.
-- Master tracking remains `docs/design/v1-app-pov-checklist.md`; partial work is deliberately unchecked until design + backend + Android + E2E evidence exists.
+- Master tracking remains `docs/designs/v1/app-pov-checklist.md`; partial work is deliberately unchecked until design + backend + Android + E2E evidence exists.
 - Intentionally untouched: `docs/database/v1/canonical.md`, ERD/schema/migrations, backend implementation, staging/main and local secrets. No merge to staging or force push.
 
 ## Review follow-up: non-functional location filter (after reviewed head c0817a2)

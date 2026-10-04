@@ -2,7 +2,7 @@ package com.trooi.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Room Ledger visual authority — docs/designs/DESIGN.md
+// Room Ledger visual authority — docs/designs/v1/DESIGN.md
 val TroOiCanvas = Color(0xFFEEEAE2)
 val TroOiPaper = Color(0xFFFFFDF8)
 val TroOiSurface = Color(0xFFF4F1E9)

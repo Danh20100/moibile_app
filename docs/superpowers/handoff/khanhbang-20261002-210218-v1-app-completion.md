@@ -13,7 +13,7 @@
 
 Use this as the single tracking source for the 3 app POVs:
 
-`docs/design/v1-app-pov-checklist.md`
+`docs/designs/v1/app-pov-checklist.md`
 
 Update the checklist while redesigning/implementing. Do not maintain a separate undocumented feature list.
 
