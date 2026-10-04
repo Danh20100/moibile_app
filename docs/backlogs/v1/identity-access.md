@@ -54,3 +54,7 @@ flowchart TD
 - [`tenant-portal.md`](tenant-portal.md)
 - [`tenancy-participant.md`](tenancy-participant.md)
 - [`../../contexts/product-domain.md`](../../contexts/product-domain.md)
+
+## Approved session-reacquisition V1 acceptance — 2026-10-05
+
+Process-restart recovery is a required V1 gate. Google ID tokens remain in memory, never persisted as session state. Reacquire credential → verify /identity-access/me → recover non-secret context hints scoped to the returned backend user → validate current tenancy/org capabilities → route. Expired/cancelled authentication, logout, account change and revoked relationships must invalidate stale context/routes; a hint is not authorization. No new backend access/refresh-token subsystem is implied. Fresh Android/Google/device evidence is required; documentation and HTML preview do not complete runtime DoD.

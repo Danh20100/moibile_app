@@ -20,7 +20,7 @@ Trust Report dùng để báo vấn đề với **Listing hoặc Review**. Nó t
 - gửi report;
 - người có quyền moderation xử lý report theo lifecycle.
 
-> Login requirement, rate limit, moderation permission và evidence policy vẫn là `OPEN`.
+> Approved V1 scope (2026-10-05): authenticated-only safe submission cho Listing đang public; identity do server derive. Anonymous reporting, rate-limit/evidence policy ngoài safe transport constraints và moderation permission vẫn `OPEN`. Review submission entry và report listing/moderation vẫn gated.
 
 ```mermaid
 stateDiagram-v2
@@ -35,7 +35,7 @@ stateDiagram-v2
 - Gửi đúng target (Listing hoặc Review) và reason.
 - Không tự ẩn/xóa nội dung chỉ vì một Report vừa được gửi.
 - Chỉ hiển thị moderation action theo quyền Backend trả về.
-- Không tự chốt evidence/login/rate-limit policy đang `OPEN`.
+- Require verified identity cho V1 Listing submission; không nhận reporter identity từ client. Không mở Review entry/listing/moderation hoặc tự chốt anonymous/evidence/rate-limit policy còn OPEN.
 
 ## 4. Backend cần làm gì?
 
@@ -62,3 +62,7 @@ stateDiagram-v2
 - [`review.md`](review.md)
 - [`incident.md`](incident.md)
 - [`../../database/v1/canonical.md`](../../database/v1/canonical.md)
+
+## Approved safe submission acceptance — 2026-10-05
+
+Activate Listing-only authenticated submission; domain targets remain Listing or Review, never Property. Backend derives reporter user from verified principal and rejects client-supplied identity. Safe reason/note/body validation and authorized public-target resolution precede persistence. Review entry, report listing/moderation/admin and anonymous policy remain gated; submission does not automatically remove content. Fresh endpoint and Android journey evidence is required; no runtime completion is claimed by this document.

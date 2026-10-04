@@ -163,7 +163,7 @@
       }
     ],
     "dos": [
-      "Do preserve the exact inventory IDs, metadata and V1/OPEN/FUTURE classification.",
+      "Do preserve stable inventory IDs and metadata; scope classifications change only with explicit approval.",
       "Do identify the room, current context and source before presenting the next allowed action.",
       "Do use labeled states alongside color, persistent field labels and visible focus.",
       "Do keep Charge, Payment, Claim, Deposit and Receipt visually and semantically distinct.",

@@ -140,3 +140,11 @@ Review chỉ xuất hiện khi người dùng có lịch sử thuê đủ điề
 - Database là lớp bảo vệ cuối cho các ràng buộc cần transaction hoặc concurrency safety.
 - Frontend cập nhật UI từ response/state mới sau khi thao tác hoàn tất.
 - Notification và Dashboard đi theo dữ liệu gốc, không trở thành nguồn ghi nghiệp vụ mới.
+
+## Approved V1 acceptance flows — 2026-10-05
+
+After process restart, reacquire Google credential, verify /me, recover only non-secret context hints scoped to that backend user, validate current capabilities, then route. ID tokens stay in memory; stale routes/tenancies must not grant access.
+
+Optional MoMo: create durable GatewayCheckout → verify signed create response → launch allowed handoff → return/reacquire identity → read backend checkout → wait for fully verified payment-success IPN → display GATEWAY / PROVIDER_VERIFIED Payment. Create response and redirect do not confirm money. Allocation, Deposit Application and Receipt issuance are separate authorized actions. Manual operator recording remains independent using MANUAL_CASH / MANUAL_TRANSFER and server-derived USER_RECORDED. Replay the same checkout POST/Idempotency-Key, never invent a retry endpoint or new provider IDs.
+
+Native public map/picker is required V1 acceptance, without exact operational-pin fallback or raw lat/lng UX. Authenticated safe reporting activates Listing-only submission with server-derived reporter; Review entry and report listing/moderation remain gated. Claim, Review and Inquiry Activity retain their own explicit gates. Notice/acknowledgement remain scoped to the selected Tenancy. HTML preview cannot prove these Android/backend/provider journeys; missing evidence remains UNVERIFIED.

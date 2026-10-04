@@ -58,15 +58,16 @@ const screens = [
     "category": "Foundation",
     "icon": "spark",
     "title": "Khởi động & Session",
-    "desc": "Màn pre-shell dùng chung cho mọi POV: khôi phục session, xác minh identity/capability và route vào Home của context phù hợp. Màn này chưa có bottom navigation.",
+    "desc": "Màn pre-shell V1: reacquire Google credential → verified /me → non-secret user-scoped context hints → capability validation → route. Google ID token chỉ trong memory; không có bottom navigation.",
     "entry": "App launch",
     "action": "Điều hướng vào app",
-    "data": "Session + /identity-access/me",
+    "data": "Reacquired Google credential + verified /identity-access/me + user-scoped hints",
     "flow": [
-      "Launch",
-      "Restore session",
-      "Resolve capabilities",
-      "Route → Guest Home / Tenant Home / Landlord Dashboard"
+      "Launch / process restart",
+      "Reacquire credential; keep ID token in memory",
+      "Verify /me; recover non-secret hints for backend user",
+      "Validate tenancy/org capabilities",
+      "Route to allowed context or safe discovery"
     ],
     "related": [
       "shared-auth",
@@ -216,16 +217,16 @@ const screens = [
     "category": "Trust",
     "icon": "shield",
     "title": "Trust Report",
-    "desc": "Báo cáo trust/safety tách biệt Incident vận hành; target có thể là Listing/Property/Review theo policy.",
-    "entry": "Listing / Review / Property",
+    "desc": "Authenticated V1 submission cho Listing công khai; reporter identity do server derive. Domain target chỉ Listing hoặc Review, không có Property. Review entry và report listing/moderation vẫn gated.",
+    "entry": "Published Listing / authenticated principal",
     "action": "Gửi báo cáo",
-    "data": "Trust Report",
+    "data": "Listing Trust Report + server-derived reporter",
     "flow": [
-      "Select target",
-      "Reason",
-      "Evidence",
-      "Submit",
-      "Moderation status"
+      "Select published Listing",
+      "Require verified identity",
+      "Choose reason and safe note",
+      "Submit; server derives reporter",
+      "Show submission outcome; no automatic removal"
     ],
     "related": [
       "guest-listing-detail",
@@ -870,25 +871,26 @@ const screens = [
   {
     "id": "tenant-momo",
     "pov": "Tenant",
-    "status": "OPEN",
+    "status": "V1",
     "category": "Finance",
     "icon": "phone",
-    "title": "Thanh toán ngoài app / MoMo handoff",
-    "desc": "UI lane cho deep-link/prefill/reference đang được triển khai; confirmation vẫn phải server-authoritative, mở MoMo ≠ đã thanh toán.",
+    "title": "MoMo · Thanh toán tùy chọn",
+    "desc": "Optional MoMo V1: checkout intent khác Payment. Signed create response chỉ mở handoff; redirect không xác nhận tiền. Chỉ verified payment-success IPN tạo GATEWAY / PROVIDER_VERIFIED Payment.",
     "entry": "Charge / Payment",
     "action": "Mở MoMo",
-    "data": "OPEN implementation lane",
+    "data": "GatewayCheckout + server-authoritative Payment",
     "flow": [
-      "Prepare reference",
-      "Open provider",
-      "User pays",
-      "Return",
-      "Verify/reconcile",
-      "Confirmed Payment"
+      "Create durable checkout with Idempotency-Key",
+      "Verify signed create response; launch allowed payUrl",
+      "Return / reacquire identity; read checkout from backend",
+      "Wait for verified payment-success IPN",
+      "Show confirmed Payment; allocation, Deposit and Receipt remain explicit"
     ],
     "related": [
+      "tenant-billing",
       "tenant-payment",
-      "landlord-payment-claims"
+      "tenant-payment-claim",
+      "future-payment-gateway"
     ]
   },
   {
@@ -1814,17 +1816,17 @@ const screens = [
     "status": "FUTURE",
     "category": "Finance",
     "icon": "card",
-    "title": "Payment Gateway Integration",
-    "desc": "Provider-native payment gateway; canonical không coi là MVP dependency.",
-    "entry": "Charge",
+    "title": "Mở rộng provider / nền tảng thanh toán",
+    "desc": "General provider/platform expansion ngoài optional MoMo V1. Canonical vẫn giữ payment gateway as MVP dependency = FUTURE; manual finance không phụ thuộc provider.",
+    "entry": "Roadmap ngoài optional MoMo V1",
     "action": "Thanh toán online",
-    "data": "Future gateway/provider",
+    "data": "Future provider/platform expansion",
     "flow": [
-      "Create intent",
-      "Provider checkout",
-      "Webhook verify",
-      "Payment confirmed",
-      "Receipt"
+      "Agree provider/platform scope",
+      "Define trusted adapter contract",
+      "Verify provider event",
+      "Confirmed Payment only from trusted success",
+      "Explicit authorized allocation / Receipt"
     ],
     "related": [
       "tenant-momo"
@@ -1956,7 +1958,7 @@ function ErrorState(){return StatePanel('Chưa tải được thông tin','Kiể
 function LoadingSkeleton(){return '<div class="loading-skeleton" role="status" aria-label="Đang tải"><span></span><span></span><span></span></div>'}
 function page(title,context,body,options={}){return AppBar(title,context,options.nested!==false,options.action===undefined?'bell':options.action)+`<div class="screen-body">${body}</div>`+(options.dock?`<div class="action-dock">${options.dock}</div>`:'')}
 const renderers = {
- 'shared-session':()=>`<section class="session-screen"><div class="session-brand"><div class="brand-symbol">${Icon('door')}</div><h1>TrọƠi</h1></div><h2>Mở lại không gian của bạn</h2><p>Phiên đăng nhập và quyền truy cập đang được kiểm tra.</p>${LoadingSkeleton()}<div class="session-process"><div class="session-step">${Icon('check')}Khôi phục phiên đăng nhập</div><div class="session-step"><span class="progress-dot"></span>Xác định không gian được truy cập</div></div><div class="session-fallback">${link('Tiếp tục khám phá phòng','guest-home','button secondary')}${link('Đăng nhập lại','shared-auth','button text')}</div></section>`,
+ 'shared-session':()=>`<section class="session-screen"><div class="session-brand"><div class="brand-symbol">${Icon('door')}</div><h1>TrọƠi</h1></div><h2>Mở lại không gian của bạn</h2><p>Thông tin đăng nhập và quyền truy cập đang được kiểm tra lại.</p>${LoadingSkeleton()}<div class="session-process"><div class="session-step">${Icon('check')}Lấy lại thông tin đăng nhập</div><div class="session-step"><span class="progress-dot"></span>Xác định không gian được truy cập</div></div><div class="session-fallback">${link('Tiếp tục khám phá phòng','guest-home','button secondary')}${link('Đăng nhập lại','shared-auth','button text')}</div></section>`,
  'guest-home':()=>page('TrọƠi','Khám phá phòng',`<button class="context-action" data-route="shared-context">${Icon('switch')}Không gian khám phá</button><h2 class="lead-title">Tìm phòng<br>quanh bạn.</h2>${link('<span><b>Bạn muốn ở đâu?</b><small>Chọn vị trí trên bản đồ</small></span>'+Icon('chevron'),'guest-search','location-entry','pin')}${Section('Quanh vị trí đã chọn',ListingMediaCard(),'Xem tất cả','guest-results')}${link('<span><b>Khám phá trên bản đồ</b><small>Vị trí công khai của các tin đăng</small></span>'+Icon('chevron'),'guest-map','map-entry','map')}${Section('Liên hệ gần đây',AttentionItem('Phòng 204 · Green House','Bạn đã gửi lời quan tâm.','guest-inquiry-activity','send'))}`,{nested:false}),
  'guest-listing-detail':()=>AppBar('Chi tiết phòng','Green House',true,'')+`<div class="listing-detail-media">${RoomMedia(false,true)}</div><div class="screen-body"><h2 class="listing-detail-title">Phòng 204<br>có cửa sổ</h2><p class="body-copy">Phòng 204 · Khu vực công khai</p><div class="rent-line">4.000.000đ <small>/ tháng</small></div><p class="body-copy">20 m² · Green House</p>${Section('Không gian & tiện nghi',`<div class="amenity-grid"><div>${Icon('home')}20 m²</div><div>${Icon('light')}Cửa sổ</div><div>${Icon('bolt')}Máy lạnh</div><div>${Icon('water')}WC riêng</div></div>`)}${Section('Khu vực',`<p class="body-copy">Bản đồ hiển thị khu vực được công khai. Địa chỉ phòng cụ thể được trao đổi khi liên hệ.</p>${link('Xem khu vực trên bản đồ','guest-map','button outline','map')}`)}${link('Báo thông tin không phù hợp','shared-trust-report','button text','shield')}</div><div class="action-dock">${link('Tôi quan tâm','guest-inquiry-compose','button','send')}<small>Liên hệ với người đăng tin</small></div>`,
  'tenant-home':()=>page('Nhà của tôi','Green House',`<button class="context-action" data-route="shared-context">${Icon('switch')}Phòng 203 · Trọ Cô Lan</button>${RoomHero('203','Trọ Cô Lan','Lượt thuê đang hoạt động')}${Section('Hôm nay cần chú ý',BillingSummary()+link('Xem khoản phải trả','tenant-billing','button secondary'))}${AttentionItem('Máy lạnh chưa mát','Đang xử lý · cập nhật lúc 09:20','tenant-incident-detail','tool')}${NoticeCard('Kiểm tra đường nước ngày 06/10','Thời gian dự kiến 09:00–11:00. Bạn có một thông báo mới.')}${Section('Thanh toán gần nhất',`<button class="payment-record" data-route="tenant-payment"><div><b>4.540.000đ</b>${State('Đã ghi nhận','success')}</div><p>01/09 · Chuyển khoản · Kỳ tháng 9</p></button>`)}`,{nested:false}),
@@ -1982,12 +1984,12 @@ Object.assign(renderers,{
  'shared-account':()=>page('Tài khoản','Minh Anh',`<div class="account-identity"><span class="identity-monogram">MA</span><div><h2>Minh Anh</h2><p>minhanh@example.com</p></div></div>${AttentionItem('Không gian của tôi','Khám phá · Nhà của tôi · Trọ Cô Lan','shared-context','switch')}${AttentionItem('Cài đặt','Giao diện và thông báo','shared-settings','settings')}${AttentionItem('Trợ giúp','Hướng dẫn và hỗ trợ','shared-help','help')}${command('Đăng xuất','preview','button text')}`,{nested:false,action:''}),
  'shared-settings':()=>page('Cài đặt','Ứng dụng',Section('Giao diện',command('Đổi sáng / tối','switch-theme','button outline'))+Section('Thông báo',Select('Nhận thông báo','notificationPreference',['Trong ứng dụng','Trong ứng dụng và đẩy']))+StatePanel('Quyền hệ thống','Quyền vị trí và thông báo được hỏi khi cần sử dụng.')),
  'shared-help':()=>page('Trợ giúp','TrọƠi',Section('Hướng dẫn',AttentionItem('Tìm phòng và liên hệ','Gửi lời quan tâm cho tin đăng','guest-inquiry-compose','search')+AttentionItem('Xem tiền phải trả','Khoản phải trả và tiền đã ghi nhận','tenant-billing','wallet')+AttentionItem('Báo sự cố tại phòng','Theo dõi các mốc xử lý','tenant-incident-create','tool'))+Section('Hỗ trợ',Field('Nội dung cần hỗ trợ','support','','textarea')+command('Chuẩn bị yêu cầu hỗ trợ','submit-preview','button outline'))),
- 'shared-trust-report':()=>page('Báo nội dung','Tin đăng · Phòng 204',StatePanel('Chưa mở gửi báo cáo','Chính sách đăng nhập, bằng chứng và xử lý báo cáo công khai chưa được chốt.','warning')+Select('Lý do','reportReason',['Thông tin không chính xác','Nội dung không phù hợp'],true)+Field('Thông tin bổ sung','reportText','','textarea','Không gửi dữ liệu trong bản xem trước',true)+command('Gửi báo cáo','preview','button','disabled'),{action:''}),
+ 'shared-trust-report':()=>page('Báo nội dung','Tin đăng · Phòng 204',StatePanel('Báo tin đăng sau khi đăng nhập','Người gửi được xác định từ tài khoản đã xác thực. Báo cáo không tự ẩn tin đăng; bản xem trước không gửi dữ liệu.')+Select('Lý do','reportReason',['Thông tin không chính xác','Giá gây hiểu nhầm','Vị trí không đúng','Tin đăng trùng lặp','Nội dung không phù hợp','Nghi ngờ lừa đảo','Vi phạm riêng tư','Spam','Khác'])+Field('Thông tin bổ sung','reportText','','textarea','Không gửi thông tin nhạy cảm; bản xem trước không gửi dữ liệu')+command('Xem trước báo cáo','submit-preview','button'),{action:''}),
  'guest-search':()=>page('Bạn muốn ở đâu?','Chọn vùng tìm phòng',MapSurface()+command('Chọn vị trí trên bản đồ','location','button secondary')+command('Dùng vị trí hiện tại','device-location','button text')+Section('Khoảng cách',`<div class="choice-group">${[1,3,5].map(n=>`<button data-choice="radius" aria-pressed="${n===3}">${n} km</button>`).join('')}</div>`)+Section('Giá thuê mỗi tháng',Field('Từ','minPrice','2000000','number')+Field('Đến','maxPrice','5000000','number')),{dock:command('Xem phòng quanh đây','apply-filters')}),
  'guest-map':()=>AppBar('Phòng quanh đây','Vùng đã chọn · 3 km',false)+MapSurface()+`<div class="screen-body">${link('Đổi vùng & giá thuê','guest-search','button outline','search')}${ListingCompactRow()}${link('Xem dạng danh sách','guest-results','button text')}</div>`,
  'guest-results':()=>page('Phòng quanh đây','Vùng đã chọn · 3 km',link('2–5 triệu / tháng · Đổi bộ lọc','guest-search','button outline','search')+ListingMediaCard()+Section('Chuyển cách xem',link('Mở bản đồ','guest-map','button text','map'))),
  'guest-inquiry-compose':()=>page('Tôi quan tâm','Phòng 204 · Green House',ListingCompactRow()+Field('Tên để liên hệ','contactName','Minh Anh')+Field('Số điện thoại','contactPhone','','tel')+Field('Lời nhắn','inquiryMessage','Tôi muốn hỏi thêm về phòng và hẹn xem phòng.','textarea')+StatePanel('Gửi lời quan tâm','Người đăng tin sẽ nhận thông tin để liên hệ. Chưa tạo lượt thuê hay giữ phòng.'),{dock:command('Gửi lời quan tâm','submit-preview','button')}),
- 'guest-inquiry-activity':()=>page('Hoạt động','Lời quan tâm đã gửi',Section('Đã liên hệ',ListingCompactRow()+State('Đã gửi','success')+HistoryEvent('03/10','Bạn đã gửi lời quan tâm','Muốn hỏi thêm và hẹn xem phòng.','Phòng 204')+link('Xem lại tin đăng','guest-listing-detail','button outline')),{nested:false}),
+ 'guest-inquiry-activity':()=>page('Hoạt động','Lời quan tâm đã gửi',StatePanel('Chưa mở lịch sử liên hệ','Lịch sử chỉ mở khi hệ thống có hợp đồng dữ liệu và quyền truy cập theo người gửi. Bản xem trước không hiển thị lịch sử thật.','warning')+link('Khám phá tin đăng','guest-results','button outline'),{nested:false}),
  'guest-area-label':()=>page('Khu vực tìm phòng','Vùng công khai',MapSurface()+StatePanel('Tên khu vực đang được chốt','Tạm chọn vị trí trên bản đồ. Chưa có tìm địa chỉ bằng văn bản.','warning')+Field('Tên khu vực','areaLabel','','text','Chưa có dữ liệu nhãn vùng đã chốt',true)+link('Chọn trên bản đồ','guest-search','button')),
  'guest-availability':()=>page('Tình trạng phòng','Bộ lọc chưa được chốt',StatePanel('Chưa mở lọc tình trạng','Tin đang công khai không thay thế trạng thái vận hành của phòng.','warning')+Select('Tình trạng muốn xem','availability',['Chờ chính sách hiển thị'],true)+link('Xem tin đang công khai','guest-results','button outline')),
  'guest-type-filter':()=>page('Loại phòng','Bộ lọc chưa được chốt',StatePanel('Chưa mở lọc loại phòng','Danh mục loại phòng và hợp đồng tìm kiếm chưa hỗ trợ bộ lọc này.','warning')+Select('Loại phòng','roomType',['Chờ danh mục chính thức'],true)+link('Tìm theo vùng & giá','guest-search','button outline')),
@@ -1999,17 +2001,17 @@ Object.assign(renderers,{
  'tenant-deposit':()=>page('Tiền cọc','Phòng 203',DepositSummary()+Section('Các mốc tiền cọc',HistoryEvent('01/09','Đã giữ đủ tiền cọc','4.000.000đ được phân bổ từ khoản tiền đã nhận.','Tiền cọc')+HistoryEvent('01/09','Yêu cầu cọc','4.000.000đ theo điều khoản phiên bản 2.','Điều khoản'))+StatePanel('Cuối lượt thuê','Hoàn, khấu trừ và quyết toán cọc là các mốc riêng. Không cộng cọc vào khoản thuê phải trả.')),
  'tenant-payment-claim':()=>page('Báo đã chuyển tiền','Phòng 203',ClaimBody()),
  'tenant-receipt':()=>page('Biên nhận','Phòng 203',ReceiptSheet()+link('Xem tiền đã ghi nhận','tenant-payment','button text','wallet')),
- 'tenant-momo':()=>page('Cách thanh toán','Kỳ tháng 10 · 4.540.000đ',StatePanel('Thanh toán qua nhà cung cấp chưa mở','Liên kết và xác minh thanh toán đang được chốt. Mở ứng dụng thanh toán không đồng nghĩa đã thanh toán.','warning')+command('Mở MoMo','preview','button','disabled')+Section('Nếu đã chuyển bên ngoài',`<p class="body-copy">Khoản chuyển chỉ được ghi nhận sau khi người vận hành hoặc hệ thống xác minh.</p>${link('Xem báo đã chuyển tiền','tenant-payment-claim','button outline')}`)),
+ 'tenant-momo':()=>page('Cách thanh toán','Kỳ tháng 10 · 4.540.000đ',StatePanel('MoMo là cách thanh toán tùy chọn','Tạo yêu cầu rồi mở trang thanh toán đã xác minh. Khi quay lại, chờ hệ thống xác nhận tiền; bản xem trước không kết nối MoMo.')+command('Xem trước bước mở MoMo','preview','button')+Section('Nếu đã chuyển bên ngoài',`<p class="body-copy">Khoản chuyển chỉ được ghi nhận sau khi người vận hành hoặc hệ thống xác minh.</p>${link('Xem báo đã chuyển tiền','tenant-payment-claim','button outline')}`)),
  'tenant-incidents':()=>page('Sự cố','Phòng 203',Section('Đang xử lý',AttentionItem('Máy lạnh chạy nhưng không mát','Đang xử lý · Cô Lan · Cập nhật 04/10','tenant-incident-detail','tool'))+Section('Gửi sự cố mới',link('Báo sự cố tại phòng','tenant-incident-create','button','plus')),{nested:false}),
  'tenant-incident-create':()=>page('Báo sự cố','Phòng 203',Field('Tiêu đề','incidentTitle','','text')+Field('Mô tả sự cố','incidentDescription','','textarea')+Select('Mức độ','incidentPriority',['Thông thường','Cần xử lý sớm'])+command('Thêm ảnh minh họa','preview','button outline')+StatePanel('Người tiếp nhận','Gửi đến người vận hành Trọ Cô Lan. Các cập nhật được lưu theo thời gian.'),{dock:command('Gửi sự cố','submit-preview')}),
- 'tenant-notices':()=>page('Thông báo khu trọ','Trọ Cô Lan',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Vui lòng chuẩn bị nước dùng trong thời gian kiểm tra.')+DataLine('Đối tượng','Người thuê tại Green House')+DataLine('Phiên bản nội dung','1')+command('Xác nhận đã đọc thông báo','submit-preview','button outline')),
+ 'tenant-notices':()=>page('Thông báo lượt thuê','Phòng 203 · Trọ Cô Lan',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Vui lòng chuẩn bị nước dùng trong thời gian kiểm tra.')+DataLine('Đối tượng','Người tham gia lượt thuê Phòng 203')+DataLine('Phiên bản nội dung','1')+command('Xác nhận đã đọc thông báo','submit-preview','button outline')),
  'tenant-moveout':()=>page('Trả phòng','Phòng 203 · Lượt thuê đang hoạt động',RoomHero()+Field('Ngày muốn trả phòng','moveoutDate','2026-10-31','date')+Field('Lời nhắn cho người vận hành','moveoutReason','','textarea')+StatePanel('Sau khi gửi yêu cầu','Lượt thuê chuyển sang đang kết thúc. Phòng vẫn có người thuê cho đến khi hoàn tất bàn giao.'),{dock:command('Gửi yêu cầu trả phòng','submit-preview')}),
  'tenant-history':(room='203')=>page('Lịch sử lượt thuê',`Phòng ${room} · Chỉ xem`,HistoryBody('Tenant',room)),
  'tenant-review':()=>page('Đánh giá trải nghiệm thuê','Lượt thuê đã kết thúc · Phòng 105',StatePanel('Chưa mở gửi đánh giá','Điều kiện, thời hạn và cách hiển thị đánh giá trải nghiệm thuê đang được chốt.','warning')+Select('Trải nghiệm ở đây','reviewRating',['Chọn mức đánh giá'],true)+Field('Chia sẻ trải nghiệm tại khu trọ','reviewBody','','textarea','Không đánh giá cá nhân',true)+command('Gửi đánh giá','preview','button','disabled')),
  'landlord-organizations':()=>page('Không gian vận hành','Minh Anh',AttentionItem('Trọ Cô Lan','2 khu trọ · Quyền vận hành','landlord-dashboard','building')+link('Chọn không gian khác','shared-context','button outline','switch')),
  'landlord-properties':()=>page('Khu trọ','Trọ Cô Lan',AttentionItem('Green House','8 phòng · Địa chỉ vận hành chỉ người có quyền xem','landlord-property-detail','building')+AttentionItem('Nhà Hoa','Hồ sơ khu trọ','landlord-property-detail','building')+link('Tạo khu trọ','landlord-property-create','button outline','plus')),
  'landlord-property-create':()=>page('Tạo khu trọ','Trọ Cô Lan',Field('Tên khu trọ','propertyName','','text')+Field('Địa chỉ vận hành','propertyAddress','','textarea')+Field('Ghi chú','propertyNote','','textarea')+StatePanel('Địa chỉ riêng','Thông tin vận hành không tự động trở thành vị trí công khai của tin đăng.'),{dock:command('Tạo hồ sơ khu trọ','submit-preview')}),
- 'landlord-property-detail':()=>page('Green House','Trọ Cô Lan',`<div class="operator-heading"><div><h2>Green House</h2><p>Khu trọ · 8 phòng</p></div>${Icon('building')}</div>`+Section('Vận hành',AttentionItem('Sổ phòng','6 có người thuê · 1 trống · 1 bảo trì','landlord-rooms','door')+AttentionItem('Thông báo cho khu trọ','Nội dung và xác nhận đã đọc','landlord-notices','bell'))+Section('Thông tin riêng',DataLine('Địa chỉ vận hành','Địa chỉ mẫu · Chỉ trong không gian vận hành'))),
+ 'landlord-property-detail':()=>page('Green House','Trọ Cô Lan',`<div class="operator-heading"><div><h2>Green House</h2><p>Khu trọ · 8 phòng</p></div>${Icon('building')}</div>`+Section('Vận hành',AttentionItem('Sổ phòng','6 có người thuê · 1 trống · 1 bảo trì','landlord-rooms','door')+AttentionItem('Thông báo lượt thuê','Phòng 203 · Nội dung và xác nhận đã đọc','landlord-notices','bell'))+Section('Thông tin riêng',DataLine('Địa chỉ vận hành','Địa chỉ mẫu · Chỉ trong không gian vận hành'))),
  'landlord-rooms':()=>page('Phòng','Green House',`<div class="room-register">${RoomRow('203','Minh Anh · Đang thuê','Có người thuê','landlord-room-detail','success')}${RoomRow('105','Đang bàn giao','Có người thuê','landlord-checkout','warning')}${RoomRow('204','Chưa có lượt thuê','Trống','landlord-listing-editor')}${RoomRow('102','Sửa đường nước','Bảo trì','landlord-room-state','warning')}</div>`+Section('Khu trọ',link('Xem Green House','landlord-property-detail','button text','building')),{nested:false}),
  'landlord-room-state':()=>page('Trạng thái phòng','Green House · Phòng 102',RoomHero('102','Trọ Cô Lan','Đang bảo trì','warning')+Select('Trạng thái phòng','roomState',['Bảo trì','Trống','Ngừng sử dụng'])+StatePanel('Phòng đang có người thuê','Trạng thái có người thuê được xác định từ lượt thuê. Không thể bật hoặc tắt thủ công.')+command('Lưu trạng thái được phép','submit-preview','button outline')),
  'landlord-listing-editor':()=>page('Soạn tin đăng','Phòng 204 · Bản nháp',RoomMedia()+command('Thêm ảnh phòng','preview','button outline')+Field('Tiêu đề','listingTitle','Phòng sáng, có cửa sổ')+Field('Giá thuê công khai','listingPrice','4000000','number')+Field('Diện tích công khai (m²)','listingArea','20','number')+Field('Mô tả không gian','listingDescription','Phòng có cửa sổ, máy lạnh và WC riêng.','textarea')+command('Chọn vị trí công khai','location','button outline')+link('Xem trước tin đăng','landlord-listing-preview','button secondary'),{dock:command('Lưu bản nháp','submit-preview')}),
@@ -2028,7 +2030,7 @@ Object.assign(renderers,{
  'landlord-deposits':()=>page('Sổ tiền cọc','Phòng 203',DepositSummary()+Section('Nguồn & mốc',HistoryEvent('01/09','Giữ đủ 4.000.000đ','Phân bổ từ khoản tiền nhận cho tiền cọc.','Tiền cọc'))+Section('Quyết toán cuối lượt thuê',StatePanel('Phòng 203 đang có lượt thuê hoạt động','Quyết toán cọc được mở khi lượt thuê này đến bước bàn giao. Không chuyển sang hồ sơ của phòng khác.'))),
  'landlord-incidents':()=>page('Sự cố cần xử lý','Trọ Cô Lan',Section('Đang xử lý',AttentionItem('203 · Máy lạnh không mát','Cô Lan phụ trách · Cập nhật 09:20','landlord-incident-detail','tool'))+Section('Theo phòng',link('Mở sổ phòng 203','landlord-room-detail','button text','door')),{nested:false}),
  'landlord-incident-detail':()=>page('Xử lý sự cố','Phòng 203 · Minh Anh',`<section class="incident-summary"><h2>Máy lạnh chạy<br>nhưng không mát</h2><p>Minh Anh gửi · 03/10 lúc 22:16</p>${State('Đang xử lý','warning')}</section>`+Section('Diễn biến',IncidentTimeline())+Field('Ghi nhận kết quả xử lý','incidentResolution','','textarea')+command('Bổ sung diễn biến','incident-note','button outline')+command('Chuẩn bị báo đã xử lý xong','preview','button')+StatePanel('Sau khi xử lý','Người thuê có thể xem và phản hồi. Đóng khi xử lý xong hoặc theo lý do đóng hợp lệ.')),
- 'landlord-notices':()=>page('Thông báo khu trọ','Green House',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Nội dung phiên bản 1.','landlord-notices')+Section('Soạn thông báo',Field('Tiêu đề','noticeTitle','','text')+Field('Nội dung','noticeBody','','textarea')+Select('Gửi đến','noticeAudience',['Green House · Người thuê hiện tại'])+command('Chuẩn bị phát thông báo','submit-preview','button outline'))+Section('Xác nhận đã đọc',DataLine('Minh Anh','Chưa xác nhận phiên bản 1'))),
+ 'landlord-notices':()=>page('Thông báo lượt thuê','Phòng 203 · Green House',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Nội dung phiên bản 1.','landlord-notices')+Section('Soạn thông báo',Field('Tiêu đề','noticeTitle','','text')+Field('Nội dung','noticeBody','','textarea')+Select('Lượt thuê nhận','noticeAudience',['Phòng 203 · Lượt thuê hiện tại'])+command('Chuẩn bị phát thông báo','submit-preview','button outline'))+Section('Xác nhận đã đọc',DataLine('Minh Anh','Chưa xác nhận phiên bản 1'))),
  'landlord-checkout':()=>page('Bàn giao & kết thúc','Phòng 105 · Lượt thuê đang kết thúc',RoomHero('105','Trọ Cô Lan','Vẫn có người thuê','warning')+State('Đang kết thúc','warning')+Section('Trước khi hoàn tất',DataLine('Ngày dự kiến','31/10/2026')+DataLine('Khoản phải trả còn lại','0đ')+DataLine('Tiền cọc đang giữ','4.000.000đ')+Field('Ghi nhận bàn giao','checkoutNote','','textarea'))+StatePanel('Hoàn tất bàn giao','Kết thúc lượt thuê và chuyển phòng sang trống trong cùng một bước xác nhận. Quyết toán tiền cọc được ghi nhận riêng.'),{dock:command('Xem bước xác nhận hoàn tất','preview')}),
  'landlord-room-history':()=>page('Lịch sử phòng 203','Green House · Chỉ xem',RoomLedgerSection('Bản ghi theo thời gian',HistoryBody('Landlord'),'Các sự kiện liên kết bản nguồn. Không chỉnh sửa từ lịch sử.')),
  'landlord-review-response':()=>page('Phản hồi đánh giá','Trải nghiệm thuê · Phòng 105',StatePanel('Phản hồi chưa mở','Quy định hiển thị đánh giá và phản hồi người vận hành chưa được chốt.','warning')+Field('Phản hồi trải nghiệm tại khu trọ','reviewResponse','','textarea','Không dùng để đánh giá cá nhân',true)+command('Đăng phản hồi','preview','button','disabled')),
@@ -2056,12 +2058,17 @@ function buildMaster(){document.getElementById('scopeCounts').innerHTML=['V1','O
 function buildAtlas(){const query=document.getElementById('atlasQuery').value.trim().toLocaleLowerCase('vi');const matches=screens.filter(s=>(currentFilter==='ALL'||s.status===currentFilter||s.pov===currentFilter)&&(!query||[s.id,s.title,s.desc,s.pov,s.category,s.data].join(' ').toLocaleLowerCase('vi').includes(query)));document.getElementById('atlasCount').textContent=`${matches.length} màn hình`;document.getElementById('atlasContent').innerHTML=atlasGroups.map(pov=>{const group=matches.filter(s=>s.pov===pov);return group.length?`<section><div class="atlas-heading"><h3>${({Shared:'Lớp dùng chung',Guest:'Guest · Khám phá',Tenant:'Tenant · Nhà của tôi',Landlord:'Landlord · Vận hành',Future:'Roadmap · FUTURE'})[pov]}</h3><p>${group.length} màn</p></div><div class="atlas-grid">${group.map(s=>`<article class="atlas-card" data-route="${s.id}" tabindex="0" role="button" aria-label="Mở ${escapeHtml(s.title)}"><div class="atlas-open"><header><div><h4>${escapeHtml(s.title)}</h4><small>${escapeHtml(s.category)}</small></div>${ScopeMark(s.status)}</header>${renderPreview(s)}</div><p class="atlas-caption">${escapeHtml(s.desc)}</p></article>`).join('')}</div></section>`:''}).join('')||'<p class="body-copy">Không tìm thấy màn hình phù hợp. Thử tên khác hoặc xóa bộ lọc.</p>'}
 function showWorkbench(view){document.querySelectorAll('[data-workbench]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.workbench===view)));document.getElementById('masterMap').hidden=view!=='master';document.getElementById('screenAtlas').hidden=view!=='atlas';if(view==='atlas')buildAtlas()}
 const boundaries={
+ 'shared-session':'V1 acceptance: reacquire credential → verified /me → non-secret backend-user-scoped context hints → capability validation → route. Google ID token chỉ trong memory. Bản thiết kế không chứng minh process-restart runtime.',
+ 'guest-map':'Native map/picker là acceptance V1, chưa được chứng minh bởi bản đồ HTML minh họa. Chỉ dùng public projection; không fallback exact operational pin hoặc raw lat/lng UX. Geocoder/type/availability vẫn OPEN.',
+ 'tenant-notices':'Notice và acknowledgement thuộc đúng Tenancy; không phải Property broadcast hoặc Notification delivery fact. Không tự tạo legal effect.',
+ 'landlord-notices':'Issue Notice cho Tenancy; issuedBy do server derive. Ack theo participant và phiên bản nội dung, không phát broadcast Property.',
+ 'guest-inquiry-activity':'Inquiry Activity cần contract/authorization trước khi mở history thật. Dữ liệu ở đây chỉ minh họa; Inquiry không giữ phòng hoặc tạo Tenancy.',
  'tenant-payment-claim':'Payment Claim là V1 capability. Evidence và quyền xác nhận vẫn OPEN; chưa có endpoint trong OpenAPI. Không gửi, duyệt hoặc tạo Payment từ bản xem trước.',
  'landlord-payment-claims':'Payment Claim khác Payment. Không có Claim API hoặc policy về người duyệt; Confirm/Reject không được giả lập thành công.',
- 'shared-trust-report':'Targets chỉ Listing và Review. Login, rate limit, evidence và moderation permission còn OPEN; internal report endpoint không tự freeze public submission policy.',
+ 'shared-trust-report':'Authenticated Listing-only submission là V1; reporter do server derive, không nhận client identity. Domain target chỉ Listing hoặc Review, không có Property. Review entry, report listing/moderation và anonymous policy vẫn gated; không tự xóa nội dung.',
  'tenant-review':'Eligibility candidate cần ENDED và linked eligible Participant. Minimum stay, multiplicity, edit, dimensions và moderation vẫn OPEN; chưa có Review API.',
  'landlord-review-response':'Tối đa một response trên một Review. Review/moderation contract chưa đủ để gửi phản hồi thật.',
- 'tenant-momo':'Provider handoff còn OPEN. Gateway là FUTURE, mở provider không tạo Confirmed Payment.',
+ 'tenant-momo':'Optional MoMo là V1, không phải MVP dependency. Billing/Charge ≠ Payment ≠ Claim ≠ Deposit ≠ Receipt ≠ GatewayCheckout. Chỉ verified payment-success IPN tạo GATEWAY / PROVIDER_VERIFIED Payment; create response/redirect không xác nhận tiền. Không auto allocation, funding Deposit hay issue Receipt. Runtime/sandbox evidence vẫn UNVERIFIED.',
  'tenant-terms-schema':'Terms thuộc mô hình versioned; màn OPEN kế thừa inventory. Shape transport không tự quyết policy chưa freeze.',
  'landlord-dashboard-finance':'Aggregate semantics giữ OPEN; tài chính phải đọc từ source records theo quyền.',
  'guest-area-label':'Chưa có textual geocoder/area contract. Location radius search lấy center từ map/device; không cho nhập raw tọa độ.',

@@ -521,11 +521,11 @@ This section records design-artifact coverage only. It does not complete the And
 - [x] Product research: contexts, full Canonical v3.7, ERD, current OpenAPI, V1 backlogs, and Compose implementation evidence.
 - [x] Replace the phone renderer, component family, CSS, navigation presentation, viewer, Master Map and Screen Atlas previews.
 - [x] Representative gate: Session, Guest Home, Listing Detail, Tenant Home, Billing / Payment, Incident Detail, Landlord Dashboard, Room Ledger, Landlord Finance, Context Switcher.
-- [x] Migrate all **85 inventory items**, preserving IDs, classification and documentation metadata: **62 V1 / 6 OPEN / 17 FUTURE**.
+- [x] Migrate all **85 inventory items**, preserving stable IDs and documentation metadata, with approved scope totals: **63 V1 / 5 OPEN / 17 FUTURE** (optional MoMo promotion approved 2026-10-05; stable IDs unchanged).
 - [x] Derive each miniature from the same renderer as its full phone screen.
 - [x] Keep startup/auth pre-shell; use context-specific root navigation and nested back-stack presentation.
 - [x] Preserve financial distinctions, source provenance, participant identity, room-derived occupancy and tenancy ending / checkout semantics.
-- [x] Gate unresolved public reporting, rental review, Payment Claim and provider payment policy; keep FUTURE outside current app navigation.
+- [x] Preserve explicit policy/contract gates for rental Review, Payment Claim, Inquiry Activity, Review reporting and moderation; optional MoMo and authenticated Listing-only reporting are approved V1 scope, while runtime DoD stays independent.
 - [x] Validate HTML parsing, JS syntax, unique inventory IDs, relations, rendered route targets, bottom-nav targets, all-screen rendering and miniature/full-screen parity.
 - [x] Browser captures and overflow checks at desktop, 390px and 360px workbench widths; light/dark representative phone captures.
 - [x] Independent Impeccable finish review; both requested context/label fixes scored resolved, disposition `ship` for the HTML artifact.
@@ -541,7 +541,7 @@ window.TroOiAtlas.verify() // { screens: 85, errors: [] }
 
 Validation used headless Chrome against the local HTML, not an Android emulator. The artifact has sample records, labeled room-media and map placeholders, and preview-only actions. It does not call APIs or record money, contact requests, incident updates or lifecycle transitions.
 
-Current public-search contract supports location/radius and price bounds. Textual geocoding, room-type and availability filters remain unavailable. Payment Claim has no committed endpoint. Provider launch does not confirm payment; gateway integration remains FUTURE. Review eligibility/moderation and public Trust reporting policy remain unresolved. These limitations are presented separately from unchanged V1 / OPEN / FUTURE inventory classification.
+Current public-search contract supports location/radius and price bounds. Textual geocoding, room-type and availability filters remain unavailable. Payment Claim has no committed endpoint. Provider launch does not confirm Payment; optional MoMo is current V1 and general provider/platform expansion remains FUTURE. Review eligibility/moderation remain unresolved; authenticated Listing-only Trust submission is current V1, while Review reporting and report listing/moderation remain gated. These limitations are presented separately from approved V1 / OPEN / FUTURE inventory classification.
 
 
 ## Native Compose implementation — 2026-10-04
@@ -576,14 +576,26 @@ This section records implementation evidence on branch `frontend/v1-app-ui-redes
 ### Native implementation boundaries still open
 
 - [ ] Real native map provider / interactive map picker is not wired. Do not replace it with raw latitude/longitude inputs.
-- [ ] Persistent process-restart session restore is not implemented; the current `AuthTokenProvider` is in-memory.
+- [ ] Process-restart session reacquisition is required V1 acceptance and remains unverified; the current `AuthTokenProvider` is in-memory. Keep Google ID tokens in memory; reacquire credential, verify /me, restore non-secret user-scoped hints, validate capabilities, then route.
 - [ ] Fresh Google sign-in and full Guest / Tenant / Landlord / Notification physical-device journeys have not been captured after this redesign.
 - [ ] TalkBack traversal, large font-scale behavior and predictive-Back animation have not been physically verified after this redesign.
 - [ ] Map/geocoder textual area semantics, Availability vocabulary and other canonical OPEN items remain OPEN.
 
+### Payment / MoMo promotion into current V1
+
+- [ ] Promote MoMo/payment gateway into the current V1 authority before treating it as an active V1 flow: update design/product scope so `tenant-momo` and gateway placement are no longer OPEN/FUTURE-only.
+- [ ] Preserve the finance invariant during promotion: opening MoMo creates a checkout session, not a Payment; only provider-verified success creates `Payment(source=GATEWAY, verification=PROVIDER_VERIFIED)`.
+- [ ] Fix the payment branch merge gates: backend `typecheck` and `build` must pass; MoMo request/response validation must meet provider contract (including amount bounds, `extraData` encoding, and create-response signature verification).
+- [ ] Port payment changes onto `integration/v1-current` without overwriting the newer Android redesign; resolve RentalViewModel/RentalWorkspace/TenantScreens conflicts deliberately.
+- [ ] Re-run backend, database-conformance, Android unit/build/lint, and payment runtime/E2E gates after integration before marking MoMo V1 complete.
+
 
 ### Task 1–6 acceptance clarification — 2026-10-04
 
-For the current V1 completion gate, native map-provider integration, process-restart session persistence, TalkBack/font-scale verification and predictive-Back visual verification are **not** blockers. They remain valid V2 / quality follow-up work.
+Superseded by approved V1 scope on 2026-10-05: native map-provider/picker integration and process-restart session reacquisition **are required V1 acceptance gates**. TalkBack/font-scale and predictive-Back physical quality follow-up remain separate and do not exempt navigation, map or session behavior.
 
-The remaining V1 acceptance evidence is limited to fresh Google authentication plus real-device Guest, Tenant, Landlord and Notification journeys. At the latest check the physical device was not visible to ADB, so those items remain unverified rather than failed.
+Remaining V1 acceptance evidence includes fresh Google authentication, process-restart/session and route reconciliation, native public-map/picker, optional MoMo sandbox/signed-IPN and safe authenticated Listing-report journeys, plus real-device Guest, Tenant, Landlord and Notification journeys. At the latest check the physical device was not visible to ADB, so those items remain unverified rather than failed.
+
+### Approved integration authority — 2026-10-05
+
+The original staged MoMo promotion checklist above is preserved as unchecked implementation history. Scope alignment alone does not complete any runtime DoD. Manual operator recording accepts MANUAL_CASH / MANUAL_TRANSFER with server-derived USER_RECORDED; only verified payment-success IPN creates GATEWAY / PROVIDER_VERIFIED Payment. Checkout, Charge, Claim, Deposit and Receipt remain distinct, with no automatic allocation/funding/issuance. Notice and acknowledgement are Tenancy-scoped. Authenticated Listing-only report submission derives reporter identity on the server; Review/report listing/moderation, Claim and Inquiry Activity remain gated. Missing Android, Google, Maps, database or MoMo/IPN evidence stays UNVERIFIED and READY_TO_MERGE: NO.

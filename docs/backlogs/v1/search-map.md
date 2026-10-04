@@ -56,3 +56,7 @@ flowchart LR
 - [`inquiry.md`](inquiry.md)
 - [`../../contexts/end-to-end-flows.md`](../../contexts/end-to-end-flows.md)
 - [`../../database/v1/canonical.md`](../../database/v1/canonical.md)
+
+## Approved native-map V1 acceptance — 2026-10-05
+
+Native map provider and interactive picker are required V1 acceptance, not V2 exemptions. Public discovery must use the public Listing projection, never fallback to exact operational coordinates; no raw lat/lng UX. Operational picker context does not authorize exposing that pin publicly. Textual geocoder, room/property type and availability vocabulary remain OPEN. HTML illustrated-map navigation is prototype evidence only; native gestures, provider configuration and device journeys remain UNVERIFIED until captured.

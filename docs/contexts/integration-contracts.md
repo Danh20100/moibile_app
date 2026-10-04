@@ -127,3 +127,9 @@ Kiểm tra lần lượt:
 8. Context/backlog còn mô tả đúng flow không?
 
 Không dùng migration để lén tạo business rule mới và cũng không dùng yêu cầu UI để bỏ qua invariant đã được chốt.
+
+## Approved V1 integration boundaries — 2026-10-05
+
+Optional MoMo is current V1; gateway as an MVP dependency remains FUTURE and general provider/platform expansion stays outside V1. Billing/Charge != Payment != Payment Claim != Deposit != Receipt != GatewayCheckout. Manual POST /finance/payments is operator-only, accepts MANUAL_CASH / MANUAL_TRANSFER and server-derived USER_RECORDED; reject client GATEWAY / PROVIDER_VERIFIED provenance. Only fully verified payment-success IPN creates gateway Payment. Verify signed create response before handoff; redirect is untrusted. No automatic allocation, Deposit funding or Receipt issuance. Replay POST /finance/checkouts with the same Idempotency-Key and immutable provider IDs; no separate retry endpoint.
+
+Session acceptance: memory-only Google ID token; reacquire credential → verified /me → non-secret backend-user-scoped hints → capability validation → route. Native map/picker is required V1, renders public location only with no exact operational fallback and no raw-coordinate UX; geocoder/type/availability remain OPEN. Authenticated Listing-only Trust submission derives reporter identity server-side; Review entry, report listing/moderation, Claim and Inquiry Activity remain gated. Notice/acknowledgement are Tenancy-scoped. These contracts are approved targets, not claims of available implementation or completed runtime evidence.

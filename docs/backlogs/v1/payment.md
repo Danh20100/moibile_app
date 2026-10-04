@@ -63,3 +63,9 @@ flowchart TD
 - [`payment-claim.md`](payment-claim.md)
 - [`deposit.md`](deposit.md)
 - [`receipt.md`](receipt.md)
+
+## Approved optional MoMo V1 boundary — 2026-10-05
+
+MoMo is optional current V1, not an MVP dependency; unconfigured/unavailable provider must not stop manual finance. General provider/platform expansion remains FUTURE. Billing/Charge != Payment != Payment Claim != Deposit != Receipt != GatewayCheckout. Operator-only manual POST /finance/payments accepts MANUAL_CASH / MANUAL_TRANSFER with server-derived USER_RECORDED; client-supplied GATEWAY / PROVIDER_VERIFIED provenance is rejected before insert and at the service boundary. Only a fully verified payment-success IPN creates GATEWAY / PROVIDER_VERIFIED Payment. Signed create-response handoff and redirect do not confirm money. No automatic allocation, Deposit funding or Receipt issuance.
+
+Replay POST /finance/checkouts with the same Idempotency-Key and immutable requestId/orderId; no separate retry endpoint. Android reads backend checkout/Payment after identity/context validation. Payment Claim evidence/confirmation remains gated. Completion requires fresh database, backend, Android and MoMo sandbox/IPN evidence; this scope promotion proves no runtime delivery.

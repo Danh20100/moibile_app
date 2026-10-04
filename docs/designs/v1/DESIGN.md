@@ -226,7 +226,7 @@ RoomHero anchors a room number, property/context and current state. RentalSummar
 
 The mandatory representative ten are Session (`shared-session`), Guest Home (`guest-home`), Listing Detail (`guest-listing-detail`), Tenant Home (`tenant-home`), Billing (`tenant-billing`), Incident Detail (`tenant-incident-detail`), Landlord Dashboard (`landlord-dashboard`), Room Ledger (`landlord-room-detail`), Finance Hub (`landlord-finance-home`) and Context Switcher (`shared-context`). Payment, Deposit and Receipt were also included in the final light/dark visual capture set.
 
-The full immutable inventory is 85 screens: 62 V1, 6 OPEN and 17 FUTURE. Metadata, descriptions, flows and relations remain in the HTML inventory; this table is an ID/classification reference.
+The stable inventory is 85 screens: 63 V1, 5 OPEN and 17 FUTURE after the approved optional MoMo promotion on 2026-10-05. Metadata, descriptions, flows and relations remain in the HTML inventory; this table is an ID/classification reference.
 
 | ID | POV | Scope |
 | --- | --- | --- |
@@ -267,7 +267,7 @@ The full immutable inventory is 85 screens: 62 V1, 6 OPEN and 17 FUTURE. Metadat
 | `tenant-history` | Tenant | V1 |
 | `tenant-review` | Tenant | V1 |
 | `tenant-terms-schema` | Tenant | OPEN |
-| `tenant-momo` | Tenant | OPEN |
+| `tenant-momo` | Tenant | V1 |
 | `landlord-dashboard` | Landlord | V1 |
 | `landlord-organizations` | Landlord | V1 |
 | `landlord-property-create` | Landlord | V1 |
@@ -320,7 +320,7 @@ The full immutable inventory is 85 screens: 62 V1, 6 OPEN and 17 FUTURE. Metadat
 
 Canonical v3.7 remains authoritative: Room differs from public Listing, Inquiry never reserves, ENDING still occupies a room, and confirmed checkout alone ends the Tenancy and returns Room to VACANT. Charge, Payment, Claim, Deposit and Receipt stay separate; deposit settlements are neither inbound Payments nor legal findings. Trust Report targets Listing or Review and does not automatically remove content. Public discovery excludes exact operational address.
 
-Current public search supports location, radius and price; textual geocoding, type vocabulary and availability semantics are unresolved. Payment Claim is an inventory capability with absent API and unresolved evidence/approval policy; submission and confirmation remain gated. MoMo placement remains OPEN and the gateway is FUTURE; provider handoff does not confirm money. Review eligibility/publication/moderation and Trust public-submission policy remain unresolved. A V1 classification does not by itself promise a working endpoint or settled policy. OPEN surfaces explain the missing policy and disable unavailable decisions; FUTURE stays outside current app navigation.
+Current public search supports location, radius and price; textual geocoding, type vocabulary and availability semantics are unresolved. Payment Claim is an inventory capability with absent API and unresolved evidence/approval policy; submission and confirmation remain gated. Optional MoMo checkout is current V1; general provider/platform expansion stays FUTURE and gateway-as-MVP-dependency remains FUTURE. Only fully verified payment-success IPN creates GATEWAY / PROVIDER_VERIFIED Payment. Signed create response opens handoff only; redirect is untrusted. No automatic allocation, Deposit funding or Receipt issuance. Review eligibility/publication/moderation remain unresolved. Authenticated Listing-only Trust submission is current V1 with server-derived reporter identity; Review entry, report listing and moderation stay gated. Session reacquires Google credentials, verifies /me and validates backend-user-scoped non-secret context hints before routing; ID tokens remain in memory. Native map/picker is V1 acceptance, uses public projections without exact operational-pin fallback, and does not settle geocoder/type/availability policy. Notice and acknowledgement stay Tenancy-scoped. Claim and Inquiry Activity still require explicit contract/policy gates. A V1 classification does not by itself promise a working endpoint or settled policy. OPEN surfaces explain the missing policy and disable unavailable decisions; FUTURE stays outside current app navigation.
 
 ### Reproducible validation and limits
 
@@ -334,7 +334,7 @@ This is a static illustrated artifact: it calls no API and changes no business s
 
 ### Do:
 
-- **Do** preserve the exact inventory IDs, metadata and V1/OPEN/FUTURE classification.
+- **Do** preserve stable inventory IDs and metadata; scope classifications change only with explicit approval.
 - **Do** identify the room, current context and source before presenting the next allowed action.
 - **Do** use labeled states alongside color, persistent field labels and visible focus.
 - **Do** keep Charge, Payment, Claim, Deposit and Receipt visually and semantically distinct.
