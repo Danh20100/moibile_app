@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { GatewayCheckout } from '../contracts';
-import { CreateGatewayCheckoutDto, GatewayCheckoutDto, MomoIpnResponseDto } from '../dto';
-import type { MomoIpnPayload } from '../momo/momo-client';
+import { CreateGatewayCheckoutDto, GatewayCheckoutDto, MomoIpnDto } from '../dto';
 import { PaymentGatewayService } from '../services/payment-gateway.service';
 
 @ApiTags('Payment Gateway')
@@ -44,9 +43,10 @@ export class PaymentGatewayController {
 
   @Public()
   @Post('checkouts/momo/ipn')
+  @HttpCode(204)
   @ApiOperation({ summary: 'MoMo IPN. Verified success is the only path that creates a Payment.' })
-  @ApiResponse({ status: 201, description: 'IPN accepted', type: MomoIpnResponseDto })
-  async momoIpn(@Body() payload: MomoIpnPayload): Promise<MomoIpnResponseDto> {
+  @ApiResponse({ status: 204, description: 'IPN accepted without a response body' })
+  async momoIpn(@Body() payload: MomoIpnDto): Promise<void> {
     return this.gateway.handleMomoIpn(payload);
   }
 }

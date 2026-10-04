@@ -90,7 +90,7 @@ export class PaymentGatewayService {
     return this.toCheckout(record);
   }
 
-  async handleMomoIpn(payload: MomoIpnPayload): Promise<{ resultCode: number; message: string }> {
+  async handleMomoIpn(payload: MomoIpnPayload): Promise<void> {
     if (!this.momo.verifyIpn(payload)) {
       throw new UnauthorizedException('Invalid MoMo IPN signature');
     }
@@ -156,7 +156,6 @@ export class PaymentGatewayService {
         }
       }
     });
-    return { resultCode: 0, message: 'success' };
   }
 
   private toCheckout(record: GatewayCheckoutRecord): GatewayCheckout {

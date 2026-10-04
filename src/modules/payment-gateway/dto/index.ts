@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Matches } from 'class-validator';
 
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
@@ -46,10 +46,60 @@ export class GatewayCheckoutDto {
   createdAt!: string;
 }
 
-export class MomoIpnResponseDto {
-  @ApiProperty({ example: 0 })
+export class MomoIpnDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  partnerCode!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  orderId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  requestId!: string;
+
+  @ApiProperty()
+  @IsString()
+  orderInfo!: string;
+
+  @ApiProperty()
+  @IsString()
+  orderType!: string;
+
+  @ApiProperty()
+  @IsString()
+  message!: string;
+
+  @ApiProperty()
+  @IsString()
+  payType!: string;
+
+  @ApiProperty()
+  @IsString()
+  extraData!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  signature!: string;
+
+  @ApiProperty()
+  @IsInt()
+  amount!: number;
+
+  @ApiProperty()
+  @IsInt()
+  transId!: number;
+
+  @ApiProperty()
+  @IsInt()
   resultCode!: number;
 
-  @ApiProperty({ example: 'success' })
-  message!: string;
+  @ApiProperty()
+  @IsInt()
+  responseTime!: number;
 }
