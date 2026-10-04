@@ -513,3 +513,32 @@ For every item marked complete:
 - [ ] No FUTURE capability leaked into V1
 
 This file is the master product-app checklist. Update it during redesign and implementation instead of maintaining separate undocumented task lists.
+
+## Android design artifact rewrite — 2026-10-04
+
+This section records design-artifact coverage only. It does not complete the Android, backend, Figma, or executable E2E items above.
+
+- [x] Product research: contexts, full Canonical v3.7, ERD, current OpenAPI, V1 backlogs, and Compose implementation evidence.
+- [x] Replace the phone renderer, component family, CSS, navigation presentation, viewer, Master Map and Screen Atlas previews.
+- [x] Representative gate: Session, Guest Home, Listing Detail, Tenant Home, Billing / Payment, Incident Detail, Landlord Dashboard, Room Ledger, Landlord Finance, Context Switcher.
+- [x] Migrate all **85 inventory items**, preserving IDs, classification and documentation metadata: **62 V1 / 6 OPEN / 17 FUTURE**.
+- [x] Derive each miniature from the same renderer as its full phone screen.
+- [x] Keep startup/auth pre-shell; use context-specific root navigation and nested back-stack presentation.
+- [x] Preserve financial distinctions, source provenance, participant identity, room-derived occupancy and tenancy ending / checkout semantics.
+- [x] Gate unresolved public reporting, rental review, Payment Claim and provider payment policy; keep FUTURE outside current app navigation.
+- [x] Validate HTML parsing, JS syntax, unique inventory IDs, relations, rendered route targets, bottom-nav targets, all-screen rendering and miniature/full-screen parity.
+- [x] Browser captures and overflow checks at desktop, 390px and 360px workbench widths; light/dark representative phone captures.
+- [x] Independent Impeccable finish review; both requested context/label fixes scored resolved, disposition `ship` for the HTML artifact.
+- [x] Remove old visual helpers/styles and unused authored UI styles; no raw coordinate inputs in Guest phone UI or iPhone shell elements.
+
+### Evidence and boundaries
+
+The canonical artifact exposes a dependency-free check in the browser console:
+
+```js
+window.TroOiAtlas.verify() // { screens: 85, errors: [] }
+```
+
+Validation used headless Chrome against the local HTML, not an Android emulator. The artifact has sample records, labeled room-media and map placeholders, and preview-only actions. It does not call APIs or record money, contact requests, incident updates or lifecycle transitions.
+
+Current public-search contract supports location/radius and price bounds. Textual geocoding, room-type and availability filters remain unavailable. Payment Claim has no committed endpoint. Provider launch does not confirm payment; gateway integration remains FUTURE. Review eligibility/moderation and public Trust reporting policy remain unresolved. These limitations are presented separately from unchanged V1 / OPEN / FUTURE inventory classification.
