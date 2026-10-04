@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-04T08:35:24.138625+00:00",
+  "title": "Design System: TrọƠi · Room Ledger",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Bottle Green",
+        "tonalRamp": [
+          "oklch(15% 0.07 155)",
+          "oklch(25% 0.07 155)",
+          "oklch(35% 0.07 155)",
+          "oklch(45% 0.07 155)",
+          "oklch(55% 0.07 155)",
+          "oklch(65% 0.07 155)",
+          "oklch(80% 0.07 155)",
+          "oklch(95% 0.07 155)"
+        ]
+      },
+      "clay": {
+        "role": "secondary",
+        "displayName": "Clay Event Mark",
+        "tonalRamp": [
+          "oklch(15% 0.10 45)",
+          "oklch(25% 0.10 45)",
+          "oklch(35% 0.10 45)",
+          "oklch(45% 0.10 45)",
+          "oklch(55% 0.10 45)",
+          "oklch(65% 0.10 45)",
+          "oklch(80% 0.10 45)",
+          "oklch(95% 0.10 45)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "room-number": {
+        "displayName": "Room Plate Number",
+        "purpose": "Operational identity on numbered apartment-door plate."
+      },
+      "billing-amount": {
+        "displayName": "Billing Amount",
+        "purpose": "Amount alongside cycle, due state and provenance."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "atlas-border-feedback",
+        "value": "border-color .18s",
+        "purpose": "Only implemented general hover transition; reduced motion suppresses transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "atlas-three",
+        "value": "1200px"
+      },
+      {
+        "name": "atlas-two-viewer-stack",
+        "value": "900px"
+      },
+      {
+        "name": "atlas-one",
+        "value": "600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Preview of the implemented 48px action control.",
+      "html": "<button class=\"ds-button\">Tiếp tục</button>",
+      "css": ".ds-button{min-height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:650;font-size:14px;padding:12px 16px;background:var(--primary);color:var(--on-primary);width:100%;text-decoration:none}.ds-button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-button:active:not(:disabled){filter:brightness(.94)}.ds-button:disabled{cursor:not-allowed;opacity:.55}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Preview of the implemented 48px action control.",
+      "html": "<button class=\"ds-button secondary\">Xem bản ghi</button>",
+      "css": ".ds-button{min-height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:650;font-size:14px;padding:12px 16px;background:var(--primary);color:var(--on-primary);width:100%;text-decoration:none}.ds-button.secondary{background:var(--selected);color:var(--primary)}.ds-button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-button:active:not(:disabled){filter:brightness(.94)}.ds-button:disabled{cursor:not-allowed;opacity:.55}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "description": "Preview of the implemented 48px action control.",
+      "html": "<button class=\"ds-button outline\">Xem bản ghi</button>",
+      "css": ".ds-button{min-height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:650;font-size:14px;padding:12px 16px;background:var(--primary);color:var(--on-primary);width:100%;text-decoration:none}.ds-button.outline{background:transparent;color:var(--primary);border:1px solid var(--line)}.ds-button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-button:active:not(:disabled){filter:brightness(.94)}.ds-button:disabled{cursor:not-allowed;opacity:.55}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Labeled Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Persistent label and helper with paper input.",
+      "html": "<label class=\"ds-field\"><span>Tiền thực nhận</span><input value=\"4.540.000\"/><small>Nhập khoản tiền đã nhận</small></label>",
+      "css": ".ds-field{display:grid;gap:7px;margin:18px 0}.ds-field>span{font-size:13px;font-weight:650}.ds-field small{font-size:12px;color:var(--muted)}.ds-field input,.ds-field textarea,.ds-field select{width:100%;min-height:52px;border:1px solid var(--line);border-radius:8px;padding:13px 12px;background:var(--paper);color:var(--ink)}.ds-field input:focus-visible{outline:3px solid var(--clay);outline-offset:3px}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Choice Chip",
+      "kind": "chip",
+      "description": "Stateful filter choice using aria-pressed.",
+      "html": "<div class=\"ds-choice-group\"><button aria-pressed=\"true\">Đang thuê</button><button aria-pressed=\"false\">Đã kết thúc</button></div>",
+      "css": ".ds-choice-group{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.ds-choice-group button{min-height:48px;min-width:48px;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}.ds-choice-group button[aria-pressed=true]{background:var(--selected);border-color:var(--primary);color:var(--primary)}.ds-choice-group button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-choice-group button:active{filter:brightness(.94)}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Root Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Navigation selection pattern; actual Guest has four and Tenant/Landlord five root destinations.",
+      "html": "<nav class=\"ds-navigation-bar\" style=\"grid-template-columns:repeat(3,1fr)\"><button aria-current=\"page\"><span class=\"ds-nav-symbol\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9\"/></svg></span><span>Trang chủ</span></button><button><span class=\"ds-nav-symbol\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M5 21V3h14v18M9 21V5l8 2v14M13 13h.01M3 21h18\"/></svg></span><span>Nhà của tôi</span></button><button><span class=\"ds-nav-symbol\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" aria-hidden=\"true\"><path d=\"M3 6h18v15H3ZM3 6V3h14v3M16 11h5v5h-5ZM17 13h.01\"/></svg></span><span>Thanh toán</span></button></nav>",
+      "css": ".ds-navigation-bar{display:grid;min-height:76px;flex:none;background:var(--paper);border-top:1px solid var(--line);padding:4px 8px}.ds-navigation-bar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;padding:4px 1px;line-height:1.2}.ds-navigation-bar .ds-nav-symbol{display:grid;place-items:center;width:48px;height:30px;border-radius:10px}.ds-navigation-bar button[aria-current=page]{color:var(--primary)}.ds-navigation-bar button[aria-current=page] .ds-nav-symbol{background:var(--selected)}.ds-navigation-bar button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-navigation-bar button:active{filter:brightness(.94)}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Supporting State Panel",
+      "kind": "card",
+      "refersTo": "state-panel",
+      "description": "Tonal supporting container for one state and explanation.",
+      "html": "<div class=\"ds-state-panel\"><h3>Chưa có ảnh phòng</h3><p>Không gian minh họa · Chưa có ảnh phòng</p></div>",
+      "css": ".ds-state-panel{padding:15px;background:var(--surface);border-radius:10px;margin:16px 0}.ds-state-panel h3{font-size:14px;margin-bottom:6px}.ds-state-panel p{font-size:13px;line-height:1.55;color:inherit}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Room Identity Plate",
+      "kind": "custom",
+      "description": "Asymmetric room plate anchors operational identity.",
+      "html": "<section class=\"ds-room-hero\"><div class=\"ds-room-number\"><small>Phòng</small><b>203</b></div><div><h2>Trọ Cô Lan</h2><p>Green House · Tầng 2</p><span>Đang có người thuê</span></div></section>",
+      "css": ".ds-room-hero{padding:18px 0 21px;display:flex;gap:18px;align-items:center;border-bottom:1px solid var(--line)}.ds-room-number{min-width:94px;height:104px;padding:13px 10px;background:var(--primary);color:var(--on-primary);border-radius:4px 4px 16px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center}.ds-room-number small{font-size:12px}.ds-room-number b{font-size:38px;letter-spacing:-.02em;font-weight:700;line-height:1.1}.ds-room-hero h2{font-size:19px;margin-bottom:5px}.ds-room-hero p{font-size:13px;color:var(--muted);margin-bottom:7px}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    },
+    {
+      "name": "Dated Source Event",
+      "kind": "custom",
+      "description": "Read-only chronological event linking its source record.",
+      "html": "<article class=\"ds-history-event\"><time>04/10</time><span class=\"ds-history-spine\"></span><div><b>Máy lạnh đang xử lý</b><p>Cô Lan bắt đầu kiểm tra.</p><span class=\"ds-event-source\">Sự cố</span><button>Mở bản ghi</button></div></article>",
+      "css": ".ds-history-event{display:grid;grid-template-columns:47px 12px 1fr;gap:10px;position:relative;padding-bottom:23px}.ds-history-event time{font-size:12px;color:var(--muted);line-height:1.3;padding-top:2px;font-variant-numeric:tabular-nums}.ds-history-event .ds-history-spine{position:relative;display:flex;justify-content:center}.ds-history-event .ds-history-spine:before{content:\"\";width:8px;height:8px;border-radius:50%;background:var(--clay);margin-top:5px;z-index:1}.ds-history-event .ds-history-spine:after{content:\"\";position:absolute;top:12px;bottom:-7px;width:1px;background:var(--line)}.ds-history-event:last-child .ds-history-spine:after{display:none}.ds-history-event b{font-size:14px;display:block;margin-bottom:5px}.ds-history-event p{font-size:12px;color:var(--muted);line-height:1.55}.ds-history-event .ds-event-source{font-size:11px;color:var(--primary);display:block;margin-top:5px}.ds-history-event button{min-height:48px;padding:8px 0;background:transparent;color:var(--primary);font-size:12px;text-align:left}.ds-history-event button:focus-visible{outline:3px solid var(--clay);outline-offset:3px}.ds-history-event button:active{filter:brightness(.94)}button,input,textarea,select{font:inherit}button{cursor:pointer}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Room Ledger",
+    "overview": "A living operational record for each rented room. Warm paper, bottle green and clay event marks connect discovery, daily rental obligations and work by room. The numbered apartment door plate and dated records form the reusable identity; amounts and provenance remain readable without a card around every item.\n\nThis authority captures the completed HTML visual rewrite. The old stylesheet and screen helpers were replaced by one new family. It documents an Android-oriented artifact, not an implemented Compose redesign. PRODUCT.md and canonical v3.7 constrain domain presentation; current OpenAPI constrains exposed transport.",
+    "keyCharacteristics": [
+      "Apartment-door identity and dated source records.",
+      "One component family, three distinct POV hierarchies.",
+      "Flat paper surfaces, dividers and tabular money.",
+      "Labeled media placeholders and explicit policy boundaries."
+    ],
+    "rules": [
+      {
+        "name": "The State Label Rule",
+        "body": "A color mark always accompanies meaningful state text; color alone never confirms business truth.",
+        "section": "colors"
+      },
+      {
+        "name": "The Amount Rule",
+        "body": "A large amount must retain its period, due state or confirmation context. Typography cannot collapse owed money and received money into the same fact.",
+        "section": "typography"
+      },
+      {
+        "name": "The Source Record Rule",
+        "body": "Dashboard, History and Notification project source records; they never become the owner of a business mutation.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do preserve the exact inventory IDs, metadata and V1/OPEN/FUTURE classification.",
+      "Do identify the room, current context and source before presenting the next allowed action.",
+      "Do use labeled states alongside color, persistent field labels and visible focus.",
+      "Do keep Charge, Payment, Claim, Deposit and Receipt visually and semantically distinct.",
+      "Do validate the artifact in both themes and report native device work separately."
+    ],
+    "donts": [
+      "Don't turn every record or metric into an identical card.",
+      "Don't treat a submitted Claim or provider handoff as confirmed Payment.",
+      "Don't expose exact operational addresses through public discovery.",
+      "Don't move FUTURE surfaces into current app navigation or activate unresolved OPEN controls.",
+      "Don't present authored SVG placeholders or sample records as factual property evidence."
+    ]
+  }
+}
