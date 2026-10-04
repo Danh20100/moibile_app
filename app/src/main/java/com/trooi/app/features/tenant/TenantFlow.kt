@@ -32,7 +32,7 @@ fun V1TenantFlow(state: TroOiUiState, onFindRooms: () -> Unit, onUnauthorized: (
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { V1PageTitle("My Rental", "Chọn lượt thuê đã được Backend liên kết với tài khoản") }
+        item { V1PageTitle("Nhà tôi", "Các lượt thuê được Backend liên kết với tài khoản") }
         if (state.runtimeLoading) item { V1Panel("Đang tải") { V1Pending("Đồng bộ projection theo quan hệ thật.") } }
         if (owned.isEmpty()) item { V1Panel("Chưa có lượt thuê") { V1Pending("Không thể xem dữ liệu thuê khi chưa được Backend cấp quan hệ.") } }
         items(owned, key = { "tenant-linked-" + it }) { id ->

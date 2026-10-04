@@ -1,6 +1,13 @@
 package com.trooi.app.features.tenant
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,7 +25,9 @@ import com.trooi.app.features.discovery.PublicDiscoveryFilters
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
@@ -34,19 +43,40 @@ fun V1DiscoveryScreen(
     onResetSearch: (() -> Unit)? = null,
     onProbeTransport: (() -> Unit)? = null,
 ) {
-    // Do not render Room or locally invented listings: only public PUBLISHED projection.
+    // Public coordinates are an internal search contract, never raw product inputs.
+    val context = LocalContext.current
     var minPrice by rememberSaveable { mutableStateOf("") }
     var maxPrice by rememberSaveable { mutableStateOf("") }
-    var centerLat by rememberSaveable { mutableStateOf("") }
-    var centerLng by rememberSaveable { mutableStateOf("") }
-    var radiusMeters by rememberSaveable { mutableStateOf("") }
+    var centerLat by rememberSaveable { mutableStateOf<Double?>(null) }
+    var centerLng by rememberSaveable { mutableStateOf<Double?>(null) }
+    var radiusMeters by rememberSaveable { mutableStateOf(3000) }
+    var locationMessage by rememberSaveable { mutableStateOf<String?>(null) }
     val filter = PublicDiscoveryFilters(minPrice.trim(), maxPrice.trim())
     val listings = filter.apply(state.read.publicListings)
-    val latitude = centerLat.toDoubleOrNull()
-    val longitude = centerLng.toDoubleOrNull()
-    val radius = radiusMeters.toDoubleOrNull()
-    val spatialSearchValid = latitude != null && latitude in -90.0..90.0 &&
-        longitude != null && longitude in -180.0..180.0 && radius != null && radius > 0.0 &&
+
+    fun captureLastKnownLocation() {
+        val point = lastKnownPublicCenter(context)
+        if (point == null) {
+            locationMessage = "Chưa lấy được vị trí thiết bị. Hãy bật vị trí rồi thử lại."
+        } else {
+            centerLat = point.latitude
+            centerLng = point.longitude
+            locationMessage = "Đã chọn vị trí hiện tại làm tâm tìm kiếm."
+        }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) captureLastKnownLocation()
+        else locationMessage = "Cần quyền vị trí gần đúng để tìm phòng quanh bạn."
+    }
+    val useCurrentLocation = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
+        ) captureLastKnownLocation()
+        else locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+    val spatialSearchValid = centerLat != null && centerLng != null &&
         filter.validationMessage() == null
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-discovery-list"),
@@ -65,24 +95,35 @@ fun V1DiscoveryScreen(
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
             V1Panel("Lọc trên tin đăng công khai") {
-                OutlinedTextField(
-                    value = centerLat, onValueChange = { centerLat = it },
-                    label = { Text("Vĩ độ tâm tìm kiếm") },
-                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-latitude"),
-                    singleLine = true,
+                Text("Khu vực muốn tìm", fontWeight = FontWeight.Bold)
+                V1Pending(locationMessage ?: "Chọn vị trí để app tạo tâm spatial search ở lớp nội bộ.")
+                V1Action(
+                    "Dùng vị trí hiện tại",
+                    useCurrentLocation,
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-use-current-location"),
                 )
-                OutlinedTextField(
-                    value = centerLng, onValueChange = { centerLng = it },
-                    label = { Text("Kinh độ tâm tìm kiếm") },
-                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-longitude"),
-                    singleLine = true,
+                V1Action(
+                    "Chọn trên bản đồ",
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth().testTag("discovery-open-map-picker"),
+                    enabled = false,
                 )
-                OutlinedTextField(
-                    value = radiusMeters, onValueChange = { radiusMeters = it },
-                    label = { Text("Bán kính (mét)") },
-                    modifier = Modifier.fillMaxWidth().testTag("discovery-search-radius"),
-                    singleLine = true,
+                Text(
+                    "Map picker chưa được wire với provider; app không fallback sang bắt người dùng nhập latitude/longitude.",
+                    color = TroOiMuted,
+                    style = MaterialTheme.typography.labelMedium,
                 )
+                Text("Bán kính", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(1000 to "1 km", 3000 to "3 km", 5000 to "5 km").forEach { (meters, label) ->
+                        FilterChip(
+                            selected = radiusMeters == meters,
+                            onClick = { radiusMeters = meters },
+                            label = { Text(label) },
+                            modifier = Modifier.testTag("discovery-radius-$meters"),
+                        )
+                    }
+                }
                 OutlinedTextField(
                     value = minPrice, onValueChange = { minPrice = it },
                     label = { Text("Giá thấp nhất (VND)") },
@@ -103,9 +144,9 @@ fun V1DiscoveryScreen(
                         "Tìm theo bán kính",
                         {
                             onSearch(
-                                latitude!!,
-                                longitude!!,
-                                radius!!,
+                                centerLat!!,
+                                centerLng!!,
+                                radiusMeters.toDouble(),
                                 minPrice.trim().takeIf { it.isNotEmpty() },
                                 maxPrice.trim().takeIf { it.isNotEmpty() },
                             )
@@ -115,17 +156,18 @@ fun V1DiscoveryScreen(
                 }
                 if (onResetSearch != null) {
                     V1Action("Hiển thị lại tất cả tin công khai", {
-                        centerLat = ""
-                        centerLng = ""
-                        radiusMeters = ""
+                        centerLat = null
+                        centerLng = null
+                        radiusMeters = 3000
+                        locationMessage = null
                         minPrice = ""
                         maxPrice = ""
                         onResetSearch()
                     }, enabled = !state.runtimeLoading)
                 }
                 Text(
-                    "Spatial search gửi public latitude/longitude, radius và khoảng giá tới Backend. " +
-                        "Availability vẫn chưa có contract; không dùng địa chỉ vận hành.",
+                    "App chuyển vị trí đã chọn thành latitude/longitude nội bộ rồi gửi radius và khoảng giá tới Backend. " +
+                        "Textual geocoder/area và Availability vẫn OPEN; không dùng địa chỉ vận hành.",
                     color = TroOiMuted,
                     style = MaterialTheme.typography.labelMedium,
                 )
@@ -316,9 +358,8 @@ fun V1AccountScreen(
     onLogin: () -> Unit,
     onSignUp: () -> Unit,
     onDiscovery: () -> Unit,
-    onTenantPortal: () -> Unit,
+    onContextSwitcher: () -> Unit,
     onNotifications: () -> Unit,
-    onOperations: () -> Unit,
     onLogout: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
@@ -336,16 +377,22 @@ fun V1AccountScreen(
                     )
                     if (!googleOnly) TextButton(onClick = onSignUp) { Text("Tạo tài khoản") }
                 } else {
+                    V1Action("Chuyển không gian", onContextSwitcher, modifier = Modifier.fillMaxWidth())
                     V1Action("Thông báo", onNotifications, modifier = Modifier.fillMaxWidth())
-                    if (state.access.allows(ClientArea.TENANT_PORTAL)) {
-                        V1Action("My Rental / Tenant Portal", onTenantPortal, modifier = Modifier.fillMaxWidth())
-                    }
-                    if (state.access.allows(ClientArea.OPERATIONS)) {
-                        V1Action("Không gian vận hành", onOperations, modifier = Modifier.fillMaxWidth())
-                    }
                     OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Đăng xuất") }
                 }
             }
         }
     }
+}
+
+
+@SuppressLint("MissingPermission")
+private fun lastKnownPublicCenter(context: Context): PublicGeoPoint? {
+    val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+    val latest = manager.getProviders(true)
+        .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
+        .maxByOrNull { it.time }
+        ?: return null
+    return PublicGeoPoint(latest.latitude, latest.longitude)
 }

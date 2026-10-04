@@ -184,6 +184,13 @@ class BackendTroOiRepository @Inject constructor(
             val tenancy = api.getTenancy(tenancyId).required("tenant tenancy")
             if (tenancy.id != tenancyId) continue
             tenancies[tenancy.id] = tenancy
+            for (incident in api.getIncidents(tenancy.roomId).required("tenant incidents")) {
+                if (incident.roomId != tenancy.roomId) continue
+                incidents[incident.id] = incident
+                incidentEvents[incident.id] = api.getIncidentEvents(incident.id)
+                    .required("tenant incident events")
+                    .filter { it.incidentId == incident.id }
+            }
             val terms = api.getTerms(tenancyId).required("tenancy terms")
                 .filter { it.tenancyId == tenancyId }
             termsByTenancy[tenancyId] = terms
@@ -233,6 +240,7 @@ class BackendTroOiRepository @Inject constructor(
             val latestTerms = termsByTenancy[tenancy.id]?.maxByOrNull { it.version }
             TenancyCard(
                 tenancyId = tenancy.id,
+                roomId = tenancy.roomId,
                 roomLabel = roomLabels[tenancy.roomId] ?: "Phòng",
                 lifecycle = tenancyLifecycle(tenancy.status),
                 termsVersionLabel = latestTerms?.let { "Terms v${it.version}" },

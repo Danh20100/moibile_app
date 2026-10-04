@@ -12,10 +12,10 @@ class ContractBoundaryTest {
     @Test fun unauthorizedContextsAreNotNavigationTargets() {
         assertTrue(canOpenPage(AppPage.Discovery, false, AccessCapabilities()))
         assertFalse(canOpenPage(AppPage.OwnerFinance, true, AccessCapabilities()))
-        assertFalse(canOpenPage(AppPage.TenantPortal, true, AccessCapabilities()))
+        assertFalse(canOpenPage(AppPage.TenantHome, true, AccessCapabilities()))
         assertFalse(canOpenPage(AppPage.OwnerDashboard, false, access))
         assertTrue(canOpenPage(AppPage.OwnerDashboard, true, access))
-        assertTrue(canOpenPage(AppPage.TenantPortal, true, access))
+        assertTrue(canOpenPage(AppPage.TenantHome, true, access))
     }
 
     @Test fun scopedOwnerProjectionHidesOtherOrganizationsResources() {

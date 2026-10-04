@@ -54,6 +54,7 @@ enum class TenancyLifecycle { DRAFT, ACTIVE, ENDING, ENDED, CANCELLED }
 
 data class TenancyCard(
     val tenancyId: String,
+    val roomId: String,
     val roomLabel: String,
     val lifecycle: TenancyLifecycle,
     val termsVersionLabel: String?,

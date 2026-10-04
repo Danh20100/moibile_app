@@ -21,6 +21,7 @@ import com.trooi.app.features.auth.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
+import com.trooi.app.features.shared.V1ContextSwitcherScreen
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
 import com.trooi.app.ui.components.*
@@ -37,12 +38,13 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
     var lastExitAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
-    // Only root Discovery may close the app; swipes in nested screens navigate safely.
+    val isContextRoot = state.page == AppPage.Discovery ||
+        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard
     BackHandler(
         enabled = state.page !is AppPage.ListingDetail &&
             state.page !is AppPage.NotificationDetail && state.page != AppPage.Notifications,
     ) {
-        if (state.page != AppPage.Discovery) {
+        if (!isContextRoot) {
             viewModel.goBack()
         } else {
             val now = SystemClock.elapsedRealtime()
@@ -67,12 +69,20 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
             containerColor = TroOiBackground,
             snackbarHost = { SnackbarHost(snackbar) },
             bottomBar = {
-                when (state.page) {
-                    AppPage.Discovery, AppPage.TenantPortal, AppPage.Account ->
-                        V1PublicNavigation(state, viewModel)
-                    AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance, AppPage.OwnerIncidents ->
-                        V1OwnerNavigation(state, viewModel)
-                    else -> Unit
+                when (state.activeContext) {
+                    AppContext.DISCOVERY -> if (state.page == AppPage.Discovery || state.page == AppPage.Account) {
+                        V1GuestNavigation(state, viewModel)
+                    }
+                    AppContext.TENANT -> if (state.page in setOf(
+                            AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
+                            AppPage.TenantIncidents, AppPage.Account,
+                        )
+                    ) V1TenantNavigation(state, viewModel)
+                    AppContext.OPERATIONS -> if (state.page in setOf(
+                            AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
+                            AppPage.OwnerIncidents, AppPage.Account,
+                        )
+                    ) V1OwnerNavigation(state, viewModel)
                 }
             },
         ) { insets ->
@@ -105,6 +115,13 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onBack = viewModel::goBack,
                         onSubmit = viewModel::requestPasswordReset,
                     )
+                    AppPage.ContextSwitcher -> V1ContextSwitcherScreen(
+                        state = state,
+                        onDiscovery = viewModel::openDiscovery,
+                        onTenant = viewModel::openTenantHome,
+                        onOperations = viewModel::openOperations,
+                        onBack = viewModel::goBack,
+                    )
                     AppPage.Discovery -> V1DiscoveryScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
@@ -119,9 +136,18 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onOpenLogin = viewModel::openLogin,
                         onSubmitInquiry = viewModel::submitInquiry,
                     )
-                    AppPage.TenantPortal -> if (BuildConfig.BACKEND_BACKED) {
+                    AppPage.TenantHome -> V1TenantHomeScreen(
+                        state = state,
+                        onRental = viewModel::openTenantRental,
+                        onFinance = viewModel::openTenantFinance,
+                        onIncidents = viewModel::openTenantIncidents,
+                        onContextSwitcher = viewModel::openContextSwitcher,
+                    )
+                    AppPage.TenantRental -> if (BuildConfig.BACKEND_BACKED) {
                         V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
+                    AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental)
+                    AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental)
                     AppPage.Notifications -> V1NotificationCenterScreen(
                         state = state,
                         onOpen = viewModel::openNotification,
@@ -140,9 +166,8 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
                         onDiscovery = viewModel::openDiscovery,
-                        onTenantPortal = viewModel::openTenantPortal,
+                        onContextSwitcher = viewModel::openContextSwitcher,
                         onNotifications = viewModel::openNotifications,
-                        onOperations = viewModel::openOperations,
                         onLogout = viewModel::logout,
                     )
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state)
@@ -159,30 +184,51 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun V1PublicNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
+private fun V1GuestNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
     NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White) {
         NavigationBarItem(
             selected = state.page == AppPage.Discovery,
             onClick = viewModel::openDiscovery,
-            icon = { Icon(Icons.Rounded.Search, "Tìm phòng") },
-            label = { Text("Tìm phòng") },
+            icon = { Icon(Icons.Rounded.Search, "Trang chủ") },
+            label = { Text("Trang chủ") },
         )
-        if (state.isAuthenticated && state.access.allows(ClientArea.TENANT_PORTAL)) {
-            NavigationBarItem(
-                selected = state.page == AppPage.TenantPortal,
-                onClick = viewModel::openTenantPortal,
-                icon = { Icon(Icons.Rounded.Home, "Lượt thuê") },
-                label = { Text("My Rental") },
-            )
-        }
-        if (state.isAuthenticated) {
-            NavigationBarItem(
-                selected = false,
-                onClick = if (state.access.allows(ClientArea.OPERATIONS)) viewModel::openOperations else viewModel::openOwnerProperties,
-                icon = { Icon(Icons.Rounded.Apartment, "Vận hành") },
-                label = { Text("Vận hành") },
-            )
-        }
+        NavigationBarItem(
+            selected = state.page == AppPage.Account,
+            onClick = viewModel::openAccount,
+            icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
+            label = { Text("Tài khoản") },
+        )
+    }
+}
+
+@Composable
+private fun V1TenantNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
+    if (!state.isAuthenticated || !state.access.allows(ClientArea.TENANT_PORTAL)) return
+    NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White) {
+        NavigationBarItem(
+            selected = state.page == AppPage.TenantHome,
+            onClick = viewModel::openTenantHome,
+            icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
+            label = { Text("Trang chủ") },
+        )
+        NavigationBarItem(
+            selected = state.page == AppPage.TenantRental,
+            onClick = viewModel::openTenantRental,
+            icon = { Icon(Icons.Rounded.MeetingRoom, "Nhà tôi") },
+            label = { Text("Nhà tôi") },
+        )
+        NavigationBarItem(
+            selected = state.page == AppPage.TenantFinance,
+            onClick = viewModel::openTenantFinance,
+            icon = { Icon(Icons.Rounded.Payments, "Thanh toán") },
+            label = { Text("Thanh toán") },
+        )
+        NavigationBarItem(
+            selected = state.page == AppPage.TenantIncidents,
+            onClick = viewModel::openTenantIncidents,
+            icon = { Icon(Icons.Rounded.Build, "Sự cố") },
+            label = { Text("Sự cố") },
+        )
         NavigationBarItem(
             selected = state.page == AppPage.Account,
             onClick = viewModel::openAccount,

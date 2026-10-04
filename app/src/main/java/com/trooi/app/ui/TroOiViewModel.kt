@@ -59,14 +59,18 @@ class TroOiViewModel @Inject constructor(
     fun openLogin() = open(AppPage.AuthLogin)
     fun openSignUp() = open(AppPage.AuthSignUp)
     fun openForgotPassword() = open(AppPage.AuthForgotPassword)
-    fun openDiscovery() = open(AppPage.Discovery)
+    fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
     fun openAccount() = open(AppPage.Account)
-    fun openTenantPortal() = open(AppPage.TenantPortal)
+    fun openContextSwitcher() = open(AppPage.ContextSwitcher)
+    fun openTenantHome() = openContext(AppContext.TENANT, AppPage.TenantHome)
+    fun openTenantRental() = openContext(AppContext.TENANT, AppPage.TenantRental)
+    fun openTenantFinance() = openContext(AppContext.TENANT, AppPage.TenantFinance)
+    fun openTenantIncidents() = openContext(AppContext.TENANT, AppPage.TenantIncidents)
     fun openNotifications() = open(AppPage.Notifications)
-    fun openOperations() = open(AppPage.OwnerDashboard)
-    fun openOwnerProperties() = open(AppPage.OwnerProperties)
-    fun openOwnerFinance() = open(AppPage.OwnerFinance)
-    fun openOwnerIncidents() = open(AppPage.OwnerIncidents)
+    fun openOperations() = openContext(AppContext.OPERATIONS, AppPage.OwnerDashboard)
+    fun openOwnerProperties() = openContext(AppContext.OPERATIONS, AppPage.OwnerProperties)
+    fun openOwnerFinance() = openContext(AppContext.OPERATIONS, AppPage.OwnerFinance)
+    fun openOwnerIncidents() = openContext(AppContext.OPERATIONS, AppPage.OwnerIncidents)
 
     fun openNotification(notificationId: String) {
         if (!_state.value.isAuthenticated) return
@@ -113,16 +117,16 @@ class TroOiViewModel @Inject constructor(
             ?: return showMessage("Notification không có sourceId để điều hướng.")
         when (notification.sourceType?.uppercase()) {
             "LISTING" -> openListing(sourceId)
-            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) openTenantPortal()
+            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) openTenantRental()
                 else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
                 else showMessage("Bạn không có quan hệ truy cập Tenancy nguồn.")
             "INCIDENT" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerIncidents()
-                else if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantPortal()
+                else if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantIncidents()
                 else showMessage("Bạn không có quyền mở Incident nguồn.")
             "ROOM", "PROPERTY", "ORGANIZATION" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
                 else showMessage("Bạn không có quyền mở nguồn vận hành.")
             "PAYMENT", "RECEIPT", "DEPOSIT", "BILLING_CYCLE", "CHARGE" ->
-                if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantPortal()
+                if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantFinance()
                 else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerFinance()
                 else showMessage("Bạn không có quyền mở nguồn tài chính.")
             else -> showMessage("Loại nguồn Notification chưa có route an toàn; vẫn giữ trang chi tiết.")
@@ -157,7 +161,8 @@ class TroOiViewModel @Inject constructor(
                                         displayName = session.displayName,
                                         access = session.access,
                                         authInProgress = false,
-                                        page = AppPage.Discovery,
+                                        activeContext = landingFor(session.access).first,
+                                        page = landingFor(session.access).second,
                                     )
                                 }
                                 refreshAuthorizedRead(session.access)
@@ -264,7 +269,8 @@ class TroOiViewModel @Inject constructor(
                             displayName = session.displayName,
                             access = session.access,
                             read = snapshot.read,
-                            page = AppPage.Discovery,
+                            activeContext = landingFor(session.access).first,
+                            page = landingFor(session.access).second,
                         )
                     }
                 },
@@ -286,7 +292,8 @@ class TroOiViewModel @Inject constructor(
                             displayName = session.displayName,
                             access = session.access,
                             read = snapshot.read,
-                            page = AppPage.Discovery,
+                            activeContext = landingFor(session.access).first,
+                            page = landingFor(session.access).second,
                         )
                     }
                 },
@@ -364,6 +371,7 @@ class TroOiViewModel @Inject constructor(
                     publicListings = publicDiscoveryFeed(current.read.publicListings),
                 ),
                 page = AppPage.Discovery,
+                activeContext = AppContext.DISCOVERY,
                 authInProgress = false,
                 runtimeLoading = false,
                 submittingInquiry = false,
@@ -375,16 +383,38 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun goBack() {
-        val destination = when (_state.value.page) {
+        val current = _state.value
+        val destination = when (current.page) {
             AppPage.AuthForgotPassword -> AppPage.AuthLogin
             is AppPage.NotificationDetail -> AppPage.Notifications
-            AppPage.Notifications -> AppPage.Account
-            else -> AppPage.Discovery
+            AppPage.Notifications, AppPage.ContextSwitcher -> AppPage.Account
+            is AppPage.ListingDetail -> AppPage.Discovery
+            else -> contextHomePage(current.activeContext, current.access)
         }
         open(destination)
     }
 
     fun clearSnackbar() = _state.update { it.copy(snackbarMessage = null) }
+
+    private fun landingFor(access: AccessCapabilities): Pair<AppContext, AppPage> = when {
+        access.linkedTenancyIds.isNotEmpty() && access.operatedOrganizationIds.isNotEmpty() ->
+            AppContext.DISCOVERY to AppPage.ContextSwitcher
+        access.operatedOrganizationIds.isNotEmpty() -> AppContext.OPERATIONS to AppPage.OwnerDashboard
+        access.linkedTenancyIds.isNotEmpty() -> AppContext.TENANT to AppPage.TenantHome
+        else -> AppContext.DISCOVERY to AppPage.Discovery
+    }
+
+    private fun contextHomePage(context: AppContext, access: AccessCapabilities): AppPage = when (context) {
+        AppContext.TENANT -> if (access.allows(ClientArea.TENANT_PORTAL)) AppPage.TenantHome else AppPage.Discovery
+        AppContext.OPERATIONS -> if (access.allows(ClientArea.OPERATIONS)) AppPage.OwnerDashboard else AppPage.Discovery
+        AppContext.DISCOVERY -> AppPage.Discovery
+    }
+
+    private fun openContext(context: AppContext, page: AppPage) = _state.update { current ->
+        if (canOpenPage(page, current.isAuthenticated, current.access)) {
+            current.copy(activeContext = context, page = page)
+        } else current.copy(snackbarMessage = "Bạn chưa được cấp quyền truy cập khu vực này.")
+    }
 
     private fun open(page: AppPage) = _state.update { current ->
         if (canOpenPage(page, current.isAuthenticated, current.access)) current.copy(page = page)

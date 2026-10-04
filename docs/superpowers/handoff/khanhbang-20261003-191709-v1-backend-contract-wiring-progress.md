@@ -1,181 +1,184 @@
-# Handoff — Khánh Băng — V1 backend-contract wiring progress
+# Handoff — Khánh Băng — V1 backend-contract wiring + UX warning fixes
 
 ## Metadata
 
-- Branch: `frontend/v1-backend-contract-wiring`
-- Current HEAD: `37e826cc50c04b7509958b822393b425aec6ae1c`
-- Staging base: `37e826cc50c04b7509958b822393b425aec6ae1c`
-- Working tree: intentionally uncommitted
-- Push: NOT PERFORMED
+- Current branch: `frontend/v1-ux-warning-fixes`
+- Current committed HEAD: `27084448f685bdf6175f176c7a1940a6157151e5`
+- Latest staging base: `41ca82b922c99e3f0d9cdff4cf7f1c000aa4f49f`
+- Staging commits incorporated before the Task 1–6 checkpoint:
+  - `98bc82e test(e2e): isolate postgis fixture cleanup`
+  - `bb44e00 docs(test): record full regression closure`
+  - `41ca82b docs(design): add interactive product universe prototype`
+- Preserved/pushed checkpoint: `frontend/v1-task6-runtime-e2e @ e8e4e68188699674e524576da8567d7a0e74e0fb`
+- Current warning-fix working tree: intentionally uncommitted
+- Push of current branch: NOT PERFORMED
 - Merge: NOT PERFORMED
 - PR: NOT OPENED
-- Source handoff: `docs/superpowers/handoff/khanhbang-20261003-112824-v1-backend-contract-wiring.md`
+- Original branch `frontend/v1-backend-contract-wiring` remains preserved at `37e826cc50c04b7509958b822393b425aec6ae1c`.
 
-## Scope completed in working tree
+## Task 1–6 checkpoint carried forward
 
-Android transport is aligned to the generated V1 backend contract for:
+The cherry-picked Task 1–6 checkpoint keeps the completed V1 backend-contract wiring for:
+
 - public spatial Listing search;
 - current Listing lookup by Room;
 - direct Payment history by Tenancy;
 - Incident event timeline;
-- Notification list/detail/read;
+- Notification list/detail/read/source navigation;
 - Organization Dashboard;
 - Deposit projection/events/settlement;
 - Tenancy history;
-- Room operational history.
-
-Server-owned actor/provenance fields are not sent by the simplified Android commands.
-## Authoritative read wiring
-
-`BackendTroOiRepository` now uses backend read authority instead of the previous placeholders/reconstruction for:
-- operator current Listings;
-- direct Payments;
-- Incident events;
-- Dashboard projections;
-- Deposits;
-- Notifications;
-- authorized finance projections.
-
-Sanity search no longer finds these forbidden backend-path placeholders:
-- `operatorListings = emptyList()`
-- `dashboardByOrganization = emptyMap()`
-- `timeline = emptyList()`
-
-Generic public-area copy remains intentionally generic because textual geocoder semantics are OPEN.
-
-## UI surfaces added/completed
-
-Operator UI now exposes:
-- server-backed Dashboard;
-- current Listing discovery from Room;
 - Room operational history;
-- nullable Dashboard finance aggregates without client-side replacement calculations.
+- server-derived actor/provenance;
+- former-tenant read-only behavior.
 
-Notification Center now exposes:
-- list;
-- detail;
-- mark-as-read;
-- defensive source navigation using only `sourceType` / `sourceId`;
-- safe fallback for unknown source types.
+Backend remains the business authority; Android does not invent lifecycle, finance truth, actor identity, or OPEN semantics.
 
-Tenant/former-tenant flow now:
-- exposes backend History and Deposit reads;
-- keeps ENDED/CANCELLED tenancy operationally read-only;
-- hides Terms acknowledgement, Notice acknowledgement and new Incident creation for former tenancy.
-## Android verification
+## Warning fixes implemented on current branch
 
-Current working tree passed:
+### Discovery UX
+
+Raw contract fields are no longer exposed as product inputs:
+
+- removed direct latitude input;
+- removed direct longitude input;
+- removed raw radius-in-meters input.
+
+Product UI now provides:
+
+- **Dùng vị trí hiện tại** using coarse device location;
+- radius choices **1 km / 3 km / 5 km**;
+- min/max price fields;
+- **Chọn trên bản đồ** affordance is visible but disabled until a map provider/picker is wired.
+
+Coordinates remain an internal transport detail passed to the existing backend spatial-search contract.
+
+The client still does **not** invent textual area/geocoder semantics such as “Thủ Đức”. Textual public area and independent Availability remain OPEN.
+
+### 3 POV + Context Switcher
+
+The UI now models a transient `AppContext`:
+
+- DISCOVERY
+- TENANT
+- OPERATIONS
+
+This is frontend navigation state only and is **not** persisted as `USER.role`.
+
+A new **Context Switcher** uses only backend-derived relationships:
+
+- `linkedTenancyIds`
+- `operatedOrganizationIds`
+
+The public shell no longer mixes “Tìm phòng / My Rental / Vận hành” as peer tabs.
+
+### Session → capability → POV home
+
+Authenticated landing is no longer hardcoded to Discovery.
+
+After authentication the client resolves backend-derived capabilities:
+
+- both Tenant + Operations → Context Switcher;
+- Operations only → Landlord Dashboard;
+- Tenant only → Tenant Home;
+- no business relationship → Discovery.
+
+### Tenant shell
+
+Tenant POV now has dedicated navigation:
+
+- Trang chủ
+- Nhà tôi
+- Thanh toán
+- Sự cố
+- Tài khoản
+
+Tenant Home, Finance and Incident overview surfaces read backend-authoritative projections. Detailed rental writes and lifecycle operations continue through the existing server-backed Rental Workspace.
+
+Tenant Incident projections are now loaded for Room IDs obtained from linked Tenancies; the client does not invent Room membership.
+
+### Handoff metadata
+
+This handoff now reflects the actual branch, staging base, checkpoint and verification status rather than the old `frontend/v1-backend-contract-wiring @ 37e826c` metadata.
+
+## Verification — current branch
+
+Backend default suite:
 
 ```text
-:app:testDebugUnitTest       BUILD SUCCESSFUL
-:app:assembleDebug           BUILD SUCCESSFUL
-:app:assembleBackendDebug    BUILD SUCCESSFUL
-:app:lintDebug               BUILD SUCCESSFUL
+tests       284
+pass        284
+fail        0
+cancelled   0
+skipped     0
+```
+
+The database-backed runtime HTTP audit passed, including:
+
+- public health endpoint;
+- unauthenticated private-resource rejection;
+- arbitrary bearer-token rejection;
+- unauthenticated public Listing discovery.
+
+Android gates:
+
+```text
+:app:testDebugUnitTest       PASS
+:app:assembleDebug           PASS
+:app:assembleBackendDebug    PASS
+:app:lintDebug               PASS
 git diff --check             PASS
 ```
 
-BackendDebug was built with:
-`-PtrooiApiBaseUrl=http://10.0.2.2:3000/`
+A new `UxWarningRegressionTest` guards:
 
-Generated APKs:
-- `app/build/outputs/apk/debug/app-debug.apk`
-- `app/build/outputs/apk/backendDebug/app-backendDebug.apk`
+- no raw latitude/longitude product fields;
+- current-location + 1/3/5 km discovery UX;
+- Context Switcher presence;
+- Tenant-specific navigation;
+- relationship-derived post-auth landing.
 
-Additional contract tests cover:
-- unauthenticated public spatial search;
-- bearer-protected read routes;
-- nullable Dashboard/Deposit fields;
-- explicit unknown-enum rejection;
-- command-body provenance exclusion;
-- Notification detail/read and source fields.
-## Backend verification
+Only deprecation warnings remain for existing Android APIs such as `hiltViewModel`; they are not functional gate failures.
 
-Dependencies installed with the repository lockfile using Corepack pnpm.
+## Runtime status
 
-Passed:
-- `pnpm typecheck`
-- `pnpm lint`
-- `pnpm e2e:coverage`
-  - 83 atomic flows
-  - 198 cases
-  - 24 backlog files
-  - 8 frozen notification use cases
-- `pnpm test:conformance:database-v1`
-  - 57 passed / 57
-- `pnpm build`
-- `pnpm openapi:generate`
-- generated `docs/api/openapi.json` has no diff
-- `git diff --check`
+Backend is currently listening on port 3000.
 
-Full `pnpm test` did NOT fully pass:
-- 280 tests passed;
-- 4 runtime HTTP access tests were cancelled;
-- root cause: `DATABASE_URL is required for runtime HTTP access audit`.
-This is an environment/runtime gate, not an assertion failure in the four cases.
-## Runtime blockers
+A physical Android device had previously been connected, `backendDebug` installed successfully, and ADB reverse to port 3000 was exercised. At the latest final environment check, `adb devices` returned no connected device, so no new physical-device run was captured after the UX-warning changes.
 
-### PostgreSQL runtime audit
+Fresh Google sign-in has not yet been captured as passing end-to-end evidence on this current branch.
 
-Repository-provided configuration exists:
-`DATABASE_URL=postgresql://trooi:trooi_local@localhost:5432/trooi_dev`
+No Google Client Secret is committed. OAuth IDs and runtime environment values remain per-machine configuration.
 
-However Docker Desktop Linux engine did not become available:
-`//./pipe/dockerDesktopLinuxEngine` was missing.
+## OPEN / not invented
 
-Therefore PostgreSQL container could not be started and the runtime HTTP access audit cannot yet be claimed green.
+Still intentionally unresolved:
 
-### Android real-backend E2E
-
-`adb` is installed, but `adb devices` returned no connected device.
-
-The Android SDK emulator binary is not installed at the configured SDK path, so no AVD journey was executed.
-
-Therefore these are NOT yet proven:
-- Guest real HTTP Search -> Listing -> Inquiry journey;
-- authenticated Landlord/Tenant backendDebug journeys;
-- real Google ID-token authentication on emulator/device.
-
-No auth bypass, arbitrary bearer token, fake Google credential, or production test hook was introduced.
-## OPEN/FUTURE boundaries preserved
-
-No local semantics were invented for:
-- textual public area/geocoder;
-- independent Availability vocabulary/calendar;
-- Room/Property type;
-- nested Terms opaque objects;
-- nullable Dashboard financial totals;
+- textual public area / geocoder;
+- independent Availability vocabulary;
+- Room/Property type vocabulary;
+- opaque nested Terms structures;
+- nullable Dashboard finance aggregation policy;
 - Deposit requirement changes after partial funding;
 - Notification delivery channels.
 
-FUTURE features remain excluded.
+The disabled map-picker affordance is not claimed as a completed map-provider integration.
 
-## Remaining required work
+## Remaining verification
 
-1. Restore/start a usable PostgreSQL runtime and rerun full `pnpm test`.
-2. Install/start Android emulator or connect a real test device.
-3. Start backend on port 3000 with the repository-defined environment.
-4. Execute backendDebug Guest and authenticated journeys.
-5. Verify real Google auth where credentials/session permit.
-6. Only after runtime gates pass, prepare the final completion handoff.
+1. Reconnect a physical Android device or emulator.
+2. Build/install current `backendDebug` with the configured Web OAuth Client ID.
+3. Capture a **fresh Google sign-in**:
+   Google Credential Manager → ID token → `POST /identity-access/auth/google` → `GET /identity-access/me`.
+4. Manually verify current-device POV journeys:
+   - Guest: Home/Search → Listing → Inquiry;
+   - Tenant: Trang chủ → Nhà tôi → Thanh toán → Sự cố → Tài khoản/Context Switcher;
+   - Landlord: Dashboard → Room/Listing → Finance → Incident;
+   - Notification detail → mark read → source navigation.
+5. Wire a real map picker/provider only when that UI/provider decision is approved; do not replace it with raw coordinate inputs.
 
 ## Review status
 
 `READY_TO_REVIEW: NO`
 
-Reason: static/contract/build gates are green, but required database-backed runtime audit and real Android/Google E2E are not yet complete.
-
-## Additional environment verification
-
-Docker Desktop is installed, but:
-- `com.docker.service` is `Stopped`;
-- the current remote session cannot start/open that Windows service;
-- `dockerDesktopLinuxEngine` pipe remains unavailable.
-
-Android SDK is present for build/install tooling, but currently has no:
-- `sdkmanager.bat`;
-- `avdmanager.bat`;
-- `emulator.exe`.
-
-`adb` is available, but no device is connected.
-
-These conditions confirm the remaining runtime gates require environment setup outside the current non-elevated session; they are not being marked passed.
+Reason: automated backend and Android regression gates are green, and the UX warnings above are fixed in source, but fresh Google authentication and final physical-device POV journeys have not yet been captured as passing evidence on this branch. The map-picker provider is also not wired and is explicitly not claimed complete.

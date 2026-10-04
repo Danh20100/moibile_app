@@ -32,7 +32,7 @@ object DemoData {
             OperationalRoomCard("preview-room-b", "preview-property-1", "Phòng A02", RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE),
         ),
         operatorListings = listOf(OperatorListingCard("demo-listing-owner", "preview-room-a", "Tin đăng minh họa", ListingVisibility.DRAFT)),
-        tenancies = listOf(TenancyCard("demo-tenancy-1", "Phòng A02", TenancyLifecycle.ACTIVE, "Phiên bản minh họa")),
+        tenancies = listOf(TenancyCard("demo-tenancy-1", "demo-room-2", "Phòng A02", TenancyLifecycle.ACTIVE, "Phiên bản minh họa")),
         incidents = listOf(
             IncidentCard(
                 incidentId = "preview-incident-1",
