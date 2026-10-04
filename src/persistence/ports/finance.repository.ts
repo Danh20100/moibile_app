@@ -12,6 +12,25 @@ export interface DepositRecord { depositId: string; tenancyId: string }
 export interface DepositPaymentApplicationRecord { depositPaymentApplicationId: string; paymentId: string; depositId: string; appliedAmount: DecimalString; appliedAt: TimestampString }
 export interface DepositSettlementRecord { depositSettlementId: string; depositId: string; refundedAmount: DecimalString; retainedAmount: DecimalString; reasonOrNote: string; actedByUserId: string; settledAt: TimestampString }
 export interface DepositEventRecord { depositEventId: string; depositId: string; eventType: string; amount: DecimalString; occurredAt: TimestampString; paymentApplicationId: string | null; settlementId: string | null }
+export type GatewayCheckoutStatus = 'CREATED' | 'FAILED' | 'EXPIRED' | 'SUCCEEDED';
+export interface GatewayCheckoutRecord {
+  checkoutId: string;
+  tenancyId: string;
+  createdByUserId: string;
+  amount: DecimalString;
+  referenceCode: string;
+  provider: 'MOMO';
+  providerOrderId: string;
+  providerRequestId: string;
+  status: GatewayCheckoutStatus;
+  payUrl: string | null;
+  deeplink: string | null;
+  resultingPaymentId: string | null;
+  lastIpnPayload: string | null;
+  lastIpnAt: TimestampString | null;
+  createdAt: TimestampString;
+  updatedAt: TimestampString;
+}
 
 export interface FinanceRepository {
   insertBillingCycle(input: BillingCycleRecord): Promise<void>; findBillingCycle(id: string): Promise<BillingCycleRecord | undefined>; findBillingCyclesForTenancy(tenancyId?: string): Promise<BillingCycleRecord[]>;
@@ -26,4 +45,9 @@ export interface FinanceRepository {
   insertDepositPaymentApplication(input: DepositPaymentApplicationRecord): Promise<void>; findDepositPaymentApplications(depositId: string): Promise<DepositPaymentApplicationRecord[]>; sumDepositFundedAmount(depositId: string): Promise<DecimalString>;
   insertDepositSettlement(input: DepositSettlementRecord): Promise<void>; findDepositSettlements(depositId: string): Promise<DepositSettlementRecord[]>; sumDepositSettledAmount(depositId: string): Promise<DecimalString>; depositHasCapacity(depositId:string, refundedAmount:DecimalString, retainedAmount:DecimalString):Promise<boolean>;
   insertDepositEvent(input: DepositEventRecord): Promise<void>; findDepositEvents(depositId: string): Promise<DepositEventRecord[]>;
+  insertGatewayCheckout(input: GatewayCheckoutRecord): Promise<void>;
+  findGatewayCheckout(id: string): Promise<GatewayCheckoutRecord | undefined>;
+  findGatewayCheckoutByOrderId(orderId: string): Promise<GatewayCheckoutRecord | undefined>;
+  lockGatewayCheckout(id: string): Promise<void>;
+  updateGatewayCheckout(input: GatewayCheckoutRecord): Promise<void>;
 }

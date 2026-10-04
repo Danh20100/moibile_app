@@ -102,6 +102,19 @@ class V1CompletionContractTest {
         }
     }
 
+    @Test fun momoCheckoutPostsToCheckoutsNotPayments() = runBlocking {
+        MockWebServer().use { server ->
+            server.ok("""{"id":"chk-1","tenancyId":"t-1","amount":"4470000.00","referenceCode":"TROOI T-1 ABC","provider":"MOMO","status":"CREATED","deeplink":"momo://app"}""",201)
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val session = V1RentalGateway(client(server)).createGatewayCheckout("t-1","4470000.00")
+            assertEquals("CREATED", session.status)
+            assertEquals(null, session.resultingPaymentId)
+            val request = server.takeRequest()
+            assertEquals("/api/v1/finance/checkouts", request.path)
+            assertEquals("4470000.00", JsonParser.parseString(request.body.readUtf8()).asJsonObject.get("amount").asString)
+        }
+    }
+
     @Test fun paymentOnlyReportsSuccessWhenBackendConfirms() = runBlocking {
         MockWebServer().use { server ->
             server.ok("""{"id":"pay-1","tenancyId":"t-1","amount":"5000.00","source":"MANUAL_CASH","verification":"USER_RECORDED","confirmedAt":"2026-10-02T01:00:00Z"}""",201)

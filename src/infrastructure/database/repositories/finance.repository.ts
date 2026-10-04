@@ -2,7 +2,7 @@ import { sql, type Kysely, type Transaction } from 'kysely';
 
 import type {
   BillingCycleRecord, ChargeRecord, DepositEventRecord, DepositPaymentApplicationRecord,
-  DepositRecord, DepositSettlementRecord, FinanceRepository, MeterReadingRecord,
+  DepositRecord, DepositSettlementRecord, FinanceRepository, GatewayCheckoutRecord, MeterReadingRecord,
   PaymentAllocationRecord, PaymentClaimRecord, PaymentRecord, ReceiptRecord,
   UtilityConnectionRecord,
 } from '../../../persistence/ports/finance.repository';
@@ -73,4 +73,44 @@ export class PostgresFinanceRepository implements FinanceRepository {
   async depositHasCapacity(id:string,refundedAmount:DecimalString,retainedAmount:DecimalString):Promise<boolean>{return (await this.one<{allowed:boolean}>(sql`SELECT COALESCE((SELECT SUM(applied_amount) FROM deposit_payment_applications WHERE deposit_id=${id}),0) >= COALESCE((SELECT SUM(refunded_amount+retained_amount) FROM deposit_settlements WHERE deposit_id=${id}),0) + ${refundedAmount}::numeric + ${retainedAmount}::numeric AS allowed`))?.allowed??false;}
   async insertDepositEvent(x:DepositEventRecord):Promise<void>{await this.mapped(async()=>{await this.db.insertInto('deposit_events').values({deposit_event_id:x.depositEventId,deposit_id:x.depositId,event_type:x.eventType,amount:x.amount,occurred_at:x.occurredAt,payment_application_id:x.paymentApplicationId,settlement_id:x.settlementId}).execute();});}
   findDepositEvents(id:string){return this.many<DepositEventRecord>(sql`SELECT deposit_event_id AS "depositEventId", deposit_id AS "depositId", event_type AS "eventType", amount, occurred_at AS "occurredAt", payment_application_id AS "paymentApplicationId", settlement_id AS "settlementId" FROM deposit_events WHERE deposit_id=${id} ORDER BY occurred_at, deposit_event_id`);}
+
+  async insertGatewayCheckout(x: GatewayCheckoutRecord): Promise<void> {
+    await this.mapped(async () => {
+      await sql`
+        INSERT INTO gateway.gateway_checkouts (
+          checkout_id, tenancy_id, created_by_user_id, amount, reference_code, provider,
+          provider_order_id, provider_request_id, status, pay_url, deeplink, resulting_payment_id,
+          last_ipn_payload, last_ipn_at, created_at, updated_at
+        ) VALUES (
+          ${x.checkoutId}, ${x.tenancyId}, ${x.createdByUserId}, ${x.amount}, ${x.referenceCode}, ${x.provider},
+          ${x.providerOrderId}, ${x.providerRequestId}, ${x.status}, ${x.payUrl}, ${x.deeplink}, ${x.resultingPaymentId},
+          ${x.lastIpnPayload}, ${x.lastIpnAt}, ${x.createdAt}, ${x.updatedAt}
+        )
+      `.execute(this.db);
+    });
+  }
+  findGatewayCheckout(id: string) {
+    return this.one<GatewayCheckoutRecord>(sql`SELECT checkout_id AS "checkoutId", tenancy_id AS "tenancyId", created_by_user_id AS "createdByUserId", amount, reference_code AS "referenceCode", provider, provider_order_id AS "providerOrderId", provider_request_id AS "providerRequestId", status, pay_url AS "payUrl", deeplink, resulting_payment_id AS "resultingPaymentId", last_ipn_payload AS "lastIpnPayload", last_ipn_at AS "lastIpnAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM gateway.gateway_checkouts WHERE checkout_id=${id}`);
+  }
+  findGatewayCheckoutByOrderId(orderId: string) {
+    return this.one<GatewayCheckoutRecord>(sql`SELECT checkout_id AS "checkoutId", tenancy_id AS "tenancyId", created_by_user_id AS "createdByUserId", amount, reference_code AS "referenceCode", provider, provider_order_id AS "providerOrderId", provider_request_id AS "providerRequestId", status, pay_url AS "payUrl", deeplink, resulting_payment_id AS "resultingPaymentId", last_ipn_payload AS "lastIpnPayload", last_ipn_at AS "lastIpnAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM gateway.gateway_checkouts WHERE provider_order_id=${orderId}`);
+  }
+  async lockGatewayCheckout(id: string): Promise<void> {
+    await this.mapped(async () => {
+      await sql`SELECT checkout_id FROM gateway.gateway_checkouts WHERE checkout_id=${id} FOR UPDATE`.execute(this.db);
+    });
+  }
+  async updateGatewayCheckout(x: GatewayCheckoutRecord): Promise<void> {
+    await this.mapped(async () => {
+      await sql`
+        UPDATE gateway.gateway_checkouts SET
+          tenancy_id=${x.tenancyId}, created_by_user_id=${x.createdByUserId}, amount=${x.amount},
+          reference_code=${x.referenceCode}, provider=${x.provider}, provider_order_id=${x.providerOrderId},
+          provider_request_id=${x.providerRequestId}, status=${x.status}, pay_url=${x.payUrl}, deeplink=${x.deeplink},
+          resulting_payment_id=${x.resultingPaymentId}, last_ipn_payload=${x.lastIpnPayload}, last_ipn_at=${x.lastIpnAt},
+          created_at=${x.createdAt}, updated_at=${x.updatedAt}
+        WHERE checkout_id=${x.checkoutId}
+      `.execute(this.db);
+    });
+  }
 }

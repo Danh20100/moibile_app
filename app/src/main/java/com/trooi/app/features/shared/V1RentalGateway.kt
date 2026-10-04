@@ -17,6 +17,17 @@ data class RentalNotice(val id: String, val tenancyId: String, val type: String,
 data class RentalCharge(val id: String, val type: String, val amount: String)
 data class RentalBilling(val id: String, val tenancyId: String, val termsId: String, val from: String, val to: String, val charges: List<RentalCharge>)
 data class RentalPayment(val id: String, val tenancyId: String, val amount: String, val source: String, val verification: String, val confirmedAt: String)
+data class GatewayCheckout(
+    val id: String,
+    val tenancyId: String,
+    val amount: String,
+    val referenceCode: String,
+    val provider: String,
+    val status: String,
+    val payUrl: String?,
+    val deeplink: String?,
+    val resultingPaymentId: String?,
+)
 data class RentalReceipt(val id: String, val paymentId: String, val status: String, val issuedAt: String, val voidedAt: String?)
 data class RentalIncident(val id: String, val roomId: String, val category: String, val status: String, val createdAt: String, val closureReason: String?)
 
@@ -77,12 +88,21 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     }
 
     suspend fun payment(id: String): RentalPayment = read(client.get("finance/payments/${segment(id)}", true), ::payment)
+    suspend fun payments(tenancyId: String): List<RentalPayment> =
+        list(client.get("finance/payments", true, mapOf("tenancyId" to tenancyId)), ::payment)
     suspend fun recordPayment(tenancyId: String, amount: String, source: String, at: String = Instant.now().toString()): RentalPayment {
         require(source in setOf("MANUAL_CASH", "MANUAL_TRANSFER") && validMoney(amount)) { "Chỉ ghi nhận tiền đã thực nhận từ nguồn manual" }
         return read(client.postJson("finance/payments",
             obj("tenancyId" to tenancyId, "amount" to amount, "source" to source,
                 "verification" to "USER_RECORDED", "confirmedAt" to at).toString(), true), ::payment)
     }
+    suspend fun createGatewayCheckout(tenancyId: String, amount: String): GatewayCheckout {
+        require(validMoney(amount)) { "Amount không hợp lệ" }
+        return read(client.postJson("finance/checkouts",
+            obj("tenancyId" to tenancyId, "amount" to amount).toString(), true), ::checkout)
+    }
+    suspend fun gatewayCheckout(id: String): GatewayCheckout =
+        read(client.get("finance/checkouts/${segment(id)}", true), ::checkout)
     suspend fun allocate(paymentId: String, chargeId: String, amount: String) : JsonObject {
         require(validMoney(amount)) { "Amount không hợp lệ" }
         return read(client.postJson("finance/payments/${segment(paymentId)}/allocations",
@@ -130,6 +150,10 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         x.req("periodStart"), x.req("periodEnd"), x.getAsJsonArray("charges").map { charge(it.asJsonObject) })
     private fun payment(x: JsonObject) = RentalPayment(x.req("id"), x.req("tenancyId"), x.req("amount"), x.req("source"),
         x.req("verification"), x.req("confirmedAt"))
+    private fun checkout(x: JsonObject) = GatewayCheckout(
+        x.req("id"), x.req("tenancyId"), x.req("amount"), x.req("referenceCode"), x.req("provider"), x.req("status"),
+        x.opt("payUrl"), x.opt("deeplink"), x.opt("resultingPaymentId"),
+    )
     private fun receipt(x: JsonObject) = RentalReceipt(x.req("id"), x.req("paymentId"), x.req("status"), x.req("issuedAt"), x.opt("voidedAt"))
     private fun incident(x: JsonObject) = RentalIncident(x.req("id"), x.req("roomId"), x.req("category"), x.req("status"),
         x.req("createdAt"), x.opt("closureReason"))

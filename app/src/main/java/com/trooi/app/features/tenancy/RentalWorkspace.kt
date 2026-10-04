@@ -1,5 +1,7 @@
 package com.trooi.app.features.tenancy
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,7 +39,14 @@ fun V1RentalWorkspace(
     var choice by remember(state.route) { mutableStateOf("") }
     var selected by remember(state.route) { mutableStateOf("") }
     var price by remember(state.route) { mutableStateOf("") }
+    var received by remember(state.route) { mutableStateOf("") }
     val route = state.route
+    val context = LocalContext.current
+    LaunchedEffect(state.pendingDeeplink) {
+        val link = state.pendingDeeplink ?: return@LaunchedEffect
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) }
+        model.consumeDeeplink()
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-rental-workflow"),
@@ -202,8 +212,45 @@ fun V1RentalWorkspace(
             }
             is RentalRoute.Payment -> {
                 item {
+                    V1Panel("Khoản phải thu") {
+                        if (state.billing.isEmpty()) V1Pending("Chưa có Billing Cycle RENT/ELECTRICITY/WATER.")
+                        state.billing.forEach { cycle ->
+                            Text("Kỳ ${cycle.from} → ${cycle.to}", color = TroOiMuted)
+                            cycle.charges.forEach { V1Metric(it.type, it.amount) }
+                        }
+                        V1Pending("Đây là Charge/phải thu. Cọc là dòng riêng; outstanding chỉ về 0 sau Payment đã allocate.")
+                    }
+                }
+                item {
+                    V1Panel("MoMo — kênh chuyển tiền") {
+                        V1Pending("Mở MoMo hoặc bấm chuyển chưa phải Confirmed Payment.")
+                        V1Input(price, { price = it }, "Số tiền chuyển (VND nguyên)", "momo-amount")
+                        V1Action("Mở MoMo", {
+                            model.createMomoCheckout(route.id, price)
+                        }, enabled = !state.busy && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
+                        state.checkout?.let { session ->
+                            V1Metric("Checkout", session.status)
+                            V1Metric("Mã tham chiếu", session.referenceCode)
+                            if (session.resultingPaymentId == null) {
+                                V1Pending("Đang chờ xác nhận provider. Payment Claim vẫn chờ API riêng.")
+                                V1Action("Làm mới trạng thái checkout", { model.refreshCheckout() }, enabled = !state.busy)
+                            }
+                        }
+                    }
+                }
+                if (state.payments.isEmpty() && state.payment == null && !state.busy) {
+                    item { V1Panel("Payment đã xác nhận") { V1Pending("Chưa có Payment. Checkout CREATED không xuất hiện ở đây.") } }
+                }
+                items(state.payments, key = { "pay-" + it.id }) { pay ->
+                    V1Panel("Payment · " + pay.id) {
+                        V1Metric("Confirmed amount", pay.amount)
+                        V1Metric("Source", pay.source)
+                        V1Metric("Verification", pay.verification)
+                        V1Metric("Confirmed at", pay.confirmedAt)
+                    }
+                }
+                item {
                     V1Panel("Tra cứu Payment") {
-                        V1Pending("Hiện OpenAPI chưa có GET Payment list by Tenancy; chỉ tra cứu ID đã được Backend cung cấp.")
                         V1Input(name, { name = it }, "Payment ID", "payment-id")
                         V1Action("Mở Payment", { model.lookupPayment(name) }, enabled = !state.busy && name.isNotBlank())
                     }
@@ -230,11 +277,11 @@ fun V1RentalWorkspace(
                 if (!state.tenantMode) item {
                     V1Panel("Ghi nhận tiền đã nhận") {
                         V1Pending("Chỉ dùng khi tiền thực tế đã nhận; nhấn nút không phải gateway payment.")
-                        V1Input(price, { price = it }, "Amount đã thực nhận", "payment-received-amount")
+                        V1Input(received, { received = it }, "Amount đã thực nhận", "payment-received-amount")
                         V1Choice(listOf("MANUAL_CASH", "MANUAL_TRANSFER"), choice, { choice = it }, "Nguồn tiền")
                         V1Action("Xác nhận đã nhận tiền", {
-                            model.recordPayment(route.id, price, choice)
-                        }, enabled = !state.busy && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && choice.isNotBlank())
+                            model.recordPayment(route.id, received, choice)
+                        }, enabled = !state.busy && received.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && choice.isNotBlank())
                     }
                 }
             }

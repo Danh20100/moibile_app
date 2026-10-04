@@ -29,6 +29,7 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .addTag('Incident', 'Sự cố vận hành và lifecycle xử lý ticket')
     .addTag('Listing', 'Public projection của phòng phục vụ tìm kiếm/khám phá')
     .addTag('Audit & Trust', 'Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ')
+    .addTag('Payment Gateway', 'MoMo checkout channel. Confirmed Payment is created only after provider IPN.')
     .build();
 }
 
@@ -37,6 +38,7 @@ const PUBLIC_PATHS = [
   { path: '/listings/public', method: 'get' },
   { path: '/listings/public/search', method: 'get' },
   { path: '/identity-access/auth/google', method: 'post' },
+  { path: '/finance/checkouts/momo/ipn', method: 'post' },
 ];
 
 /**

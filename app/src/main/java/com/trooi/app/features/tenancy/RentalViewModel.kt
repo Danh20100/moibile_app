@@ -38,7 +38,10 @@ data class RentalUiState(
     val terms: List<RentalTerms> = emptyList(),
     val notices: List<RentalNotice> = emptyList(),
     val billing: List<RentalBilling> = emptyList(),
+    val payments: List<RentalPayment> = emptyList(),
     val payment: RentalPayment? = null,
+    val checkout: GatewayCheckout? = null,
+    val pendingDeeplink: String? = null,
     val receipts: List<RentalReceipt> = emptyList(),
     val incidents: List<RentalIncident> = emptyList(),
     val incident: RentalIncident? = null,
@@ -93,7 +96,8 @@ class RentalViewModel @Inject constructor(
         }
         _ui.update { it.copy(stack = it.stack + route, error = null, errorKind = null, success = null,
             tenancies = emptyList(), tenancy = null, participants = emptyList(), terms = emptyList(),
-            notices = emptyList(), billing = emptyList(), payment = null, receipts = emptyList(), incidents = emptyList(), incident = null) }
+            notices = emptyList(), billing = emptyList(), payments = emptyList(), payment = null, checkout = null,
+            pendingDeeplink = null, receipts = emptyList(), incidents = emptyList(), incident = null) }
         load()
     }
 
@@ -123,7 +127,13 @@ class RentalViewModel @Inject constructor(
                     is RentalRoute.Terms -> publish(current) { it.copy(terms = api.terms(route.id)) }
                     is RentalRoute.Notices -> publish(current) { it.copy(notices = api.notices(route.id)) }
                     is RentalRoute.Billing -> publish(current) { it.copy(billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id }) }
-                    is RentalRoute.Payment -> publish(current) { it.copy(payment = null) }
+                    is RentalRoute.Payment -> publish(current) {
+                        it.copy(
+                            billing = api.billingCycles(route.id).filter { cycle -> cycle.tenancyId == route.id },
+                            payments = api.payments(route.id).filter { pay -> pay.tenancyId == route.id },
+                            payment = null,
+                        )
+                    }
                     is RentalRoute.Receipts -> publish(current) {
                         val scoped = api.receipts().filter { receipt ->
                             api.payment(receipt.paymentId).tenancyId == route.id
@@ -192,6 +202,34 @@ class RentalViewModel @Inject constructor(
         require(!_ui.value.tenantMode) { "Chỉ Operator ghi nhận tiền đã thực nhận." }
         val recorded = api.recordPayment(id, amount, source)
         _ui.update { it.copy(payment = api.payment(recorded.id)) }
+    }
+
+    fun createMomoCheckout(tenancyId: String, amount: String) = write {
+        val created = api.createGatewayCheckout(tenancyId, amount)
+        _ui.update {
+            it.copy(
+                checkout = created,
+                pendingDeeplink = created.deeplink ?: created.payUrl,
+                payments = api.payments(tenancyId),
+            )
+        }
+    }
+
+    fun refreshCheckout() = write {
+        val current = _ui.value.checkout ?: throw IllegalArgumentException("Chưa có phiên MoMo")
+        val route = _ui.value.route as? RentalRoute.Payment
+            ?: throw IllegalArgumentException("Chưa mở trang Payment")
+        _ui.update {
+            it.copy(
+                checkout = api.gatewayCheckout(current.id),
+                payments = api.payments(route.id),
+                pendingDeeplink = null,
+            )
+        }
+    }
+
+    fun consumeDeeplink() {
+        _ui.update { it.copy(pendingDeeplink = null) }
     }
 
     fun lookupPayment(id: String) = write {

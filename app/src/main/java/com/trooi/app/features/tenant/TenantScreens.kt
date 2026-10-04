@@ -205,9 +205,10 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                     }
                     PortalArea.PAYMENT -> {
                         val payments = scopedFinance.flatMap { it.payments }
-                        if (payments.isEmpty()) V1Pending("Chưa có Payment theo Tenancy. Payment Claim đang chờ API.")
+                        V1Pending("MoMo chỉ là kênh chuyển. Mở app chưa phải Payment. Claim ≠ Payment và đang chờ API.")
+                        if (payments.isEmpty()) V1Pending("Chưa có Payment đã xác nhận theo Tenancy.")
                         else payments.forEach {
-                            V1Metric("Payment", it.amountLabel)
+                            V1Metric("Payment đã xác nhận", it.amountLabel)
                             V1Pending(it.confirmationLabel ?: "Chưa có trạng thái xác nhận")
                         }
                     }

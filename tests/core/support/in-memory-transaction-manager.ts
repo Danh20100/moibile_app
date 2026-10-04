@@ -23,6 +23,7 @@ import type {
   DepositPaymentApplicationRecord,
   DepositRecord,
   DepositSettlementRecord,
+  GatewayCheckoutRecord,
   PaymentAllocationRecord,
   PaymentRecord,
   ReceiptRecord,
@@ -55,7 +56,8 @@ export function createCoreTestTransactionManager(): TransactionManager {
     applications = new Map<string, DepositPaymentApplicationRecord>(),
     settlements = new Map<string, DepositSettlementRecord>(),
     depositEvents = new Map<string, DepositEventRecord>(),
-    receipts = new Map<string, ReceiptRecord>();
+    receipts = new Map<string, ReceiptRecord>(),
+    checkouts = new Map<string, GatewayCheckoutRecord>();
   const incidents = new Map<string, IncidentRecord>(),
     incidentEvents: IncidentEventRecord[] = [];
   const trustReports = new Map<string, TrustReportRecord>();
@@ -364,6 +366,16 @@ export function createCoreTestTransactionManager(): TransactionManager {
         [...receipts.values()].filter((v) => !id || v.paymentId === id),
       updateReceipt: async (v: ReceiptRecord) => {
         receipts.set(v.receiptId, v);
+      },
+      insertGatewayCheckout: async (v: GatewayCheckoutRecord) => {
+        checkouts.set(v.checkoutId, structuredClone(v));
+      },
+      findGatewayCheckout: async (id: string) => structuredClone(checkouts.get(id)),
+      findGatewayCheckoutByOrderId: async (orderId: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.providerOrderId === orderId)),
+      lockGatewayCheckout: async () => undefined,
+      updateGatewayCheckout: async (v: GatewayCheckoutRecord) => {
+        checkouts.set(v.checkoutId, structuredClone(v));
       },
     },
     incident: {

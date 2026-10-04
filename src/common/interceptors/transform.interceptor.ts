@@ -10,7 +10,11 @@ export interface ResponseFormat<T> {
 
 @Injectable()
 export class TransformInterceptor<T> implements NestInterceptor<T, ResponseFormat<T>> {
-  intercept(_context: ExecutionContext, next: CallHandler): Observable<ResponseFormat<T>> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<ResponseFormat<T> | T> {
+    const url = context.switchToHttp().getRequest<{ url?: string }>().url ?? '';
+    if (url.includes('/finance/checkouts/momo/ipn')) {
+      return next.handle();
+    }
     return next.handle().pipe(
       map((data) => ({
         success: true,

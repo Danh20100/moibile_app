@@ -3173,6 +3173,102 @@
           "Notification"
         ]
       }
+    },
+    "/finance/checkouts": {
+      "post": {
+        "operationId": "PaymentGatewayController_createCheckout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGatewayCheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Checkout created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayCheckoutDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a MoMo checkout session. Does not create a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/checkouts/{id}": {
+      "get": {
+        "operationId": "PaymentGatewayController_findCheckout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkout status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayCheckoutDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a MoMo checkout session. CREATED is not a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/checkouts/momo/ipn": {
+      "post": {
+        "operationId": "PaymentGatewayController_momoIpn",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "IPN accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MomoIpnResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "MoMo IPN. Verified success is the only path that creates a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": []
+      }
     }
   },
   "info": {
@@ -3225,6 +3321,10 @@
     {
       "name": "Audit & Trust",
       "description": "Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ"
+    },
+    {
+      "name": "Payment Gateway",
+      "description": "MoMo checkout channel. Confirmed Payment is created only after provider IPN."
     }
   ],
   "servers": [
@@ -5538,6 +5638,93 @@
           "messageOrPayloadReference",
           "deliveryStatus",
           "createdAt"
+        ]
+      },
+      "CreateGatewayCheckoutDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "60000000-0000-4000-8000-000000000001"
+          },
+          "amount": {
+            "type": "string",
+            "example": "4470000.00"
+          }
+        },
+        "required": [
+          "tenancyId",
+          "amount"
+        ]
+      },
+      "GatewayCheckoutDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenancyId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "MOMO"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "CREATED",
+              "FAILED",
+              "EXPIRED",
+              "SUCCEEDED"
+            ]
+          },
+          "payUrl": {
+            "type": "string"
+          },
+          "deeplink": {
+            "type": "string"
+          },
+          "resultingPaymentId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "amount",
+          "referenceCode",
+          "provider",
+          "status",
+          "createdAt"
+        ]
+      },
+      "MomoIpnResponseDto": {
+        "type": "object",
+        "properties": {
+          "resultCode": {
+            "type": "number",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "success"
+          }
+        },
+        "required": [
+          "resultCode",
+          "message"
         ]
       }
     }
