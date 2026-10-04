@@ -1,12 +1,17 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import {
   momoCreateRaw,
+  momoCreateResponseRaw,
   momoIpnRaw,
   signMomoRaw,
   signaturesMatch,
-  type MomoIpnSignFields,
 } from './momo-hmac';
+import { classifyMomoResult } from './momo-result';
 
 export interface MomoConfig {
   partnerCode: string;
@@ -20,9 +25,9 @@ export interface MomoConfig {
 export interface MomoCreatePaymentInput {
   orderId: string;
   requestId: string;
-  amountVnd: number;
+  amountVnd: number | string;
   orderInfo: string;
-  extraData?: string;
+  checkoutId: string;
 }
 
 export interface MomoCreatePaymentResult {
@@ -48,9 +53,17 @@ export interface MomoIpnPayload {
   signature: string;
 }
 
+export interface MomoIpnExpectation {
+  partnerCode: string;
+  orderId: string;
+  requestId: string;
+  amountVnd: number | string;
+  extraData: string;
+}
+
 export interface MomoPaymentClient {
   createCaptureWallet(input: MomoCreatePaymentInput): Promise<MomoCreatePaymentResult>;
-  verifyIpn(payload: MomoIpnPayload): boolean;
+  verifyIpn(payload: unknown, expected?: MomoIpnExpectation): boolean;
 }
 
 export const MOMO_PAYMENT_CLIENT = Symbol('MOMO_PAYMENT_CLIENT');
@@ -66,13 +79,53 @@ export function loadMomoConfig(env: NodeJS.ProcessEnv): MomoConfig {
   };
 }
 
+function validUrl(value: string, protocols: string[]): URL | null {
+  try {
+    const url = new URL(value);
+    return protocols.includes(url.protocol) && !url.username && !url.password ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export function requireMomoConfig(config: MomoConfig): MomoConfig {
-  if (!config.partnerCode || !config.accessKey || !config.secretKey || !config.ipnUrl) {
+  const endpoint = validUrl(config.endpoint, ['https:']);
+  if (
+    !config.partnerCode ||
+    !config.accessKey ||
+    !config.secretKey ||
+    !validUrl(config.ipnUrl, ['https:']) ||
+    !validUrl(config.redirectUrl, ['https:', 'trooi:']) ||
+    !endpoint ||
+    !['test-payment.momo.vn', 'payment.momo.vn'].includes(endpoint.hostname) ||
+    endpoint.port ||
+    endpoint.pathname !== '/' ||
+    endpoint.search ||
+    endpoint.hash
+  ) {
     throw new ServiceUnavailableException(
-      'MoMo sandbox is not configured. Set MOMO_PARTNER_CODE, MOMO_ACCESS_KEY, MOMO_SECRET_KEY, and MOMO_IPN_URL.',
+      'MoMo optional channel is unavailable: incomplete or invalid configuration',
     );
   }
   return config;
+}
+
+function record(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function integer(value: unknown): string | null {
+  if (typeof value === 'number')
+    return Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  return typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value) ? value : null;
+}
+
+function amount(value: unknown): number | null {
+  // Decimal strings are converted exactly before Number; the VND ceiling is safely representable.
+  const decimal = typeof value === 'string' ? value : integer(value);
+  if (decimal === null || !/^(0|[1-9]\d*)(\.0{1,2})?$/.test(decimal)) return null;
+  const whole = BigInt(decimal.split('.')[0]);
+  return whole >= 1000n && whole <= 50000000n ? Number(whole) : null;
 }
 
 export class HttpMomoPaymentClient implements MomoPaymentClient {
@@ -80,12 +133,31 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
 
   async createCaptureWallet(input: MomoCreatePaymentInput): Promise<MomoCreatePaymentResult> {
     const config = requireMomoConfig(this.config);
-    const extraData = input.extraData ?? '';
-    const amount = String(input.amountVnd);
-    const requestType = 'captureWallet';
-    const raw = momoCreateRaw({
+    const amountVnd = amount(input.amountVnd);
+    if (
+      amountVnd === null ||
+      typeof input.checkoutId !== 'string' ||
+      !input.checkoutId ||
+      typeof input.orderId !== 'string' ||
+      !/^[0-9a-zA-Z]([-_.]*[0-9a-zA-Z]+)*$/.test(input.orderId) ||
+      input.orderId.length > 64 ||
+      typeof input.requestId !== 'string' ||
+      !input.requestId ||
+      input.requestId.length > 50 ||
+      typeof input.orderInfo !== 'string' ||
+      !input.orderInfo ||
+      input.orderInfo.length > 255
+    ) {
+      throw new BadRequestException('Invalid MoMo captureWallet input');
+    }
+    const extraData = Buffer.from(
+      JSON.stringify({ checkoutId: input.checkoutId }),
+      'utf8',
+    ).toString('base64');
+    if (extraData.length > 1000) throw new BadRequestException('MoMo extraData is too long');
+    const fields = {
       accessKey: config.accessKey,
-      amount,
+      amount: String(amountVnd),
       extraData,
       ipnUrl: config.ipnUrl,
       orderId: input.orderId,
@@ -93,59 +165,143 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
       partnerCode: config.partnerCode,
       redirectUrl: config.redirectUrl,
       requestId: input.requestId,
-      requestType,
-    });
-    const body = {
-      partnerCode: config.partnerCode,
-      accessKey: config.accessKey,
-      requestId: input.requestId,
-      amount,
-      orderId: input.orderId,
-      orderInfo: input.orderInfo,
-      redirectUrl: config.redirectUrl,
-      ipnUrl: config.ipnUrl,
-      extraData,
-      requestType,
-      lang: 'vi',
-      signature: signMomoRaw(raw, config.secretKey),
+      requestType: 'captureWallet',
     };
     const response = await fetch(`${config.endpoint.replace(/\/$/, '')}/v2/gateway/api/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      redirect: 'error',
+      signal: AbortSignal.timeout(35000),
+      body: JSON.stringify({
+        ...fields,
+        amount: amountVnd,
+        autoCapture: true,
+        lang: 'vi',
+        signature: signMomoRaw(momoCreateRaw(fields), config.secretKey),
+      }),
     });
-    const payload = (await response.json()) as {
-      resultCode?: number;
-      message?: string;
-      payUrl?: string;
-      deeplink?: string;
-    };
+    if (!response.ok) throw new BadGatewayException('MoMo create HTTP response is unsuccessful');
+    const payload: unknown = await response.json();
+    if (
+      !record(payload) ||
+      typeof payload.partnerCode !== 'string' ||
+      typeof payload.orderId !== 'string' ||
+      typeof payload.requestId !== 'string' ||
+      typeof payload.message !== 'string' ||
+      typeof payload.payUrl !== 'string' ||
+      typeof payload.signature !== 'string' ||
+      typeof payload.resultCode !== 'number' ||
+      !Number.isSafeInteger(payload.resultCode) ||
+      integer(payload.responseTime) === null ||
+      integer(payload.amount) === null ||
+      payload.partnerCode !== config.partnerCode ||
+      payload.orderId !== input.orderId ||
+      payload.requestId !== input.requestId ||
+      integer(payload.amount) !== String(amountVnd)
+    ) {
+      throw new BadGatewayException('MoMo create response verification failed');
+    }
+    const raw = momoCreateResponseRaw({
+      accessKey: config.accessKey,
+      amount: String(payload.amount),
+      message: payload.message,
+      orderId: payload.orderId,
+      partnerCode: payload.partnerCode,
+      payUrl: payload.payUrl,
+      requestId: payload.requestId,
+      responseTime: String(payload.responseTime),
+      resultCode: String(payload.resultCode),
+    });
+    if (!signaturesMatch(signMomoRaw(raw, config.secretKey), payload.signature))
+      throw new BadGatewayException('MoMo create response verification failed');
+    if (payload.payUrl) {
+      const url = validUrl(payload.payUrl, ['https:']);
+      if (!url || url.hostname !== new URL(config.endpoint).hostname || url.port)
+        throw new BadGatewayException('MoMo payment URL verification failed');
+    } else if (payload.resultCode === 0) {
+      throw new BadGatewayException('MoMo accepted response is missing payment URL');
+    }
+    // deeplink is not in the signed response field set; only the verified web URL can be launched.
     return {
-      resultCode: payload.resultCode ?? -1,
-      message: payload.message ?? 'MoMo create failed',
-      payUrl: payload.payUrl ?? null,
-      deeplink: payload.deeplink ?? null,
+      resultCode: payload.resultCode,
+      message: payload.message,
+      payUrl: payload.payUrl || null,
+      deeplink: null,
     };
   }
 
-  verifyIpn(payload: MomoIpnPayload): boolean {
+  verifyIpn(payload: unknown, expected?: MomoIpnExpectation): boolean {
     const config = requireMomoConfig(this.config);
-    const fields: MomoIpnSignFields = {
+    if (!record(payload)) return false;
+    const {
+      partnerCode,
+      orderId,
+      requestId,
+      orderInfo,
+      orderType,
+      message,
+      payType,
+      extraData,
+      signature,
+    } = payload;
+    if (
+      typeof partnerCode !== 'string' ||
+      partnerCode !== config.partnerCode ||
+      typeof orderId !== 'string' ||
+      !orderId ||
+      typeof requestId !== 'string' ||
+      !requestId ||
+      typeof orderInfo !== 'string' ||
+      typeof orderType !== 'string' ||
+      orderType !== 'momo_wallet' ||
+      typeof message !== 'string' ||
+      typeof payType !== 'string' ||
+      typeof extraData !== 'string' ||
+      typeof signature !== 'string'
+    )
+      return false;
+    const amountVnd = integer(payload.amount);
+    const responseTime = integer(payload.responseTime);
+    const resultCode = integer(payload.resultCode);
+    const transId = integer(payload.transId);
+    if (
+      amountVnd === null ||
+      amount(amountVnd) === null ||
+      responseTime === null ||
+      resultCode === null ||
+      transId === null
+    )
+      return false;
+    if (
+      BigInt(resultCode) > 2147483647n ||
+      (classifyMomoResult('PAYMENT_IPN', Number(resultCode), true) === 'PAYMENT_SUCCEEDED' &&
+        transId === '0')
+    )
+      return false;
+    if (
+      expected &&
+      (partnerCode !== expected.partnerCode ||
+        orderId !== expected.orderId ||
+        requestId !== expected.requestId ||
+        amountVnd !== String(amount(expected.amountVnd)) ||
+        extraData !== expected.extraData)
+    )
+      return false;
+    const raw = momoIpnRaw({
       accessKey: config.accessKey,
-      amount: String(payload.amount ?? ''),
-      extraData: payload.extraData ?? '',
-      message: payload.message ?? '',
-      orderId: payload.orderId,
-      orderInfo: payload.orderInfo ?? '',
-      orderType: payload.orderType ?? '',
-      partnerCode: payload.partnerCode ?? config.partnerCode,
-      payType: payload.payType ?? '',
-      requestId: payload.requestId,
-      responseTime: String(payload.responseTime ?? ''),
-      resultCode: String(payload.resultCode ?? ''),
-      transId: String(payload.transId ?? ''),
-    };
-    const expected = signMomoRaw(momoIpnRaw(fields), config.secretKey);
-    return signaturesMatch(expected, payload.signature ?? '');
+      amount: amountVnd,
+      extraData,
+      message,
+      orderId,
+      orderInfo,
+      orderType,
+      partnerCode,
+      payType,
+      requestId,
+      responseTime,
+      resultCode,
+      transId,
+    });
+    return signaturesMatch(signMomoRaw(raw, config.secretKey), signature);
   }
 }

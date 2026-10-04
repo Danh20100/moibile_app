@@ -33,6 +33,33 @@ export function signMomoRaw(raw: string, secretKey: string): string {
   return createHmac('sha256', secretKey).update(raw).digest('hex');
 }
 
+export interface MomoCreateResponseSignFields {
+  accessKey: string;
+  amount: string;
+  message: string;
+  orderId: string;
+  partnerCode: string;
+  payUrl: string;
+  requestId: string;
+  responseTime: string;
+  resultCode: string;
+}
+
+export function momoCreateResponseRaw(fields: MomoCreateResponseSignFields): string {
+  // Strict English captureWallet field set; EN/VI discrepancy requires provider clarification.
+  return [
+    `accessKey=${fields.accessKey}`,
+    `amount=${fields.amount}`,
+    `message=${fields.message}`,
+    `orderId=${fields.orderId}`,
+    `partnerCode=${fields.partnerCode}`,
+    `payUrl=${fields.payUrl}`,
+    `requestId=${fields.requestId}`,
+    `responseTime=${fields.responseTime}`,
+    `resultCode=${fields.resultCode}`,
+  ].join('&');
+}
+
 export function momoCreateRaw(fields: MomoCreateSignFields): string {
   return [
     `accessKey=${fields.accessKey}`,

@@ -29,7 +29,9 @@ function cents(v: DecimalString): bigint {
 
 function vndInteger(amount: DecimalString): number {
   const value = cents(amount);
-  if (value <= 0n) throw new BadRequestException('Payment amount must be positive');
+  if (value < 100000n || value > 5000000000n) {
+    throw new BadRequestException('MoMo amount must be between 1000 and 50000000 VND');
+  }
   if (value % 100n !== 0n) {
     throw new BadRequestException('MoMo amount must be a whole VND value');
   }
@@ -57,7 +59,7 @@ export class PaymentGatewayService {
       requestId,
       amountVnd,
       orderInfo: referenceCode,
-      extraData: input.tenancyId,
+      checkoutId,
     });
     const record: GatewayCheckoutRecord = {
       checkoutId,
