@@ -407,3 +407,48 @@ test('committed pre-HTTP crash lease recovers after 60s, and failed intent trans
     await f.db.destroy();
   }
 });
+
+test('gateway durability constraints remain at SQL level and public catalog stays 29', async () => {
+  const url = process.env.TEST_DATABASE_URL;
+  assert.ok(url);
+  const f = await gatewayFixture(url);
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const uniques = await client.query<{ conname: string }>(
+      `SELECT conname FROM pg_constraint
+       WHERE conrelid = 'gateway.gateway_checkouts'::regclass AND contype = 'u'
+       ORDER BY conname`,
+    );
+    assert.deepEqual(
+      uniques.rows.map((row) => row.conname),
+      [
+        'uq_gateway_checkout_client_key',
+        'uq_gateway_checkout_provider_order',
+        'uq_gateway_checkout_provider_request',
+        'uq_gateway_checkout_provider_trans',
+        'uq_gateway_checkouts_provider_order',
+        'uq_gateway_checkouts_resulting_payment',
+      ],
+    );
+    const fks = await client.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM pg_constraint
+       WHERE conrelid = 'gateway.gateway_checkouts'::regclass AND contype = 'f'`,
+    );
+    assert.equal(fks.rows[0]?.count, 2);
+    const checks = await client.query<{ conname: string }>(
+      `SELECT conname FROM pg_constraint
+       WHERE conrelid = 'gateway.gateway_checkouts'::regclass AND contype = 'c'
+         AND conname IN (
+           'ck_gateway_checkout_result','ck_gateway_checkout_trans','ck_gateway_checkouts_status'
+         )
+       ORDER BY conname`,
+    );
+    assert.equal(checks.rows.length, 3);
+    const catalog = await queryCatalog(url);
+    assert.equal(catalog.tables.length, 29);
+  } finally {
+    await client.end();
+    await f.db.destroy();
+  }
+});

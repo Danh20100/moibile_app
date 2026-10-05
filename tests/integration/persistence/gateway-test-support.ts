@@ -1,7 +1,116 @@
+import { Client } from 'pg';
+
+import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
+import { PostgresTransactionManager } from '../../../src/infrastructure/database/postgres-transaction-manager';
 import { PostgresFinanceRepository } from '../../../src/infrastructure/database/repositories/finance.repository';
 import { PostgresIdentityRepository } from '../../../src/infrastructure/database/repositories/identity.repository';
 import { PostgresNotificationRepository } from '../../../src/infrastructure/database/repositories/notification.repository';
+import { createRepositorySet } from '../../../src/infrastructure/database/repositories/repository-set';
+import { momoIpnRaw, signMomoRaw } from '../../../src/modules/payment-gateway/momo/momo-hmac';
+import type { MomoIpnPayload } from '../../../src/modules/payment-gateway/momo/momo-client';
+import type { GatewayCheckoutRecord } from '../../../src/persistence/ports/finance.repository';
 import { rentalFixture } from './guards/rental-test-support';
+
+export const TEST_MOMO = {
+  partnerCode: 'TEST',
+  accessKey: 'test',
+  secretKey: 'test',
+  endpoint: 'https://test-payment.momo.vn',
+  ipnUrl: 'https://example.test/ipn',
+  redirectUrl: 'trooi://payment/momo',
+};
+
+export function createBarrier() {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { gate, release };
+}
+
+export function createLatch() {
+  let signal!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    signal = resolve;
+  });
+  return { ready, signal };
+}
+
+export function openGatewayPool(url: string) {
+  const db = createDatabaseClient({ url, maxPoolSize: 4, connectionTimeoutMs: 5000 });
+  return {
+    db,
+    manager: new PostgresTransactionManager(db, createRepositorySet),
+    finance: new PostgresFinanceRepository(db),
+    notifications: new PostgresNotificationRepository(db),
+    close: () => db.destroy(),
+  };
+}
+
+export function signedCheckoutIpn(
+  record: GatewayCheckoutRecord,
+  overrides: Partial<MomoIpnPayload> = {},
+): MomoIpnPayload {
+  const payload: MomoIpnPayload = {
+    partnerCode: record.providerPartnerCode ?? TEST_MOMO.partnerCode,
+    orderId: record.providerOrderId,
+    requestId: record.providerRequestId,
+    amount: Number(record.amount.split('.')[0]),
+    orderInfo: record.referenceCode,
+    orderType: 'momo_wallet',
+    transId: 1,
+    resultCode: 0,
+    message: 'Successful.',
+    payType: 'qr',
+    responseTime: 1,
+    extraData: record.requestSnapshot?.extraData ?? '',
+    signature: '',
+    ...overrides,
+  };
+  payload.signature = signMomoRaw(
+    momoIpnRaw({
+      accessKey: TEST_MOMO.accessKey,
+      amount: String(payload.amount),
+      extraData: payload.extraData ?? '',
+      message: payload.message ?? '',
+      orderId: payload.orderId,
+      orderInfo: payload.orderInfo ?? '',
+      orderType: payload.orderType ?? '',
+      partnerCode: payload.partnerCode ?? TEST_MOMO.partnerCode,
+      payType: payload.payType ?? '',
+      requestId: payload.requestId,
+      responseTime: String(payload.responseTime ?? ''),
+      resultCode: String(payload.resultCode ?? ''),
+      transId: String(payload.transId ?? ''),
+    }),
+    TEST_MOMO.secretKey,
+  );
+  return payload;
+}
+
+export async function assertCheckoutRowLockWaiter(url: string): Promise<void> {
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    for (let n = 0; n < 400; n++) {
+      const waiting = await client.query<{ waiting: boolean }>(`
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_locks blocked
+          JOIN pg_class rel ON rel.oid = blocked.relation
+          JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+          WHERE NOT blocked.granted
+            AND nsp.nspname = 'gateway'
+            AND rel.relname = 'gateway_checkouts'
+        ) AS waiting`);
+      if (waiting.rows[0]?.waiting) return;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    throw new Error('expected overlapping PostgreSQL lock wait on gateway.gateway_checkouts');
+  } finally {
+    await client.end();
+  }
+}
 
 export async function gatewayFixture(url: string) {
   const f = await rentalFixture(url);
