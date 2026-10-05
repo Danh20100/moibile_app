@@ -1,3 +1,4 @@
+import type { MomoRequestSnapshot } from '../../modules/payment-gateway/momo/momo-client';
 import type { DateString, DecimalString, TimestampString } from './repositories';
 
 export interface BillingCycleRecord { billingCycleId: string; tenancyId: string; tenancyTermsId: string; periodStart: DateString; periodEnd: DateString }
@@ -12,8 +13,21 @@ export interface DepositRecord { depositId: string; tenancyId: string }
 export interface DepositPaymentApplicationRecord { depositPaymentApplicationId: string; paymentId: string; depositId: string; appliedAmount: DecimalString; appliedAt: TimestampString }
 export interface DepositSettlementRecord { depositSettlementId: string; depositId: string; refundedAmount: DecimalString; retainedAmount: DecimalString; reasonOrNote: string; actedByUserId: string; settledAt: TimestampString }
 export interface DepositEventRecord { depositEventId: string; depositId: string; eventType: string; amount: DecimalString; occurredAt: TimestampString; paymentApplicationId: string | null; settlementId: string | null }
-export type GatewayCheckoutStatus = 'CREATED' | 'FAILED' | 'EXPIRED' | 'SUCCEEDED';
+export type GatewayCheckoutStatus = 'INITIATED' | 'CREATED' | 'UNKNOWN' | 'FAILED' | 'SUCCEEDED';
 export interface GatewayCheckoutRecord {
+  idempotencyKey: string | null;
+  fingerprint: string | null;
+  requestSnapshot: MomoRequestSnapshot | null;
+  providerPartnerCode: string | null;
+  firstDispatchAt: TimestampString | null;
+  dispatchLeaseOwner: string | null;
+  dispatchLeaseUntil: TimestampString | null;
+  replayBlocker: string | null;
+  providerOutcome: string | null;
+  providerResultCode: number | null;
+  providerOutcomeStage: 'CREATE' | 'PAYMENT_IPN' | null;
+  terminalEvidence: string | null;
+  providerTransId: string | null;
   checkoutId: string;
   tenancyId: string;
   createdByUserId: string;
@@ -48,6 +62,8 @@ export interface FinanceRepository {
   insertGatewayCheckout(input: GatewayCheckoutRecord): Promise<void>;
   findGatewayCheckout(id: string): Promise<GatewayCheckoutRecord | undefined>;
   findGatewayCheckoutByOrderId(orderId: string): Promise<GatewayCheckoutRecord | undefined>;
+  findGatewayCheckoutByClientKey(userId: string, key: string): Promise<GatewayCheckoutRecord | undefined>;
+  acquireGatewayDispatchLease(id: string, owner: string, now: string, leaseUntil: string): Promise<boolean>;
   lockGatewayCheckout(id: string): Promise<void>;
   updateGatewayCheckout(input: GatewayCheckoutRecord): Promise<void>;
 }

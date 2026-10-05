@@ -1,3 +1,4 @@
+import { PersistenceUniqueViolation } from '../../../src/persistence/errors';
 import type { OrganizationRecord } from '../../../src/persistence/ports/organization.repository';
 import type {
   PropertyRecord,
@@ -368,11 +369,22 @@ export function createCoreTestTransactionManager(): TransactionManager {
         receipts.set(v.receiptId, v);
       },
       insertGatewayCheckout: async (v: GatewayCheckoutRecord) => {
+        if ([...checkouts.values()].some((x) => x.createdByUserId === v.createdByUserId && x.idempotencyKey === v.idempotencyKey)) throw new PersistenceUniqueViolation();
         checkouts.set(v.checkoutId, structuredClone(v));
       },
       findGatewayCheckout: async (id: string) => structuredClone(checkouts.get(id)),
       findGatewayCheckoutByOrderId: async (orderId: string) =>
         structuredClone([...checkouts.values()].find((v) => v.providerOrderId === orderId)),
+      findGatewayCheckoutByClientKey: async (userId: string, key: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.createdByUserId === userId && v.idempotencyKey === key)),
+      acquireGatewayDispatchLease: async (id: string, owner: string, now: string, until: string) => {
+        const v = checkouts.get(id);
+        if (!v || !['INITIATED', 'UNKNOWN'].includes(v.status) || v.replayBlocker || !v.requestSnapshot ||
+            (v.dispatchLeaseUntil && v.dispatchLeaseUntil > now) ||
+            (v.firstDispatchAt && new Date(now).getTime() - new Date(v.firstDispatchAt).getTime() >= 31 * 86400000)) return false;
+        checkouts.set(id, { ...v, dispatchLeaseOwner: owner, dispatchLeaseUntil: until, firstDispatchAt: v.firstDispatchAt ?? now });
+        return true;
+      },
       lockGatewayCheckout: async () => undefined,
       updateGatewayCheckout: async (v: GatewayCheckoutRecord) => {
         checkouts.set(v.checkoutId, structuredClone(v));

@@ -16,6 +16,12 @@ export class CreateGatewayCheckoutDto {
 
 export class GatewayCheckoutDto {
   @ApiProperty()
+  replayAllowed!: boolean;
+
+  @ApiPropertyOptional()
+  replayBlockedReason?: string;
+
+  @ApiProperty()
   id!: string;
 
   @ApiProperty()
@@ -30,8 +36,8 @@ export class GatewayCheckoutDto {
   @ApiProperty({ enum: ['MOMO'] })
   provider!: 'MOMO';
 
-  @ApiProperty({ enum: ['CREATED', 'FAILED', 'EXPIRED', 'SUCCEEDED'] })
-  status!: 'CREATED' | 'FAILED' | 'EXPIRED' | 'SUCCEEDED';
+  @ApiProperty({ enum: ['INITIATED', 'CREATED', 'UNKNOWN', 'FAILED', 'SUCCEEDED'] })
+  status!: 'INITIATED' | 'CREATED' | 'UNKNOWN' | 'FAILED' | 'SUCCEEDED';
 
   @ApiPropertyOptional()
   payUrl?: string;

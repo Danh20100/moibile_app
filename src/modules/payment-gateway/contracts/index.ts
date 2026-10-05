@@ -4,6 +4,8 @@ import type { GatewayCheckoutStatus } from '../../../persistence/ports/finance.r
 export type { GatewayCheckoutStatus };
 
 export interface GatewayCheckout {
+  replayAllowed: boolean;
+  replayBlockedReason?: string;
   id: string;
   tenancyId: string;
   amount: DecimalString;

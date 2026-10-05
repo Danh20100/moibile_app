@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import test from 'node:test';
 import fixtures from './fixtures/momo-signed-payloads.json';
 import {
   HttpMomoPaymentClient,
+  MomoVerificationError,
   loadMomoConfig,
   requireMomoConfig,
 } from '../../src/modules/payment-gateway/momo/momo-client';
@@ -39,9 +41,20 @@ test('existing checkout caller passes its checkout identity and rejects out-of-r
       endReason: null,
     }),
   );
+  await transactions.run(({ repositories }) =>
+    repositories.tenancy.insertParticipant({
+      tenancyParticipantId: 'participant-1',
+      tenancyId: 'tenancy-1',
+      userId: 'user-1',
+      role: 'PRIMARY',
+      joinedAt: '2026-01-01T00:00:00.000Z',
+      leftAt: null,
+    }),
+  );
   let calls = 0;
   let checkoutIdentity = '';
   const gateway = new PaymentGatewayService(new TenancyService(transactions), transactions, {
+    snapshot: (id) => client.snapshot(id),
     async createCaptureWallet(request) {
       calls++;
       checkoutIdentity = request.checkoutId;
@@ -60,10 +73,13 @@ test('existing checkout caller passes its checkout identity and rejects out-of-r
   const checkout = await gateway.createCheckout(
     { tenancyId: 'tenancy-1', amount: '4470000.00' },
     'user-1',
+    randomUUID(),
   );
   assert.equal(checkoutIdentity, checkout.id);
   for (const amount of ['999.00', '50000001.00', '9007199254740993.00', '1000.01']) {
-    await assert.rejects(gateway.createCheckout({ tenancyId: 'tenancy-1', amount }, 'user-1'));
+    await assert.rejects(
+      gateway.createCheckout({ tenancyId: 'tenancy-1', amount }, 'user-1', randomUUID()),
+    );
   }
   assert.equal(calls, 1);
 });
@@ -288,7 +304,7 @@ test('transport, invalid JSON and body-read abort errors propagate without accep
     };
     await assert.rejects(client.createCaptureWallet(input), { name: 'TimeoutError' });
     globalThis.fetch = async () => new Response('not json');
-    await assert.rejects(client.createCaptureWallet(input), SyntaxError);
+    await assert.rejects(client.createCaptureWallet(input), MomoVerificationError);
     globalThis.fetch = async () =>
       new Response(
         new ReadableStream({
@@ -305,4 +321,53 @@ test('transport, invalid JSON and body-read abort errors propagate without accep
 
 test('payment-success IPN requires a positive provider transaction identity even when signed', () => {
   assert.equal(client.verifyIpn(fixtures.ipnZeroTransaction), false);
+});
+
+test('malformed successful HTTP response is a verification blocker', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => new Response('not-json', { status: 200 });
+  try {
+    await assert.rejects(client.createCaptureWallet(input), (error: unknown) => {
+      assert.ok(error instanceof MomoVerificationError);
+      return true;
+    });
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('dispatch uses immutable callback snapshot and rejects partner/environment changes before HTTP', async () => {
+  const snapshot = client.snapshot(input.checkoutId);
+  const changed = new HttpMomoPaymentClient({
+    ...config,
+    ipnUrl: 'https://new.test/ipn',
+    redirectUrl: 'trooi://new-return',
+  });
+  let body: Record<string, unknown> = {};
+  const original = globalThis.fetch;
+  globalThis.fetch = async (_url, init) => {
+    body = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify(fixtures.response.fields));
+  };
+  try {
+    await changed.createCaptureWallet({ ...input, snapshot });
+    assert.equal(body.ipnUrl, snapshot.ipnUrl);
+    assert.equal(body.redirectUrl, snapshot.redirectUrl);
+    assert.equal(body.extraData, snapshot.extraData);
+    assert.equal(body.autoCapture, true);
+    globalThis.fetch = async () => {
+      assert.fail('incompatible identity must not dispatch');
+    };
+    for (const patch of [{ partnerCode: 'DIFFERENT' }, { endpoint: 'https://payment.momo.vn' }]) {
+      await assert.rejects(
+        new HttpMomoPaymentClient({ ...config, ...patch }).createCaptureWallet({
+          ...input,
+          snapshot,
+        }),
+        /snapshot configuration mismatch/,
+      );
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
 });

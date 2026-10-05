@@ -22,7 +22,20 @@ export interface MomoConfig {
   redirectUrl: string;
 }
 
+export interface MomoRequestSnapshot {
+  partnerCode: string;
+  endpoint: string;
+  ipnUrl: string;
+  redirectUrl: string;
+  extraData: string;
+  requestType: 'captureWallet';
+  autoCapture: true;
+}
+
+export class MomoVerificationError extends BadGatewayException {}
+
 export interface MomoCreatePaymentInput {
+  snapshot?: MomoRequestSnapshot;
   orderId: string;
   requestId: string;
   amountVnd: number | string;
@@ -62,6 +75,7 @@ export interface MomoIpnExpectation {
 }
 
 export interface MomoPaymentClient {
+  snapshot(checkoutId: string): MomoRequestSnapshot;
   createCaptureWallet(input: MomoCreatePaymentInput): Promise<MomoCreatePaymentResult>;
   verifyIpn(payload: unknown, expected?: MomoIpnExpectation): boolean;
 }
@@ -131,8 +145,24 @@ function amount(value: unknown): number | null {
 export class HttpMomoPaymentClient implements MomoPaymentClient {
   constructor(private readonly config: MomoConfig) {}
 
+  snapshot(checkoutId: string): MomoRequestSnapshot {
+    const config = requireMomoConfig(this.config);
+    return {
+      partnerCode: config.partnerCode,
+      endpoint: config.endpoint,
+      ipnUrl: config.ipnUrl,
+      redirectUrl: config.redirectUrl,
+      extraData: Buffer.from(JSON.stringify({ checkoutId }), 'utf8').toString('base64'),
+      requestType: 'captureWallet',
+      autoCapture: true,
+    };
+  }
+
   async createCaptureWallet(input: MomoCreatePaymentInput): Promise<MomoCreatePaymentResult> {
     const config = requireMomoConfig(this.config);
+    const snapshot = input.snapshot ?? this.snapshot(input.checkoutId);
+    if (snapshot.partnerCode !== config.partnerCode || snapshot.endpoint !== config.endpoint)
+      throw new ServiceUnavailableException('MoMo snapshot configuration mismatch');
     const amountVnd = amount(input.amountVnd);
     if (
       amountVnd === null ||
@@ -150,22 +180,19 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
     ) {
       throw new BadRequestException('Invalid MoMo captureWallet input');
     }
-    const extraData = Buffer.from(
-      JSON.stringify({ checkoutId: input.checkoutId }),
-      'utf8',
-    ).toString('base64');
+    const extraData = snapshot.extraData;
     if (extraData.length > 1000) throw new BadRequestException('MoMo extraData is too long');
     const fields = {
       accessKey: config.accessKey,
       amount: String(amountVnd),
       extraData,
-      ipnUrl: config.ipnUrl,
+      ipnUrl: snapshot.ipnUrl,
       orderId: input.orderId,
       orderInfo: input.orderInfo,
       partnerCode: config.partnerCode,
-      redirectUrl: config.redirectUrl,
+      redirectUrl: snapshot.redirectUrl,
       requestId: input.requestId,
-      requestType: 'captureWallet',
+      requestType: snapshot.requestType,
     };
     const response = await fetch(`${config.endpoint.replace(/\/$/, '')}/v2/gateway/api/create`, {
       method: 'POST',
@@ -175,13 +202,20 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
       body: JSON.stringify({
         ...fields,
         amount: amountVnd,
-        autoCapture: true,
+        autoCapture: snapshot.autoCapture,
         lang: 'vi',
         signature: signMomoRaw(momoCreateRaw(fields), config.secretKey),
       }),
     });
     if (!response.ok) throw new BadGatewayException('MoMo create HTTP response is unsuccessful');
-    const payload: unknown = await response.json();
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        throw new MomoVerificationError('MoMo create response verification failed');
+      throw error;
+    }
     if (
       !record(payload) ||
       typeof payload.partnerCode !== 'string' ||
@@ -199,7 +233,7 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
       payload.requestId !== input.requestId ||
       integer(payload.amount) !== String(amountVnd)
     ) {
-      throw new BadGatewayException('MoMo create response verification failed');
+      throw new MomoVerificationError('MoMo create response verification failed');
     }
     const raw = momoCreateResponseRaw({
       accessKey: config.accessKey,
@@ -213,13 +247,13 @@ export class HttpMomoPaymentClient implements MomoPaymentClient {
       resultCode: String(payload.resultCode),
     });
     if (!signaturesMatch(signMomoRaw(raw, config.secretKey), payload.signature))
-      throw new BadGatewayException('MoMo create response verification failed');
+      throw new MomoVerificationError('MoMo create response verification failed');
     if (payload.payUrl) {
       const url = validUrl(payload.payUrl, ['https:']);
       if (!url || url.hostname !== new URL(config.endpoint).hostname || url.port)
-        throw new BadGatewayException('MoMo payment URL verification failed');
+        throw new MomoVerificationError('MoMo payment URL verification failed');
     } else if (payload.resultCode === 0) {
-      throw new BadGatewayException('MoMo accepted response is missing payment URL');
+      throw new MomoVerificationError('MoMo accepted response is missing payment URL');
     }
     // deeplink is not in the signed response field set; only the verified web URL can be launched.
     return {

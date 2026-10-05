@@ -1,5 +1,16 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Headers,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Post,
+} from '@nestjs/common';
+import { isUUID } from 'class-validator';
+import { ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
@@ -18,14 +29,17 @@ export class PaymentGatewayController {
   ) {}
 
   @Post('checkouts')
+  @ApiHeader({ name: 'Idempotency-Key', required: true, schema: { type: 'string', format: 'uuid' } })
   @ApiOperation({ summary: 'Create a MoMo checkout session. Does not create a Payment.' })
   @ApiResponse({ status: 201, description: 'Checkout created', type: GatewayCheckoutDto })
   async createCheckout(
     @Body() dto: CreateGatewayCheckoutDto,
+    @Headers('idempotency-key') key: string,
     @CurrentUser() user: VerifiedPrincipal,
   ): Promise<GatewayCheckout> {
+    if (!isUUID(key)) throw new BadRequestException('Idempotency-Key must be a UUID');
     await this.authz.assertCanAccessTenancy(user.userId, dto.tenancyId);
-    return this.gateway.createCheckout(dto, user.userId);
+    return this.gateway.createCheckout(dto, user.userId, key);
   }
 
   @Get('checkouts/:id')
@@ -36,7 +50,7 @@ export class PaymentGatewayController {
     @Param('id') id: string,
     @CurrentUser() user: VerifiedPrincipal,
   ): Promise<GatewayCheckout> {
-    const checkout = await this.gateway.findCheckout(id);
+    const checkout = await this.gateway.findCheckout(id, user.userId);
     await this.authz.assertCanReadTenancy(user.userId, checkout.tenancyId);
     return checkout;
   }
