@@ -58,19 +58,29 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
     val ui: StateFlow<OperatorUiState> = _ui.asStateFlow()
     private var revision = 0
     private var access = AccessCapabilities()
+    private var selectedOrganizationId = ""
     private var started = false
 
-    fun begin(capabilities: AccessCapabilities) {
-        if (started && access == capabilities) return
+    fun begin(capabilities: AccessCapabilities, organizationId: String) {
+        val scoped = organizationId.takeIf { it in capabilities.operatedOrganizationIds }.orEmpty()
+        if (started && access == capabilities && selectedOrganizationId == scoped) return
+        revision++
         started = true
         access = capabilities
-        _ui.value = OperatorUiState()
+        selectedOrganizationId = scoped
+        val stack = if (scoped.isNotEmpty()) {
+            listOf(OperatorRoute.Organizations, OperatorRoute.Organization(scoped))
+        } else {
+            listOf(OperatorRoute.Organizations)
+        }
+        _ui.value = OperatorUiState(stack = stack)
         load()
     }
 
     fun reset() {
         revision++
         access = AccessCapabilities()
+        selectedOrganizationId = ""
         started = false
         _ui.value = OperatorUiState()
     }
@@ -117,7 +127,10 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
             try {
                 when (route) {
                     OperatorRoute.Organizations -> {
-                        val data = api.organizations().filter { it.id in access.operatedOrganizationIds }
+                        val data = api.organizations().filter {
+                            it.id in access.operatedOrganizationIds &&
+                                (selectedOrganizationId.isEmpty() || it.id == selectedOrganizationId)
+                        }
                         publish(requestId) { it.copy(organizations = data) }
                     }
                     is OperatorRoute.Organization -> publish(requestId) { it.copy(organization = api.organization(route.id)) }

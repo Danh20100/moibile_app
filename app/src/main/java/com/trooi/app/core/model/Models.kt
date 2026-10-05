@@ -30,6 +30,7 @@ sealed interface AppPage {
 data class TroOiUiState(
     val page: AppPage = AppPage.Discovery,
     val activeContext: AppContext = AppContext.DISCOVERY,
+    val selectedContext: SelectedContext = SelectedContext.Discovery,
     val isAuthenticated: Boolean = false,
     val displayName: String = "",
     val access: AccessCapabilities = AccessCapabilities(),

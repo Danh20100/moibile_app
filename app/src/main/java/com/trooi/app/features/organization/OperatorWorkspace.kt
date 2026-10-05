@@ -23,12 +23,13 @@ import com.trooi.app.ui.theme.TroOiMuted
 @Composable
 fun V1OperatorWorkspace(
     access: AccessCapabilities,
+    organizationId: String,
     onUnauthorized: () -> Unit,
     onWorkspaceCreated: () -> Unit,
     model: OperatorViewModel = hiltViewModel(),
 ) {
     val ui by model.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(access) { model.begin(access) }
+    LaunchedEffect(access, organizationId) { model.begin(access, organizationId) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     LaunchedEffect(ui.errorKind) { if (ui.errorKind == "AUTH_EXPIRED") onUnauthorized() }
     LaunchedEffect(ui.organizationCreatedRevision) {

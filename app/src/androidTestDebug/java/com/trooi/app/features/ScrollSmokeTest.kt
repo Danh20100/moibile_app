@@ -24,6 +24,7 @@ class ScrollSmokeTest {
 
     private val state get() = TroOiUiState(
         isAuthenticated = true,
+        selectedContext = SelectedContext.Operations("demo-organization-1"),
         access = AccessCapabilities(setOf("demo-tenancy-1"), setOf("demo-organization-1")),
         read = DemoData.read,
         demoPreview = true,

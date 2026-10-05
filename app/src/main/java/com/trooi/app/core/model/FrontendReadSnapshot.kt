@@ -75,3 +75,37 @@ fun accessibleIncidents(read: FrontendReadSnapshot, access: AccessCapabilities):
     val roomIds = accessibleRooms(read, access).map { it.roomId }.toSet()
     return read.incidents.filter { it.roomId in roomIds }
 }
+
+fun scopedTenancies(
+    read: FrontendReadSnapshot,
+    access: AccessCapabilities,
+    selected: SelectedContext,
+): List<TenancyCard> {
+    val id = (selected as? SelectedContext.Tenant)?.tenancyId?.takeIf { it in access.linkedTenancyIds }
+        ?: return emptyList()
+    return read.tenancies.filter { it.tenancyId == id }
+}
+
+fun scopedOrganizations(
+    read: FrontendReadSnapshot,
+    access: AccessCapabilities,
+    selected: SelectedContext,
+): List<OrganizationCard> {
+    val id = (selected as? SelectedContext.Operations)?.organizationId
+        ?.takeIf { it in access.operatedOrganizationIds }
+        ?: return emptyList()
+    return read.organizations.filter { it.organizationId == id }
+}
+
+fun scopedOperatorIncidents(
+    read: FrontendReadSnapshot,
+    access: AccessCapabilities,
+    selected: SelectedContext,
+): List<IncidentCard> {
+    val orgId = (selected as? SelectedContext.Operations)?.organizationId
+        ?.takeIf { it in access.operatedOrganizationIds }
+        ?: return emptyList()
+    val propertyIds = read.properties.filter { it.organizationId == orgId }.map { it.propertyId }.toSet()
+    val roomIds = read.operationalRooms.filter { it.propertyId in propertyIds }.map { it.roomId }.toSet()
+    return read.incidents.filter { it.roomId in roomIds }
+}

@@ -13,7 +13,7 @@ import com.trooi.app.core.model.*
 import com.trooi.app.ui.components.*
 
 private fun linkedRentals(state: TroOiUiState): List<TenancyCard> =
-    state.read.tenancies.filter { it.tenancyId in state.access.linkedTenancyIds }
+    scopedTenancies(state.read, state.access, state.selectedContext)
 
 private fun TenancyLifecycle.label(): String = when (this) {
     TenancyLifecycle.DRAFT -> "Lượt thuê đang chuẩn bị"
@@ -32,9 +32,7 @@ fun V1TenantHomeScreen(
     onContextSwitcher: () -> Unit,
 ) {
     val rentals = linkedRentals(state)
-    val current = rentals.firstOrNull {
-        it.lifecycle == TenancyLifecycle.ACTIVE || it.lifecycle == TenancyLifecycle.ENDING
-    } ?: rentals.firstOrNull()
+    val current = rentals.singleOrNull()
     val finance = current?.let { state.read.tenantFinanceByTenancy[it.tenancyId] }
     val roomIds = rentals.mapTo(mutableSetOf()) { it.roomId }
     val incidents = state.read.incidents.filter { it.roomId in roomIds }

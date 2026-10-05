@@ -68,6 +68,7 @@ class RentalViewModel @Inject constructor(
     fun start(roomId: String, linkedTenancyId: String? = null) {
         val key = roomId + ":" + (linkedTenancyId ?: "")
         if (key == startedKey) return
+        revision++
         startedKey = key
         val root = linkedTenancyId?.let(RentalRoute::Tenancy) ?: RentalRoute.Tenancies
         _ui.value = RentalUiState(roomId = roomId, tenantMode = linkedTenancyId != null, stack = listOf(root))

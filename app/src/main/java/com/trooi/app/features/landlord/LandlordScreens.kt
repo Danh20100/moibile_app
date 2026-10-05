@@ -15,7 +15,7 @@ import com.trooi.app.ui.components.*
 
 @Composable
 fun V1OwnerDashboardScreen(state: TroOiUiState) {
-    val organizations = state.read.organizations.filter { it.organizationId in state.access.operatedOrganizationIds }
+    val organizations = scopedOrganizations(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-dashboard"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -130,10 +130,15 @@ private fun RoomSummaryGrid(values: Map<RoomOperationalState, Int>) {
 
 @Composable
 fun V1OwnerPropertiesScreen(state: TroOiUiState) {
-    val organizations = state.read.organizations.filter { it.organizationId in state.access.operatedOrganizationIds }
-    val properties = accessibleProperties(state.read, state.access)
-    val rooms = accessibleRooms(state.read, state.access)
-    val operatorListings = accessibleOperatorListings(state.read, state.access)
+    val organizations = scopedOrganizations(state.read, state.access, state.selectedContext)
+    val orgIds = organizations.map { it.organizationId }.toSet()
+    val properties = accessibleProperties(state.read, state.access).filter { it.organizationId in orgIds }
+    val rooms = accessibleRooms(state.read, state.access).filter { room ->
+        properties.any { it.propertyId == room.propertyId }
+    }
+    val operatorListings = accessibleOperatorListings(state.read, state.access).filter { listing ->
+        rooms.any { it.roomId == listing.roomId }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-properties"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -175,7 +180,7 @@ fun V1OwnerPropertiesScreen(state: TroOiUiState) {
 
 @Composable
 fun V1OwnerFinanceScreen(state: TroOiUiState) {
-    val organizations = state.read.organizations.filter { it.organizationId in state.access.operatedOrganizationIds }
+    val organizations = scopedOrganizations(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-finance"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
@@ -245,7 +250,7 @@ private fun FinanceLane(
 
 @Composable
 fun V1OwnerIncidentsScreen(state: TroOiUiState) {
-    val incidents = accessibleIncidents(state.read, state.access)
+    val incidents = scopedOperatorIncidents(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-incidents"),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),

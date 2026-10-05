@@ -3,6 +3,7 @@ package com.trooi.app.features.shared
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -16,9 +17,7 @@ import com.trooi.app.ui.components.*
 @Composable
 fun V1ContextSwitcherScreen(
     state: TroOiUiState,
-    onDiscovery: () -> Unit,
-    onTenant: () -> Unit,
-    onOperations: () -> Unit,
+    onSelect: (SelectedContext) -> Unit,
     onBack: () -> Unit,
 ) {
     val initial = state.displayName.trim().split(Regex("\\s+"))
@@ -26,6 +25,8 @@ fun V1ContextSwitcherScreen(
         .take(2)
         .joinToString("") { it.first().uppercase() }
         .ifBlank { "TƠ" }
+    val tenancyIds = state.access.linkedTenancyIds.sorted()
+    val organizationIds = state.access.operatedOrganizationIds.sorted()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -64,28 +65,37 @@ fun V1ContextSwitcherScreen(
                 monogram = "⌕",
                 title = "Khám phá",
                 subtitle = "Tìm phòng đang công khai",
-                onClick = onDiscovery,
+                onClick = { onSelect(SelectedContext.Discovery) },
             )
         }
-        if (state.access.allows(ClientArea.TENANT_PORTAL)) {
+        if (tenancyIds.isNotEmpty()) {
             item { LedgerSectionTitle("Nhà của tôi") }
-            item {
+            items(tenancyIds, key = { "switch-tenancy-" + it }) { id ->
+                val card = state.read.tenancies.firstOrNull { it.tenancyId == id }
+                val title = card?.roomLabel?.takeIf { it.isNotBlank() } ?: NEUTRAL_TENANCY_LABEL
+                val subtitle = when (card?.lifecycle) {
+                    TenancyLifecycle.ENDED, TenancyLifecycle.CANCELLED -> "Lịch sử lượt thuê"
+                    null -> "Nguồn được cấp quyền"
+                    else -> "Lượt thuê được liên kết"
+                }
                 ContextWorkspaceRow(
-                    monogram = state.access.linkedTenancyIds.size.toString(),
-                    title = "Không gian người thuê",
-                    subtitle = "${state.access.linkedTenancyIds.size} lượt thuê được liên kết",
-                    onClick = onTenant,
+                    monogram = title.take(1).uppercase(),
+                    title = title,
+                    subtitle = subtitle,
+                    onClick = { onSelect(SelectedContext.Tenant(id)) },
                 )
             }
         }
-        if (state.access.allows(ClientArea.OPERATIONS)) {
+        if (organizationIds.isNotEmpty()) {
             item { LedgerSectionTitle("Không gian vận hành") }
-            item {
+            items(organizationIds, key = { "switch-org-" + it }) { id ->
+                val card = state.read.organizations.firstOrNull { it.organizationId == id }
+                val title = card?.displayName?.takeIf { it.isNotBlank() } ?: NEUTRAL_ORGANIZATION_LABEL
                 ContextWorkspaceRow(
-                    monogram = state.access.operatedOrganizationIds.size.toString(),
-                    title = "Vận hành phòng",
-                    subtitle = "${state.access.operatedOrganizationIds.size} khu trọ được cấp quyền quản lý",
-                    onClick = onOperations,
+                    monogram = title.take(1).uppercase(),
+                    title = title,
+                    subtitle = "Khu trọ được cấp quyền quản lý",
+                    onClick = { onSelect(SelectedContext.Operations(id)) },
                 )
             }
         }

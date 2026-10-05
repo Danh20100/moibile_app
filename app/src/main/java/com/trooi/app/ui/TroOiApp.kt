@@ -23,6 +23,7 @@ import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.features.shared.V1ContextSwitcherScreen
+import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
 import com.trooi.app.ui.components.*
@@ -129,9 +130,7 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                     )
                     AppPage.ContextSwitcher -> V1ContextSwitcherScreen(
                         state = state,
-                        onDiscovery = viewModel::openDiscovery,
-                        onTenant = viewModel::openTenantHome,
-                        onOperations = viewModel::openOperations,
+                        onSelect = viewModel::selectContext,
                         onBack = viewModel::goBack,
                     )
                     AppPage.Discovery -> V1DiscoveryScreen(
@@ -158,7 +157,15 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                         onContextSwitcher = viewModel::openContextSwitcher,
                     )
                     AppPage.TenantRental -> if (BuildConfig.BACKEND_BACKED) {
-                        V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
+                        val tenancyId = (state.selectedContext as? SelectedContext.Tenant)?.tenancyId
+                        if (tenancyId != null) {
+                            V1RentalWorkspace(
+                                roomId = "",
+                                linkedTenancyId = tenancyId,
+                                onExit = viewModel::openTenantHome,
+                                onUnauthorized = viewModel::logout,
+                            )
+                        } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
                     AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental)
                     AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental)
@@ -186,8 +193,13 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                     )
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state)
                     AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
-                        V1OperatorWorkspace(state.access, onUnauthorized = viewModel::logout,
-                            onWorkspaceCreated = viewModel::refreshSessionContext)
+                        val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
+                        V1OperatorWorkspace(
+                            state.access,
+                            organizationId,
+                            onUnauthorized = viewModel::logout,
+                            onWorkspaceCreated = viewModel::refreshSessionContext,
+                        )
                     } else V1OwnerPropertiesScreen(state)
                     AppPage.OwnerFinance -> V1OwnerFinanceScreen(state)
                     AppPage.OwnerIncidents -> V1OwnerIncidentsScreen(state)

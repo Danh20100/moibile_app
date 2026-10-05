@@ -8,6 +8,7 @@ import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.TransportOutcome
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.core.data.TroOiRepository
+import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.auth.isValidPassword
@@ -74,6 +75,11 @@ class TroOiViewModel @Inject constructor(
     fun openOwnerFinance() = openContext(AppContext.OPERATIONS, AppPage.OwnerFinance)
     fun openOwnerIncidents() = openContext(AppContext.OPERATIONS, AppPage.OwnerIncidents)
 
+    fun selectContext(context: SelectedContext) {
+        sessionGeneration++
+        _state.update { current -> applySelection(current, context, keepPage = false) }
+    }
+
     fun openNotification(notificationId: String) {
         if (!_state.value.isAuthenticated) return
         open(AppPage.NotificationDetail(notificationId))
@@ -119,7 +125,10 @@ class TroOiViewModel @Inject constructor(
             ?: return showMessage("Notification không có sourceId để điều hướng.")
         when (notification.sourceType?.uppercase()) {
             "LISTING" -> openListing(sourceId)
-            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) openTenantRental()
+            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) {
+                selectContext(SelectedContext.Tenant(sourceId))
+                openTenantRental()
+            }
                 else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
                 else showMessage("Bạn không có quan hệ truy cập Tenancy nguồn.")
             "INCIDENT" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerIncidents()
@@ -158,14 +167,8 @@ class TroOiViewModel @Inject constructor(
                             } else {
                                 sessionGeneration++
                                 _state.update {
-                                    it.copy(
-                                        isAuthenticated = true,
-                                        displayName = session.displayName,
-                                        access = session.access,
-                                        authInProgress = false,
-                                        activeContext = landingFor(session.access).first,
-                                        page = landingFor(session.access).second,
-                                    )
+                                    applyAuthenticatedSession(it, session, resetRead = false)
+                                        .copy(authInProgress = false)
                                 }
                                 refreshAuthorizedRead(session.access)
                             }
@@ -265,16 +268,8 @@ class TroOiViewModel @Inject constructor(
         viewModelScope.launch {
             repository.login(identifier.trim(), password).fold(
                 onSuccess = { session ->
-                    _state.update {
-                        it.copy(
-                            isAuthenticated = true,
-                            displayName = session.displayName,
-                            access = session.access,
-                            read = snapshot.read,
-                            activeContext = landingFor(session.access).first,
-                            page = landingFor(session.access).second,
-                        )
-                    }
+                    sessionGeneration++
+                    _state.update { applyAuthenticatedSession(it, session) }
                 },
                 onFailure = { showMessage(it.message ?: "Đăng nhập thất bại.") },
             )
@@ -288,16 +283,8 @@ class TroOiViewModel @Inject constructor(
         viewModelScope.launch {
             repository.signUp(fullName.trim(), phone.trim(), email.trim(), password).fold(
                 onSuccess = { session ->
-                    _state.update {
-                        it.copy(
-                            isAuthenticated = true,
-                            displayName = session.displayName,
-                            access = session.access,
-                            read = snapshot.read,
-                            activeContext = landingFor(session.access).first,
-                            page = landingFor(session.access).second,
-                        )
-                    }
+                    sessionGeneration++
+                    _state.update { applyAuthenticatedSession(it, session) }
                 },
                 onFailure = { showMessage(it.message ?: "Đăng ký thất bại.") },
             )
@@ -348,7 +335,10 @@ class TroOiViewModel @Inject constructor(
             repository.refreshSessionContext().fold(
                 onSuccess = { session ->
                     if (generation == sessionGeneration) {
-                        _state.update { it.copy(displayName = session.displayName, access = session.access) }
+                        sessionGeneration++
+                        _state.update { current ->
+                            applyReconciledAccess(current, session.displayName, session.access)
+                        }
                         refreshAuthorizedRead(session.access)
                     }
                 },
@@ -374,6 +364,7 @@ class TroOiViewModel @Inject constructor(
                 ),
                 page = AppPage.Discovery,
                 activeContext = AppContext.DISCOVERY,
+                selectedContext = SelectedContext.Discovery,
                 authInProgress = false,
                 runtimeLoading = false,
                 submittingInquiry = false,
@@ -398,12 +389,61 @@ class TroOiViewModel @Inject constructor(
 
     fun clearSnackbar() = _state.update { it.copy(snackbarMessage = null) }
 
-    private fun landingFor(access: AccessCapabilities): Pair<AppContext, AppPage> = when {
-        access.linkedTenancyIds.isNotEmpty() && access.operatedOrganizationIds.isNotEmpty() ->
-            AppContext.DISCOVERY to AppPage.ContextSwitcher
-        access.operatedOrganizationIds.isNotEmpty() -> AppContext.OPERATIONS to AppPage.OwnerDashboard
-        access.linkedTenancyIds.isNotEmpty() -> AppContext.TENANT to AppPage.TenantHome
-        else -> AppContext.DISCOVERY to AppPage.Discovery
+    private fun landingFor(access: AccessCapabilities, remembered: SelectedContext? = null): ContextResolution =
+        reconcileContext(remembered, access)
+
+    private fun applyAuthenticatedSession(
+        current: TroOiUiState,
+        session: UserSession,
+        resetRead: Boolean = true,
+    ): TroOiUiState {
+        val resolved = landingFor(session.access)
+        return current.copy(
+            isAuthenticated = true,
+            displayName = session.displayName,
+            access = session.access,
+            read = if (resetRead) snapshot.read else current.read,
+            selectedContext = resolved.selection,
+            activeContext = appContextFor(resolved.selection),
+            page = destinationPage(resolved),
+        )
+    }
+
+    private fun applyReconciledAccess(
+        current: TroOiUiState,
+        displayName: String,
+        access: AccessCapabilities,
+    ): TroOiUiState {
+        val resolved = landingFor(access, current.selectedContext)
+        val keepPage = resolved.selection == current.selectedContext &&
+            !resolved.needsPicker &&
+            canOpenPage(current.page, true, access)
+        return current.copy(
+            displayName = displayName,
+            access = access,
+            selectedContext = resolved.selection,
+            activeContext = if (resolved.needsPicker) AppContext.DISCOVERY else appContextFor(resolved.selection),
+            page = if (keepPage) current.page else destinationPage(resolved),
+        )
+    }
+
+    private fun applySelection(
+        current: TroOiUiState,
+        requested: SelectedContext,
+        keepPage: Boolean,
+        page: AppPage? = null,
+    ): TroOiUiState {
+        val resolved = reconcileContext(requested, current.access)
+        val nextPage = when {
+            resolved.needsPicker -> AppPage.ContextSwitcher
+            keepPage && page != null && canOpenPage(page, current.isAuthenticated, current.access) -> page
+            else -> destinationPage(resolved)
+        }
+        return current.copy(
+            selectedContext = resolved.selection,
+            activeContext = if (resolved.needsPicker) AppContext.DISCOVERY else appContextFor(resolved.selection),
+            page = nextPage,
+        )
     }
 
     private fun contextHomePage(context: AppContext, access: AccessCapabilities): AppPage = when (context) {
@@ -412,10 +452,30 @@ class TroOiViewModel @Inject constructor(
         AppContext.DISCOVERY -> AppPage.Discovery
     }
 
-    private fun openContext(context: AppContext, page: AppPage) = _state.update { current ->
-        if (canOpenPage(page, current.isAuthenticated, current.access)) {
-            current.copy(activeContext = context, page = page)
-        } else current.copy(snackbarMessage = "Bạn chưa được cấp quyền truy cập khu vực này.")
+    private fun openContext(context: AppContext, page: AppPage) {
+        val current = _state.value
+        if (!canOpenPage(page, current.isAuthenticated, current.access)) {
+            _state.update { it.copy(snackbarMessage = "Bạn chưa được cấp quyền truy cập khu vực này.") }
+            return
+        }
+        if (context == AppContext.DISCOVERY) {
+            if (current.selectedContext != SelectedContext.Discovery) sessionGeneration++
+            _state.update {
+                it.copy(
+                    selectedContext = SelectedContext.Discovery,
+                    activeContext = AppContext.DISCOVERY,
+                    page = page,
+                )
+            }
+            return
+        }
+        if (appContextFor(current.selectedContext) == context) {
+            _state.update { it.copy(activeContext = context, page = page) }
+            return
+        }
+        _state.update {
+            it.copy(page = AppPage.ContextSwitcher, snackbarMessage = "Chọn không gian cụ thể trước khi mở khu vực này.")
+        }
     }
 
     private fun open(page: AppPage) = _state.update { current ->

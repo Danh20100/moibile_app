@@ -39,9 +39,12 @@ class UxWarningRegressionTest {
     @Test
     fun authenticatedLandingIsResolvedFromRelationships() {
         val viewModel = source("com/trooi/app/ui/TroOiViewModel.kt")
+        val reducer = source("com/trooi/app/core/model/ContextSelection.kt")
         assertTrue(viewModel.contains("landingFor(session.access)"))
-        assertTrue(viewModel.contains("linkedTenancyIds.isNotEmpty()"))
-        assertTrue(viewModel.contains("operatedOrganizationIds.isNotEmpty()"))
+        assertTrue(viewModel.contains("reconcileContext"))
+        assertTrue(viewModel.contains("selectContext"))
+        assertTrue(reducer.contains("linkedTenancyIds"))
+        assertTrue(reducer.contains("operatedOrganizationIds"))
         assertTrue(viewModel.contains("AppPage.ContextSwitcher"))
         assertTrue(viewModel.contains("AppPage.TenantHome"))
         assertTrue(viewModel.contains("AppPage.OwnerDashboard"))
