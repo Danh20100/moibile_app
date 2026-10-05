@@ -185,6 +185,7 @@ class V1CompletionContractTest {
             assertEquals("maintenance", body.get("operationalState").asString)
 
             assertTrue(runCatching { api.transitionRoomOperationalState("room-1", "occupied") }.isFailure)
+            assertTrue(runCatching { api.transitionRoomOperationalState("room-1", "vacant", "OCCUPIED") }.isFailure)
             assertEquals(4, server.requestCount)
         }
     }

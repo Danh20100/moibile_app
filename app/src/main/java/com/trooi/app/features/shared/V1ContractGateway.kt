@@ -10,6 +10,8 @@ import com.trooi.app.core.network.dto.DashboardTransport
 import com.trooi.app.core.network.dto.ErrorKind
 import com.trooi.app.core.network.dto.RoomOperationalHistoryTransport
 import com.trooi.app.core.network.dto.TransportOutcome
+import com.trooi.app.features.organization.legalRoomTargets
+import com.trooi.app.features.organization.wireRoomOperationalState
 import javax.inject.Inject
 
 /** Errors preserve backend status so UI can distinguish 401/403/404/409/offline. */
@@ -59,14 +61,20 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
         read(client.postJson("rooms", fields("propertyId" to propertyId, "nameOrLabel" to label).toString(), true), ::room)
     suspend fun editRoom(id: String, label: String): V1Room =
         read(client.patchJson("rooms/${segment(id)}", fields("nameOrLabel" to label).toString()), ::room)
-    suspend fun transitionRoomOperationalState(id: String, state: String): V1Room {
-        require(state in setOf("vacant", "maintenance", "inactive")) {
+    suspend fun transitionRoomOperationalState(id: String, state: String, fromState: String? = null): V1Room {
+        val target = state.trim().uppercase()
+        require(target in setOf("VACANT", "MAINTENANCE", "INACTIVE")) {
             "Chỉ được chuyển Room thủ công sang vacant/maintenance/inactive"
+        }
+        if (fromState != null) {
+            require(target in legalRoomTargets(fromState)) {
+                "Chuyển trạng thái phòng không hợp lệ từ $fromState sang $target"
+            }
         }
         return read(
             client.postJson(
                 "rooms/${segment(id)}/operational-state",
-                fields("operationalState" to state).toString(),
+                fields("operationalState" to wireRoomOperationalState(target)).toString(),
                 true,
             ),
             ::room,

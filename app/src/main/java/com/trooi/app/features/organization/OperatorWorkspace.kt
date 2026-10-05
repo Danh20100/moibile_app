@@ -236,16 +236,21 @@ fun V1OperatorWorkspace(
                         V1Panel("Thao tác phòng") {
                             V1Input(name, { name = it }, "Tên phòng mới", "room-edit-name")
                             V1Action("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
-                            if (room.state != "vacant") {
-                                V1SecondaryAction("Đánh dấu phòng trống", { model.transitionRoomState(route, "vacant") }, enabled = !ui.busy)
+                            val targets = legalRoomTargets(room.state)
+                            if (room.state.equals("occupied", true)) {
+                                V1Pending("Phòng đang có người thuê. Trạng thái trống chỉ sau khi lượt thuê được checkout trên Backend.")
+                                V1SecondaryAction("Mở lượt thuê để checkout", {
+                                    model.open(OperatorRoute.Rentals(room.id, route.organizationId))
+                                }, enabled = !ui.busy)
+                            } else if (targets.isEmpty()) {
+                                V1Pending("Không có chuyển trạng thái thủ công hợp lệ từ ${room.state}.")
+                            } else {
+                                targets.forEach { target ->
+                                    V1SecondaryAction(manualRoomTargetLabel(target), {
+                                        model.transitionRoomState(route, target)
+                                    }, enabled = !ui.busy)
+                                }
                             }
-                            if (room.state != "maintenance") {
-                                V1SecondaryAction("Chuyển sang bảo trì", { model.transitionRoomState(route, "maintenance") }, enabled = !ui.busy)
-                            }
-                            if (room.state != "inactive") {
-                                V1SecondaryAction("Ngừng sử dụng phòng", { model.transitionRoomState(route, "inactive") }, enabled = !ui.busy)
-                            }
-                            V1Pending("Trạng thái có người thuê được cập nhật tự động khi lượt thuê được kích hoạt.")
                         }
                     }
                     item {
@@ -463,6 +468,13 @@ private fun operatorRoomStateLabel(value: String): String = when (value.lowercas
     "maintenance" -> "Đang bảo trì"
     "inactive" -> "Ngừng sử dụng"
     else -> value
+}
+
+private fun manualRoomTargetLabel(target: String): String = when (target.uppercase()) {
+    "VACANT" -> "Đánh dấu phòng trống"
+    "MAINTENANCE" -> "Chuyển sang bảo trì"
+    "INACTIVE" -> "Ngừng sử dụng phòng"
+    else -> target
 }
 
 private fun recordLifecycleLabel(value: String): String = when (value.lowercase()) {

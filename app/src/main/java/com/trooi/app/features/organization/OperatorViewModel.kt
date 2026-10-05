@@ -216,9 +216,25 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
 
     fun transitionRoomState(route: OperatorRoute.Room, state: String) = write {
         require(route.organizationId in access.operatedOrganizationIds) { "Không có quyền với Organization này." }
-        val updated = api.transitionRoomOperationalState(route.id, state)
-        require(updated.propertyId == route.propertyId) { "Room không thuộc Property hiện tại." }
-        _ui.update { it.copy(room = updated) }
+        val current = _ui.value.room
+        require(current != null && current.id == route.id) { "Chưa tải Room từ Backend." }
+        val target = state.trim().uppercase()
+        require(target in legalRoomTargets(current.state)) {
+            "Chuyển trạng thái phòng không hợp lệ từ ${current.state} sang $target"
+        }
+        try {
+            val updated = api.transitionRoomOperationalState(route.id, target, current.state)
+            require(updated.propertyId == route.propertyId) { "Room không thuộc Property hiện tại." }
+            _ui.update { it.copy(room = updated) }
+        } catch (error: Exception) {
+            if (error is V1RequestException && error.status in setOf(403, 409)) {
+                runCatching { api.room(route.id) }.getOrNull()?.let { fresh ->
+                    require(fresh.propertyId == route.propertyId)
+                    _ui.update { it.copy(room = fresh) }
+                }
+            }
+            throw error
+        }
     }
 
     fun createListing(room: OperatorRoute.Room, title: String, description: String, price: String, lat: Double, lng: Double) = write {
