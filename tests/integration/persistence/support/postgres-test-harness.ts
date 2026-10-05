@@ -12,10 +12,13 @@ export interface PhysicalCatalog {
 }
 
 export async function resetPublicSchema(databaseUrl: string): Promise<void> {
+  if (decodeURIComponent(new URL(databaseUrl).pathname.slice(1)) !== 'trooi_test') {
+    throw new Error('Only trooi_test may be reset');
+  }
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    await client.query('DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;');
+    await client.query('DROP SCHEMA IF EXISTS gateway CASCADE; DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;');
   } finally {
     await client.end();
   }

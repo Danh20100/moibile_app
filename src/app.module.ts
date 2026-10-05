@@ -17,6 +17,7 @@ import { RoomModule } from './modules/room';
 import { RentalLifecycleModule } from './modules/rental-lifecycle';
 import { TenancyModule } from './modules/tenancy';
 import { NotificationModule } from './modules/notification';
+import { PaymentGatewayModule } from './modules/payment-gateway';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationModule } from './modules/notification';
     RentalLifecycleModule,
     AuditTrustModule,
     NotificationModule,
+    PaymentGatewayModule,
   ],
   controllers: [HealthController],
   providers: [

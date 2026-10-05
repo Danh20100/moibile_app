@@ -2,7 +2,7 @@ import { sql, type Kysely, type Transaction } from 'kysely';
 
 import type {
   BillingCycleRecord, ChargeRecord, DepositEventRecord, DepositPaymentApplicationRecord,
-  DepositRecord, DepositSettlementRecord, FinanceRepository, MeterReadingRecord,
+  DepositRecord, DepositSettlementRecord, FinanceRepository, GatewayCheckoutRecord, MeterReadingRecord,
   PaymentAllocationRecord, PaymentClaimRecord, PaymentRecord, ReceiptRecord,
   UtilityConnectionRecord,
 } from '../../../persistence/ports/finance.repository';
@@ -73,4 +73,56 @@ export class PostgresFinanceRepository implements FinanceRepository {
   async depositHasCapacity(id:string,refundedAmount:DecimalString,retainedAmount:DecimalString):Promise<boolean>{return (await this.one<{allowed:boolean}>(sql`SELECT COALESCE((SELECT SUM(applied_amount) FROM deposit_payment_applications WHERE deposit_id=${id}),0) >= COALESCE((SELECT SUM(refunded_amount+retained_amount) FROM deposit_settlements WHERE deposit_id=${id}),0) + ${refundedAmount}::numeric + ${retainedAmount}::numeric AS allowed`))?.allowed??false;}
   async insertDepositEvent(x:DepositEventRecord):Promise<void>{await this.mapped(async()=>{await this.db.insertInto('deposit_events').values({deposit_event_id:x.depositEventId,deposit_id:x.depositId,event_type:x.eventType,amount:x.amount,occurred_at:x.occurredAt,payment_application_id:x.paymentApplicationId,settlement_id:x.settlementId}).execute();});}
   findDepositEvents(id:string){return this.many<DepositEventRecord>(sql`SELECT deposit_event_id AS "depositEventId", deposit_id AS "depositId", event_type AS "eventType", amount, occurred_at AS "occurredAt", payment_application_id AS "paymentApplicationId", settlement_id AS "settlementId" FROM deposit_events WHERE deposit_id=${id} ORDER BY occurred_at, deposit_event_id`);}
+
+  async insertGatewayCheckout(x: GatewayCheckoutRecord): Promise<void> {
+    await this.mapped(async () => {
+      await sql`
+        INSERT INTO gateway.gateway_checkouts (
+          checkout_id, tenancy_id, created_by_user_id, amount, reference_code, provider,
+          provider_order_id, provider_request_id, status, pay_url, deeplink, resulting_payment_id,
+          last_ipn_payload, last_ipn_at, created_at, updated_at, idempotency_key, fingerprint, request_snapshot, provider_partner_code, first_dispatch_at, dispatch_lease_owner, dispatch_lease_until, replay_blocker, provider_outcome, provider_result_code, provider_outcome_stage, terminal_evidence, provider_trans_id
+        ) VALUES (
+          ${x.checkoutId}, ${x.tenancyId}, ${x.createdByUserId}, ${x.amount}, ${x.referenceCode}, ${x.provider},
+          ${x.providerOrderId}, ${x.providerRequestId}, ${x.status}, ${x.payUrl}, ${x.deeplink}, ${x.resultingPaymentId},
+          ${x.lastIpnPayload}, ${x.lastIpnAt}, ${x.createdAt}, ${x.updatedAt}, ${x.idempotencyKey}, ${x.fingerprint}, ${JSON.stringify(x.requestSnapshot)}::jsonb, ${x.providerPartnerCode}, ${x.firstDispatchAt}, ${x.dispatchLeaseOwner}, ${x.dispatchLeaseUntil}, ${x.replayBlocker}, ${x.providerOutcome}, ${x.providerResultCode}, ${x.providerOutcomeStage}, ${x.terminalEvidence}, ${x.providerTransId}
+        )
+      `.execute(this.db);
+    });
+  }
+  findGatewayCheckout(id: string) {
+    return this.one<GatewayCheckoutRecord>(sql`SELECT idempotency_key AS "idempotencyKey", fingerprint AS "fingerprint", request_snapshot AS "requestSnapshot", provider_partner_code AS "providerPartnerCode", first_dispatch_at AS "firstDispatchAt", dispatch_lease_owner AS "dispatchLeaseOwner", dispatch_lease_until AS "dispatchLeaseUntil", replay_blocker AS "replayBlocker", provider_outcome AS "providerOutcome", provider_result_code AS "providerResultCode", provider_outcome_stage AS "providerOutcomeStage", terminal_evidence AS "terminalEvidence", provider_trans_id AS "providerTransId", checkout_id AS "checkoutId", tenancy_id AS "tenancyId", created_by_user_id AS "createdByUserId", amount, reference_code AS "referenceCode", provider, provider_order_id AS "providerOrderId", provider_request_id AS "providerRequestId", status, pay_url AS "payUrl", deeplink, resulting_payment_id AS "resultingPaymentId", last_ipn_payload AS "lastIpnPayload", last_ipn_at AS "lastIpnAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM gateway.gateway_checkouts WHERE checkout_id=${id}`);
+  }
+  findGatewayCheckoutByOrderId(orderId: string) {
+    return this.one<GatewayCheckoutRecord>(sql`SELECT idempotency_key AS "idempotencyKey", fingerprint AS "fingerprint", request_snapshot AS "requestSnapshot", provider_partner_code AS "providerPartnerCode", first_dispatch_at AS "firstDispatchAt", dispatch_lease_owner AS "dispatchLeaseOwner", dispatch_lease_until AS "dispatchLeaseUntil", replay_blocker AS "replayBlocker", provider_outcome AS "providerOutcome", provider_result_code AS "providerResultCode", provider_outcome_stage AS "providerOutcomeStage", terminal_evidence AS "terminalEvidence", provider_trans_id AS "providerTransId", checkout_id AS "checkoutId", tenancy_id AS "tenancyId", created_by_user_id AS "createdByUserId", amount, reference_code AS "referenceCode", provider, provider_order_id AS "providerOrderId", provider_request_id AS "providerRequestId", status, pay_url AS "payUrl", deeplink, resulting_payment_id AS "resultingPaymentId", last_ipn_payload AS "lastIpnPayload", last_ipn_at AS "lastIpnAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM gateway.gateway_checkouts WHERE provider_order_id=${orderId}`);
+  }
+  findGatewayCheckoutByClientKey(userId: string, key: string) {
+    return this.one<GatewayCheckoutRecord>(sql`SELECT idempotency_key AS "idempotencyKey", fingerprint AS "fingerprint", request_snapshot AS "requestSnapshot", provider_partner_code AS "providerPartnerCode", first_dispatch_at AS "firstDispatchAt", dispatch_lease_owner AS "dispatchLeaseOwner", dispatch_lease_until AS "dispatchLeaseUntil", replay_blocker AS "replayBlocker", provider_outcome AS "providerOutcome", provider_result_code AS "providerResultCode", provider_outcome_stage AS "providerOutcomeStage", terminal_evidence AS "terminalEvidence", provider_trans_id AS "providerTransId", checkout_id AS "checkoutId", tenancy_id AS "tenancyId", created_by_user_id AS "createdByUserId", amount, reference_code AS "referenceCode", provider, provider_order_id AS "providerOrderId", provider_request_id AS "providerRequestId", status, pay_url AS "payUrl", deeplink, resulting_payment_id AS "resultingPaymentId", last_ipn_payload AS "lastIpnPayload", last_ipn_at AS "lastIpnAt", created_at AS "createdAt", updated_at AS "updatedAt" FROM gateway.gateway_checkouts WHERE created_by_user_id=${userId} AND idempotency_key=${key}`);
+  }
+  async acquireGatewayDispatchLease(id: string, owner: string, now: string, leaseUntil: string): Promise<boolean> {
+    return this.mapped(async () => {
+      const result = await sql`UPDATE gateway.gateway_checkouts SET dispatch_lease_owner=${owner},
+        dispatch_lease_until=${leaseUntil}, first_dispatch_at=COALESCE(first_dispatch_at, ${now}::timestamptz), updated_at=${now}
+        WHERE checkout_id=${id} AND status IN ('INITIATED','UNKNOWN') AND replay_blocker IS NULL
+          AND request_snapshot IS NOT NULL AND (dispatch_lease_until IS NULL OR dispatch_lease_until<=${now}::timestamptz)
+          AND (first_dispatch_at IS NULL OR first_dispatch_at > ${now}::timestamptz - interval '31 days')
+        RETURNING checkout_id`.execute(this.db);
+      return result.rows.length === 1;
+    });
+  }
+  async lockGatewayCheckout(id: string): Promise<void> {
+    await this.mapped(async () => {
+      await sql`SELECT checkout_id FROM gateway.gateway_checkouts WHERE checkout_id=${id} FOR UPDATE`.execute(this.db);
+    });
+  }
+  async updateGatewayCheckout(x: GatewayCheckoutRecord): Promise<void> {
+    await this.mapped(async () => {
+      await sql`
+        UPDATE gateway.gateway_checkouts SET
+          status=${x.status}, pay_url=${x.payUrl}, deeplink=${x.deeplink},
+          resulting_payment_id=${x.resultingPaymentId}, last_ipn_payload=${x.lastIpnPayload}, last_ipn_at=${x.lastIpnAt},
+          updated_at=${x.updatedAt}, dispatch_lease_owner=${x.dispatchLeaseOwner}, dispatch_lease_until=${x.dispatchLeaseUntil}, replay_blocker=${x.replayBlocker}, provider_outcome=${x.providerOutcome}, provider_result_code=${x.providerResultCode}, provider_outcome_stage=${x.providerOutcomeStage}, terminal_evidence=${x.terminalEvidence}, provider_trans_id=${x.providerTransId}
+        WHERE checkout_id=${x.checkoutId}
+      `.execute(this.db);
+    });
+  }
 }

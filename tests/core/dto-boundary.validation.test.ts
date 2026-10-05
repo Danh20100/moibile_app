@@ -4,6 +4,7 @@ import test from 'node:test';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 
+import { PaymentDto, RecordPaymentDto } from '../../src/modules/billing/dto';
 import { CreateListingDto } from '../../src/modules/listing/dto';
 import { UpdateOrganizationDto } from '../../src/modules/organization/dto';
 import { UpdatePropertyDto } from '../../src/modules/property/dto';
@@ -50,4 +51,38 @@ test('CreateListingDto.publicLocationProjection is required', () => {
 
   assert.equal(errors.length, 1);
   assert.ok(errors[0].constraints?.isDefined);
+});
+
+test('manual Payment DTO excludes caller verification and gateway source; read DTO retains provider evidence', () => {
+  const manual = {
+    tenancyId: 'tenancy-a',
+    amount: '100.00',
+    source: 'MANUAL_TRANSFER',
+    confirmedAt: '2026-10-05T00:00:00.000Z',
+  };
+  const validate = (body: object) =>
+    validateSync(plainToInstance(RecordPaymentDto, body), {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+  assert.deepEqual(validate(manual), []);
+  assert.ok(
+    validate({ ...manual, source: 'GATEWAY' }).some((error) => error.property === 'source'),
+  );
+  for (const verification of ['USER_RECORDED', 'PROVIDER_VERIFIED']) {
+    assert.ok(
+      validate({ ...manual, verification }).some((error) => error.property === 'verification'),
+    );
+  }
+  assert.deepEqual(
+    validateSync(
+      plainToInstance(PaymentDto, {
+        ...manual,
+        id: 'payment-gateway',
+        source: 'GATEWAY',
+        verification: 'PROVIDER_VERIFIED',
+      }),
+    ),
+    [],
+  );
 });

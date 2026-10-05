@@ -101,11 +101,9 @@ export class BillingController {
   @ApiResponse({ status: 201, description: 'Payment recorded', type: PaymentDto })
   async recordPayment(
     @Body() dto: RecordPaymentDto,
-    @CurrentUser() user?: VerifiedPrincipal,
+    @CurrentUser() user: VerifiedPrincipal,
   ): Promise<Payment> {
-    if (user) {
-      await this.authz.assertCanAccessTenancy(user.userId, dto.tenancyId);
-    }
+    await this.authz.assertOperatesTenancy(user.userId, dto.tenancyId);
     return this.billingService.recordPayment(dto);
   }
 

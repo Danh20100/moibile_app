@@ -26,6 +26,7 @@ export interface DepositSettlement { id: string; depositId: string; refundedAmou
 export interface DepositEvent { id: string; depositId: string; eventType: DepositEventType; amount: DecimalString; occurredAt: string; paymentApplicationId?: string; settlementId?: string; }
 
 export interface CreateBillingCycleInput { tenancyId: string; tenancyTermsId: string; periodStart: string; periodEnd: string; charges: Array<{ type: ChargeType; amount: DecimalString }>; }
-export interface RecordPaymentInput { tenancyId: string; amount: DecimalString; source: PaymentSource; verification: PaymentVerification; confirmedAt: string; }
-export interface CorrectPaymentInput extends Omit<RecordPaymentInput, 'tenancyId'> { correctionNote: string; }
+export type ManualPaymentSource = Exclude<PaymentSource, 'GATEWAY'>;
+export interface ManualRecordPaymentInput { tenancyId: string; amount: DecimalString; source: ManualPaymentSource; confirmedAt: string; }
+export interface CorrectPaymentInput extends Omit<ManualRecordPaymentInput, 'tenancyId'> { correctionNote: string; }
 export interface SettleDepositInput { refundedAmount: DecimalString; retainedAmount: DecimalString; reasonOrNote: string; actedByUserId: string; settledAt: string; }

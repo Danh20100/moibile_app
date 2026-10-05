@@ -1,3 +1,4 @@
+import { PersistenceUniqueViolation } from '../../../src/persistence/errors';
 import type { OrganizationRecord } from '../../../src/persistence/ports/organization.repository';
 import type {
   PropertyRecord,
@@ -23,6 +24,7 @@ import type {
   DepositPaymentApplicationRecord,
   DepositRecord,
   DepositSettlementRecord,
+  GatewayCheckoutRecord,
   PaymentAllocationRecord,
   PaymentRecord,
   ReceiptRecord,
@@ -34,7 +36,9 @@ import type {
 import type { TrustReportRecord } from '../../../src/persistence/ports/trust.repository';
 import type { NotificationRecord } from '../../../src/persistence/ports/notification.repository';
 
-export function createCoreTestTransactionManager(): TransactionManager {
+export function createCoreTestTransactionManager(
+  options: { rollbackGatewayWrites?: boolean } = {},
+): TransactionManager {
   const users = new Set<string>();
   const organizations = new Map<string, OrganizationRecord>();
   const properties = new Map<string, PropertyRecord>();
@@ -55,7 +59,8 @@ export function createCoreTestTransactionManager(): TransactionManager {
     applications = new Map<string, DepositPaymentApplicationRecord>(),
     settlements = new Map<string, DepositSettlementRecord>(),
     depositEvents = new Map<string, DepositEventRecord>(),
-    receipts = new Map<string, ReceiptRecord>();
+    receipts = new Map<string, ReceiptRecord>(),
+    checkouts = new Map<string, GatewayCheckoutRecord>();
   const incidents = new Map<string, IncidentRecord>(),
     incidentEvents: IncidentEventRecord[] = [];
   const trustReports = new Map<string, TrustReportRecord>();
@@ -365,6 +370,27 @@ export function createCoreTestTransactionManager(): TransactionManager {
       updateReceipt: async (v: ReceiptRecord) => {
         receipts.set(v.receiptId, v);
       },
+      insertGatewayCheckout: async (v: GatewayCheckoutRecord) => {
+        if ([...checkouts.values()].some((x) => x.createdByUserId === v.createdByUserId && x.idempotencyKey === v.idempotencyKey)) throw new PersistenceUniqueViolation();
+        checkouts.set(v.checkoutId, structuredClone(v));
+      },
+      findGatewayCheckout: async (id: string) => structuredClone(checkouts.get(id)),
+      findGatewayCheckoutByOrderId: async (orderId: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.providerOrderId === orderId)),
+      findGatewayCheckoutByClientKey: async (userId: string, key: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.createdByUserId === userId && v.idempotencyKey === key)),
+      acquireGatewayDispatchLease: async (id: string, owner: string, now: string, until: string) => {
+        const v = checkouts.get(id);
+        if (!v || !['INITIATED', 'UNKNOWN'].includes(v.status) || v.replayBlocker || !v.requestSnapshot ||
+            (v.dispatchLeaseUntil && v.dispatchLeaseUntil > now) ||
+            (v.firstDispatchAt && new Date(now).getTime() - new Date(v.firstDispatchAt).getTime() >= 31 * 86400000)) return false;
+        checkouts.set(id, { ...v, dispatchLeaseOwner: owner, dispatchLeaseUntil: until, firstDispatchAt: v.firstDispatchAt ?? now });
+        return true;
+      },
+      lockGatewayCheckout: async () => undefined,
+      updateGatewayCheckout: async (v: GatewayCheckoutRecord) => {
+        checkouts.set(v.checkoutId, structuredClone(v));
+      },
     },
     incident: {
       createIncident: async (v: IncidentRecord) => {
@@ -413,7 +439,28 @@ export function createCoreTestTransactionManager(): TransactionManager {
     },
   };
   return {
-    run: async (work) =>
-      work({ repositories: repositories as never, afterCommit: () => undefined }),
+    run: async (work) => {
+      // Optional sequential rollback double; real PostgreSQL tests own concurrency evidence.
+      const before = options.rollbackGatewayWrites
+        ? {
+            payments: structuredClone(payments),
+            checkouts: structuredClone(checkouts),
+            notifications: structuredClone(notifications),
+          }
+        : undefined;
+      try {
+        return await work({ repositories: repositories as never, afterCommit: () => undefined });
+      } catch (error) {
+        if (before) {
+          payments.clear();
+          before.payments.forEach((value, key) => payments.set(key, value));
+          checkouts.clear();
+          before.checkouts.forEach((value, key) => checkouts.set(key, value));
+          notifications.clear();
+          before.notifications.forEach((value, key) => notifications.set(key, value));
+        }
+        throw error;
+      }
+    },
   };
 }
