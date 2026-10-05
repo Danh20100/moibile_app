@@ -74,10 +74,10 @@ Dependency order: 0 → 1; 0 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. Th
 **Files:** Read current index and untracked prompt/spec/plan; create external backup D:/Temp/TroOiV1ExecutionBackup-20261005, not a repo artifact.
 **Interfaces:** Produces pinned baseline SHA, original index patch, saved untracked docs and isolated branch integration/v1-payment-hardening.
 
-- [ ] Record git rev-parse HEAD, git branch -vv, git status --porcelain=v1, git diff --cached --stat, git worktree list, git rev-parse origin/backend/payment. Stop/rebase this plan's baseline if HEAD moved; never silently replace approved input.
-- [ ] Create backup directory; copy prompt/spec/this plan with Copy-Item -LiteralPath. Write git diff --cached --binary and git diff --binary as UTF-8 without BOM using System.IO.File.WriteAllText. Record Get-FileHash of all copied files and patches. No stash/reset required.
-- [ ] Read superpowers:using-git-worktrees; verify P does not already contain unrelated work. Run git worktree add -b integration/v1-payment-hardening D:/Temp/TroOiV1PaymentHardening 8d5da11d808ec463dfd63ed060d1601d50b3a577.
-- [ ] Check git -C P status --short is empty and I has exactly original local work plus plan. Run pnpm install --frozen-lockfile in P at execution; no lockfile drift.
+- [x] Record git rev-parse HEAD, git branch -vv, git status --porcelain=v1, git diff --cached --stat, git worktree list, git rev-parse origin/backend/payment. Stop/rebase this plan's baseline if HEAD moved; never silently replace approved input.
+- [x] Create backup directory; copy prompt/spec/this plan with Copy-Item -LiteralPath. Write git diff --cached --binary and git diff --binary as UTF-8 without BOM using System.IO.File.WriteAllText. Record Get-FileHash of all copied files and patches. No stash/reset required.
+- [x] Read superpowers:using-git-worktrees; verify P does not already contain unrelated work. Run git worktree add -b integration/v1-payment-hardening D:/Temp/TroOiV1PaymentHardening 8d5da11d808ec463dfd63ed060d1601d50b3a577.
+- [x] Check git -C P status --short is empty and I has exactly original local work plus plan. Run pnpm install --frozen-lockfile in P at execution; no lockfile drift.
 
 **Expected:** I/index intact, payment isolated, no branch switch in dirty I.
 **Commit boundary:** none; backup/worktree setup does not change tracked product files.
@@ -89,11 +89,11 @@ Dependency order: 0 → 1; 0 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. Th
 **Files — add to version control:** docs/temps/v1-end-to-end-integration-prompt.md; docs/temps/v1-end-to-end-integration-spec.md; docs/superpowers/plans/2026-10-05-v1-end-to-end-integration.md.
 **Interfaces:** Same stable screen IDs, tenant-momo current V1; shared-session/map/safe Trust submission current V1; Claim/Review/Inquiry Activity retain explicit gates.
 
-- [ ] Read Canonical/ERD and listed authority; preserve existing staged +8-line promotion. Change scope text/inventory relations and totals consistently; retain future-payment-gateway as provider/platform expansion outside optional MoMo.
-- [ ] Record manual vs gateway, signed-IPN-only Payment, session reacquire, native map, Listing-only report activation and tenancy-scoped Notice. Do not claim delivery or tick runtime DoD.
-- [ ] Open HTML in browser, exercise tenant-momo/shared-session/guest-map/shared-trust-report/notice in both themes; verify IDs/links/counts and no new overflow. Keep visual structure/design tokens. Update .impeccable metadata only where scope data is duplicated.
-- [ ] Approved headless fallback: use Playwright/Chromium in an external disposable harness under D:/Temp/TroOiV1ExecutionBackup-20261005/browser-task1, not a product dependency. Localhost serving is allowed if file:// restricts interaction. Load current HTML and git-baseline HTML; exercise tenant-momo/shared-session/guest-map/shared-trust-report/notice in light/dark at 1440x1000 and 390x844, run existing in-page 85-screen verifier, check inventory counts, stable IDs/navigation/relation targets, broken links, JS console errors and document width <= viewport. Capture before/after screenshots and inspect them; retain engine/version/commands/results/artifact paths in task report. Existing baseline overflow must be identified separately; no new overflow permitted. Headless-unprovable behavior stays UNVERIFIED; renderer unavailable or failed visual assertion remains a blocker, never replaced by source-string checks or Task 22 exemptions.
-- [ ] Run pnpm test:conformance:database-v1 and git diff --check; inspect no Canonical/ERD/frozen SQL diff. Expected 57 baseline cases plus any intentional authority assertions green, no domain weakening.
+- [x] Read Canonical/ERD and listed authority; preserve existing staged +8-line promotion. Change scope text/inventory relations and totals consistently; retain future-payment-gateway as provider/platform expansion outside optional MoMo.
+- [x] Record manual vs gateway, signed-IPN-only Payment, session reacquire, native map, Listing-only report activation and tenancy-scoped Notice. Do not claim delivery or tick runtime DoD.
+- [x] Open HTML in browser, exercise tenant-momo/shared-session/guest-map/shared-trust-report/notice in both themes; verify IDs/links/counts and no new overflow. Keep visual structure/design tokens. Update .impeccable metadata only where scope data is duplicated.
+- [x] Approved headless fallback: use Playwright/Chromium in an external disposable harness under D:/Temp/TroOiV1ExecutionBackup-20261005/browser-task1, not a product dependency. Localhost serving is allowed if file:// restricts interaction. Load current HTML and git-baseline HTML; exercise tenant-momo/shared-session/guest-map/shared-trust-report/notice in light/dark at 1440x1000 and 390x844, run existing in-page 85-screen verifier, check inventory counts, stable IDs/navigation/relation targets, broken links, JS console errors and document width <= viewport. Capture before/after screenshots and inspect them; retain engine/version/commands/results/artifact paths in task report. Existing baseline overflow must be identified separately; no new overflow permitted. Headless-unprovable behavior stays UNVERIFIED; renderer unavailable or failed visual assertion remains a blocker, never replaced by source-string checks or Task 22 exemptions.
+- [x] Run pnpm test:conformance:database-v1 and git diff --check; inspect no Canonical/ERD/frozen SQL diff. Expected 57 baseline cases plus any intentional authority assertions green, no domain weakening.
 
 **Expected:** V1 inventory/HTML/checklist thống nhất approved scope, stable IDs/links hợp lệ, Canonical invariants và user's staged promotion được giữ.
 **Commit boundary:** docs(v1): align approved optional momo and integration scope. Stage only listed docs after inspecting cached diff; this intentionally includes user's staged promotion. No implementation in this commit.
@@ -105,11 +105,11 @@ Dependency order: 0 → 1; 0 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9. Th
 **Files — create:** tests/integration/persistence/gateway-test-support.ts.
 **Interfaces:** resetPublicSchema(databaseUrl): Promise<void> retains existing name; extends disposable reset to gateway + public. gatewayFixture(url) supplies migrated Postgres repositories/manager, ACTIVE tenancy, authorized creator and notification recipient.
 
-- [ ] Correct missing .sql mount to existing ./database/dev/01-create-test-db.sh and container target .sh; set POSTGRES_TEST_DB=trooi_test. Keep current DB image/volume; do not remove existing Docker volume.
-- [ ] In disposable test reset, reject database names other than trooi_test before destructive SQL, DROP gateway before public, then recreate public/migrate. Existing rental fixtures keep working; never reset dev/shared DB.
-- [ ] Bootstrap existing volume explicitly because init scripts only run once: pnpm db:dev:up; wait docker compose -f compose.persistence.yml exec -T postgres pg_isready -U trooi -d trooi_dev; set DATABASE_URL to local trooi_dev then pnpm exec tsx scripts/database/bootstrap-test-db.ts.
-- [ ] Set TEST_DATABASE_URL to local trooi_test, migrate disposable DB, run pnpm test:persistence:migration twice. Assertion: public table count 29, gateway schema freshly migrated on repeat, no old FK/residue. Add same proof to migration test.
-- [ ] Create gatewayFixture from rentalFixture patterns; use amounts >=1000 instead of financeFixture's 100.00 payment. Close all pools in finally. Log only database name/exit, not credential URLs.
+- [x] Correct missing .sql mount to existing ./database/dev/01-create-test-db.sh and container target .sh; set POSTGRES_TEST_DB=trooi_test. Keep current DB image/volume; do not remove existing Docker volume.
+- [x] In disposable test reset, reject database names other than trooi_test before destructive SQL, DROP gateway before public, then recreate public/migrate. Existing rental fixtures keep working; never reset dev/shared DB.
+- [x] Bootstrap existing volume explicitly because init scripts only run once: pnpm db:dev:up; wait docker compose -f compose.persistence.yml exec -T postgres pg_isready -U trooi -d trooi_dev; set DATABASE_URL to local trooi_dev then pnpm exec tsx scripts/database/bootstrap-test-db.ts.
+- [x] Set TEST_DATABASE_URL to local trooi_test, migrate disposable DB, run pnpm test:persistence:migration twice. Assertion: public table count 29, gateway schema freshly migrated on repeat, no old FK/residue. Add same proof to migration test.
+- [x] Create gatewayFixture from rentalFixture patterns; use amounts >=1000 instead of financeFixture's 100.00 payment. Close all pools in finally. Log only database name/exit, not credential URLs.
 
 ~~~powershell
 $env:DATABASE_URL = 'postgresql://trooi:trooi_local@localhost:5432/trooi_dev'
@@ -129,11 +129,11 @@ pnpm test:persistence:migration
 **Files — create/test:** tests/core/payment-gateway.http.test.ts; tests/core/support/payment-gateway-http-harness.ts.
 **Interfaces:** handleMomoIpn(payload): Promise<void>; controller @HttpCode(204) returns void. startGatewayHttpHarness({service,authz,verifier}) returns Promise<{baseUrl:string,close:()=>Promise<void>}>; dependencies use existing service/authorization/verifier types. Harness creates real Nest HTTP pipeline with ValidationPipe/filter/interceptor and a test verifier implementing existing GOOGLE_ID_TOKEN_VERIFIER port; no production auth bypass or new test framework.
 
-- [ ] Add HTTP tests: accepted IPN status=204 and text=''; errors remain non-204; ordinary GET keeps response envelope. Assert unknown client fields reject through real ValidationPipe.
-- [ ] Run pnpm exec tsx --test tests/core/payment-gateway.http.test.ts; baseline may first show TS2416; fix type then verify behavioral red against old 201/body.
-- [ ] Align NestInterceptor generic/output union explicitly; bypass wrapping only metadata-designated raw/no-body response or HTTP 204. No any/blanket cast or magic route suffix.
-- [ ] Define runtime MomoIpnDto in dto/index.ts for required signed transport fields; controller uses class DTO so ValidationPipe can reject unknown fields. Stage-aware semantic validation remains Tasks 5/7, không chỉ TypeScript interface bị erase.
-- [ ] Remove success JSON ACK DTO from active controller/OpenAPI response; service void return. Run focused HTTP test, pnpm typecheck, pnpm build, pnpm lint.
+- [x] Add HTTP tests: accepted IPN status=204 and text=''; errors remain non-204; ordinary GET keeps response envelope. Assert unknown client fields reject through real ValidationPipe.
+- [x] Run pnpm exec tsx --test tests/core/payment-gateway.http.test.ts; baseline may first show TS2416; fix type then verify behavioral red against old 201/body.
+- [x] Align NestInterceptor generic/output union explicitly; bypass wrapping only metadata-designated raw/no-body response or HTTP 204. No any/blanket cast or magic route suffix.
+- [x] Define runtime MomoIpnDto in dto/index.ts for required signed transport fields; controller uses class DTO so ValidationPipe can reject unknown fields. Stage-aware semantic validation remains Tasks 5/7, không chỉ TypeScript interface bị erase.
+- [x] Remove success JSON ACK DTO from active controller/OpenAPI response; service void return. Run focused HTTP test, pnpm typecheck, pnpm build, pnpm lint.
 
 **Expected:** no TS2416; success wire ACK exactly 204/empty, error handling unchanged.
 **Commit boundary:** fix(payment): honor momo empty ipn acknowledgement.
@@ -151,10 +151,10 @@ assert.equal(await response.text(), '');
 **Files — create/test:** tests/core/manual-payment.http.test.ts.
 **Interfaces:** RecordPaymentDto excludes verification and source accepts only MANUAL_CASH/MANUAL_TRANSFER. BillingService.recordPayment(input: ManualRecordPaymentInput): Promise<Payment> derives USER_RECORDED; trusted IPN writes Payment via existing transaction repositories.
 
-- [ ] Assert HTTP spoof source=GATEWAY or verification=PROVIDER_VERIFIED →400/no insert; tenant →403 for manual confirmation; operator manual →201/USER_RECORDED. Assert service rejects runtime untrusted provenance even when TS types are bypassed by input parsing.
-- [ ] Restrict controller to assertOperatesTenancy, derive verification in service; retain read DTO full PaymentSource/Verification. Narrow correction manual input too so gateway provenance cannot be forged through correction path; audit call sites before changing input type.
-- [ ] Update behavior callers to omit verification; keep lower-level persistence fixtures capable of inserting genuine gateway records. No policy closure for Payment Claim.
-- [ ] Run pnpm exec tsx --test tests/core/manual-payment.http.test.ts tests/core/finance.behavior.test.ts tests/core/dto-boundary.validation.test.ts; pnpm typecheck; pnpm lint.
+- [x] Assert HTTP spoof source=GATEWAY or verification=PROVIDER_VERIFIED →400/no insert; tenant →403 for manual confirmation; operator manual →201/USER_RECORDED. Assert service rejects runtime untrusted provenance even when TS types are bypassed by input parsing.
+- [x] Restrict controller to assertOperatesTenancy, derive verification in service; retain read DTO full PaymentSource/Verification. Narrow correction manual input too so gateway provenance cannot be forged through correction path; audit call sites before changing input type.
+- [x] Update behavior callers to omit verification; keep lower-level persistence fixtures capable of inserting genuine gateway records. No policy closure for Payment Claim.
+- [x] Run pnpm exec tsx --test tests/core/manual-payment.http.test.ts tests/core/finance.behavior.test.ts tests/core/dto-boundary.validation.test.ts; pnpm typecheck; pnpm lint.
 
 **Expected:** user-accessible manual/correction paths cannot claim provider evidence; manual channel remains usable without MoMo configuration.
 **Commit boundary:** fix(finance): separate manual recording from gateway evidence.
@@ -174,12 +174,12 @@ assert.equal(insertedPayments.length, 0);
 **Files — create:** src/modules/payment-gateway/momo/momo-result.ts; tests/core/momo-result.test.ts; tests/core/momo-client.test.ts; tests/core/fixtures/momo-signed-payloads.json.
 **Interfaces:** classifyMomoResult(stage: 'CREATE'|'PAYMENT_IPN', resultCode: number, autoCapture: boolean): 'CREATE_ACCEPTED'|'PAYMENT_SUCCEEDED'|'PENDING'|'FINAL_FAILURE'|'RETRYABLE_NON_FINAL'|'RECONCILE'; createCaptureWallet verifies/normalizes response before returning. Unknown outcome never implies paid/failed.
 
-- [ ] Freeze independent HMAC fixtures from provider contract/manual independent calculation; retain timing-safe comparison. Test create/IPN missing/invalid signature and missing fields, mismatched partner/order/request/amount, malicious payUrl host/scheme.
-- [ ] Assert create 0=CREATE_ACCEPTED, IPN 0=PAYMENT_SUCCEEDED; 1000/7000/7002=PENDING; IPN 9000 true=PAYMENT_SUCCEEDED, false=PENDING; create 9000 cannot settle money; 40/41=RECONCILE; unknown code=RECONCILE.
-- [ ] Implement payment/create-applicable final failure allowlist: 98,99,1001,1002,1003,1004,1005,1006,1007,1017,1026,2019,4001,4002,4100; non-final 10,11,12,13,20,21,22,42,43,45,47 stay non-final. Exclude refund codes 1080/1081/1088. Verify API applicability against live provider docs at execution; changed contract requires fixture/map review, not blind reuse.
-- [ ] Enforce whole integer VND [1000,50000000], exact decimal conversion before Number; base64 JSON {checkoutId}; autoCapture=true explicitly. Verify HTTP status, shape, HMAC signed field set and immutable identities; HTTPS payUrl host allowlist test-payment.momo.vn for sandbox/payment.momo.vn for production, verify actual documented host before widening.
-- [ ] Use defaults 35s provider timeout; credentials/URLs from env, reject incomplete configuration as optional-channel unavailable. Do not disable manual flow/startup when MoMo disabled. Sandbox missing/different create signature is blocker until provider contract clarified.
-- [ ] Run pnpm exec tsx --test tests/core/momo-hmac.test.ts tests/core/momo-result.test.ts tests/core/momo-client.test.ts; pnpm typecheck; pnpm lint.
+- [x] Freeze independent HMAC fixtures from provider contract/manual independent calculation; retain timing-safe comparison. Test create/IPN missing/invalid signature and missing fields, mismatched partner/order/request/amount, malicious payUrl host/scheme.
+- [x] Assert create 0=CREATE_ACCEPTED, IPN 0=PAYMENT_SUCCEEDED; 1000/7000/7002=PENDING; IPN 9000 true=PAYMENT_SUCCEEDED, false=PENDING; create 9000 cannot settle money; 40/41=RECONCILE; unknown code=RECONCILE.
+- [x] Implement payment/create-applicable final failure allowlist: 98,99,1001,1002,1003,1004,1005,1006,1007,1017,1026,2019,4001,4002,4100; non-final 10,11,12,13,20,21,22,42,43,45,47 stay non-final. Exclude refund codes 1080/1081/1088. Verify API applicability against live provider docs at execution; changed contract requires fixture/map review, not blind reuse.
+- [x] Enforce whole integer VND [1000,50000000], exact decimal conversion before Number; base64 JSON {checkoutId}; autoCapture=true explicitly. Verify HTTP status, shape, HMAC signed field set and immutable identities; HTTPS payUrl host allowlist test-payment.momo.vn for sandbox/payment.momo.vn for production, verify actual documented host before widening.
+- [x] Use defaults 35s provider timeout; credentials/URLs from env, reject incomplete configuration as optional-channel unavailable. Do not disable manual flow/startup when MoMo disabled. Sandbox missing/different create signature is blocker until provider contract clarified.
+- [x] Run pnpm exec tsx --test tests/core/momo-hmac.test.ts tests/core/momo-result.test.ts tests/core/momo-client.test.ts; pnpm typecheck; pnpm lint.
 
 **Expected:** protocol/financial outcome distinction covered independently; no success-only-zero rule.
 **Commit boundary:** fix(payment): verify momo protocol and outcome semantics.
@@ -192,13 +192,13 @@ assert.equal(insertedPayments.length, 0);
 **Files — migration:** inspect database/migrations/000003_gateway_checkouts.ts and sql/000003_gateway_checkouts.up.sql/.down.sql. Default safe choice: create database/migrations/000004_gateway_checkout_durability.ts plus sql/000004_gateway_checkout_durability.up.sql/.down.sql; do not rewrite 000003 unless shared deployment non-use is proven.
 **Interfaces:** createCheckout(input: CreateGatewayCheckoutInput, userId: string, idempotencyKey: string): Promise<GatewayCheckout>; findCheckout(id:string,userId:string):Promise<GatewayCheckout> receives actor from verified controller principal. FinanceRepository.findGatewayCheckoutByClientKey(userId:string,key:string):Promise<GatewayCheckoutRecord|undefined>, acquireGatewayDispatchLease(id:string,owner:string,now:string,leaseUntil:string):Promise<boolean>, existing lock/find/update methods. Status union INITIATED|CREATED|UNKNOWN|FAILED|SUCCEEDED; correlation + firstDispatchAt + lease token/until + provider outcome persisted. GatewayCheckout DTO adds replayAllowed:boolean and replayBlockedReason?:string from current actor/intent eligibility; no secret/idempotency key in read DTO. Former/operator read remains authorized but replayAllowed=false unless caller owns intent and retains write access. Android consumes these exact names in Task 12.
 
-- [ ] Test commit-before-provider: provider fake queries intent during call and sees committed IDs. Insert failure →0 provider calls. Same user/key/payload →same checkout/IDs; changed tenancy/amount →409; missing/invalid header →400.
-- [ ] Test crash lease expiry, provider accept+timeout, local completion failure, client response loss, and concurrent same-key dispatcher. Assert no Payment and replay identical provider payload; GET never calls create. Use injected clock/lease default 60s without sleeps.
-- [ ] Migration adds client-key uniqueness/fingerprint, immutable snapshot incl autoCapture, outcome/terminal evidence, lease/first dispatch; replace EXPIRED in active contract and constrain result link/status. Unique provider order/request identity includes provider/partner; successful transId and resultingPaymentId uniqueness backstop later Task 7.
-- [ ] Handle pre-existing 000003 rows without fabrication: preserve IDs/payment links; legacy unsettled rows lacking reconstructible snapshot become replay-blocked with explicit reconcile reason; do not invent provider request payload from current config. Test upgrade with CREATED and SUCCEEDED legacy records.
-- [ ] Require ACTIVE/ENDING write access before new intent/replay. Insert transaction commit first, lease commit second, provider HTTP outside DB transaction, completion CAS ownership under lock. Late create completion cannot erase IPN/terminal outcome.
-- [ ] Replay POST resumes only INITIATED/UNKNOWN eligible intents: no active lease, no pending/reconcile/verification blocker, within 31-day first-dispatch window. CREATED/final return durable state. New order never auto-created; different user key is a different namespace, not takeover. Persist key in Android before POST later.
-- [ ] Run focused gateway behavior/HTTP tests, pnpm typecheck, pnpm test:persistence:migration. Migration down/up only disposable database; no production down for unresolved/paid data.
+- [x] Test commit-before-provider: provider fake queries intent during call and sees committed IDs. Insert failure →0 provider calls. Same user/key/payload →same checkout/IDs; changed tenancy/amount →409; missing/invalid header →400.
+- [x] Test crash lease expiry, provider accept+timeout, local completion failure, client response loss, and concurrent same-key dispatcher. Assert no Payment and replay identical provider payload; GET never calls create. Use injected clock/lease default 60s without sleeps.
+- [x] Migration adds client-key uniqueness/fingerprint, immutable snapshot incl autoCapture, outcome/terminal evidence, lease/first dispatch; replace EXPIRED in active contract and constrain result link/status. Unique provider order/request identity includes provider/partner; successful transId and resultingPaymentId uniqueness backstop later Task 7.
+- [x] Handle pre-existing 000003 rows without fabrication: preserve IDs/payment links; legacy unsettled rows lacking reconstructible snapshot become replay-blocked with explicit reconcile reason; do not invent provider request payload from current config. Test upgrade with CREATED and SUCCEEDED legacy records.
+- [x] Require ACTIVE/ENDING write access before new intent/replay. Insert transaction commit first, lease commit second, provider HTTP outside DB transaction, completion CAS ownership under lock. Late create completion cannot erase IPN/terminal outcome.
+- [x] Replay POST resumes only INITIATED/UNKNOWN eligible intents: no active lease, no pending/reconcile/verification blocker, within 31-day first-dispatch window. CREATED/final return durable state. New order never auto-created; different user key is a different namespace, not takeover. Persist key in Android before POST later.
+- [x] Run focused gateway behavior/HTTP tests, pnpm typecheck, pnpm test:persistence:migration. Migration down/up only disposable database; no production down for unresolved/paid data.
 
 **Expected:** callback always has durable correlation before provider gets request; response loss safe to replay.
 **Commit boundary:** feat(payment): persist and resume idempotent checkout intents.
@@ -217,11 +217,11 @@ assert.equal(payments.size, 0);
 **Files — modify:** src/modules/payment-gateway/services/payment-gateway.service.ts; src/modules/payment-gateway/dto/index.ts; src/persistence/ports/finance.repository.ts; src/infrastructure/database/repositories/finance.repository.ts; migration 000004 SQL from Task 6; tests/core/payment-gateway.behavior.test.ts; tests/core/payment-gateway.http.test.ts; tests/core/support/in-memory-transaction-manager.ts.
 **Interfaces:** handleMomoIpn(payload): Promise<void>; verified DTO owns runtime validation; classifyMomoResult from Task 5; finance lock/read/insert/update in one tx.
 
-- [ ] Assert invalid signature/identity/amount/extraData leaves state unchanged; pending no Payment; 9000 one-step success produces one gateway Payment; final failure then success →409 and no Payment. Success then failure/other transId →409, original Payment intact.
-- [ ] Assert callback-before-create-response succeeds from INITIATED/UNKNOWN; duplicate same successful transId →204/no duplicate notification; duplicate final failure and late pending →204/no state downgrade.
-- [ ] Verify before mutation; lock/reread checkout, compare exact persisted identity/amount, normalize outcome by stage. Insert Payment/result link/notification atomically only for eligible success; rollback any failing insert/update/notification. No Billing/Deposit/Receipt coordinator call.
-- [ ] Persist terminal evidence separately from late observations; redact logs. Preserve current authorized recipient contract, avoid arbitrary firstOrNull recipient selection: notify authorized checkout creator once; no new notification policy/broadcast.
-- [ ] Run pnpm exec tsx --test tests/core/payment-gateway.behavior.test.ts tests/core/payment-gateway.http.test.ts tests/core/momo-result.test.ts; pnpm typecheck; pnpm lint.
+- [x] Assert invalid signature/identity/amount/extraData leaves state unchanged; pending no Payment; 9000 one-step success produces one gateway Payment; final failure then success →409 and no Payment. Success then failure/other transId →409, original Payment intact.
+- [x] Assert callback-before-create-response succeeds from INITIATED/UNKNOWN; duplicate same successful transId →204/no duplicate notification; duplicate final failure and late pending →204/no state downgrade.
+- [x] Verify before mutation; lock/reread checkout, compare exact persisted identity/amount, normalize outcome by stage. Insert Payment/result link/notification atomically only for eligible success; rollback any failing insert/update/notification. No Billing/Deposit/Receipt coordinator call.
+- [x] Persist terminal evidence separately from late observations; redact logs. Preserve current authorized recipient contract, avoid arbitrary firstOrNull recipient selection: notify authorized checkout creator once; no new notification policy/broadcast.
+- [x] Run pnpm exec tsx --test tests/core/payment-gateway.behavior.test.ts tests/core/payment-gateway.http.test.ts tests/core/momo-result.test.ts; pnpm typecheck; pnpm lint.
 
 **Expected:** exact one actual-money write through verified IPN and no illegal terminal reversal.
 **Commit boundary:** fix(payment): atomically settle verified momo callbacks.
@@ -554,4 +554,4 @@ Still OPEN/FUTURE: geocoder/type/availability, Payment Claim evidence/confirmati
 
 Self-review at plan-writing time: dependencies/interfaces and all spec sections mapped; replay endpoint simplified; terminal transitions/provider stage consistent; numeric defaults separated from product invariants; DB overlap evidence and device commands explicit. Files marked create are future deliverables, not files claimed present. Runtime/provider/build gates in this plan are expected outcomes, **not executed PASS results**.
 
-Execution status — 2026-10-05: user approved this plan and subagent-driven execution. Task 0 is complete; Task 1 documentation/browser boundary is completed pending final review. Later task gates are not yet complete; approval and Task 1 evidence do not claim runtime delivery or merge readiness.
+Execution status — 2026-10-05: Tasks 0–7 are complete and reviewed. Payment commits: 010cb86, 6966db8, 517c1db, f1a739c, 4ca8054, 9b133e8. Task 8 and later remain in progress; live MoMo/device gates remain UNVERIFIED and this plan does not claim READY_TO_MERGE.
