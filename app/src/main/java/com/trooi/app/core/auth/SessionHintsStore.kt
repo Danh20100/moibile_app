@@ -45,6 +45,11 @@ class SessionHintsStore(
 
     fun snapshotValues(): Collection<String> = prefs.all.values.mapNotNull { it?.toString() }
 
+    fun upsertPendingCheckout(hint: PendingCheckoutHint) {
+        val current = read() ?: return
+        write(current.copy(pendingCheckouts = listOf(hint)))
+    }
+
     companion object {
         const val PREFS = "trooi_session_hints"
         private const val KEY_USER_ID = "userId"

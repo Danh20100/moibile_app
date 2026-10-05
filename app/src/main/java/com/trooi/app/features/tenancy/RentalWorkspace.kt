@@ -1,5 +1,7 @@
 package com.trooi.app.features.tenancy
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -26,16 +29,26 @@ fun V1RentalWorkspace(
     model: RentalViewModel = hiltViewModel(),
 ) {
     val state by model.ui.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LaunchedEffect(roomId, linkedTenancyId) { model.start(roomId, linkedTenancyId) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     BackHandler(enabled = state.stack.size > 1) { model.back() }
     LaunchedEffect(state.errorKind) { if (state.errorKind == "AUTH_EXPIRED") onUnauthorized() }
+    LaunchedEffect(state.checkoutLaunchUrl) {
+        val url = state.checkoutLaunchUrl ?: return@LaunchedEffect
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        model.consumeLaunchUrl()
+    }
     var name by remember(state.route) { mutableStateOf("") }
     var extra by remember(state.route) { mutableStateOf("") }
     var extra2 by remember(state.route) { mutableStateOf("") }
     var choice by remember(state.route) { mutableStateOf("") }
     var selected by remember(state.route) { mutableStateOf("") }
-    var price by remember(state.route) { mutableStateOf("") }
+    var price by remember(state.route) {
+        mutableStateOf(
+            if (state.route is RentalRoute.Payment) state.checkoutIntent?.amount.orEmpty() else "",
+        )
+    }
     val route = state.route
     val tenantReadOnly = state.tenantMode && state.linkedTenancyStatus?.lowercase().let {
         it == "ended" || it == "cancelled"
@@ -296,6 +309,44 @@ fun V1RentalWorkspace(
                         V1Action("Xác nhận đã nhận tiền", {
                             model.recordPayment(route.id, price, choice)
                         }, enabled = !state.busy && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && choice.isNotBlank())
+                    }
+                }
+                if (state.tenantMode) item {
+                    val tenancyStatus = state.linkedTenancyStatus ?: state.tenancy?.status
+                    val checkout = state.gatewayCheckout
+                    V1Panel("Thanh toán MoMo (tuỳ chọn)") {
+                        V1Pending("Chỉ mở HTTPS payUrl đã được Backend xác minh. Liên kết quay về không phải bằng chứng đã trả.")
+                        V1Input(price, { price = it }, "Amount VND (số nguyên .00)", "gateway-checkout-amount")
+                        V1Action(
+                            "Tạo hoặc tiếp tục checkout",
+                            { model.beginCheckout(route.id, price) },
+                            enabled = !state.busy && validGatewayAmount(price.removeSuffix(".00") + ".00") &&
+                                (canCreateGatewayCheckout(tenancyStatus) || state.checkoutIntent != null),
+                        )
+                        checkout?.let { chk ->
+                            V1Metric("Checkout", chk.id)
+                            V1Metric("Status", chk.status)
+                            V1Metric(
+                                "Replay",
+                                if (chk.replayAllowed) "Được phép" else chk.replayBlockedReason ?: "Không được replay",
+                            )
+                            if (isConfirmedGatewayPayment(chk)) {
+                                if (state.payments.any { it.id == chk.resultingPaymentId }) {
+                                    V1Pending("Payment ${chk.resultingPaymentId} đã có trong danh sách Backend.")
+                                } else {
+                                    V1Pending("Checkout SUCCEEDED; Payment chỉ hiện khi Backend xác nhận trong danh sách.")
+                                }
+                            } else {
+                                V1Pending("Checkout chưa phải Payment. Không dùng resultCode trên URI.")
+                            }
+                            if (chk.replayAllowed) {
+                                V1Action("Replay cùng Idempotency-Key", { model.replayCheckout() }, enabled = !state.busy)
+                            }
+                            V1Action("Làm mới từ Backend", { model.refreshGatewayCheckout() }, enabled = !state.busy)
+                        }
+                        if (manualCheckoutAvailable(checkout, state.checkoutCreateFailed)) {
+                            V1Pending("Kênh MoMo không khả dụng. Liên hệ người quản lý để ghi nhận tiền thủ công.")
+                        }
                     }
                 }
             }

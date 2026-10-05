@@ -299,3 +299,17 @@ data class RoomOperationalHistoryTransport(
     val tenancies: List<TenancyFinanceHistoryEntryTransport>,
     val incidents: List<RentalIncidentHistoryEntryTransport>,
 )
+
+data class GatewayCheckoutTransport(
+    val id: String,
+    val tenancyId: String,
+    val amount: String,
+    val referenceCode: String,
+    val provider: String,
+    val status: String,
+    val createdAt: String,
+    val replayAllowed: Boolean,
+    val payUrl: String? = null,
+    val resultingPaymentId: String? = null,
+    val replayBlockedReason: String? = null,
+)

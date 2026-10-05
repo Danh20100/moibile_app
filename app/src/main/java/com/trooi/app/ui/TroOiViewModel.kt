@@ -17,6 +17,12 @@ import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.auth.isValidPassword
 import com.trooi.app.features.auth.isValidSignup
+import com.trooi.app.features.shared.V1PaymentGateway
+import com.trooi.app.features.shared.V1RequestException
+import com.trooi.app.features.tenancy.PaymentReturnAction
+import com.trooi.app.features.tenancy.PaymentReturnUri
+import com.trooi.app.features.tenancy.interpretPaymentReturn
+import com.trooi.app.features.tenancy.isConfirmedGatewayPayment
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -33,6 +39,7 @@ class TroOiViewModel @Inject constructor(
     private val backendApi: BackendApi,
     private val googleCredentialAuth: GoogleCredentialAuth,
     private val hintsStore: SessionHintsStore,
+    private val paymentGateway: V1PaymentGateway,
     @param:ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
@@ -128,6 +135,7 @@ class TroOiViewModel @Inject constructor(
                     }
                     persistHints(outcome.session.userId, outcome.resolution.selection)
                     refreshAuthorizedRead(outcome.session.access)
+                    refreshRememberedCheckout()
                 }
                 RestoreOutcome.NeedsLogin ->
                     _state.update { it.copy(sessionRestoring = false, restoreFailed = false) }
@@ -144,6 +152,21 @@ class TroOiViewModel @Inject constructor(
     fun retryRestore(context: Context) {
         restoreStarted = false
         bootstrapRestore(context)
+    }
+
+    fun handlePaymentReturn(uri: PaymentReturnUri) {
+        val userId = _state.value.backendUserId
+        val local = hintsStore.read()
+            ?.takeIf { it.userId == userId && userId.isNotBlank() && it.restoreEnabled }
+            ?.pendingCheckouts
+            ?.firstOrNull()
+        when (val action = interpretPaymentReturn(uri, local)) {
+            is PaymentReturnAction.RefreshCheckout -> refreshRememberedCheckout(action.checkoutId)
+            is PaymentReturnAction.ReplayCreate ->
+                showMessage("Checkout chưa có ID từ Backend. Mở Thanh toán để replay cùng Idempotency-Key.")
+            PaymentReturnAction.SafeRecovery ->
+                showMessage("Liên kết thanh toán không khớp phiên hiện tại. Không ghi nhận tiền từ URI.")
+        }
     }
 
     fun openNotification(notificationId: String) {
@@ -493,6 +516,43 @@ class TroOiViewModel @Inject constructor(
         if (userId.isBlank()) return
         val pending = hintsStore.read()?.takeIf { it.userId == userId }?.pendingCheckouts.orEmpty()
         hintsStore.write(SessionHints(userId, true, selected, pending))
+    }
+
+    private fun refreshRememberedCheckout(checkoutId: String? = null) {
+        val userId = _state.value.backendUserId
+        if (!_state.value.isAuthenticated || userId.isBlank()) return
+        val hint = hintsStore.read()?.takeIf { it.userId == userId }?.pendingCheckouts?.firstOrNull()
+        val id = checkoutId ?: hint?.checkoutId ?: return
+        if (hint != null && hint.checkoutId != null && hint.checkoutId != id) {
+            showMessage("Liên kết thanh toán không khớp checkout đã nhớ. Không ghi nhận tiền từ URI.")
+            return
+        }
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            runCatching { paymentGateway.get(id) }
+                .onSuccess { checkout ->
+                    if (generation != sessionGeneration) return@onSuccess
+                    if (hint != null && hint.tenancyId == checkout.tenancyId) {
+                        hintsStore.upsertPendingCheckout(hint.copy(checkoutId = checkout.id))
+                    }
+                    showMessage(
+                        if (isConfirmedGatewayPayment(checkout)) {
+                            "Checkout SUCCEEDED. Payment chỉ hiện sau khi Backend xác nhận trong danh sách."
+                        } else {
+                            "Checkout ${checkout.status}. URI không phải bằng chứng đã trả."
+                        },
+                    )
+                }
+                .onFailure { error ->
+                    if (generation != sessionGeneration) return@onFailure
+                    val kind = (error as? V1RequestException)?.kind?.name
+                    if (kind == "AUTH_EXPIRED" || kind == "FORBIDDEN") {
+                        showMessage("Không đọc được checkout với quyền hiện tại.")
+                    } else {
+                        showMessage("Không tải được checkout từ Backend.")
+                    }
+                }
+        }
     }
 
     private fun applyReconciledAccess(

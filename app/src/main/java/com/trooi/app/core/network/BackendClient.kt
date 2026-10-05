@@ -49,7 +49,13 @@ class BackendClient(
         path: String,
         json: String,
         authenticated: Boolean = false,
+        headers: Map<String, String> = emptyMap(),
     ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
+        headers.forEach { (name, value) ->
+            if (name.equals("Idempotency-Key", ignoreCase = true) && value.isNotBlank()) {
+                builder.header("Idempotency-Key", value)
+            }
+        }
         builder.post(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 

@@ -109,7 +109,7 @@ class V1CompletionContractTest {
             val pay = V1RentalGateway(client(server)).recordPayment("t-1","5000.00","MANUAL_CASH","2026-10-02T01:00:00Z")
             assertEquals("pay-1", pay.id)
             val body = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("USER_RECORDED", body.get("verification").asString)
+            assertFalse(body.has("verification"))
             assertEquals("5000.00", body.get("amount").asString)
         }
     }

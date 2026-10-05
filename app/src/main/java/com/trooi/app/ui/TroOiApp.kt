@@ -23,6 +23,7 @@ import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.features.shared.V1ContextSwitcherScreen
+import com.trooi.app.features.tenancy.PaymentReturnUri
 import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
@@ -31,7 +32,10 @@ import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
 
 @Composable
-fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
+fun TroOiApp(
+    viewModel: TroOiViewModel = hiltViewModel(),
+    paymentReturnUri: PaymentReturnUri? = null,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -39,6 +43,10 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val useNavigationRail = LocalConfiguration.current.screenWidthDp >= 600
     LaunchedEffect(Unit) { viewModel.bootstrapRestore(context) }
+    LaunchedEffect(paymentReturnUri, state.sessionRestoring) {
+        if (paymentReturnUri == null || state.sessionRestoring) return@LaunchedEffect
+        viewModel.handlePaymentReturn(paymentReturnUri)
+    }
     val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(
             AppPage.Discovery, AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,

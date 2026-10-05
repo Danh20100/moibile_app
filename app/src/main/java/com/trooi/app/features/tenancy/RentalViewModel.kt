@@ -2,8 +2,11 @@ package com.trooi.app.features.tenancy
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trooi.app.BuildConfig
+import com.trooi.app.core.auth.SessionHintsStore
 import com.trooi.app.features.shared.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +54,10 @@ data class RentalUiState(
     val incidentEvents: List<RentalIncidentEvent> = emptyList(),
     val history: RentalHistory? = null,
     val roomAfterCheckout: V1Room? = null,
+    val checkoutIntent: CheckoutIntent? = null,
+    val gatewayCheckout: GatewayCheckout? = null,
+    val checkoutLaunchUrl: String? = null,
+    val checkoutCreateFailed: Boolean = false,
 ) {
     val route: RentalRoute get() = stack.last()
 }
@@ -59,6 +66,8 @@ data class RentalUiState(
 class RentalViewModel @Inject constructor(
     private val api: V1RentalGateway,
     private val operator: V1ContractGateway,
+    private val gateway: V1PaymentGateway,
+    private val hintsStore: SessionHintsStore,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(RentalUiState())
     val ui: StateFlow<RentalUiState> = _ui.asStateFlow()
@@ -71,7 +80,12 @@ class RentalViewModel @Inject constructor(
         revision++
         startedKey = key
         val root = linkedTenancyId?.let(RentalRoute::Tenancy) ?: RentalRoute.Tenancies
-        _ui.value = RentalUiState(roomId = roomId, tenantMode = linkedTenancyId != null, stack = listOf(root))
+        _ui.value = RentalUiState(
+            roomId = roomId,
+            tenantMode = linkedTenancyId != null,
+            stack = listOf(root),
+            checkoutIntent = hydrateCheckout(linkedTenancyId),
+        )
         load()
     }
 
@@ -143,7 +157,15 @@ class RentalViewModel @Inject constructor(
                     is RentalRoute.Notices -> publish(current) { it.copy(notices = api.notices(route.id)) }
                     is RentalRoute.Billing -> publish(current) { it.copy(billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id }) }
                     is RentalRoute.Payment -> publish(current) {
-                        it.copy(payments = api.payments(route.id).filter { payment -> payment.tenancyId == route.id }, payment = null)
+                        val payments = api.payments(route.id).filter { payment -> payment.tenancyId == route.id }
+                        val intent = it.checkoutIntent ?: hydrateCheckout(route.id)
+                        val checkout = intent?.checkoutId?.let { id -> runCatching { gateway.get(id) }.getOrNull() }
+                        it.copy(
+                            payments = payments,
+                            payment = null,
+                            checkoutIntent = intent,
+                            gatewayCheckout = checkout ?: it.gatewayCheckout,
+                        )
                     }
                     is RentalRoute.Deposit -> publish(current) {
                         val deposit = api.deposit(route.id)?.also {
@@ -255,6 +277,81 @@ class RentalViewModel @Inject constructor(
         }
     }
 
+    fun beginCheckout(tenancyId: String, amount: String) {
+        val normalized = amount.removeSuffix(".00") + ".00"
+        if (!validGatewayAmount(normalized)) {
+            _ui.update {
+                it.copy(error = "Amount phải là số nguyên VND từ 1.000 đến 50.000.000.", errorKind = "VALIDATION_OR_RESPONSE")
+            }
+            return
+        }
+        val status = _ui.value.linkedTenancyStatus ?: _ui.value.tenancy?.status
+        if (!canCreateGatewayCheckout(status) && _ui.value.checkoutIntent?.checkoutId == null) {
+            _ui.update { it.copy(error = "Lượt thuê hiện tại không được tạo checkout.", errorKind = "FORBIDDEN") }
+            return
+        }
+        val intent = rememberCheckoutBeforePost(tenancyId, normalized, _ui.value.checkoutIntent) {
+            UUID.randomUUID().toString()
+        }
+        persistHint(intent)
+        _ui.update {
+            it.copy(
+                checkoutIntent = intent,
+                checkoutLaunchUrl = null,
+                error = null,
+                errorKind = null,
+                success = null,
+            )
+        }
+        if (_ui.value.busy) return
+        val current = ++revision
+        _ui.update { it.copy(busy = true, checkoutCreateFailed = false) }
+        viewModelScope.launch {
+            try {
+                val created = gateway.create(intent.tenancyId, intent.amount, intent.idempotencyKey)
+                applyCheckout(current, tenancyId, intent, created, launchPayUrl = true)
+            } catch (error: Exception) {
+                if (revision == current) _ui.update { it.copy(checkoutCreateFailed = true) }
+                fail(current, error)
+            }
+        }
+    }
+
+    fun replayCheckout() {
+        val intent = _ui.value.checkoutIntent ?: return
+        val checkout = _ui.value.gatewayCheckout
+        if (checkout != null && !checkout.replayAllowed) {
+            _ui.update {
+                it.copy(
+                    error = checkout.replayBlockedReason ?: "Checkout không còn được replay.",
+                    errorKind = "FORBIDDEN",
+                )
+            }
+            return
+        }
+        beginCheckout(intent.tenancyId, intent.amount)
+    }
+
+    fun refreshGatewayCheckout() {
+        val id = _ui.value.checkoutIntent?.checkoutId ?: _ui.value.gatewayCheckout?.id ?: return
+        if (_ui.value.busy) return
+        val current = ++revision
+        val tenancyId = _ui.value.checkoutIntent?.tenancyId
+        val intent = _ui.value.checkoutIntent
+        _ui.update { it.copy(busy = true, error = null, errorKind = null, success = null) }
+        viewModelScope.launch {
+            try {
+                applyCheckout(current, tenancyId, intent, gateway.get(id), launchPayUrl = false)
+            } catch (error: Exception) {
+                fail(current, error)
+            }
+        }
+    }
+
+    fun consumeLaunchUrl() {
+        _ui.update { it.copy(checkoutLaunchUrl = null) }
+    }
+
     fun createDeposit(tenancyId: String) = write {
         require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể tạo thông tin tiền cọc." }
         val created = api.createDeposit(tenancyId)
@@ -315,6 +412,55 @@ class RentalViewModel @Inject constructor(
                 incidentEvents = api.incidentEvents(fresh.id).filter { event -> event.incidentId == fresh.id },
             )
         }
+    }
+
+    private suspend fun applyCheckout(
+        token: Int,
+        tenancyId: String?,
+        intent: CheckoutIntent?,
+        created: GatewayCheckout,
+        launchPayUrl: Boolean,
+    ) {
+        if (token != revision) return
+        val remembered = when {
+            intent != null -> rememberCheckoutId(intent, created.id)
+            else -> CheckoutIntent(created.tenancyId, created.amount, "", created.id)
+        }
+        persistHint(remembered)
+        val url = if (launchPayUrl) {
+            launchableHttpsPayUrl(created.payUrl, BuildConfig.DEBUG && BuildConfig.BACKEND_BACKED)
+        } else {
+            null
+        }
+        val payments = if (tenancyId != null && isConfirmedGatewayPayment(created)) {
+            api.payments(tenancyId).filter { payment -> payment.tenancyId == tenancyId }
+        } else {
+            _ui.value.payments
+        }
+        val confirmed = isConfirmedGatewayPayment(created) &&
+            payments.any { it.id == created.resultingPaymentId }
+        if (token != revision) return
+        _ui.update {
+            it.copy(
+                busy = false,
+                checkoutIntent = remembered,
+                gatewayCheckout = created,
+                checkoutLaunchUrl = url,
+                checkoutCreateFailed = manualCheckoutAvailable(created, false),
+                payments = payments,
+                success = if (confirmed) "Backend đã xác nhận Payment." else null,
+            )
+        }
+    }
+
+    private fun persistHint(intent: CheckoutIntent) {
+        hintsStore.upsertPendingCheckout(pendingHint(intent))
+    }
+
+    private fun hydrateCheckout(tenancyId: String?): CheckoutIntent? {
+        if (tenancyId.isNullOrBlank()) return null
+        val hint = hintsStore.read()?.pendingCheckouts?.firstOrNull { it.tenancyId == tenancyId } ?: return null
+        return CheckoutIntent(hint.tenancyId, hint.amount, hint.idempotencyKey, hint.checkoutId)
     }
 
     private fun write(block: suspend () -> Unit) {

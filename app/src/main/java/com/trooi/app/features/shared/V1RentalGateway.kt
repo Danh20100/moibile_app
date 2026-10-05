@@ -179,7 +179,7 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         require(source in setOf("MANUAL_CASH", "MANUAL_TRANSFER") && validMoney(amount)) { "Chỉ ghi nhận tiền đã thực nhận từ nguồn manual" }
         return read(client.postJson("finance/payments",
             obj("tenancyId" to tenancyId, "amount" to amount, "source" to source,
-                "verification" to "USER_RECORDED", "confirmedAt" to at).toString(), true), ::payment)
+                "confirmedAt" to at).toString(), true), ::payment)
     }
     suspend fun allocate(paymentId: String, chargeId: String, amount: String) : JsonObject {
         require(validMoney(amount)) { "Amount không hợp lệ" }
