@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import test from 'node:test';
@@ -7,6 +8,7 @@ import type {
   MomoCreatePaymentInput,
   MomoCreatePaymentResult,
   MomoIpnPayload,
+  MomoIpnExpectation,
   MomoPaymentClient,
 } from '../../src/modules/payment-gateway/momo/momo-client';
 import {
@@ -55,13 +57,13 @@ class FakeMomo implements MomoPaymentClient {
       deeplink: null,
     };
   }
-  verifyIpn(payload: MomoIpnPayload) {
-    return this.verifier.verifyIpn(payload);
+  verifyIpn(payload: MomoIpnPayload, expected?: MomoIpnExpectation) {
+    return this.verifier.verifyIpn(payload, expected);
   }
 }
 
-async function occupiedTenancy(clock?: () => Date) {
-  const transactions = createCoreTestTransactionManager();
+async function occupiedTenancy(clock?: () => Date, rollbackGatewayWrites = false) {
+  const transactions = createCoreTestTransactionManager({ rollbackGatewayWrites });
   await transactions.run(async ({ repositories }) => {
     await repositories.organization.createOrganization({
       organizationId: orgId,
@@ -187,6 +189,7 @@ test('verified IPN creates one GATEWAY PROVIDER_VERIFIED Payment and is idempote
   const ipn = signedIpn({
     orderId: stored.providerOrderId,
     requestId: stored.providerRequestId,
+    extraData: stored.requestSnapshot!.extraData,
     amount: 4470000,
   });
   await gateway.handleMomoIpn(ipn);
@@ -221,6 +224,7 @@ test('invalid IPN signature does not create a Payment', async () => {
       gateway.handleMomoIpn({
         orderId: stored.providerOrderId,
         requestId: stored.providerRequestId,
+    extraData: stored.requestSnapshot!.extraData,
         amount: 4470000,
         resultCode: 0,
         signature: 'deadbeef',
@@ -230,7 +234,7 @@ test('invalid IPN signature does not create a Payment', async () => {
   assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 0);
 });
 
-test('IPN amount mismatch fails checkout without Payment', async () => {
+test('IPN amount mismatch leaves checkout unchanged without Payment', async () => {
   const { billing, gateway, transactions } = await occupiedTenancy();
   const checkout = await gateway.createCheckout(
     { tenancyId, amount: '4470000.00' },
@@ -241,15 +245,24 @@ test('IPN amount mismatch fails checkout without Payment', async () => {
     repositories.finance.findGatewayCheckout(checkout.id),
   );
   assert.ok(stored);
-  await gateway.handleMomoIpn(
-    signedIpn({
-      orderId: stored.providerOrderId,
-      requestId: stored.providerRequestId,
-      amount: 1000,
-    }),
+  await assert.rejects(
+    gateway.handleMomoIpn(
+      signedIpn({
+        orderId: stored.providerOrderId,
+        requestId: stored.providerRequestId,
+        extraData: stored.requestSnapshot!.extraData,
+        amount: 1000,
+      }),
+    ),
+    /identity or amount/,
   );
   assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 0);
-  assert.equal((await gateway.findCheckout(checkout.id, tenantUserId)).status, 'FAILED');
+  assert.deepEqual(
+    await transactions.run(({ repositories }) =>
+      repositories.finance.findGatewayCheckout(checkout.id),
+    ),
+    stored,
+  );
 });
 
 test('MoMo checkout does not fund Deposit', async () => {
@@ -269,6 +282,7 @@ test('MoMo checkout does not fund Deposit', async () => {
     signedIpn({
       orderId: stored.providerOrderId,
       requestId: stored.providerRequestId,
+    extraData: stored.requestSnapshot!.extraData,
       amount: 4000000,
     }),
   );
@@ -448,6 +462,7 @@ test('concurrent same key has one dispatcher; late completion cannot erase callb
     signedIpn({
       orderId: stored.providerOrderId,
       requestId: stored.providerRequestId,
+    extraData: stored.requestSnapshot!.extraData,
       amount: 1000,
     }),
   );
@@ -571,4 +586,258 @@ test('expired owner completion cannot erase newer lease outcome', async () => {
   release();
   assert.equal((await first).status, 'CREATED');
   assert.deepEqual(momo.requests[0], momo.requests[1]);
+});
+
+test('verified pending, terminal duplicates and contradictions preserve terminal evidence', async (t) => {
+  const warning = t.mock.method(Logger.prototype, 'warn', () => undefined);
+  for (const firstCode of [0, 9000, 1006]) {
+    const { gateway, transactions, billing } = await occupiedTenancy();
+    const checkout = await gateway.createCheckout(
+      { tenancyId, amount: '1000' },
+      tenantUserId,
+      randomUUID(),
+    );
+    const read = () =>
+      transactions.run(({ repositories }) => repositories.finance.findGatewayCheckout(checkout.id));
+    const intent = (await read())!;
+    const event = (resultCode: number, transId = 123) =>
+      signedIpn({
+        orderId: intent.providerOrderId,
+        requestId: intent.providerRequestId,
+        amount: 1000,
+        extraData: intent.requestSnapshot!.extraData,
+        resultCode,
+        transId,
+      });
+    await gateway.handleMomoIpn(event(1000, 0));
+    assert.equal((await read())!.status, 'CREATED');
+    assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 0);
+    await gateway.handleMomoIpn(event(firstCode));
+    const terminal = await read();
+    assert.equal(terminal!.status, firstCode === 1006 ? 'FAILED' : 'SUCCEEDED');
+    assert.ok(terminal!.terminalEvidence);
+    await gateway.handleMomoIpn(event(firstCode));
+    await gateway.handleMomoIpn(event(7000, 0));
+    assert.deepEqual(await read(), terminal);
+    await assert.rejects(
+      gateway.handleMomoIpn(event(firstCode === 1006 ? 0 : 1006)),
+      /terminal conflict/,
+    );
+    if (firstCode !== 1006)
+      await assert.rejects(gateway.handleMomoIpn(event(0, 124)), /terminal conflict/);
+    assert.deepEqual(await read(), terminal);
+    assert.equal(
+      (await billing.findPaymentsByTenancyId(tenancyId)).length,
+      firstCode === 1006 ? 0 : 1,
+    );
+    const notices = await transactions.run(({ repositories }) =>
+      repositories.notification.findNotificationsByRecipient(tenantUserId),
+    );
+    assert.equal(notices.length, firstCode === 1006 ? 0 : 1);
+  }
+  assert.equal(warning.mock.callCount(), 5);
+  for (const call of warning.mock.calls) {
+    assert.deepEqual(Object.keys(call.arguments[0]).sort(),
+      ['checkoutId', 'message', 'outcome', 'resultCode', 'stage', 'storedOutcome', 'storedResultCode']);
+  }
+});
+
+test('signed identity conflicts and missing snapshots never mutate checkout', async () => {
+  const { gateway, transactions } = await occupiedTenancy();
+  const checkout = await gateway.createCheckout(
+    { tenancyId, amount: '1000' },
+    tenantUserId,
+    randomUUID(),
+  );
+  const read = () =>
+    transactions.run(({ repositories }) => repositories.finance.findGatewayCheckout(checkout.id));
+  const intent = (await read())!;
+  const base = {
+    orderId: intent.providerOrderId,
+    requestId: intent.providerRequestId,
+    amount: 1000,
+    extraData: intent.requestSnapshot!.extraData,
+  };
+  for (const change of [
+    { requestId: 'wrong' },
+    { extraData: 'wrong' },
+    { amount: 2000 },
+    { partnerCode: 'OTHER' },
+  ]) {
+    await assert.rejects(gateway.handleMomoIpn(signedIpn({ ...base, ...change })));
+    assert.deepEqual(await read(), intent);
+  }
+  await assert.rejects(
+    gateway.handleMomoIpn(signedIpn({ ...base, orderId: 'missing' })),
+    /not found/,
+  );
+  await transactions.run(({ repositories }) =>
+    repositories.finance.updateGatewayCheckout({
+      ...intent,
+      requestSnapshot: null,
+      providerPartnerCode: null,
+      replayBlocker: 'LEGACY_RECONCILIATION_REQUIRED',
+    }),
+  );
+  const legacy = await read();
+  await assert.rejects(gateway.handleMomoIpn(signedIpn(base)), /LEGACY_RECONCILIATION_REQUIRED/);
+  assert.deepEqual(await read(), legacy);
+});
+
+test('UNKNOWN intent settles and only authorized checkout creator receives a notification', async () => {
+  for (const creator of [tenantUserId, operatorUserId]) {
+    const { gateway, transactions, momo, billing } = await occupiedTenancy();
+    momo.dispatch = async () => {
+      throw new Error('transport timeout');
+    };
+    const checkout = await gateway.createCheckout(
+      { tenancyId, amount: '1000' },
+      creator,
+      randomUUID(),
+    );
+    assert.equal(checkout.status, 'UNKNOWN');
+    const intent = (await transactions.run(({ repositories }) =>
+      repositories.finance.findGatewayCheckout(checkout.id),
+    ))!;
+    await transactions.run(async ({ repositories }) => {
+      const participant = (await repositories.tenancy.findParticipantsByTenancy(tenancyId))[0]!;
+      await repositories.tenancy.updateParticipant({
+        ...participant,
+        leftAt: '2026-10-05T00:00:00Z',
+      });
+    });
+    await gateway.handleMomoIpn(
+      signedIpn({
+        orderId: intent.providerOrderId,
+        requestId: intent.providerRequestId,
+        amount: 1000,
+        extraData: intent.requestSnapshot!.extraData,
+      }),
+    );
+    assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 1);
+    const notices = await transactions.run(({ repositories }) =>
+      repositories.notification.findNotificationsByRecipient(creator),
+    );
+    const others = await transactions.run(({ repositories }) =>
+      repositories.notification.findNotificationsByRecipient(
+        creator === tenantUserId ? operatorUserId : tenantUserId,
+      ),
+    );
+    assert.equal(notices.length, 1);
+    assert.equal(others.length, 0);
+    const receipts = await transactions.run(({ repositories }) =>
+      repositories.finance.findReceiptsForPayment(),
+    );
+    assert.equal(receipts.length, 0);
+  }
+});
+
+test('settlement write failures roll back payment, checkout and notification then retry', async () => {
+  for (const failingWrite of ['payment', 'checkout', 'notification']) {
+    const { gateway, transactions, billing } = await occupiedTenancy(undefined, true);
+    const checkout = await gateway.createCheckout(
+      { tenancyId, amount: '1000' },
+      tenantUserId,
+      randomUUID(),
+    );
+    const read = () =>
+      transactions.run(({ repositories }) => repositories.finance.findGatewayCheckout(checkout.id));
+    const intent = (await read())!;
+    const ipn = signedIpn({
+      orderId: intent.providerOrderId,
+      requestId: intent.providerRequestId,
+      amount: 1000,
+      extraData: intent.requestSnapshot!.extraData,
+    });
+    await transactions.run(async ({ repositories }) => {
+      if (failingWrite === 'payment') {
+        const write = repositories.finance.insertPayment;
+        repositories.finance.insertPayment = async (record) => {
+          repositories.finance.insertPayment = write;
+          await write(record);
+          throw new Error('injected payment failure');
+        };
+      } else if (failingWrite === 'checkout') {
+        const write = repositories.finance.updateGatewayCheckout;
+        repositories.finance.updateGatewayCheckout = async (record) => {
+          repositories.finance.updateGatewayCheckout = write;
+          await write(record);
+          throw new Error('injected checkout failure');
+        };
+      } else {
+        const write = repositories.notification.createNotification;
+        repositories.notification.createNotification = async (record) => {
+          repositories.notification.createNotification = write;
+          await write(record);
+          throw new Error('injected notification failure');
+        };
+      }
+    });
+    await assert.rejects(gateway.handleMomoIpn(ipn), /injected/);
+    assert.deepEqual(await read(), intent);
+    assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 0);
+    assert.equal(
+      (
+        await transactions.run(({ repositories }) =>
+          repositories.notification.findNotificationsByRecipient(tenantUserId),
+        )
+      ).length,
+      0,
+    );
+    await gateway.handleMomoIpn(ipn);
+    assert.equal((await read())!.status, 'SUCCEEDED');
+    assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 1);
+    assert.equal(
+      (
+        await transactions.run(({ repositories }) =>
+          repositories.notification.findNotificationsByRecipient(tenantUserId),
+        )
+      ).length,
+      1,
+    );
+  }
+});
+
+test('successful duplicate requires its committed Payment and creator loss never redirects notification', async () => {
+  const { gateway, transactions, billing } = await occupiedTenancy();
+  const checkout = await gateway.createCheckout(
+    { tenancyId, amount: '1000' },
+    operatorUserId,
+    randomUUID(),
+  );
+  const intent = (await transactions.run(({ repositories }) =>
+    repositories.finance.findGatewayCheckout(checkout.id),
+  ))!;
+  await transactions.run(async ({ repositories }) => {
+    const organization = (await repositories.organization.findOrganization(orgId))!;
+    await repositories.organization.updateOrganization({
+      ...organization,
+      primaryOwnerUserId: 'replacement-owner',
+    });
+  });
+  const event = signedIpn({
+    orderId: intent.providerOrderId,
+    requestId: intent.providerRequestId,
+    amount: 1000,
+    extraData: intent.requestSnapshot!.extraData,
+  });
+  await gateway.handleMomoIpn(event);
+  assert.equal((await billing.findPaymentsByTenancyId(tenancyId)).length, 1);
+  for (const userId of [operatorUserId, tenantUserId, 'replacement-owner'])
+    assert.equal(
+      (
+        await transactions.run(({ repositories }) =>
+          repositories.notification.findNotificationsByRecipient(userId),
+        )
+      ).length,
+      0,
+    );
+  await transactions.run(async ({ repositories }) => {
+    const settled = (await repositories.finance.findGatewayCheckout(checkout.id))!;
+    await repositories.finance.updateGatewayCheckout({
+      ...settled,
+      resultingPaymentId: 'missing-payment',
+    });
+  });
+  await assert.rejects(gateway.handleMomoIpn(event), /requires reconciliation/);
 });

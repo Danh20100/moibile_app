@@ -36,7 +36,9 @@ import type {
 import type { TrustReportRecord } from '../../../src/persistence/ports/trust.repository';
 import type { NotificationRecord } from '../../../src/persistence/ports/notification.repository';
 
-export function createCoreTestTransactionManager(): TransactionManager {
+export function createCoreTestTransactionManager(
+  options: { rollbackGatewayWrites?: boolean } = {},
+): TransactionManager {
   const users = new Set<string>();
   const organizations = new Map<string, OrganizationRecord>();
   const properties = new Map<string, PropertyRecord>();
@@ -437,7 +439,28 @@ export function createCoreTestTransactionManager(): TransactionManager {
     },
   };
   return {
-    run: async (work) =>
-      work({ repositories: repositories as never, afterCommit: () => undefined }),
+    run: async (work) => {
+      // Optional sequential rollback double; real PostgreSQL tests own concurrency evidence.
+      const before = options.rollbackGatewayWrites
+        ? {
+            payments: structuredClone(payments),
+            checkouts: structuredClone(checkouts),
+            notifications: structuredClone(notifications),
+          }
+        : undefined;
+      try {
+        return await work({ repositories: repositories as never, afterCommit: () => undefined });
+      } catch (error) {
+        if (before) {
+          payments.clear();
+          before.payments.forEach((value, key) => payments.set(key, value));
+          checkouts.clear();
+          before.checkouts.forEach((value, key) => checkouts.set(key, value));
+          notifications.clear();
+          before.notifications.forEach((value, key) => notifications.set(key, value));
+        }
+        throw error;
+      }
+    },
   };
 }

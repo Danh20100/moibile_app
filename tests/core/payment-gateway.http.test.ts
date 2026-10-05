@@ -1,3 +1,8 @@
+import { HttpMomoPaymentClient } from '../../src/modules/payment-gateway/momo/momo-client';
+import { momoIpnRaw, signMomoRaw } from '../../src/modules/payment-gateway/momo/momo-hmac';
+import { PaymentGatewayService } from '../../src/modules/payment-gateway/services/payment-gateway.service';
+import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
+import { ResourceAuthorizationService } from '../../src/common/auth/resource-authorization.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -219,4 +224,170 @@ test('production Nest service resolves optional clock and auth defaults with MoM
   assert.ok(service instanceof PaymentGatewayService);
   await assert.rejects(service.findCheckout('absent', 'actor'), /not found/);
   assert.throws(() => disabled.snapshot('checkout'), /optional channel is unavailable/);
+});
+
+test('IPN numeric transport values are safe and nonnegative', async (t) => {
+  const app = await harness();
+  t.after(app.close);
+  for (const field of ['amount', 'transId', 'resultCode', 'responseTime']) {
+    for (const value of [-1, Number.MAX_SAFE_INTEGER + 1]) {
+      const response = await post(app.baseUrl, { ...payload, [field]: value });
+      assert.equal(response.status, 400, `${field}=${value}`);
+      await response.text();
+    }
+  }
+});
+
+async function settlementHarness(status: 'INITIATED' | 'UNKNOWN' = 'INITIATED') {
+  const transactions = createCoreTestTransactionManager();
+  const config = {
+    partnerCode: 'TEST',
+    accessKey: 'access',
+    secretKey: 'test-http-secret',
+    endpoint: 'https://test-payment.momo.vn',
+    ipnUrl: 'https://example.test/ipn',
+    redirectUrl: 'trooi://payment/momo',
+  };
+  const client = new HttpMomoPaymentClient(config);
+  const snapshot = client.snapshot('checkout-http');
+  await transactions.run(async ({ repositories }) => {
+    await repositories.tenancy.createTenancy(tenancy);
+    await repositories.tenancy.insertParticipant({
+      tenancyParticipantId: 'participant-http',
+      tenancyId: tenancy.tenancyId,
+      role: 'PRIMARY',
+      userId: 'creator-http',
+      joinedAt: tenancy.startedAt,
+      leftAt: null,
+    });
+    await repositories.finance.insertGatewayCheckout({
+      checkoutId: 'checkout-http',
+      tenancyId: tenancy.tenancyId,
+      createdByUserId: 'creator-http',
+      amount: '1000.00',
+      referenceCode: 'Rent',
+      provider: 'MOMO',
+      providerOrderId: payload.orderId,
+      providerRequestId: payload.requestId,
+      status,
+      idempotencyKey: '10000000-0000-4000-8000-000000000099',
+      fingerprint: 'test',
+      requestSnapshot: snapshot,
+      providerPartnerCode: 'TEST',
+      payUrl: null,
+      deeplink: null,
+      resultingPaymentId: null,
+      lastIpnPayload: null,
+      lastIpnAt: null,
+      createdAt: tenancy.startedAt,
+      updatedAt: tenancy.startedAt,
+      firstDispatchAt: null,
+      dispatchLeaseOwner: null,
+      dispatchLeaseUntil: null,
+      replayBlocker: null,
+      providerOutcome: null,
+      providerResultCode: null,
+      providerOutcomeStage: null,
+      terminalEvidence: null,
+      providerTransId: null,
+    });
+  });
+  const service = new PaymentGatewayService(new TenancyService(transactions), transactions, client);
+  const app = await startGatewayHttpHarness({
+    service,
+    authz: new ResourceAuthorizationService(transactions),
+    verifier: {
+      async verify() {
+        throw new UnauthorizedException();
+      },
+    },
+  });
+  const signed = (changes: Partial<typeof payload> = {}) => {
+    const event = { ...payload, extraData: snapshot.extraData, ...changes };
+    event.signature = signMomoRaw(
+      momoIpnRaw({
+        accessKey: config.accessKey,
+        partnerCode: event.partnerCode,
+        orderId: event.orderId,
+        requestId: event.requestId,
+        amount: String(event.amount),
+        orderInfo: event.orderInfo,
+        orderType: event.orderType,
+        transId: String(event.transId),
+        resultCode: String(event.resultCode),
+        message: event.message,
+        payType: event.payType,
+        responseTime: String(event.responseTime),
+        extraData: event.extraData,
+      }),
+      config.secretKey,
+    );
+    return event;
+  };
+  const read = () =>
+    transactions.run(async ({ repositories }) => ({
+      checkout: await repositories.finance.findGatewayCheckout('checkout-http'),
+      payments: await repositories.finance.findPaymentsForTenancy(tenancy.tenancyId),
+      notifications: await repositories.notification.findNotificationsByRecipient('creator-http'),
+    }));
+  return { ...app, signed, read };
+}
+
+test('final_failure_rejects_success_reversal', async (t) => {
+  const app = await settlementHarness();
+  t.after(app.close);
+  const failure = await post(app.baseUrl, app.signed({ resultCode: 1006 }));
+  assert.equal(failure.status, 204);
+  assert.equal(await failure.text(), '');
+  const terminal = await app.read();
+  const lateSuccess = await post(app.baseUrl, app.signed());
+  assert.equal(lateSuccess.status, 409);
+  await lateSuccess.text();
+  const { checkout: storedCheckout, payments: insertedPayments } = await app.read();
+  assert.equal(storedCheckout!.status, 'FAILED');
+  assert.equal(insertedPayments.length, 0);
+  for (const resultCode of [1006, 1000]) {
+    const duplicate = await post(app.baseUrl, app.signed({ resultCode }));
+    assert.equal(duplicate.status, 204);
+    assert.equal(await duplicate.text(), '');
+  }
+  assert.deepEqual(await app.read(), terminal);
+});
+
+test('actual HTTP verified one-step success is atomic and terminal', async (t) => {
+  const app = await settlementHarness('UNKNOWN');
+  t.after(app.close);
+  for (const changes of [{ requestId: 'wrong' }, { amount: 2000 }, { extraData: 'wrong' }]) {
+    const before = await app.read();
+    const response = await post(app.baseUrl, app.signed(changes));
+    assert.equal(response.status, 409);
+    await response.text();
+    assert.deepEqual(await app.read(), before);
+  }
+  const invalid = await post(app.baseUrl, { ...app.signed(), signature: 'invalid' });
+  assert.equal(invalid.status, 401);
+  await invalid.text();
+  const pending = await post(app.baseUrl, app.signed({ resultCode: 7000, transId: 0 }));
+  assert.equal(pending.status, 204);
+  await pending.text();
+  assert.equal((await app.read()).payments.length, 0);
+  for (const resultCode of [9000, 0]) {
+    const success = await post(app.baseUrl, app.signed({ resultCode }));
+    assert.equal(success.status, 204);
+    assert.equal(await success.text(), '');
+  }
+  const terminal = await app.read();
+  assert.equal(terminal.checkout!.status, 'SUCCEEDED');
+  assert.equal(terminal.payments.length, 1);
+  assert.equal(terminal.notifications.length, 1);
+  assert.equal(terminal.checkout!.resultingPaymentId, terminal.payments[0]!.paymentId);
+  for (const changes of [{ resultCode: 1006 }, { transId: 456 }]) {
+    const conflict = await post(app.baseUrl, app.signed(changes));
+    assert.equal(conflict.status, 409);
+    await conflict.text();
+  }
+  const latePending = await post(app.baseUrl, app.signed({ resultCode: 1000, transId: 0 }));
+  assert.equal(latePending.status, 204);
+  await latePending.text();
+  assert.deepEqual(await app.read(), terminal);
 });

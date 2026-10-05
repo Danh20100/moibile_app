@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Matches, Min, Max } from 'class-validator';
 
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
@@ -95,17 +95,25 @@ export class MomoIpnDto {
 
   @ApiProperty()
   @IsInt()
+  @Min(1000)
+  @Max(50000000)
   amount!: number;
 
   @ApiProperty()
   @IsInt()
+  @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
   transId!: number;
 
   @ApiProperty()
   @IsInt()
+  @Min(0)
+  @Max(2147483647)
   resultCode!: number;
 
   @ApiProperty()
   @IsInt()
+  @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
   responseTime!: number;
 }

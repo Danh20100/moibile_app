@@ -8,6 +8,7 @@ import {
   ServiceUnavailableException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -62,6 +63,8 @@ export const GATEWAY_CLOCK = Symbol('GATEWAY_CLOCK');
 
 @Injectable()
 export class PaymentGatewayService {
+  private readonly logger = new Logger(PaymentGatewayService.name);
+
   constructor(
     @Inject(TenancyService) private readonly tenancyService: TenancyService,
     @Inject(TRANSACTION_MANAGER) private readonly tx: TransactionManager,
@@ -285,71 +288,146 @@ export class PaymentGatewayService {
     if (!this.momo.verifyIpn(payload)) {
       throw new UnauthorizedException('Invalid MoMo IPN signature');
     }
-    const now = new Date().toISOString();
-    await this.tx.run(async ({ repositories }) => {
-      const existing = await repositories.finance.findGatewayCheckoutByOrderId(payload.orderId);
-      if (!existing)
-        throw new NotFoundException(`Gateway checkout not found for order ${payload.orderId}`);
-      await repositories.finance.lockGatewayCheckout(existing.checkoutId);
-      const locked = await repositories.finance.findGatewayCheckout(existing.checkoutId);
-      if (!locked)
-        throw new NotFoundException(`Gateway checkout not found: ${existing.checkoutId}`);
-      if (locked.status === 'SUCCEEDED' && locked.resultingPaymentId) {
-        return;
-      }
-      const ipnAmount = String(payload.amount);
-      const checkoutVnd = String(vndInteger(locked.amount));
-      const failed = String(payload.resultCode) !== '0' || ipnAmount !== checkoutVnd;
-      if (failed) {
-        await repositories.finance.updateGatewayCheckout({
+    const now = this.clock().toISOString();
+    try {
+      await this.tx.run(async (context) => {
+        const { repositories } = context;
+        const existing = await repositories.finance.findGatewayCheckoutByOrderId(payload.orderId);
+        if (!existing) throw new NotFoundException('Gateway checkout not found');
+        await repositories.finance.lockGatewayCheckout(existing.checkoutId);
+        const locked = await repositories.finance.findGatewayCheckout(existing.checkoutId);
+        if (!locked) throw new NotFoundException('Gateway checkout not found');
+        if (
+          !locked.requestSnapshot ||
+          !locked.providerPartnerCode ||
+          locked.requestSnapshot.requestType !== 'captureWallet' ||
+          locked.requestSnapshot.autoCapture !== true
+        )
+          throw new ConflictException('LEGACY_RECONCILIATION_REQUIRED');
+        if (
+          !this.momo.verifyIpn(payload, {
+            partnerCode: locked.providerPartnerCode,
+            orderId: locked.providerOrderId,
+            requestId: locked.providerRequestId,
+            amountVnd: vndInteger(locked.amount),
+            extraData: locked.requestSnapshot.extraData,
+          })
+        )
+          throw new ConflictException('MoMo IPN identity or amount conflict');
+        const resultCode = Number(payload.resultCode);
+        const outcome = classifyMomoResult(
+          'PAYMENT_IPN',
+          resultCode,
+          locked.requestSnapshot.autoCapture,
+        );
+        const success = outcome === 'PAYMENT_SUCCEEDED';
+        const failure = outcome === 'FINAL_FAILURE';
+        const transId = String(payload.transId);
+        if (locked.status === 'SUCCEEDED' || locked.status === 'FAILED') {
+          if (
+            (locked.status === 'FAILED' && success) ||
+            (locked.status === 'SUCCEEDED' &&
+              (failure || (success && locked.providerTransId !== transId)))
+          ) {
+            this.logger.warn({
+              message: 'MoMo IPN terminal conflict',
+              checkoutId: locked.checkoutId,
+              stage: 'PAYMENT_IPN',
+              storedOutcome: locked.providerOutcome,
+              storedResultCode: locked.providerResultCode,
+              outcome,
+              resultCode,
+            });
+            throw new ConflictException('MoMo IPN terminal conflict');
+          }
+          if (locked.status === 'SUCCEEDED') {
+            const payment =
+              locked.resultingPaymentId &&
+              (await repositories.finance.findPayment(locked.resultingPaymentId));
+            if (
+              !payment ||
+              payment.tenancyId !== locked.tenancyId ||
+              payment.amount !== locked.amount ||
+              payment.source !== 'GATEWAY' ||
+              payment.verification !== 'PROVIDER_VERIFIED'
+            )
+              throw new ConflictException('MoMo settlement requires reconciliation');
+          }
+          return;
+        }
+        // Store only verified reconciliation fields; signatures and free-form provider text are excluded.
+        const evidence = JSON.stringify({ stage: 'PAYMENT_IPN', resultCode, outcome, transId });
+        const observed: GatewayCheckoutRecord = {
           ...locked,
-          status: 'FAILED',
-          lastIpnPayload: JSON.stringify(payload),
+          providerOutcome: outcome,
+          providerResultCode: resultCode,
+          providerOutcomeStage: 'PAYMENT_IPN',
+          lastIpnPayload: evidence,
           lastIpnAt: now,
           updatedAt: now,
-        });
-        return;
-      }
-      const paymentId = randomUUID();
-      const payment: PaymentRecord = {
-        paymentId,
-        tenancyId: locked.tenancyId,
-        amount: locked.amount,
-        source: 'GATEWAY',
-        verification: 'PROVIDER_VERIFIED',
-        confirmedAt: now,
-        voidedOrReversedAt: null,
-        correctionNote: null,
-        replacementPaymentId: null,
-      };
-      await repositories.finance.insertPayment(payment);
-      await repositories.finance.updateGatewayCheckout({
-        ...locked,
-        status: 'SUCCEEDED',
-        resultingPaymentId: paymentId,
-        lastIpnPayload: JSON.stringify(payload),
-        lastIpnAt: now,
-        updatedAt: now,
-      });
-      if (repositories.notification) {
-        const participants = await repositories.tenancy?.findParticipantsByTenancy(
-          locked.tenancyId,
-        );
-        const linked = participants?.find((p) => p.userId && p.leftAt === null);
-        if (linked?.userId) {
-          await repositories.notification.createNotification({
-            notificationId: randomUUID(),
-            recipientUserId: linked.userId,
-            category: 'PAYMENT_CONFIRMED',
-            messageOrPayloadReference: `payment:${paymentId}`,
-            deliveryStatus: 'PENDING',
-            createdAt: now,
-            deliveredAt: null,
-            readAt: null,
+          dispatchLeaseOwner: null,
+          dispatchLeaseUntil: null,
+          replayBlocker:
+            outcome === 'PENDING'
+              ? 'PROVIDER_PENDING'
+              : outcome === 'RETRYABLE_NON_FINAL'
+                ? 'PROVIDER_CONFIGURATION_REQUIRED'
+                : outcome === 'RECONCILE'
+                  ? 'RECONCILIATION_REQUIRED'
+                  : null,
+        };
+        if (!success) {
+          await repositories.finance.updateGatewayCheckout({
+            ...observed,
+            status: failure ? 'FAILED' : locked.status,
+            terminalEvidence: failure ? evidence : locked.terminalEvidence,
           });
+          return;
         }
-      }
-    });
+        const paymentId = randomUUID();
+        const payment: PaymentRecord = {
+          paymentId,
+          tenancyId: locked.tenancyId,
+          amount: locked.amount,
+          source: 'GATEWAY',
+          verification: 'PROVIDER_VERIFIED',
+          confirmedAt: now,
+          voidedOrReversedAt: null,
+          correctionNote: null,
+          replacementPaymentId: null,
+        };
+        await repositories.finance.insertPayment(payment);
+        await repositories.finance.updateGatewayCheckout({
+          ...observed,
+          status: 'SUCCEEDED',
+          resultingPaymentId: paymentId,
+          providerTransId: transId,
+          terminalEvidence: evidence,
+        });
+        // Reuse the existing read contract against this transaction, including former participants.
+        const authorization = new ResourceAuthorizationService({ run: (work) => work(context) });
+        try {
+          await authorization.assertCanReadTenancy(locked.createdByUserId, locked.tenancyId);
+        } catch (error) {
+          if (error instanceof ForbiddenException) return;
+          throw error;
+        }
+        await repositories.notification.createNotification({
+          notificationId: randomUUID(),
+          recipientUserId: locked.createdByUserId,
+          category: 'PAYMENT_CONFIRMED',
+          messageOrPayloadReference: `payment:${paymentId}`,
+          deliveryStatus: 'PENDING',
+          createdAt: now,
+          deliveredAt: null,
+          readAt: null,
+        });
+      });
+    } catch (error) {
+      if (error instanceof PersistenceUniqueViolation)
+        throw new ConflictException('MoMo settlement identity conflict');
+      throw error;
+    }
   }
 
   private toCheckout(
