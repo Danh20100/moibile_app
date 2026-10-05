@@ -11,6 +11,7 @@ data class TroOiSnapshot(
 )
 
 data class UserSession(
+    val userId: String,
     val displayName: String,
     /** Relationships/capabilities are issued by the authorized Backend, not selected at login. */
     val access: AccessCapabilities,

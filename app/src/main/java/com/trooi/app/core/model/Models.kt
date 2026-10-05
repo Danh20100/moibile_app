@@ -42,6 +42,9 @@ data class TroOiUiState(
     val inquiryCompletedListingId: String? = null,
     val inquiryError: String? = null,
     val snackbarMessage: String? = null,
+    val sessionRestoring: Boolean = false,
+    val restoreFailed: Boolean = false,
+    val backendUserId: String = "",
 )
 
 /** Only UI routing and relationship checks: the backend remains the authority for operations. */

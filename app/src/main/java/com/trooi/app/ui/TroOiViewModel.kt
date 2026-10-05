@@ -4,6 +4,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.trooi.app.BuildConfig
 import com.trooi.app.core.auth.GoogleCredentialAuth
+import com.trooi.app.core.auth.RestoreOutcome
+import com.trooi.app.core.auth.SessionHints
+import com.trooi.app.core.auth.SessionHintsStore
+import com.trooi.app.core.auth.restoreVerifiedSession
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.TransportOutcome
 import androidx.lifecycle.viewModelScope
@@ -14,6 +18,7 @@ import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.auth.isValidPassword
 import com.trooi.app.features.auth.isValidSignup
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +32,8 @@ class TroOiViewModel @Inject constructor(
     private val repository: TroOiRepository,
     private val backendApi: BackendApi,
     private val googleCredentialAuth: GoogleCredentialAuth,
+    private val hintsStore: SessionHintsStore,
+    @param:ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
     private val _state = MutableStateFlow(
@@ -39,6 +46,8 @@ class TroOiViewModel @Inject constructor(
     /** Invalidates late auth and authorized read callbacks on logout/account change. */
     private var sessionGeneration = 0
     private var authenticationJob: Job? = null
+    private var restoreStarted = false
+    private var expiredAuthRetried = false
 
     init {
         if (BuildConfig.BACKEND_BACKED) refreshPublicListings()
@@ -77,7 +86,64 @@ class TroOiViewModel @Inject constructor(
 
     fun selectContext(context: SelectedContext) {
         sessionGeneration++
-        _state.update { current -> applySelection(current, context, keepPage = false) }
+        _state.update { current ->
+            val next = applySelection(current, context, keepPage = false)
+            persistHints(next.backendUserId, next.selectedContext)
+            next
+        }
+    }
+
+    fun bootstrapRestore(context: Context) {
+        if (!BuildConfig.BACKEND_BACKED || restoreStarted) return
+        restoreStarted = true
+        val startedAt = sessionGeneration
+        _state.update { it.copy(sessionRestoring = true, restoreFailed = false) }
+        viewModelScope.launch {
+            var captured: UserSession? = null
+            val outcome = restoreVerifiedSession(
+                reacquire = { googleCredentialAuth.reacquireIdToken(context) },
+                authenticateGoogle = { token ->
+                    repository.authenticateWithGoogleIdToken(token).onSuccess { captured = it }.map { }
+                },
+                loadMe = { captured?.let { Result.success(it) } ?: repository.refreshSessionContext() },
+                hintsFor = { userId -> hintsStore.read()?.takeIf { it.userId == userId } },
+            )
+            if (startedAt != sessionGeneration) return@launch
+            when (outcome) {
+                is RestoreOutcome.Restored -> {
+                    sessionGeneration++
+                    expiredAuthRetried = false
+                    _state.update {
+                        applyAuthenticatedSession(it, outcome.session, resetRead = false).copy(
+                            selectedContext = outcome.resolution.selection,
+                            activeContext = if (outcome.resolution.needsPicker) {
+                                AppContext.DISCOVERY
+                            } else {
+                                appContextFor(outcome.resolution.selection)
+                            },
+                            page = destinationPage(outcome.resolution),
+                            sessionRestoring = false,
+                            restoreFailed = false,
+                        )
+                    }
+                    persistHints(outcome.session.userId, outcome.resolution.selection)
+                    refreshAuthorizedRead(outcome.session.access)
+                }
+                RestoreOutcome.NeedsLogin ->
+                    _state.update { it.copy(sessionRestoring = false, restoreFailed = false) }
+                RestoreOutcome.FailedClosed -> {
+                    repository.clearSession()
+                    _state.update {
+                        it.copy(sessionRestoring = false, restoreFailed = true, isAuthenticated = false)
+                    }
+                }
+            }
+        }
+    }
+
+    fun retryRestore(context: Context) {
+        restoreStarted = false
+        bootstrapRestore(context)
     }
 
     fun openNotification(notificationId: String) {
@@ -351,13 +417,18 @@ class TroOiViewModel @Inject constructor(
 
     fun logout() {
         sessionGeneration++
+        restoreStarted = false
+        expiredAuthRetried = false
         authenticationJob?.cancel()
         authenticationJob = null
+        hintsStore.clear()
         repository.clearSession()
+        viewModelScope.launch { googleCredentialAuth.clearCredentialState(appContext) }
         _state.update { current ->
             current.copy(
                 isAuthenticated = false,
                 displayName = "",
+                backendUserId = "",
                 access = AccessCapabilities(),
                 read = FrontendReadSnapshot(
                     publicListings = publicDiscoveryFeed(current.read.publicListings),
@@ -371,6 +442,8 @@ class TroOiViewModel @Inject constructor(
                 inquiryCompletedListingId = null,
                 inquiryError = null,
                 snackbarMessage = null,
+                sessionRestoring = false,
+                restoreFailed = false,
             )
         }
     }
@@ -397,16 +470,29 @@ class TroOiViewModel @Inject constructor(
         session: UserSession,
         resetRead: Boolean = true,
     ): TroOiUiState {
-        val resolved = landingFor(session.access)
+        val remembered = hintsStore.read()
+            ?.takeIf { it.userId == session.userId && it.restoreEnabled }
+            ?.selectedContext
+        val resolved = landingFor(session.access, remembered)
+        persistHints(session.userId, resolved.selection)
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
+            backendUserId = session.userId,
             access = session.access,
             read = if (resetRead) snapshot.read else current.read,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
             page = destinationPage(resolved),
+            sessionRestoring = false,
+            restoreFailed = false,
         )
+    }
+
+    private fun persistHints(userId: String, selected: SelectedContext) {
+        if (userId.isBlank()) return
+        val pending = hintsStore.read()?.takeIf { it.userId == userId }?.pendingCheckouts.orEmpty()
+        hintsStore.write(SessionHints(userId, true, selected, pending))
     }
 
     private fun applyReconciledAccess(

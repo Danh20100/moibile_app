@@ -34,6 +34,7 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
     override suspend fun login(identifier: String, password: String): Result<UserSession> =
         Result.success(
             UserSession(
+                userId = "demo-user",
                 displayName = "Tài khoản minh hoạ",
                 access = AccessCapabilities(
                     linkedTenancyIds = setOf("demo-tenancy-1"),
@@ -43,7 +44,7 @@ class TroOiRepositoryImpl @Inject constructor() : TroOiRepository {
         )
 
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> =
-        Result.success(UserSession(fullName.trim(), AccessCapabilities()))
+        Result.success(UserSession("demo-user", fullName.trim(), AccessCapabilities()))
 
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> =
         Result.failure(IllegalStateException("Preview chỉ hiển thị giao diện; chưa gửi yêu cầu khôi phục."))

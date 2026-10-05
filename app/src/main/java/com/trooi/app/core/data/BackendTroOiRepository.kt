@@ -19,6 +19,7 @@ class BackendTroOiRepository @Inject constructor(
     override suspend fun refreshSessionContext(): Result<UserSession> = try {
         val session = api.getSessionContext().required("session context")
         Result.success(UserSession(
+            userId = session.userId,
             displayName = session.name ?: session.email ?: session.userId,
             access = AccessCapabilities(
                 linkedTenancyIds = session.linkedTenancyIds.toSet(),
@@ -60,6 +61,7 @@ class BackendTroOiRepository @Inject constructor(
             val displayName = session.name ?: principal.name ?: session.email ?: principal.email ?: session.userId
             Result.success(
                 UserSession(
+                    userId = session.userId,
                     displayName = displayName,
                     access = AccessCapabilities(
                         linkedTenancyIds = session.linkedTenancyIds.toSet(),

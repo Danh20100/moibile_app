@@ -38,7 +38,8 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
     val activity = LocalActivity.current
     val context = LocalContext.current
     val useNavigationRail = LocalConfiguration.current.screenWidthDp >= 600
-    val rootNavigationVisible = when (state.activeContext) {
+    LaunchedEffect(Unit) { viewModel.bootstrapRestore(context) }
+    val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(
             AppPage.Discovery, AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
         )
@@ -100,7 +101,16 @@ fun TroOiApp(viewModel: TroOiViewModel = hiltViewModel()) {
                     V1AdaptiveNavigationRail(state, viewModel)
                 }
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
-                if (BuildConfig.BACKEND_BACKED && state.page in setOf(
+                if (state.sessionRestoring) {
+                    V1Panel("Đang khôi phục phiên") {
+                        V1Pending("Đang xác minh tài khoản với Backend.")
+                    }
+                } else if (state.restoreFailed) {
+                    V1Panel("Không khôi phục được phiên") {
+                        V1Pending("Phiên trước không thể được xác minh lại.")
+                        V1Action("Thử lại", { viewModel.retryRestore(context) })
+                    }
+                } else if (BuildConfig.BACKEND_BACKED && state.page in setOf(
                         AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
                     )) {
                     BackendGoogleAuthentication(
