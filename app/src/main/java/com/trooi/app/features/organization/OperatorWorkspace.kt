@@ -15,6 +15,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.LedgerSurface
+import com.trooi.app.features.discovery.LocationFormState
+import com.trooi.app.features.discovery.LocationPickerMap
+import com.trooi.app.features.discovery.canCreateListing
+import com.trooi.app.features.discovery.canCreateProperty
+import com.trooi.app.features.discovery.confirmPublicPin
+import com.trooi.app.features.discovery.setPrivateAddress
+import com.trooi.app.features.discovery.setPrivatePin
+import com.trooi.app.features.discovery.setPublicPin
 import com.trooi.app.features.shared.*
 import com.trooi.app.features.tenancy.RentalRoute
 import com.trooi.app.ui.components.*
@@ -40,13 +48,9 @@ fun V1OperatorWorkspace(
     }
     BackHandler(enabled = ui.stack.size > 1) { model.back() }
     var name by remember(ui.route) { mutableStateOf("") }
-    var address by remember(ui.route) { mutableStateOf("") }
-    var opLat by remember(ui.route) { mutableStateOf("") }
-    var opLng by remember(ui.route) { mutableStateOf("") }
-    var publicLat by remember(ui.route) { mutableStateOf("") }
-    var publicLng by remember(ui.route) { mutableStateOf("") }
     var description by remember(ui.route) { mutableStateOf("") }
     var price by remember(ui.route) { mutableStateOf("") }
+    var locationForm by remember(ui.route) { mutableStateOf(LocationFormState()) }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
         V1RentalWorkspace(
@@ -162,19 +166,42 @@ fun V1OperatorWorkspace(
                     V1Panel("Tạo khu nhà") {
                         Text("Địa chỉ vận hành được giữ riêng với vị trí công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         V1Input(name, { name = it }, "Tên khu nhà", "property-name")
-                        V1Input(address, { address = it }, "Địa chỉ vận hành (riêng tư)", "private-address")
-                        V1Input(opLat, { opLat = it }, "Operational latitude", "operational-latitude")
-                        V1Input(opLng, { opLng = it }, "Operational longitude", "operational-longitude")
-                        V1Input(publicLat, { publicLat = it }, "Public latitude (tọa độ công khai)", "public-latitude")
-                        V1Input(publicLng, { publicLng = it }, "Public longitude (tọa độ công khai)", "public-longitude")
+                        V1Input(
+                            locationForm.privateLocation.address,
+                            { locationForm = setPrivateAddress(locationForm, it) },
+                            "Địa chỉ vận hành (riêng tư)",
+                            "private-address",
+                        )
+                        LocationPickerMap(
+                            "pin vận hành",
+                            locationForm.privateLocation.point,
+                            { locationForm = setPrivatePin(locationForm, it) },
+                            "private-pin-map",
+                        )
+                        LocationPickerMap(
+                            "pin công khai",
+                            locationForm.publicLocation.point,
+                            { locationForm = setPublicPin(locationForm, it) },
+                            "public-pin-map",
+                        )
+                        V1Action(
+                            if (locationForm.publicLocation.confirmed) "Đã xác nhận pin công khai" else "Xác nhận pin công khai",
+                            { locationForm = confirmPublicPin(locationForm) },
+                            enabled = locationForm.publicLocation.point != null && !locationForm.publicLocation.confirmed,
+                            modifier = Modifier.fillMaxWidth().testTag("confirm-public-pin"),
+                        )
+                        V1Pending("Pin công khai phải chọn và xác nhận riêng; không sao chép từ địa chỉ hoặc pin vận hành.")
                         V1Action("Tạo khu nhà", {
-                            val coordinates = listOf(opLat, opLng, publicLat, publicLng).map(String::toDoubleOrNull)
-                            if (coordinates.all { it != null }) model.createProperty(
-                                route.organizationId, name, address,
-                                coordinates[0]!!, coordinates[1]!!, coordinates[2]!!, coordinates[3]!!,
+                            val privatePoint = locationForm.privateLocation.point ?: return@V1Action
+                            val publicPoint = locationForm.publicLocation.point ?: return@V1Action
+                            model.createProperty(
+                                route.organizationId,
+                                name,
+                                locationForm.privateLocation.address,
+                                privatePoint,
+                                publicPoint,
                             )
-                        }, enabled = !ui.busy && name.isNotBlank() && address.isNotBlank() &&
-                            listOf(opLat, opLng, publicLat, publicLng).all { it.toDoubleOrNull() != null },
+                        }, enabled = !ui.busy && canCreateProperty(name, locationForm),
                             modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -302,15 +329,22 @@ fun V1OperatorWorkspace(
                         V1Input(name, { name = it }, "Tiêu đề công khai", "listing-title")
                         V1Input(description, { description = it }, "Mô tả công khai", "listing-description")
                         V1Input(price, { price = it.filter(Char::isDigit).take(16) }, "Giá công khai (VND)", "listing-price")
-                        V1Input(publicLat, { publicLat = it }, "Vĩ độ công khai · thiết lập nâng cao", "listing-public-latitude")
-                        V1Input(publicLng, { publicLng = it }, "Kinh độ công khai · thiết lập nâng cao", "listing-public-longitude")
+                        LocationPickerMap(
+                            "pin công khai của tin đăng",
+                            locationForm.publicLocation.point,
+                            { locationForm = setPublicPin(locationForm, it) },
+                            "listing-public-pin-map",
+                        )
+                        V1Action(
+                            if (locationForm.publicLocation.confirmed) "Đã xác nhận pin công khai" else "Xác nhận pin công khai",
+                            { locationForm = confirmPublicPin(locationForm) },
+                            enabled = locationForm.publicLocation.point != null && !locationForm.publicLocation.confirmed,
+                            modifier = Modifier.fillMaxWidth().testTag("confirm-listing-public-pin"),
+                        )
                         V1Action("Tạo bản nháp", {
-                            model.createListing(route, name, description, price,
-                                publicLat.toDouble(), publicLng.toDouble())
-                        }, enabled = !ui.busy && name.isNotBlank() && description.isNotBlank() &&
-                            price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) &&
-                            (publicLat.toDoubleOrNull()?.let { it in -90.0..90.0 } == true) &&
-                            (publicLng.toDoubleOrNull()?.let { it in -180.0..180.0 } == true))
+                            val publicPoint = locationForm.publicLocation.point ?: return@V1Action
+                            model.createListing(route, name, description, price, publicPoint)
+                        }, enabled = !ui.busy && canCreateListing(name, description, price, locationForm.publicLocation))
                     }
                 }
                 ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->

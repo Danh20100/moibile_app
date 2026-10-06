@@ -120,3 +120,21 @@ fun NativeMapView(
         },
     )
 }
+
+@Composable
+fun LocationPickerMap(
+    label: String,
+    selectedPoint: PublicGeoPoint?,
+    onPick: (PublicGeoPoint) -> Unit,
+    testTag: String,
+) {
+    V1Pending(if (selectedPoint == null) "Chạm bản đồ để chọn $label." else "Đã chọn $label.")
+    NativeMapView(
+        publicMarkers = emptyList(),
+        selectedPoint = selectedPoint,
+        onCameraCenter = {},
+        onMarkerListing = {},
+        onPick = onPick,
+        modifier = Modifier.testTag(testTag),
+    )
+}

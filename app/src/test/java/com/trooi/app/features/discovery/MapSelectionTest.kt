@@ -5,6 +5,7 @@ import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.core.model.publicMapPoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,5 +65,35 @@ class MapSelectionTest {
         val query = cameraSearch(usableCamera(camera, null, true)!!, PublicDiscoveryFilters(radiusMeters = 1000))
         assertEquals(1000.0, query!!.radiusMeters, 0.0)
         assertEquals(10.75, query.latitude, 0.0)
+    }
+
+    @Test
+    fun privatePinDoesNotCopyToPublicOrInventFromAddress() {
+        val privatePoint = PublicGeoPoint(10.76, 106.68)
+        val publicPoint = PublicGeoPoint(10.79, 106.71)
+        var form = setPrivateAddress(LocationFormState(), "12 Nguyễn Huệ")
+        assertNull(form.publicLocation.point)
+        assertNull(form.privateLocation.point)
+        form = setPrivatePin(form, privatePoint)
+        assertEquals(privatePoint, form.privateLocation.point)
+        assertNull(form.publicLocation.point)
+        assertFalse(form.publicLocation.confirmed)
+        assertFalse(canCreateProperty("Nhà A", form))
+        form = setPublicPin(form, publicPoint)
+        assertEquals(privatePoint, form.privateLocation.point)
+        assertEquals(publicPoint, form.publicLocation.point)
+        assertFalse(form.publicLocation.confirmed)
+        assertFalse(canCreateProperty("Nhà A", form))
+        form = confirmPublicPin(form)
+        assertTrue(canCreateProperty("Nhà A", form))
+        assertEquals("12 Nguyễn Huệ", form.privateLocation.address)
+    }
+
+    @Test
+    fun listingCreateNeedsIndependentConfirmedPublicPin() {
+        val public = PublicListingLocation(PublicGeoPoint(10.77, 106.69), confirmed = false)
+        assertFalse(canCreateListing("Tin A", "Mô tả", "3500000", public))
+        assertFalse(canCreateListing("Tin A", "Mô tả", "3500000", PublicListingLocation()))
+        assertTrue(canCreateListing("Tin A", "Mô tả", "3500000", public.copy(confirmed = true)))
     }
 }

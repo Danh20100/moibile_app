@@ -1,6 +1,7 @@
 package com.trooi.app.features
 
 import com.google.gson.JsonParser
+import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.network.InMemoryAuthTokenProvider
 import com.trooi.app.features.shared.*
@@ -40,7 +41,13 @@ class V1CompletionContractTest {
         MockWebServer().use { server ->
             server.ok("""{"id":"p-1","organizationId":"org-1","name":"Khu nhà","lifecycleStatus":"active","operationalAddressText":"PRIVATE","operationalLocation":{"latitude":10.9,"longitude":106.8},"publicLocationProjection":{"latitude":10.8,"longitude":106.7}}""", 201)
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val value = V1ContractGateway(client(server)).createProperty("org-1","Khu nhà","PRIVATE",10.9,106.8,10.8,106.7)
+            val value = V1ContractGateway(client(server)).createProperty(
+                "org-1",
+                "Khu nhà",
+                "PRIVATE",
+                PublicGeoPoint(10.9, 106.8),
+                PublicGeoPoint(10.8, 106.7),
+            )
             assertEquals("org-1", value.organizationId)
             val request = server.takeRequest()
             val sent = JsonParser.parseString(request.body.readUtf8()).asJsonObject
@@ -255,7 +262,7 @@ class V1CompletionContractTest {
             server.start(InetAddress.getLoopbackAddress(), 0)
             val api = V1ContractGateway(client(server))
             assertTrue(runCatching { api.organization("../foreign") }.isFailure)
-            assertTrue(runCatching { api.createProperty("org","name","private",100.0,106.0,10.0,106.0) }.isFailure)
+            assertTrue(runCatching { api.createProperty("org","name","private", PublicGeoPoint(100.0, 106.0), PublicGeoPoint(10.0, 106.0)) }.isFailure)
             assertEquals(0,server.requestCount)
         }
     }

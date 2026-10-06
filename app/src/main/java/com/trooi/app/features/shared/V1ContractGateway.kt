@@ -5,6 +5,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.network.dto.BackendJsonCodec
 import com.trooi.app.core.network.dto.DashboardTransport
 import com.trooi.app.core.network.dto.ErrorKind
@@ -40,14 +41,17 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
         list(client.get("properties", true, mapOf("organizationId" to organizationId)), ::property)
     suspend fun property(id: String): V1Property = read(client.get("properties/${segment(id)}", true), ::property)
     suspend fun createProperty(
-        organizationId: String, name: String, privateAddress: String,
-        operationalLat: Double, operationalLng: Double, publicLat: Double, publicLng: Double,
+        organizationId: String,
+        name: String,
+        privateAddress: String,
+        operational: PublicGeoPoint,
+        public: PublicGeoPoint,
     ): V1Property {
         val body = fields(
             "organizationId" to organizationId, "name" to name, "operationalAddressText" to privateAddress,
         ).apply {
-            add("operationalLocation", geo(operationalLat, operationalLng))
-            add("publicLocationProjection", geo(publicLat, publicLng))
+            add("operationalLocation", geo(operational.latitude, operational.longitude))
+            add("publicLocationProjection", geo(public.latitude, public.longitude))
         }
         return read(client.postJson("properties", body.toString(), true), ::property)
     }
@@ -92,11 +96,17 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
         return read(outcome, ::listing)
     }
     suspend fun listing(id: String): V1Listing = read(client.get("listings/${segment(id)}", true), ::listing)
-    suspend fun createListing(roomId: String, title: String, description: String, price: String, lat: Double, lng: Double): V1Listing {
+    suspend fun createListing(
+        roomId: String,
+        title: String,
+        description: String,
+        price: String,
+        public: PublicGeoPoint,
+    ): V1Listing {
         val body = fields(
             "roomId" to roomId, "publicTitle" to title, "publicDescription" to description,
             "publicPriceProjection" to price,
-        ).apply { add("publicLocationProjection", geo(lat, lng)) }
+        ).apply { add("publicLocationProjection", geo(public.latitude, public.longitude)) }
         return read(client.postJson("listings", body.toString(), true), ::listing)
     }
     suspend fun editListing(id: String, title: String, description: String, price: String): V1Listing =

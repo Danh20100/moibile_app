@@ -9,10 +9,14 @@ import com.trooi.app.BuildConfig
 import com.trooi.app.core.model.ListingVisibility
 import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.model.PublicListingCard
+import com.trooi.app.features.discovery.LocationFormState
 import com.trooi.app.features.discovery.NativeMapView
 import com.trooi.app.features.discovery.PublicDiscoveryFilters
 import com.trooi.app.features.discovery.cameraSearch
+import com.trooi.app.features.discovery.canCreateProperty
 import com.trooi.app.features.discovery.publicMapMarkers
+import com.trooi.app.features.discovery.setPrivateAddress
+import com.trooi.app.features.discovery.setPrivatePin
 import com.trooi.app.ui.theme.TroOiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -69,5 +73,15 @@ class NativeMapSmokeTest {
         compose.onNodeWithTag("native-map-unconfigured").assertIsDisplayed()
         compose.onNodeWithText("Chưa cấu hình bản đồ").assertIsDisplayed()
         assertTrue(publicMapMarkers(listings).isNotEmpty())
+    }
+
+    @Test
+    fun privatePickerDoesNotFillPublicPin() {
+        val form = setPrivatePin(
+            setPrivateAddress(LocationFormState(), "12 Nguyễn Huệ"),
+            PublicGeoPoint(10.76, 106.68),
+        )
+        assertEquals(null, form.publicLocation.point)
+        assertEquals(false, canCreateProperty("Nhà A", form))
     }
 }

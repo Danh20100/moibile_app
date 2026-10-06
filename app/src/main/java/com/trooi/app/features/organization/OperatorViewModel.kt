@@ -3,6 +3,7 @@ package com.trooi.app.features.organization
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.network.dto.DashboardTransport
 import com.trooi.app.core.network.dto.RoomOperationalHistoryTransport
 import com.trooi.app.features.shared.*
@@ -201,9 +202,15 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         _ui.update { it.copy(organization = api.organization(id)) }
     }
 
-    fun createProperty(organizationId: String, name: String, address: String, opLat: Double, opLng: Double, publicLat: Double, publicLng: Double) = write {
+    fun createProperty(
+        organizationId: String,
+        name: String,
+        address: String,
+        operational: PublicGeoPoint,
+        public: PublicGeoPoint,
+    ) = write {
         require(organizationId in access.operatedOrganizationIds && name.isNotBlank() && address.isNotBlank()) { "Điền đủ thông tin khu nhà" }
-        val created = api.createProperty(organizationId, name.trim(), address.trim(), opLat, opLng, publicLat, publicLng)
+        val created = api.createProperty(organizationId, name.trim(), address.trim(), operational, public)
         _ui.update { it.copy(property = api.property(created.id), stack = it.stack + OperatorRoute.Property(created.id, organizationId)) }
     }
 
@@ -248,11 +255,17 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         }
     }
 
-    fun createListing(room: OperatorRoute.Room, title: String, description: String, price: String, lat: Double, lng: Double) = write {
+    fun createListing(
+        room: OperatorRoute.Room,
+        title: String,
+        description: String,
+        price: String,
+        public: PublicGeoPoint,
+    ) = write {
         require(title.isNotBlank() && description.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?"))) {
             "Thiếu title/description hoặc giá không hợp lệ"
         }
-        val created = api.createListing(room.id, title.trim(), description.trim(), price, lat, lng)
+        val created = api.createListing(room.id, title.trim(), description.trim(), price, public)
         _ui.update { it.copy(listing = api.listing(created.id), stack = it.stack + OperatorRoute.Listing(created.id, room.id, room.propertyId, room.organizationId)) }
     }
 
