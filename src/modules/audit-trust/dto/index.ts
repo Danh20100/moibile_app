@@ -29,12 +29,7 @@ export class RecordAuditFactDto {
   metadata?: Record<string, unknown>;
 }
 
-export class SubmitInternalReportDto {
-  @ApiPropertyOptional({ example: 'user_12345' })
-  @IsOptional()
-  @IsString()
-  reporterUserId?: string;
-
+export class SubmitTrustReportDto {
   @ApiPropertyOptional({ example: 'list_12345' })
   @IsOptional()
   @IsString()
@@ -74,7 +69,7 @@ export class SubmitInternalReportDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  noteOrEvidenceReference?: string;
+  note?: string;
 }
 
 export class QueryAuditDto {

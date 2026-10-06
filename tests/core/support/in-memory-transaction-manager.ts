@@ -133,6 +133,7 @@ export function createCoreTestTransactionManager(
         Array.from(listings.values())
           .filter((value) => value.status === 'PUBLISHED')
           .map((value) => structuredClone(value)),
+      lockListing: async () => undefined,
       updateListing: async (value: ListingRecord) => {
         listings.set(value.listingId, structuredClone(value));
       },

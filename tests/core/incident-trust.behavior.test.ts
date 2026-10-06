@@ -26,10 +26,26 @@ test('REJECTED and CLOSED incidents are terminal', async () => {
   await assert.rejects(() => service.updateStatus(closed.id, { status: 'IN_PROGRESS' }));
 });
 
-test('TrustReport targets exactly one Listing or Review without auto-removal policy', async () => {
-  const service = new AuditTrustService(createCoreTestTransactionManager());
-  const listing = await service.submitReport({ listingId: 'listing-1', reason: 'INCORRECT_INFORMATION' });
+test('TrustReport targets exactly one published Listing without auto-removal policy', async () => {
+  const tx = createCoreTestTransactionManager();
+  await tx.run(({ repositories }) =>
+    repositories.listing.createListing({
+      listingId: 'listing-1',
+      roomId: 'room-1',
+      status: 'PUBLISHED',
+      publicTitle: 'T',
+      publicDescription: 'D',
+      publicPriceProjection: '1.00',
+      publicLocationProjection: { longitude: 106.7, latitude: 10.8 },
+    }),
+  );
+  const service = new AuditTrustService(tx);
+  const listing = await service.submitReport({ listingId: 'listing-1', reason: 'INCORRECT_INFORMATION' }, 'user-1');
   assert.equal(listing.listingId, 'listing-1');
-  await assert.rejects(() => service.submitReport({ listingId: 'listing-1', reviewId: 'review-1', reason: 'SPAM' }));
-  await assert.rejects(() => service.submitReport({ reason: 'OTHER' }));
+  assert.equal(listing.reporterUserId, 'user-1');
+  assert.equal(listing.status, 'SUBMITTED');
+  await assert.rejects(() => service.submitReport({ listingId: 'listing-1', reviewId: 'review-1', reason: 'SPAM' }, 'user-1'));
+  await assert.rejects(() => service.submitReport({ reason: 'OTHER' }, 'user-1'));
+  await assert.rejects(() => service.submitReport({ reviewId: 'review-1', reason: 'SPAM' }, 'user-1'));
+  await assert.rejects(() => service.listReports());
 });

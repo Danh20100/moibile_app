@@ -5,11 +5,12 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
-import { API_PREFIX, HttpExceptionFilter, TransformInterceptor } from './common';
+import { API_PREFIX, applyHttpBodyParsers, HttpExceptionFilter, TransformInterceptor } from './common';
 import { createOpenApiDocument } from './openapi';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  applyHttpBodyParsers(app);
 
   app.setGlobalPrefix(API_PREFIX);
 

@@ -23,6 +23,7 @@ export interface ListingRepository {
   findCurrentListingByRoom(roomId: string): Promise<ListingRecord | undefined>;
   findListingsByRoom(roomId: string): Promise<ListingRecord[]>;
   findPublishedListings(): Promise<ListingRecord[]>;
+  lockListing(listingId: string): Promise<void>;
   updateListing(record: ListingRecord): Promise<void>;
   insertStatusEvent(input: CreateListingStatusEventInput): Promise<void>;
   findStatusEvents(listingId: string): Promise<ListingStatusEventRecord[]>;

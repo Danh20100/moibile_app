@@ -26,6 +26,9 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      express:
+        specifier: 5.2.1
+        version: 5.2.1
       google-auth-library:
         specifier: ^11.1.0
         version: 11.1.0

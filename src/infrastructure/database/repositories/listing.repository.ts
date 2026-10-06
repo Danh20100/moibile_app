@@ -43,6 +43,19 @@ export class PostgresListingRepository implements ListingRepository {
     catch (error) { throw mapPostgresError(error); }
   }
 
+  async lockListing(listingId: string): Promise<void> {
+    try {
+      await this.executor
+        .selectFrom('listings')
+        .select('listing_id')
+        .where('listing_id', '=', listingId)
+        .forUpdate()
+        .executeTakeFirst();
+    } catch (error) {
+      throw mapPostgresError(error);
+    }
+  }
+
   async updateListing(record: ListingRecord): Promise<void> {
     try {
       await this.executor.updateTable('listings').set({

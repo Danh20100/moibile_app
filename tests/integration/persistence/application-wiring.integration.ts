@@ -70,7 +70,13 @@ test('core application state remains readable after database client restart', as
   await first.incidents.updateStatus(incident.id, { status: 'ACKNOWLEDGED', actorUserId: ownerId });
   await assert.rejects(first.incidents.updateStatus(incident.id, { status: 'IN_PROGRESS', actorUserId: 'ffffffff-ffff-4fff-8fff-ffffffffffff' }));
   assert.equal((await first.incidents.findById(incident.id)).status, 'ACKNOWLEDGED');
-  const report = await first.trust.submitReport({ reporterUserId: ownerId, listingId: listing.id, reason: 'INCORRECT_INFORMATION' });
+  const published = await first.listings.transition(listing.id, 'published', {
+    reasonCode: 'PUBLISH',
+    actorType: 'USER',
+    actorUserId: ownerId,
+    trigger: 'TEST',
+  });
+  const report = await first.trust.submitReport({ listingId: published.id, reason: 'INCORRECT_INFORMATION' }, ownerId);
   await first.database.destroy();
 
   const second = runtime(databaseUrl);
@@ -78,7 +84,7 @@ test('core application state remains readable after database client restart', as
     assert.deepEqual(await second.organizations.findById(organization.id), organization);
     assert.deepEqual(await second.properties.findById(property.id), property);
     assert.deepEqual(await second.rooms.findById(room.id), room);
-    assert.deepEqual(await second.listings.findById(listing.id), listing);
+    assert.deepEqual(await second.listings.findById(listing.id), published);
     assert.deepEqual(await second.inquiries.findById(inquiry.id), inquiry);
     assert.deepEqual(await second.tenancies.findById(tenancy.id), tenancy);
     assert.deepEqual(await second.participants.findById(participant.id), participant);
@@ -91,6 +97,10 @@ test('core application state remains readable after database client restart', as
     assert.deepEqual(await second.receipts.findById(receipt.id), receipt);
     assert.equal((await second.incidents.findById(incident.id)).status, 'ACKNOWLEDGED');
     assert.deepEqual((await second.incidents.listEvents(incident.id)).map((event) => event.toStatus), ['REPORTED', 'ACKNOWLEDGED']);
-    assert.deepEqual(await second.trust.listReports(), [report]);
+    const stored = await second.transactions.run(({ repositories }) => repositories.trust.findTrustReports());
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0]?.trustReportId, report.id);
+    assert.equal(stored[0]?.reporterUserId, ownerId);
+    assert.equal(stored[0]?.listingId, published.id);
   } finally { await second.database.destroy(); }
 });

@@ -285,7 +285,7 @@ test('CX-05: Tenancy move-out (startEnding) notifies operator without prematurel
   assert.equal(room?.operationalState, 'OCCUPIED');
 });
 
-test('CX-06: Trust report submission on listing notifies operator', async () => {
+test('CX-06: Trust report submission does not create operator notification', async () => {
   const transactions = createCoreTestTransactionManager();
   const { operatorUserId: ownerId, listingId: publishedId } = await setupPublishedListing(transactions);
 
@@ -293,12 +293,11 @@ test('CX-06: Trust report submission on listing notifies operator', async () => 
   const report = await trustService.submitReport({
     listingId: publishedId,
     reason: 'MISLEADING_PRICE',
-  });
+  }, 'reporter-1');
 
+  assert.equal(report.reporterUserId, 'reporter-1');
   const operatorNotifs = await transactions.run(({ repositories }) =>
     repositories.notification.findNotificationsByRecipient(ownerId),
   );
-  assert.equal(operatorNotifs.length, 1);
-  assert.equal(operatorNotifs[0]?.category, 'REVIEW_OR_REPORT_MODERATION');
-  assert.equal(operatorNotifs[0]?.messageOrPayloadReference, `trust_report:${report.id}`);
+  assert.equal(operatorNotifs.length, 0);
 });

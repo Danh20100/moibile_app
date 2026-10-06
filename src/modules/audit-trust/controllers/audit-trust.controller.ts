@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Inject, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+import { CurrentUser } from '../../../common';
+import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { AuditRecord, TrustReport } from '../contracts';
 import {
   AuditRecordDto,
   QueryAuditDto,
   RecordAuditFactDto,
-  SubmitInternalReportDto,
+  SubmitTrustReportDto,
   TrustReportDto,
 } from '../dto';
 import { AuditTrustService } from '../services/audit-trust.service';
@@ -40,20 +42,23 @@ export class AuditTrustController {
   }
 
   @Post('reports')
-  @ApiOperation({ summary: 'Gửi báo cáo nội bộ lên nền tảng để review' })
+  @ApiOperation({ summary: 'Gửi báo cáo tin đăng công khai' })
   @ApiResponse({
     status: 201,
-    description: 'Báo cáo nội bộ đã được tiếp nhận',
+    description: 'Báo cáo đã được tiếp nhận',
     type: TrustReportDto,
   })
-  async submitReport(@Body() dto: SubmitInternalReportDto): Promise<TrustReport> {
-    return this.auditTrustService.submitReport(dto);
+  async submitReport(
+    @Body() dto: SubmitTrustReportDto,
+    @CurrentUser() user: VerifiedPrincipal,
+  ): Promise<TrustReport> {
+    return this.auditTrustService.submitReport(dto, user.userId);
   }
 
   @Get('reports')
-  @ApiOperation({ summary: 'Xem danh sách các báo cáo nội bộ đang chờ hoặc đã xử lý' })
-  @ApiResponse({ status: 200, description: 'Danh sách báo cáo', type: [TrustReportDto] })
-  async listReports(): Promise<TrustReport[]> {
+  @ApiOperation({ summary: 'Danh sách báo cáo nội bộ không mở cho người dùng app' })
+  @ApiResponse({ status: 403, description: 'Không cấp danh sách báo cáo cho app user' })
+  async listReports(@CurrentUser() _user: VerifiedPrincipal): Promise<TrustReport[]> {
     return this.auditTrustService.listReports();
   }
 }

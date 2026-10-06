@@ -21,16 +21,27 @@ type BillingDependencies = {
   authz: ResourceAuthorizationService;
   verifier: GoogleIdTokenVerifier;
 };
+type TrustDependencies = {
+  service: import('../../../src/modules/audit-trust/services/audit-trust.service').AuditTrustService;
+  verifier: GoogleIdTokenVerifier;
+};
 export function startGatewayHttpHarness(dependencies: GatewayDependencies) {
   return startHttpHarness({ gateway: dependencies });
 }
 export function startBillingHttpHarness(dependencies: BillingDependencies) {
   return startHttpHarness({ billing: dependencies });
 }
+export function startTrustHttpHarness(dependencies: TrustDependencies) {
+  return startHttpHarness({ trust: dependencies });
+}
 async function startHttpHarness(
-  selection: { gateway: GatewayDependencies } | { billing: BillingDependencies },
+  selection:
+    | { gateway: GatewayDependencies }
+    | { billing: BillingDependencies }
+    | { trust: TrustDependencies },
 ): Promise<{ baseUrl: string; close: () => Promise<void> }> {
-  const dependencies = 'gateway' in selection ? selection.gateway : selection.billing;
+  const dependencies =
+    'gateway' in selection ? selection.gateway : 'billing' in selection ? selection.billing : selection.trust;
   // tsx strips decorator metadata; use the production compiler, never synthetic DTO metadata.
   if (!compiled) {
     execFileSync(
@@ -55,6 +66,7 @@ async function startHttpHarness(
     HttpExceptionFilter,
     TransformInterceptor,
     API_PREFIX,
+    applyHttpBodyParsers,
   }: typeof import('../../../src/common') = require('../../../build/common');
   const {
     GOOGLE_ID_TOKEN_VERIFIER,
@@ -65,18 +77,31 @@ async function startHttpHarness(
   const {
     BillingService,
   }: typeof import('../../../src/modules/billing/services/billing.service') = require('../../../build/modules/billing/services/billing.service');
+  const {
+    AuditTrustController,
+  }: typeof import('../../../src/modules/audit-trust/controllers/audit-trust.controller') = require('../../../build/modules/audit-trust/controllers/audit-trust.controller');
+  const {
+    AuditTrustService,
+  }: typeof import('../../../src/modules/audit-trust/services/audit-trust.service') = require('../../../build/modules/audit-trust/services/audit-trust.service');
+  const trust = 'trust' in selection;
   const gateway = 'gateway' in selection;
   @Module({
-    controllers: gateway ? [PaymentGatewayController] : [BillingController],
+    controllers: trust ? [AuditTrustController] : gateway ? [PaymentGatewayController] : [BillingController],
     providers: [
-      { provide: gateway ? PaymentGatewayService : BillingService, useValue: dependencies.service },
-      { provide: ResourceAuthorizationService, useValue: dependencies.authz },
+      {
+        provide: trust ? AuditTrustService : gateway ? PaymentGatewayService : BillingService,
+        useValue: dependencies.service,
+      },
+      ...('authz' in dependencies
+        ? [{ provide: ResourceAuthorizationService, useValue: dependencies.authz }]
+        : []),
       { provide: GOOGLE_ID_TOKEN_VERIFIER, useValue: dependencies.verifier },
       { provide: APP_GUARD, useClass: AuthGuard },
     ],
   })
   class GatewayHttpModule {}
-  const app = await NestFactory.create(GatewayHttpModule, { logger: false });
+  const app = await NestFactory.create(GatewayHttpModule, { bodyParser: false, logger: false });
+  applyHttpBodyParsers(app);
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
