@@ -1,5 +1,6 @@
 package com.trooi.app.features
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -24,6 +25,7 @@ class SourceNavigationSmokeTest {
         val opened = mutableListOf<String>()
         compose.setContent {
             TroOiTheme {
+                Column {
                 LedgerNavStrip(
                     active = LedgerSurface.OVERVIEW,
                     items = LedgerSurface.ALL,
@@ -34,6 +36,7 @@ class SourceNavigationSmokeTest {
                     supporting = "Tenancy t-1",
                     onClick = { opened += "payment" },
                 )
+                }
             }
         }
         compose.onNodeWithText(LedgerSurface.INCIDENT).assertIsDisplayed().performClick()
