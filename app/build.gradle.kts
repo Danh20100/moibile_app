@@ -25,6 +25,11 @@ val googleWebClientId = providers.gradleProperty("trooiGoogleWebClientId")
     .orElse("")
     .get()
 val escapedGoogleWebClientId = googleWebClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+val mapsApiKey = providers.gradleProperty("trooiMapsApiKey")
+    .orElse(providers.environmentVariable("TROOI_MAPS_API_KEY"))
+    .orElse("")
+    .get()
+val escapedMapsApiKey = mapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
     namespace = "com.trooi.app"
@@ -39,6 +44,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_API_BASE_URL", "\"$escapedBackendApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")
+        buildConfigField("String", "MAPS_API_KEY", "\"$escapedMapsApiKey\"")
+        manifestPlaceholders["trooiMapsApiKey"] = mapsApiKey
     }
 
     signingConfigs {
@@ -116,6 +123,7 @@ dependencies {
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.android.gms:play-services-maps:20.0.0")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

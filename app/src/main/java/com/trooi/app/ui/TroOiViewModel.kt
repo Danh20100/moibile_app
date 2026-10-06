@@ -15,6 +15,7 @@ import com.trooi.app.core.data.TroOiRepository
 import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.isValidIdentifier
+import com.trooi.app.features.discovery.MapSearchQuery
 import com.trooi.app.features.auth.isValidPassword
 import com.trooi.app.features.auth.isValidSignup
 import com.trooi.app.features.shared.V1ContractGateway
@@ -308,6 +309,9 @@ class TroOiViewModel @Inject constructor(
             )
         }
     }
+
+    fun searchPublicListings(query: MapSearchQuery) =
+        searchPublicListings(query.latitude, query.longitude, query.radiusMeters, query.minPrice, query.maxPrice)
 
     fun searchPublicListings(
         latitude: Double,

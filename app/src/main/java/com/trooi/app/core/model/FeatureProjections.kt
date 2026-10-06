@@ -36,6 +36,10 @@ data class PublicListingCard(
 fun publicDiscoveryFeed(listings: List<PublicListingCard>): List<PublicListingCard> =
     listings.filter { it.visibility == ListingVisibility.PUBLISHED }
 
+/** Map pins use published publicLocation only. Area labels never become coordinates. */
+fun publicMapPoint(listing: PublicListingCard): PublicGeoPoint? =
+    listing.publicGeoPoint.takeIf { listing.visibility == ListingVisibility.PUBLISHED }
+
 enum class RoomOperationalState { VACANT, OCCUPIED, MAINTENANCE, INACTIVE }
 enum class RecordLifecycle { ACTIVE, ARCHIVED }
 

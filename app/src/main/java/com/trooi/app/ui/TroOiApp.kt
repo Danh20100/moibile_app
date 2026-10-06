@@ -165,7 +165,11 @@ fun TroOiApp(
                         onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
                         onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
                     )
-                    AppPage.GuestMap -> V1GuestMapScreen(state, viewModel::openListing)
+                    AppPage.GuestMap -> V1GuestMapScreen(
+                        state = state,
+                        onOpenListing = viewModel::openListing,
+                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
+                    )
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)
                     is AppPage.ListingDetail -> V1ListingDetailScreen(
                         state = state,
