@@ -27,8 +27,10 @@ class GoogleCredentialAuth @Inject constructor() {
     }
 
     private suspend fun requestIdToken(context: Context, returning: Boolean): Result<String> {
+        val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
+        // ponytail: blank local config is not a revoked session; sign-in still fails closed below.
+        if (clientId.isEmpty() && returning) return Result.failure(NoRestoreCredential())
         val result = runCatching {
-            val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
             require(clientId.isNotEmpty()) {
                 "Thiếu cấu hình Google Web Client ID cho đăng nhập."
             }
