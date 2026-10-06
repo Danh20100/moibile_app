@@ -36,6 +36,18 @@ data class RentalDepositEvent(
     val amount: String,
     val occurredAt: String,
 )
+data class RentalDepositApplication(
+    val id: String,
+    val paymentId: String,
+    val depositId: String,
+    val appliedAmount: String,
+    val appliedAt: String,
+)
+
+/** Operator-only, and only when Payment and Deposit belong to one tenancy. */
+fun depositApplicationAllowed(tenantMode: Boolean, paymentTenancyId: String, depositTenancyId: String): Boolean =
+    !tenantMode && paymentTenancyId.isNotBlank() && paymentTenancyId == depositTenancyId
+
 data class RentalDepositSettlement(
     val id: String,
     val depositId: String,
@@ -186,6 +198,21 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         return read(client.postJson("finance/payments/${segment(paymentId)}/allocations",
             obj("amount" to amount, "targetId" to chargeId).toString(), true), ::identity)
     }
+    suspend fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String): RentalDepositApplication {
+        require(validMoney(amount)) { "Amount không hợp lệ" }
+        val applied = read(
+            client.postJson(
+                "finance/payments/${segment(paymentId)}/deposit-applications",
+                obj("targetId" to depositId, "amount" to amount).toString(),
+                true,
+            ),
+            ::depositApplication,
+        )
+        if (applied.paymentId != paymentId || applied.depositId != depositId) {
+            throw V1RequestException(ErrorKind.INVALID_RESPONSE)
+        }
+        return applied
+    }
 
     suspend fun deposit(tenancyId: String): RentalDeposit? {
         val outcome = client.get("finance/deposits", true, mapOf("tenancyId" to tenancyId))
@@ -277,6 +304,9 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         state = x.opt("state"),
         blockedByOpenPolicy = x.get("blockedByOpenPolicy")?.asBoolean
             ?: throw V1RequestException(ErrorKind.INVALID_RESPONSE),
+    )
+    private fun depositApplication(x: JsonObject) = RentalDepositApplication(
+        x.req("id"), x.req("paymentId"), x.req("depositId"), x.req("appliedAmount"), x.req("appliedAt"),
     )
     private fun depositEvent(x: JsonObject) = RentalDepositEvent(
         x.req("id"), x.req("depositId"), x.req("eventType"), x.req("amount"), x.req("occurredAt"),

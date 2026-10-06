@@ -252,6 +252,7 @@ fun V1ListingDetailScreen(
     onBack: () -> Unit,
     onOpenLogin: () -> Unit,
     onSubmitInquiry: (String, String) -> Unit,
+    onOpenReport: (String) -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val listing = publicDiscoveryFeed(state.read.publicListings).firstOrNull { it.listingId == listingId }
@@ -305,6 +306,13 @@ fun V1ListingDetailScreen(
             }
             item { LedgerDivider() }
             item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry) }
+            item {
+                V1Action(
+                    "Báo cáo tin đăng",
+                    { onOpenReport(listing.listingId) },
+                    modifier = Modifier.fillMaxWidth().testTag("listing-open-report"),
+                )
+            }
         }
     }
 }
@@ -384,7 +392,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                     }
                     PortalArea.NOTICES -> {
                         val notices = linked.flatMap { state.read.noticesByTenancy[it].orEmpty() }
-                        if (notices.isEmpty()) V1Pending("Chưa có Notice theo Tenancy.")
+                        if (notices.isEmpty()) V1Pending("Chưa có thông báo cho lượt thuê đang chọn.")
                         else notices.forEach { notice ->
                             V1Metric(notice.type, notice.content)
                             V1Pending(
@@ -428,6 +436,8 @@ fun V1AccountScreen(
     onDiscovery: () -> Unit,
     onContextSwitcher: () -> Unit,
     onNotifications: () -> Unit,
+    onSettings: () -> Unit,
+    onHelp: () -> Unit,
     onLogout: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
@@ -447,6 +457,8 @@ fun V1AccountScreen(
                 } else {
                     V1Action("Chuyển không gian", onContextSwitcher, modifier = Modifier.fillMaxWidth())
                     V1Action("Thông báo", onNotifications, modifier = Modifier.fillMaxWidth())
+                    V1Action("Cài đặt", onSettings, modifier = Modifier.fillMaxWidth().testTag("account-settings"))
+                    V1Action("Trợ giúp", onHelp, modifier = Modifier.fillMaxWidth().testTag("account-help"))
                     OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Đăng xuất") }
                 }
             }

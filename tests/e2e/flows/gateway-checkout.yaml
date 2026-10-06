@@ -1,0 +1,15 @@
+feature: gateway-checkout
+flows:
+  - id: GW-01
+    name: durable-checkout-and-verified-payment
+    actor: linked-participant-user
+    status: requires_test_database
+    preconditions: [active-tenancy, idempotency-key]
+    steps: [create-checkout, provider-handoff, verified-ipn-or-replay]
+    assertions:
+      [
+        checkout-persisted-before-provider-call,
+        return-uri-is-not-payment,
+        one-payment-after-verified-success,
+        no-allocation-deposit-or-receipt,
+      ]

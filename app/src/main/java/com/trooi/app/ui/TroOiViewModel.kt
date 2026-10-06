@@ -18,16 +18,24 @@ import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.discovery.MapSearchQuery
 import com.trooi.app.features.auth.isValidPassword
 import com.trooi.app.features.auth.isValidSignup
+import com.trooi.app.features.shared.TrustReportDestination
 import com.trooi.app.features.shared.V1ContractGateway
 import com.trooi.app.features.shared.V1PaymentGateway
 import com.trooi.app.features.shared.V1RentalGateway
 import com.trooi.app.features.shared.V1RequestException
+import com.trooi.app.features.shared.V1TrustGateway
+import com.trooi.app.features.shared.claimTrustSubmit
+import com.trooi.app.features.shared.pageAfterTrustLogin
+import com.trooi.app.features.shared.trustBackPage
+import com.trooi.app.features.shared.trustReportDestination
+import com.trooi.app.features.shared.trustTargetUnavailable
 import com.trooi.app.features.tenancy.PaymentReturnAction
 import com.trooi.app.features.tenancy.PaymentReturnUri
 import com.trooi.app.features.tenancy.interpretPaymentReturn
 import com.trooi.app.features.tenancy.isConfirmedGatewayPayment
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +53,7 @@ class TroOiViewModel @Inject constructor(
     private val paymentGateway: V1PaymentGateway,
     private val rentalGateway: V1RentalGateway,
     private val contractGateway: V1ContractGateway,
+    private val trustGateway: V1TrustGateway,
     @param:ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
@@ -60,6 +69,7 @@ class TroOiViewModel @Inject constructor(
     private var authenticationJob: Job? = null
     private var restoreStarted = false
     private var expiredAuthRetried = false
+    private val trustSubmitGate = AtomicBoolean(false)
 
     init {
         if (BuildConfig.BACKEND_BACKED) refreshPublicListings()
@@ -78,13 +88,19 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
-    fun openLogin() = open(AppPage.AuthLogin)
+    fun openLogin() = _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null) }
     fun openSignUp() = open(AppPage.AuthSignUp)
     fun openForgotPassword() = open(AppPage.AuthForgotPassword)
     fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
     fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
     fun openAccount() = open(AppPage.Account)
+    fun openSettings() = openShared(AppPage.Settings)
+    fun openHelp() = openShared(AppPage.Help)
+    fun sessionRestoreEnabled(): Boolean {
+        val hint = hintsStore.read() ?: return false
+        return hint.restoreEnabled && hint.userId == _state.value.backendUserId && _state.value.backendUserId.isNotBlank()
+    }
     fun openContextSwitcher() = open(AppPage.ContextSwitcher)
     fun openTenantHome() = openContext(AppContext.TENANT, AppPage.TenantHome)
     fun openTenantRental() = openContext(AppContext.TENANT, AppPage.TenantRental)
@@ -248,6 +264,73 @@ class TroOiViewModel @Inject constructor(
         }
         _state.update { it.copy(inquiryCompletedListingId = null, inquiryError = null) }
         open(AppPage.ListingDetail(listingId))
+    }
+
+    fun openTrustReport(listingId: String) {
+        val public = publicDiscoveryFeed(_state.value.read.publicListings).any { it.listingId == listingId }
+        when (val dest = trustReportDestination(_state.value.isAuthenticated, public, listingId)) {
+            TrustReportDestination.Unavailable -> showMessage("Tin đăng không còn công khai để báo cáo.")
+            is TrustReportDestination.Login -> _state.update {
+                it.copy(page = AppPage.AuthLogin, authReturnListingId = dest.listingId)
+            }
+            is TrustReportDestination.Form -> _state.update {
+                it.copy(
+                    page = AppPage.TrustReport(dest.listingId),
+                    authReturnListingId = null,
+                    submittingTrustReport = false,
+                    trustReceipt = null,
+                    trustReportError = null,
+                    trustReportUnavailable = false,
+                )
+            }
+        }
+    }
+
+    fun submitListingReport(listingId: String, reason: String, note: String) {
+        if (!claimTrustSubmit(trustSubmitGate)) return
+        val current = _state.value
+        val onForm = current.page is AppPage.TrustReport && current.page.listingId == listingId
+        val public = publicDiscoveryFeed(current.read.publicListings).any { it.listingId == listingId }
+        if (!current.isAuthenticated || !onForm || !public) {
+            trustSubmitGate.set(false)
+            if (onForm && !public) _state.update { it.copy(trustReportUnavailable = true, trustReceipt = null) }
+            return
+        }
+        val generation = sessionGeneration
+        _state.update {
+            it.copy(
+                submittingTrustReport = true,
+                trustReportError = null,
+                trustReceipt = null,
+                trustReportUnavailable = false,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val receipt = trustGateway.submitListingReport(listingId, reason, note)
+                if (generation == sessionGeneration) _state.update {
+                    it.copy(
+                        submittingTrustReport = false,
+                        trustReceipt = receipt,
+                        trustReportError = null,
+                        snackbarMessage = "Đã ghi nhận báo cáo.",
+                    )
+                }
+            } catch (error: RuntimeException) {
+                if (generation == sessionGeneration) {
+                    val unavailable = trustTargetUnavailable((error as? V1RequestException)?.status)
+                    _state.update {
+                        it.copy(
+                            submittingTrustReport = false,
+                            trustReportUnavailable = unavailable,
+                            trustReportError = if (unavailable) null else error.message ?: "Không gửi được báo cáo.",
+                        )
+                    }
+                }
+            } finally {
+                trustSubmitGate.set(false)
+            }
+        }
     }
 
     fun signInWithGoogle(context: Context) {
@@ -457,6 +540,7 @@ class TroOiViewModel @Inject constructor(
         authenticationJob?.cancel()
         authenticationJob = null
         hintsStore.clear()
+        trustSubmitGate.set(false)
         repository.clearSession()
         viewModelScope.launch { googleCredentialAuth.clearCredentialState(appContext) }
         _state.update { current ->
@@ -476,6 +560,12 @@ class TroOiViewModel @Inject constructor(
                 submittingInquiry = false,
                 inquiryCompletedListingId = null,
                 inquiryError = null,
+                submittingTrustReport = false,
+                trustReceipt = null,
+                trustReportError = null,
+                trustReportUnavailable = false,
+                authReturnListingId = null,
+                sharedCaller = null,
                 snackbarMessage = null,
                 sessionRestoring = false,
                 restoreFailed = false,
@@ -488,6 +578,16 @@ class TroOiViewModel @Inject constructor(
 
     fun goBack() {
         val current = _state.value
+        trustBackPage(current.page, current.authReturnListingId)?.let { destination ->
+            _state.update {
+                it.copy(page = destination, authReturnListingId = null, submittingTrustReport = false)
+            }
+            return
+        }
+        sharedBackPage(current.page, current.sharedCaller)?.let { destination ->
+            _state.update { it.copy(page = destination, sharedCaller = null) }
+            return
+        }
         if (current.sourceUnavailable && current.sourceReturn == null) {
             _state.update { it.copy(sourceUnavailable = false, snackbarMessage = null) }
             return
@@ -534,17 +634,28 @@ class TroOiViewModel @Inject constructor(
             ?.selectedContext
         val resolved = landingFor(session.access, remembered)
         persistHints(session.userId, resolved.selection)
+        val nextRead = if (resetRead) snapshot.read else current.read
+        val returnId = current.authReturnListingId
+        val returnPage = pageAfterTrustLogin(
+            returnId,
+            returnId != null && publicDiscoveryFeed(nextRead.publicListings).any { it.listingId == returnId },
+        )
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
             backendUserId = session.userId,
             access = session.access,
-            read = if (resetRead) snapshot.read else current.read,
+            read = nextRead,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
-            page = destinationPage(resolved),
+            page = returnPage ?: destinationPage(resolved),
             sessionRestoring = false,
             restoreFailed = false,
+            authReturnListingId = null,
+            submittingTrustReport = false,
+            trustReceipt = null,
+            trustReportError = null,
+            trustReportUnavailable = false,
         )
     }
 
@@ -658,6 +769,11 @@ class TroOiViewModel @Inject constructor(
         _state.update {
             it.copy(page = AppPage.ContextSwitcher, snackbarMessage = "Chọn không gian cụ thể trước khi mở khu vực này.")
         }
+    }
+
+    private fun openShared(page: AppPage) = _state.update { current ->
+        if (!current.isAuthenticated) current.copy(snackbarMessage = "Đăng nhập trước khi mở mục này.")
+        else current.copy(page = page, sharedCaller = current.page)
     }
 
     private fun open(page: AppPage) = _state.update { current ->

@@ -68,7 +68,7 @@ fun V1RentalWorkspace(
                     is RentalRoute.Tenancy -> "Chi tiết lượt thuê"
                     is RentalRoute.Participants -> "Người tham gia thuê"
                     is RentalRoute.Terms -> "Điều khoản theo phiên bản"
-                    is RentalRoute.Notices -> "Thông báo lượt thuê"
+                    is RentalRoute.Notices -> "Thông báo theo lượt thuê đang chọn"
                     is RentalRoute.Billing -> "Kỳ tính tiền"
                     is RentalRoute.BillingDetail -> "Chi tiết kỳ tính tiền"
                     is RentalRoute.Payment -> "Khoản tiền đã nhận"
@@ -208,7 +208,9 @@ fun V1RentalWorkspace(
                 }
             }
             is RentalRoute.Notices -> {
-                if (state.notices.isEmpty() && !state.busy) item { V1Panel("Thông báo") { V1Pending("Chưa có thông báo.") } }
+                if (state.notices.isEmpty() && !state.busy) item {
+                    V1Panel("Thông báo theo lượt thuê đang chọn") { V1Pending("Chưa có thông báo cho lượt thuê đang chọn.") }
+                }
                 items(state.notices, key = { it.id }) { notice ->
                     V1Panel(notice.type) {
                         Text(notice.content)
@@ -228,7 +230,7 @@ fun V1RentalWorkspace(
                         V1Input(name, { name = it }, "Loại thông báo", "notice-type")
                         V1Input(extra, { extra = it }, "Nội dung", "notice-content")
                         V1Action(
-                            "Phát hành Notice",
+                            "Phát hành thông báo",
                             { model.issueNotice(route.id, name, extra) },
                             enabled = !state.busy && name.isNotBlank() && extra.isNotBlank(),
                         )
@@ -303,6 +305,20 @@ fun V1RentalWorkspace(
                                     model.allocate(pay.id, extra, extra2)
                                 }, enabled = !state.busy && extra.isNotBlank() && extra2.isNotBlank())
                                 V1Action("Phát hành Receipt", { model.issueReceipt(pay.id) }, enabled = !state.busy)
+                                val deposit = state.deposit?.takeIf { it.tenancyId == pay.tenancyId }
+                                var applyAmount by remember(pay.id) { mutableStateOf("") }
+                                if (deposit == null) {
+                                    V1Pending("Chưa có Deposit của lượt thuê này để gán tiền.")
+                                } else {
+                                    V1Metric("Deposit của lượt thuê", deposit.id)
+                                    V1Input(applyAmount, { applyAmount = it }, "Amount gán vào cọc", "deposit-application-amount")
+                                    V1Action(
+                                        "Gán vào tiền cọc",
+                                        { model.applyPaymentToDeposit(pay.id, deposit.id, applyAmount) },
+                                        enabled = !state.busy && applyAmount.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")),
+                                        modifier = Modifier.testTag("deposit-application-submit"),
+                                    )
+                                }
                             }
                         }
                     }

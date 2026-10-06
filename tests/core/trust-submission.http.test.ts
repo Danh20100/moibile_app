@@ -18,7 +18,10 @@ const listing = {
 
 async function harness() {
   const tx = createCoreTestTransactionManager();
-  await tx.run(({ repositories }) => repositories.listing.createListing(listing));
+  await tx.run(async ({ repositories }) => {
+    await repositories.listing.createListing(listing);
+    await repositories.listing.createListing({ ...listing, listingId: 'listing-draft', status: 'DRAFT' });
+  });
   return startTrustHttpHarness({
     service: new AuditTrustService(tx),
     verifier: {
@@ -75,6 +78,13 @@ test('trust report HTTP contract is principal-derived and listing-only', async (
       'test-credential',
     );
     assert.equal(missing.status, 404);
+    const unpublished = await post(
+      baseUrl,
+      '/audit-trust/reports',
+      { listingId: 'listing-draft', reason: 'SPAM' },
+      'test-credential',
+    );
+    assert.equal(unpublished.status, 404);
 
     const review = await post(
       baseUrl,

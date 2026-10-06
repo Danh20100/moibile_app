@@ -300,6 +300,14 @@ data class RoomOperationalHistoryTransport(
     val incidents: List<RentalIncidentHistoryEntryTransport>,
 )
 
+data class TrustReportReceiptTransport(
+    val id: String,
+    val listingId: String?,
+    val reason: String,
+    val status: String,
+    val createdAt: String,
+)
+
 data class GatewayCheckoutTransport(
     val id: String,
     val tenancyId: String,

@@ -61,6 +61,8 @@ features:
       REC-03,
     ]
   operations: [INC-01, INC-02, INC-03, INC-04, INC-05, NOTICE-01, NOTICE-02, NOTICE-03]
+  gateway-checkout: [GW-01]
+  trust-submission: [TR-01]
   read-trust:
     [
       PORTAL-01,
@@ -82,6 +84,9 @@ execution_status:
   executable_now:
     - DISC-01
     - DISC-02
+  requires_test_database:
+    - GW-01
+    - TR-01
   requires_real_google_session:
     - AUTH-01
     - AUTH-02

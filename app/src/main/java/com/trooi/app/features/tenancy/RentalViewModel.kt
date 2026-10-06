@@ -185,9 +185,13 @@ class RentalViewModel @Inject constructor(
                             payments.firstOrNull { payment -> payment.id == id }
                                 ?: runCatching { api.payment(id) }.getOrNull()?.takeIf { payment -> payment.tenancyId == route.id }
                         }
+                        val deposit = if (u.tenantMode) it.deposit else {
+                            api.deposit(route.id)?.takeIf { value -> value.tenancyId == route.id }
+                        }
                         it.copy(
                             payments = payments,
                             payment = focused,
+                            deposit = deposit,
                             checkoutIntent = intent,
                             gatewayCheckout = checkout ?: it.gatewayCheckout,
                         )
@@ -415,6 +419,26 @@ class RentalViewModel @Inject constructor(
         require(!_ui.value.tenantMode && _ui.value.payment?.id == paymentId) { "Payment chưa được Backend xác minh." }
         api.allocate(paymentId, chargeId, amount)
         _ui.update { it.copy(payment = api.payment(paymentId)) }
+    }
+
+    fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String) = write {
+        val pay = _ui.value.payment?.takeIf { it.id == paymentId }
+            ?: throw IllegalArgumentException("Payment chưa được Backend xác minh.")
+        val deposit = _ui.value.deposit?.takeIf { it.id == depositId }
+            ?: throw IllegalArgumentException("Chưa có Deposit của lượt thuê này.")
+        require(depositApplicationAllowed(_ui.value.tenantMode, pay.tenancyId, deposit.tenancyId)) {
+            "Payment và Deposit phải cùng Tenancy. Người thuê không gán tiền cọc."
+        }
+        api.applyPaymentToDeposit(pay.id, deposit.id, amount)
+        val freshDeposit = api.deposit(pay.tenancyId)?.takeIf { it.id == deposit.id }
+            ?: error("Deposit không còn khả dụng.")
+        _ui.update {
+            it.copy(
+                payment = api.payment(pay.id),
+                deposit = freshDeposit,
+                depositEvents = api.depositEvents(freshDeposit.id).filter { event -> event.depositId == freshDeposit.id },
+            )
+        }
     }
 
     fun issueReceipt(paymentId: String) = write {

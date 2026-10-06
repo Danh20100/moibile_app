@@ -81,3 +81,7 @@ FUTURE absent from implemented app flows: subscription/pricing/quota; CSV/Excel;
 - Unchanged Web sanity gates rerun: `npm run check` **PASS**, `npm test` **9/9 PASS**, `npm run test:browser` **4 HTTP routes + Chrome PASS**.
 - **Not executed:** on-device Android E2E, seeded live DISC-01/DISC-02, root `pnpm e2e:coverage` or independent Android CI. No new claims about backend/Figma acceptance.
 - No staging merge, no worker-branch integration and no changes to Duy Anh's overlapping DISC-02 files. **READY_TO_REVIEW remains NO.**
+
+## Superseding evidence — 2026-10-06
+
+The historic results above stay as recorded. Later integration evidence is `docs/testing/v1-integration-evidence-20261005.md`. That record does not convert this report's counts into a new PASS, and READY_TO_MERGE remains NO.

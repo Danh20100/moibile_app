@@ -1,0 +1,15 @@
+feature: trust-submission
+sources:
+  - docs/backlogs/v1/trust-report.md
+cases:
+  - id: TR-01-H01
+    flow: TR-01
+    kind: happy
+    scenario: authenticated user reports one published Listing
+    expect: [report-submitted, reporter-is-principal, listing-unchanged]
+    must_not: [client-supplied-reporter, public-score, report-list]
+  - id: TR-01-E01
+    flow: TR-01
+    kind: error
+    scenario: missing auth, unpublished target, or Review target
+    expect: [unauthorized-or-not-found-or-unprocessable, no-report-row]

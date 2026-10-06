@@ -599,3 +599,7 @@ Remaining V1 acceptance evidence includes fresh Google authentication, process-r
 ### Approved integration authority — 2026-10-05
 
 The original staged MoMo promotion checklist above is preserved as unchecked implementation history. Scope alignment alone does not complete any runtime DoD. Manual operator recording accepts MANUAL_CASH / MANUAL_TRANSFER with server-derived USER_RECORDED; only verified payment-success IPN creates GATEWAY / PROVIDER_VERIFIED Payment. Checkout, Charge, Claim, Deposit and Receipt remain distinct, with no automatic allocation/funding/issuance. Notice and acknowledgement are Tenancy-scoped. Authenticated Listing-only report submission derives reporter identity on the server; Review/report listing/moderation, Claim and Inquiry Activity remain gated. Missing Android, Google, Maps, database or MoMo/IPN evidence stays UNVERIFIED and READY_TO_MERGE: NO.
+
+### Integration tasks 18–23 — 2026-10-06
+
+Android now has the listing-report form, explicit payment-to-deposit action, and Settings/Help. No checklist row is ticked by this note. Device, Google, Maps, `TEST_DATABASE_URL`, and MoMo sandbox evidence remain UNVERIFIED. READY_TO_MERGE: NO. See `docs/testing/v1-integration-evidence-20261005.md`.

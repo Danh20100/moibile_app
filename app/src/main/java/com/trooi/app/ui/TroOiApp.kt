@@ -22,6 +22,10 @@ import com.trooi.app.features.auth.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
+import com.trooi.app.features.shared.HelpScreen
+import com.trooi.app.features.shared.SettingsScreen
+import com.trooi.app.features.shared.TrustReportScreen
+import com.trooi.app.core.model.accountTabSelected
 import com.trooi.app.features.shared.V1ContextSwitcherScreen
 import com.trooi.app.features.organization.OperatorRoute
 import com.trooi.app.features.tenancy.PaymentReturnUri
@@ -52,14 +56,15 @@ fun TroOiApp(
     val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(
             AppPage.Discovery, AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
+            AppPage.Settings, AppPage.Help,
         )
         AppContext.TENANT -> state.page in setOf(
             AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
-            AppPage.TenantIncidents, AppPage.Account,
+            AppPage.TenantIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
         )
         AppContext.OPERATIONS -> state.page in setOf(
             AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
-            AppPage.OwnerIncidents, AppPage.Account,
+            AppPage.OwnerIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
         )
     }
     var lastExitAt by remember { mutableLongStateOf(0L) }
@@ -69,6 +74,8 @@ fun TroOiApp(
         state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard
     BackHandler(
         enabled = state.page !is AppPage.ListingDetail &&
+            state.page !is AppPage.TrustReport &&
+            state.page != AppPage.Settings && state.page != AppPage.Help &&
             state.page !is AppPage.NotificationDetail && state.page != AppPage.Notifications,
     ) {
         if (!isContextRoot) {
@@ -177,6 +184,13 @@ fun TroOiApp(
                         onBack = viewModel::goBack,
                         onOpenLogin = viewModel::openLogin,
                         onSubmitInquiry = viewModel::submitInquiry,
+                        onOpenReport = viewModel::openTrustReport,
+                    )
+                    is AppPage.TrustReport -> TrustReportScreen(
+                        state = state,
+                        listingId = page.listingId,
+                        onBack = viewModel::goBack,
+                        onSubmit = viewModel::submitListingReport,
                     )
                     AppPage.TenantHome -> V1TenantHomeScreen(
                         state = state,
@@ -222,8 +236,18 @@ fun TroOiApp(
                         onDiscovery = viewModel::openDiscovery,
                         onContextSwitcher = viewModel::openContextSwitcher,
                         onNotifications = viewModel::openNotifications,
+                        onSettings = viewModel::openSettings,
+                        onHelp = viewModel::openHelp,
                         onLogout = viewModel::logout,
                     )
+                    AppPage.Settings -> SettingsScreen(
+                        state = state,
+                        restoreEnabled = viewModel.sessionRestoreEnabled(),
+                        onBack = viewModel::goBack,
+                        onContext = viewModel::openContextSwitcher,
+                        onLogout = viewModel::logout,
+                    )
+                    AppPage.Help -> HelpScreen(onBack = viewModel::goBack)
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
                     AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
@@ -347,7 +371,7 @@ private fun V1AdaptiveNavigationRail(state: TroOiUiState, viewModel: TroOiViewMo
                     alwaysShowLabel = true,
                 )
                 NavigationRailItem(
-                    selected = state.page == AppPage.Account,
+                    selected = accountTabSelected(state.page),
                     onClick = viewModel::openAccount,
                     icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
                     label = { Text("Tài khoản") },
@@ -463,7 +487,7 @@ private fun V1OwnerNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
             label = { Text("Sự cố") },
         )
         NavigationBarItem(
-            selected = false,
+            selected = accountTabSelected(state.page),
             onClick = viewModel::openAccount,
             icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
             label = { Text("Tài khoản") },

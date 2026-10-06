@@ -30,6 +30,7 @@ import com.trooi.app.features.discovery.PublicDiscoveryFilters
 import com.trooi.app.features.discovery.cameraSearch
 import com.trooi.app.features.discovery.publicMapMarkers
 import com.trooi.app.features.discovery.usableCamera
+import com.trooi.app.core.model.activityDecisions
 import com.trooi.app.ui.components.*
 
 @Composable
@@ -173,9 +174,10 @@ fun V1GuestActivityScreen(state: TroOiUiState) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { V1PageTitle("Hoạt động", "Các lần liên hệ với tin đăng công khai") }
-        item {
-            V1Panel("Yêu cầu liên hệ") {
-                V1Pending("Lịch sử yêu cầu liên hệ chưa khả dụng ở phiên bản này.")
+        items(activityDecisions(), key = { "activity-" + it.id }) { decision ->
+            V1Panel(decision.id) {
+                V1Action(decision.id, {}, enabled = decision.enabled, modifier = Modifier.testTag("activity-" + decision.id))
+                if (!decision.enabled) V1Pending(decision.reason)
             }
         }
         if (state.isAuthenticated && state.read.notifications.isNotEmpty()) {

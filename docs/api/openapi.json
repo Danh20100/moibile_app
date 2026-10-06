@@ -3016,14 +3016,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SubmitInternalReportDto"
+                "$ref": "#/components/schemas/SubmitTrustReportDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Báo cáo nội bộ đã được tiếp nhận",
+            "description": "Báo cáo đã được tiếp nhận",
             "content": {
               "application/json": {
                 "schema": {
@@ -3033,7 +3033,7 @@
             }
           }
         },
-        "summary": "Gửi báo cáo nội bộ lên nền tảng để review",
+        "summary": "Gửi báo cáo tin đăng công khai",
         "tags": [
           "Audit & Trust"
         ],
@@ -3047,21 +3047,11 @@
         "operationId": "AuditTrustController_listReports",
         "parameters": [],
         "responses": {
-          "200": {
-            "description": "Danh sách báo cáo",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TrustReportDto"
-                  }
-                }
-              }
-            }
+          "403": {
+            "description": "Không cấp danh sách báo cáo cho app user"
           }
         },
-        "summary": "Xem danh sách các báo cáo nội bộ đang chờ hoặc đã xử lý",
+        "summary": "Danh sách báo cáo nội bộ không mở cho người dùng app",
         "tags": [
           "Audit & Trust"
         ],
@@ -3177,7 +3167,25 @@
     "/finance/checkouts": {
       "post": {
         "operationId": "PaymentGatewayController_createCheckout",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3251,16 +3259,19 @@
       "post": {
         "operationId": "PaymentGatewayController_momoIpn",
         "parameters": [],
-        "responses": {
-          "201": {
-            "description": "IPN accepted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MomoIpnResponseDto"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MomoIpnDto"
               }
             }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "IPN accepted without a response body"
           }
         },
         "summary": "MoMo IPN. Verified success is the only path that creates a Payment.",
@@ -4149,18 +4160,9 @@
             "type": "string",
             "enum": [
               "MANUAL_CASH",
-              "MANUAL_TRANSFER",
-              "GATEWAY"
+              "MANUAL_TRANSFER"
             ],
             "example": "MANUAL_TRANSFER"
-          },
-          "verification": {
-            "type": "string",
-            "enum": [
-              "USER_RECORDED",
-              "PROVIDER_VERIFIED"
-            ],
-            "example": "USER_RECORDED"
           },
           "confirmedAt": {
             "type": "string",
@@ -4171,7 +4173,6 @@
           "tenancyId",
           "amount",
           "source",
-          "verification",
           "confirmedAt"
         ]
       },
@@ -5493,13 +5494,9 @@
           "timestamp"
         ]
       },
-      "SubmitInternalReportDto": {
+      "SubmitTrustReportDto": {
         "type": "object",
         "properties": {
-          "reporterUserId": {
-            "type": "string",
-            "example": "user_12345"
-          },
           "listingId": {
             "type": "string",
             "example": "list_12345"
@@ -5522,7 +5519,7 @@
               "OTHER"
             ]
           },
-          "noteOrEvidenceReference": {
+          "note": {
             "type": "string"
           }
         },
@@ -5660,6 +5657,12 @@
       "GatewayCheckoutDto": {
         "type": "object",
         "properties": {
+          "replayAllowed": {
+            "type": "boolean"
+          },
+          "replayBlockedReason": {
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -5681,9 +5684,10 @@
           "status": {
             "type": "string",
             "enum": [
+              "INITIATED",
               "CREATED",
+              "UNKNOWN",
               "FAILED",
-              "EXPIRED",
               "SUCCEEDED"
             ]
           },
@@ -5701,6 +5705,7 @@
           }
         },
         "required": [
+          "replayAllowed",
           "id",
           "tenancyId",
           "amount",
@@ -5710,21 +5715,63 @@
           "createdAt"
         ]
       },
-      "MomoIpnResponseDto": {
+      "MomoIpnDto": {
         "type": "object",
         "properties": {
-          "resultCode": {
-            "type": "number",
-            "example": 0
+          "partnerCode": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "orderInfo": {
+            "type": "string"
+          },
+          "orderType": {
+            "type": "string"
           },
           "message": {
-            "type": "string",
-            "example": "success"
+            "type": "string"
+          },
+          "payType": {
+            "type": "string"
+          },
+          "extraData": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "transId": {
+            "type": "number"
+          },
+          "resultCode": {
+            "type": "number"
+          },
+          "responseTime": {
+            "type": "number"
           }
         },
         "required": [
+          "partnerCode",
+          "orderId",
+          "requestId",
+          "orderInfo",
+          "orderType",
+          "message",
+          "payType",
+          "extraData",
+          "signature",
+          "amount",
+          "transId",
           "resultCode",
-          "message"
+          "responseTime"
         ]
       }
     }
