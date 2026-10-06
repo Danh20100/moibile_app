@@ -607,3 +607,5 @@ Android now has the listing-report form, explicit payment-to-deposit action, and
 Rechecked the same day at implementation HEAD `65606e4`. Typecheck, lint, build, coverage, and the OpenAPI contract test passed. The Postgres runtime and device gates did not. Still no checklist row is ticked. READY_TO_MERGE: NO.
 
 Later the same day, `trooi_test` and emulator `emulator-5554` were available. Postgres runtime, conformance, migration, `pnpm test` (336), and `connectedBackendDebugAndroidTest` (5/5) passed. Google sign-in, map tiles, Maestro, and MoMo sandbox stayed UNVERIFIED. No checklist row is ticked. READY_TO_MERGE: NO.
+
+After that, Maestro navigation passed on the emulator, and the native map showed Google tiles and accepted one zoom. MoMo sandbox create returned success without a signature, so the client rejected it. Google sign-in, wallet payment, pan/permission/marker, and on-device report/deposit stayed unverified. No checklist row is ticked. READY_TO_MERGE: NO. See `docs/testing/v1-integration-evidence-20261005.md`.

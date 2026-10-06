@@ -85,3 +85,5 @@ FUTURE absent from implemented app flows: subscription/pricing/quota; CSV/Excel;
 ## Superseding evidence — 2026-10-06
 
 The historic results above stay as recorded. Later integration evidence is `docs/testing/v1-integration-evidence-20261005.md`. That record does not convert this report's counts into a new PASS, and READY_TO_MERGE remains NO.
+
+The 2026-10-06 device/sandbox revision of that evidence file supersedes only the UNVERIFIED device lines. It still does not retick this report, and READY_TO_MERGE remains NO.
