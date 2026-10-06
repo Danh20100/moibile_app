@@ -605,3 +605,5 @@ The original staged MoMo promotion checklist above is preserved as unchecked imp
 Android now has the listing-report form, explicit payment-to-deposit action, and Settings/Help. No checklist row is ticked by this note. Device, Google, Maps, `TEST_DATABASE_URL`, and MoMo sandbox evidence remain UNVERIFIED. READY_TO_MERGE: NO. See `docs/testing/v1-integration-evidence-20261005.md`.
 
 Rechecked the same day at implementation HEAD `65606e4`. Typecheck, lint, build, coverage, and the OpenAPI contract test passed. The Postgres runtime and device gates did not. Still no checklist row is ticked. READY_TO_MERGE: NO.
+
+Later the same day, `trooi_test` and emulator `emulator-5554` were available. Postgres runtime, conformance, migration, `pnpm test` (336), and `connectedBackendDebugAndroidTest` (5/5) passed. Google sign-in, map tiles, Maestro, and MoMo sandbox stayed UNVERIFIED. No checklist row is ticked. READY_TO_MERGE: NO.
