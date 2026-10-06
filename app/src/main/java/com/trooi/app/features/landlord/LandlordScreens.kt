@@ -14,7 +14,7 @@ import com.trooi.app.core.model.*
 import com.trooi.app.ui.components.*
 
 @Composable
-fun V1OwnerDashboardScreen(state: TroOiUiState) {
+fun V1OwnerDashboardScreen(state: TroOiUiState, onOpenSource: (SourceTarget) -> Unit = {}) {
     val organizations = scopedOrganizations(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-dashboard"),
@@ -61,17 +61,38 @@ fun V1OwnerDashboardScreen(state: TroOiUiState) {
                 projection.outstandingReceivableLabel?.let { amount ->
                     LedgerAttentionRow(
                         title = "Khoản cần thu",
-                        supporting = "Khoản còn cần thu",
+                        supporting = "Chưa có sourceId từ Backend cho khoản tổng hợp",
                         amount = amount,
                         tone = LedgerTone.Warning,
+                        enabled = false,
                     )
                 }
-                projection.openIncidentCount?.takeIf { it > 0 }?.let { count ->
+                val incident = orgIncidents.firstOrNull()
+                if (incident != null) {
                     LedgerAttentionRow(
-                        title = "$count sự cố đang mở",
-                        supporting = "Mở mục Sự cố để xem chi tiết",
+                        title = incident.title,
+                        supporting = "Sự cố · ${incident.lifecycle.name}",
                         tone = LedgerTone.Clay,
+                        onClick = {
+                            onOpenSource(
+                                SourceTarget(
+                                    "INCIDENT",
+                                    incident.incidentId,
+                                    organizationId = org.organizationId,
+                                    roomId = incident.roomId,
+                                ),
+                            )
+                        },
                     )
+                } else {
+                    projection.openIncidentCount?.takeIf { it > 0 }?.let { count ->
+                        LedgerAttentionRow(
+                            title = "$count sự cố đang mở",
+                            supporting = "Chưa có sourceId sự cố từ Backend",
+                            tone = LedgerTone.Clay,
+                            enabled = false,
+                        )
+                    }
                 }
                 LedgerDivider()
                 LedgerSectionTitle("Phòng đang vận hành")
@@ -179,7 +200,7 @@ fun V1OwnerPropertiesScreen(state: TroOiUiState) {
 }
 
 @Composable
-fun V1OwnerFinanceScreen(state: TroOiUiState) {
+fun V1OwnerFinanceScreen(state: TroOiUiState, onOpenSource: (SourceTarget) -> Unit = {}) {
     val organizations = scopedOrganizations(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-finance"),
@@ -205,24 +226,39 @@ fun V1OwnerFinanceScreen(state: TroOiUiState) {
                     subtitle = "Các khoản phải thu",
                     values = finance.charges.map { it.label to it.amountLabel },
                     tone = LedgerTone.Warning,
+                    onOpen = finance.charges.map { charge ->
+                        { onOpenSource(SourceTarget("CHARGE", charge.chargeId, organizationId = org.organizationId)) }
+                    },
                 )
                 FinanceLane(
                     title = "Tiền đã nhận",
                     subtitle = "Các khoản đã nhận",
                     values = finance.confirmedPayments.map { "Thanh toán" to it.amountLabel },
                     tone = LedgerTone.Success,
+                    onOpen = finance.confirmedPayments.map { payment ->
+                        { onOpenSource(SourceTarget("PAYMENT", payment.paymentId, organizationId = org.organizationId)) }
+                    },
                 )
                 FinanceLane(
                     title = "Tiền cọc",
                     subtitle = "Tiền cọc đang quản lý",
                     values = finance.deposits.map { "Tiền cọc" to (it.heldLabel ?: it.fundedLabel ?: "Chưa có số liệu") },
                     tone = LedgerTone.Clay,
+                    onOpen = finance.deposits.map { deposit ->
+                        {
+                            val id = deposit.depositId ?: deposit.tenancyId
+                            onOpenSource(SourceTarget("DEPOSIT", id, tenancyId = deposit.tenancyId, organizationId = org.organizationId))
+                        }
+                    },
                 )
                 FinanceLane(
                     title = "Biên nhận",
                     subtitle = "Biên nhận đã phát hành",
                     values = finance.receipts.map { it.receiptId to it.issuedAtLabel },
                     tone = LedgerTone.Neutral,
+                    onOpen = finance.receipts.map { receipt ->
+                        { onOpenSource(SourceTarget("RECEIPT", receipt.receiptId, organizationId = org.organizationId)) }
+                    },
                 )
             }
             LedgerDivider()
@@ -236,20 +272,27 @@ private fun FinanceLane(
     subtitle: String,
     values: List<Pair<String, String>>,
     tone: LedgerTone,
+    onOpen: List<() -> Unit> = emptyList(),
 ) {
     LedgerSectionTitle(title, subtitle)
     if (values.isEmpty()) {
         V1Pending("Chưa có dữ liệu.")
     } else {
-        values.forEach { (label, value) ->
-            LedgerAttentionRow(label, subtitle, amount = value, tone = tone)
+        values.forEachIndexed { index, (label, value) ->
+            LedgerAttentionRow(
+                label,
+                subtitle,
+                amount = value,
+                tone = tone,
+                onClick = onOpen.getOrNull(index),
+            )
         }
     }
     LedgerDivider()
 }
 
 @Composable
-fun V1OwnerIncidentsScreen(state: TroOiUiState) {
+fun V1OwnerIncidentsScreen(state: TroOiUiState, onOpenSource: (SourceTarget) -> Unit = {}) {
     val incidents = scopedOperatorIncidents(state.read, state.access, state.selectedContext)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("v1-owner-incidents"),
@@ -260,6 +303,22 @@ fun V1OwnerIncidentsScreen(state: TroOiUiState) {
         if (state.demoPreview) item { V1PreviewNotice() }
         if (incidents.isEmpty()) item { V1Panel("Danh sách sự cố") { V1Pending() } }
         items(incidents, key = { it.incidentId }) { incident ->
+            val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId
+            LedgerAttentionRow(
+                title = incident.title,
+                supporting = "Phòng ${incident.roomId}",
+                tone = LedgerTone.Warning,
+                onClick = {
+                    onOpenSource(
+                        SourceTarget(
+                            "INCIDENT",
+                            incident.incidentId,
+                            organizationId = organizationId,
+                            roomId = incident.roomId,
+                        ),
+                    )
+                },
+            )
             LedgerSectionTitle(incident.title, "Phòng ${incident.roomId}")
             LedgerStateLabel(
                 incident.lifecycle.name,

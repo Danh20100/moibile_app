@@ -30,6 +30,7 @@ fun V1TenantHomeScreen(
     onFinance: () -> Unit,
     onIncidents: () -> Unit,
     onContextSwitcher: () -> Unit,
+    onOpenSource: (SourceTarget) -> Unit = {},
 ) {
     val rentals = linkedRentals(state)
     val current = rentals.singleOrNull()
@@ -89,6 +90,17 @@ fun V1TenantHomeScreen(
                         title = incidents.first().title,
                         supporting = "Sự cố · ${incidents.first().lifecycle.name}",
                         tone = LedgerTone.Warning,
+                        onClick = {
+                            val incident = incidents.first()
+                            onOpenSource(
+                                SourceTarget(
+                                    "INCIDENT",
+                                    incident.incidentId,
+                                    tenancyId = current.tenancyId,
+                                    roomId = incident.roomId,
+                                ),
+                            )
+                        },
                     )
                     V1SecondaryAction("Theo dõi sự cố", onIncidents, modifier = Modifier.fillMaxWidth())
                 }
@@ -115,6 +127,9 @@ fun V1TenantHomeScreen(
                         title = payment.amountLabel,
                         supporting = payment.confirmationLabel ?: "Chưa có trạng thái xác nhận",
                         tone = LedgerTone.Success,
+                        onClick = {
+                            onOpenSource(SourceTarget("PAYMENT", payment.paymentId, tenancyId = current.tenancyId))
+                        },
                     )
                 }
             }
@@ -126,7 +141,11 @@ fun V1TenantHomeScreen(
 }
 
 @Composable
-fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
+fun V1TenantFinanceScreen(
+    state: TroOiUiState,
+    onRental: () -> Unit,
+    onOpenSource: (SourceTarget) -> Unit = {},
+) {
     val rentals = linkedRentals(state)
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("tenant-pov-finance"),
@@ -167,6 +186,9 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
                         supporting = charge.outstandingLabel ?: "Chưa có số tiền còn phải trả",
                         amount = charge.amountLabel,
                         tone = LedgerTone.Warning,
+                        onClick = {
+                            onOpenSource(SourceTarget("CHARGE", charge.chargeId, tenancyId = tenancy.tenancyId))
+                        },
                     )
                 }
             }
@@ -180,6 +202,9 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
                         title = payment.amountLabel,
                         supporting = payment.confirmationLabel ?: "Đã ghi nhận thanh toán",
                         tone = LedgerTone.Success,
+                        onClick = {
+                            onOpenSource(SourceTarget("PAYMENT", payment.paymentId, tenancyId = tenancy.tenancyId))
+                        },
                     )
                 }
             }
@@ -204,6 +229,9 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
                         title = "Biên nhận ${receipt.receiptId}",
                         supporting = receipt.issuedAtLabel,
                         tone = LedgerTone.Neutral,
+                        onClick = {
+                            onOpenSource(SourceTarget("RECEIPT", receipt.receiptId, tenancyId = tenancy.tenancyId))
+                        },
                     )
                 }
             }
@@ -214,7 +242,11 @@ fun V1TenantFinanceScreen(state: TroOiUiState, onRental: () -> Unit) {
 }
 
 @Composable
-fun V1TenantIncidentsScreen(state: TroOiUiState, onRental: () -> Unit) {
+fun V1TenantIncidentsScreen(
+    state: TroOiUiState,
+    onRental: () -> Unit,
+    onOpenSource: (SourceTarget) -> Unit = {},
+) {
     val rentals = linkedRentals(state)
     val roomIds = rentals.mapTo(mutableSetOf()) { it.roomId }
     val incidents = state.read.incidents.filter { it.roomId in roomIds }
@@ -229,7 +261,15 @@ fun V1TenantIncidentsScreen(state: TroOiUiState, onRental: () -> Unit) {
             item { V1Panel("Không có sự cố") { V1Pending("Chưa có sự cố trong phòng của bạn.") } }
         } else {
             items(incidents, key = { "tenant-incident-" + it.incidentId }) { incident ->
-                LedgerSectionTitle(incident.title)
+                LedgerAttentionRow(
+                    title = incident.title,
+                    supporting = incident.lifecycle.name,
+                    tone = LedgerTone.Warning,
+                    onClick = {
+                        val tenancyId = rentals.firstOrNull { it.roomId == incident.roomId }?.tenancyId
+                        onOpenSource(SourceTarget("INCIDENT", incident.incidentId, tenancyId = tenancyId, roomId = incident.roomId))
+                    },
+                )
                 LedgerStateLabel(
                     incident.lifecycle.name,
                     tone = if (incident.lifecycle == IncidentLifecycle.RESOLVED || incident.lifecycle == IncidentLifecycle.CLOSED) {

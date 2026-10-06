@@ -21,9 +21,11 @@ sealed interface RentalRoute {
     data class Terms(val id: String) : RentalRoute
     data class Notices(val id: String) : RentalRoute
     data class Billing(val id: String) : RentalRoute
+    data class BillingDetail(val tenancyId: String, val cycleId: String, val chargeId: String? = null) : RentalRoute
     data class Payment(val id: String) : RentalRoute
     data class Deposit(val id: String) : RentalRoute
     data class Receipts(val id: String) : RentalRoute
+    data class ReceiptDetail(val tenancyId: String, val receiptId: String) : RentalRoute
     data class History(val id: String) : RentalRoute
     data class Incidents(val roomId: String) : RentalRoute
     data class Incident(val id: String, val roomId: String) : RentalRoute
@@ -58,6 +60,9 @@ data class RentalUiState(
     val gatewayCheckout: GatewayCheckout? = null,
     val checkoutLaunchUrl: String? = null,
     val checkoutCreateFailed: Boolean = false,
+    val focusedChargeId: String? = null,
+    val focusId: String? = null,
+    val receipt: RentalReceipt? = null,
 ) {
     val route: RentalRoute get() = stack.last()
 }
@@ -74,17 +79,20 @@ class RentalViewModel @Inject constructor(
     private var startedKey = ""
     private var revision = 0
 
-    fun start(roomId: String, linkedTenancyId: String? = null) {
-        val key = roomId + ":" + (linkedTenancyId ?: "")
+    fun start(roomId: String, linkedTenancyId: String? = null, entry: RentalRoute? = null, focusId: String? = null) {
+        val key = roomId + ":" + (linkedTenancyId ?: "") + ":" + (entry?.toString() ?: "") + ":" + (focusId ?: "")
         if (key == startedKey) return
         revision++
         startedKey = key
         val root = linkedTenancyId?.let(RentalRoute::Tenancy) ?: RentalRoute.Tenancies
+        val stack = if (entry != null && entry != root) listOf(root, entry) else listOf(root)
         _ui.value = RentalUiState(
             roomId = roomId,
             tenantMode = linkedTenancyId != null,
-            stack = listOf(root),
+            stack = stack,
             checkoutIntent = hydrateCheckout(linkedTenancyId),
+            focusedChargeId = (entry as? RentalRoute.BillingDetail)?.chargeId,
+            focusId = focusId,
         )
         load()
     }
@@ -105,9 +113,11 @@ class RentalViewModel @Inject constructor(
                 is RentalRoute.Terms -> route.id
                 is RentalRoute.Notices -> route.id
                 is RentalRoute.Billing -> route.id
+                is RentalRoute.BillingDetail -> route.tenancyId
                 is RentalRoute.Payment -> route.id
                 is RentalRoute.Deposit -> route.id
                 is RentalRoute.Receipts -> route.id
+                is RentalRoute.ReceiptDetail -> route.tenancyId
                 is RentalRoute.History -> route.id
                 else -> linked
             }
@@ -119,7 +129,8 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(stack = it.stack + route, error = null, errorKind = null, success = null,
             tenancies = emptyList(), tenancy = null, participants = emptyList(), terms = emptyList(),
             notices = emptyList(), billing = emptyList(), payments = emptyList(), payment = null,
-            deposit = null, depositEvents = emptyList(), receipts = emptyList(), incidents = emptyList(),
+            deposit = null, depositEvents = emptyList(), receipts = emptyList(), receipt = null,
+            incidents = emptyList(), focusedChargeId = null, focusId = null,
             incident = null, incidentEvents = emptyList(), history = null) }
         load()
     }
@@ -156,16 +167,36 @@ class RentalViewModel @Inject constructor(
                     }
                     is RentalRoute.Notices -> publish(current) { it.copy(notices = api.notices(route.id)) }
                     is RentalRoute.Billing -> publish(current) { it.copy(billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id }) }
+                    is RentalRoute.BillingDetail -> publish(current) {
+                        val cycle = if (route.cycleId.isNotBlank()) {
+                            api.billingCycle(route.cycleId).also { require(it.tenancyId == route.tenancyId) }
+                        } else {
+                            val cycles = api.billingCycles(route.tenancyId).filter { cycle -> cycle.tenancyId == route.tenancyId }
+                            cycles.firstOrNull { cycle -> route.chargeId != null && cycle.charges.any { charge -> charge.id == route.chargeId } }
+                                ?: error("Charge không thuộc Tenancy hiện tại.")
+                        }
+                        it.copy(billing = listOf(cycle), focusedChargeId = route.chargeId)
+                    }
                     is RentalRoute.Payment -> publish(current) {
                         val payments = api.payments(route.id).filter { payment -> payment.tenancyId == route.id }
                         val intent = it.checkoutIntent ?: hydrateCheckout(route.id)
                         val checkout = intent?.checkoutId?.let { id -> runCatching { gateway.get(id) }.getOrNull() }
+                        val focused = it.focusId?.let { id ->
+                            payments.firstOrNull { payment -> payment.id == id }
+                                ?: runCatching { api.payment(id) }.getOrNull()?.takeIf { payment -> payment.tenancyId == route.id }
+                        }
                         it.copy(
                             payments = payments,
-                            payment = null,
+                            payment = focused,
                             checkoutIntent = intent,
                             gatewayCheckout = checkout ?: it.gatewayCheckout,
                         )
+                    }
+                    is RentalRoute.ReceiptDetail -> publish(current) {
+                        val receipt = api.receipt(route.receiptId)
+                        val payment = api.payment(receipt.paymentId)
+                        require(payment.tenancyId == route.tenancyId) { "Receipt không thuộc Tenancy hiện tại." }
+                        it.copy(receipt = receipt, receipts = listOf(receipt), payment = payment)
                     }
                     is RentalRoute.Deposit -> publish(current) {
                         val deposit = api.deposit(route.id)?.also {

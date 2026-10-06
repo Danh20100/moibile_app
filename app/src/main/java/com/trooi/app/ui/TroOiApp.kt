@@ -23,7 +23,9 @@ import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.features.shared.V1ContextSwitcherScreen
+import com.trooi.app.features.organization.OperatorRoute
 import com.trooi.app.features.tenancy.PaymentReturnUri
+import com.trooi.app.features.tenancy.RentalRoute
 import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
@@ -118,6 +120,11 @@ fun TroOiApp(
                         V1Pending("Phiên trước không thể được xác minh lại.")
                         V1Action("Thử lại", { viewModel.retryRestore(context) })
                     }
+                } else if (state.sourceUnavailable) {
+                    V1Panel("Nguồn không khả dụng") {
+                        V1Pending("Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.")
+                        V1Action("Quay lại", viewModel::goBack)
+                    }
                 } else if (BuildConfig.BACKEND_BACKED && state.page in setOf(
                         AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
                     )) {
@@ -173,20 +180,24 @@ fun TroOiApp(
                         onFinance = viewModel::openTenantFinance,
                         onIncidents = viewModel::openTenantIncidents,
                         onContextSwitcher = viewModel::openContextSwitcher,
+                        onOpenSource = viewModel::openSource,
                     )
                     AppPage.TenantRental -> if (BuildConfig.BACKEND_BACKED) {
                         val tenancyId = (state.selectedContext as? SelectedContext.Tenant)?.tenancyId
                         if (tenancyId != null) {
+                            val authorized = state.authorizedSource
                             V1RentalWorkspace(
                                 roomId = "",
                                 linkedTenancyId = tenancyId,
-                                onExit = viewModel::openTenantHome,
+                                entry = authorized?.let(::rentalEntry),
+                                focusId = authorized?.target?.id?.takeIf { it.isNotBlank() },
+                                onExit = viewModel::goBack,
                                 onUnauthorized = viewModel::logout,
                             )
                         } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
-                    AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental)
-                    AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental)
+                    AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental, viewModel::openSource)
+                    AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental, viewModel::openSource)
                     AppPage.Notifications -> V1NotificationCenterScreen(
                         state = state,
                         onOpen = viewModel::openNotification,
@@ -209,18 +220,19 @@ fun TroOiApp(
                         onNotifications = viewModel::openNotifications,
                         onLogout = viewModel::logout,
                     )
-                    AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state)
+                    AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
                     AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
                         V1OperatorWorkspace(
                             state.access,
                             organizationId,
+                            entry = state.authorizedSource?.let(::operatorEntry),
                             onUnauthorized = viewModel::logout,
                             onWorkspaceCreated = viewModel::refreshSessionContext,
                         )
                     } else V1OwnerPropertiesScreen(state)
-                    AppPage.OwnerFinance -> V1OwnerFinanceScreen(state)
-                    AppPage.OwnerIncidents -> V1OwnerIncidentsScreen(state)
+                    AppPage.OwnerFinance -> V1OwnerFinanceScreen(state, viewModel::openSource)
+                    AppPage.OwnerIncidents -> V1OwnerIncidentsScreen(state, viewModel::openSource)
                 }
                 }
             }
@@ -503,5 +515,61 @@ private fun BackendGoogleAuthentication(
                 TextButton(onClick = onBack) { Text("Tiếp tục khám phá phòng") }
             }
         }
+    }
+}
+
+private fun rentalEntry(authorized: SourceResolution.Authorized): RentalRoute? {
+    val target = authorized.target
+    val tenancyId = target.tenancyId
+    return when (authorized.surface) {
+        LedgerSurface.TENANCY -> tenancyId?.let(RentalRoute::Tenancy)
+        LedgerSurface.FINANCE -> tenancyId?.let { id ->
+            when (target.type.uppercase()) {
+                "PAYMENT" -> RentalRoute.Payment(id)
+                "RECEIPT" -> RentalRoute.ReceiptDetail(id, target.id)
+                "DEPOSIT" -> RentalRoute.Deposit(id)
+                "BILLING_CYCLE" -> RentalRoute.BillingDetail(id, target.id)
+                "CHARGE" -> RentalRoute.BillingDetail(id, "", target.id)
+                else -> RentalRoute.Billing(id)
+            }
+        }
+        LedgerSurface.INCIDENT -> {
+            val roomId = target.roomId ?: return null
+            if (target.type.equals("INCIDENT", true) && target.id.isNotBlank()) {
+                RentalRoute.Incident(target.id, roomId)
+            } else {
+                RentalRoute.Incidents(roomId)
+            }
+        }
+        LedgerSurface.HISTORY -> tenancyId?.let(RentalRoute::History)
+        else -> tenancyId?.let(RentalRoute::Tenancy)
+    }
+}
+
+private fun operatorEntry(authorized: SourceResolution.Authorized): OperatorRoute? {
+    val target = authorized.target
+    val org = target.organizationId ?: return null
+    val roomId = target.roomId
+    val propertyId = target.propertyId
+    return when (authorized.surface) {
+        LedgerSurface.LISTING -> if (roomId != null && propertyId != null && target.id.isNotBlank()) {
+            OperatorRoute.Listing(target.id, roomId, propertyId, org)
+        } else {
+            null
+        }
+        LedgerSurface.HISTORY -> if (roomId != null && propertyId != null) {
+            OperatorRoute.RoomHistory(roomId, propertyId, org)
+        } else {
+            null
+        }
+        LedgerSurface.OVERVIEW -> if (roomId != null && propertyId != null) {
+            OperatorRoute.Room(roomId, propertyId, org)
+        } else {
+            null
+        }
+        LedgerSurface.TENANCY, LedgerSurface.FINANCE, LedgerSurface.INCIDENT -> roomId?.let {
+            OperatorRoute.Rentals(it, org, authorized.surface, target.tenancyId, target.id, target.type)
+        }
+        else -> null
     }
 }

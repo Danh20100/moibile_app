@@ -25,7 +25,14 @@ sealed interface OperatorRoute {
     data class Room(val id: String, val propertyId: String, val organizationId: String) : OperatorRoute
     data class RoomHistory(val id: String, val propertyId: String, val organizationId: String) : OperatorRoute
     data class Listing(val id: String, val roomId: String, val propertyId: String, val organizationId: String) : OperatorRoute
-    data class Rentals(val roomId: String, val organizationId: String) : OperatorRoute
+    data class Rentals(
+        val roomId: String,
+        val organizationId: String,
+        val rentalSurface: String? = null,
+        val tenancyId: String? = null,
+        val focusId: String? = null,
+        val sourceType: String? = null,
+    ) : OperatorRoute
     data class Inquiries(val listingId: String) : OperatorRoute
     data class Inquiry(val id: String, val listingId: String) : OperatorRoute
 }
@@ -60,18 +67,21 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
     private var access = AccessCapabilities()
     private var selectedOrganizationId = ""
     private var started = false
+    private var entryKey = ""
 
-    fun begin(capabilities: AccessCapabilities, organizationId: String) {
+    fun begin(capabilities: AccessCapabilities, organizationId: String, entry: OperatorRoute? = null) {
         val scoped = organizationId.takeIf { it in capabilities.operatedOrganizationIds }.orEmpty()
-        if (started && access == capabilities && selectedOrganizationId == scoped) return
+        val nextEntry = entry?.toString().orEmpty()
+        if (started && access == capabilities && selectedOrganizationId == scoped && entryKey == nextEntry) return
         revision++
         started = true
         access = capabilities
         selectedOrganizationId = scoped
-        val stack = if (scoped.isNotEmpty()) {
-            listOf(OperatorRoute.Organizations, OperatorRoute.Organization(scoped))
-        } else {
-            listOf(OperatorRoute.Organizations)
+        entryKey = nextEntry
+        val stack = buildList {
+            add(OperatorRoute.Organizations)
+            if (scoped.isNotEmpty()) add(OperatorRoute.Organization(scoped))
+            if (entry != null && entry !is OperatorRoute.Organizations && entry !is OperatorRoute.Organization) add(entry)
         }
         _ui.value = OperatorUiState(stack = stack)
         load()
@@ -82,6 +92,7 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         access = AccessCapabilities()
         selectedOrganizationId = ""
         started = false
+        entryKey = ""
         _ui.value = OperatorUiState()
     }
 

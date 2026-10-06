@@ -88,6 +88,8 @@ fun V1NotificationDetailScreen(
                     }
                     if (!notification.sourceType.isNullOrBlank() && !notification.sourceId.isNullOrBlank()) {
                         V1Action("Xem nội dung liên quan", { onOpenSource(notification.notificationId) })
+                    } else {
+                        V1Pending("Notification không có sourceId để mở bản ghi nguồn.")
                     }
                 }
             }

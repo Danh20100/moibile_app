@@ -17,7 +17,9 @@ import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.auth.isValidPassword
 import com.trooi.app.features.auth.isValidSignup
+import com.trooi.app.features.shared.V1ContractGateway
 import com.trooi.app.features.shared.V1PaymentGateway
+import com.trooi.app.features.shared.V1RentalGateway
 import com.trooi.app.features.shared.V1RequestException
 import com.trooi.app.features.tenancy.PaymentReturnAction
 import com.trooi.app.features.tenancy.PaymentReturnUri
@@ -40,6 +42,8 @@ class TroOiViewModel @Inject constructor(
     private val googleCredentialAuth: GoogleCredentialAuth,
     private val hintsStore: SessionHintsStore,
     private val paymentGateway: V1PaymentGateway,
+    private val rentalGateway: V1RentalGateway,
+    private val contractGateway: V1ContractGateway,
     @param:ApplicationContext private val appContext: Context,
 ) : ViewModel() {
     private val snapshot = repository.initialSnapshot()
@@ -208,29 +212,33 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun openNotificationSource(notificationId: String) {
-        val notification = _state.value.read.notifications.firstOrNull { it.notificationId == notificationId }
+        val current = _state.value
+        val notification = current.read.notifications.firstOrNull { it.notificationId == notificationId }
             ?: return showMessage("Notification không còn khả dụng.")
         val sourceId = notification.sourceId?.takeIf { it.isNotBlank() }
-            ?: return showMessage("Notification không có sourceId để điều hướng.")
-        when (notification.sourceType?.uppercase()) {
-            "LISTING" -> openListing(sourceId)
-            "TENANCY" -> if (sourceId in _state.value.access.linkedTenancyIds) {
-                selectContext(SelectedContext.Tenant(sourceId))
-                openTenantRental()
-            }
-                else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
-                else showMessage("Bạn không có quan hệ truy cập Tenancy nguồn.")
-            "INCIDENT" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerIncidents()
-                else if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantIncidents()
-                else showMessage("Bạn không có quyền mở Incident nguồn.")
-            "ROOM", "PROPERTY", "ORGANIZATION" -> if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerProperties()
-                else showMessage("Bạn không có quyền mở nguồn vận hành.")
-            "PAYMENT", "RECEIPT", "DEPOSIT", "BILLING_CYCLE", "CHARGE" ->
-                if (_state.value.access.allows(ClientArea.TENANT_PORTAL)) openTenantFinance()
-                else if (_state.value.access.allows(ClientArea.OPERATIONS)) openOwnerFinance()
-                else showMessage("Bạn không có quyền mở nguồn tài chính.")
-            else -> showMessage("Loại nguồn Notification chưa có route an toàn; vẫn giữ trang chi tiết.")
+            ?: return showUnavailable("Notification không có sourceId để điều hướng.")
+        val type = notification.sourceType?.takeIf { it.isNotBlank() }
+            ?: return showUnavailable("Notification không có sourceType để điều hướng.")
+        openSource(
+            SourceTarget(type, sourceId),
+            SourceNavigation(current.page, current.selectedContext, SourceTarget(type, sourceId)),
+        )
+    }
+
+    fun openSource(target: SourceTarget, origin: SourceNavigation? = null) {
+        val current = _state.value
+        val enriched = enrichKnownScope(target)
+        val navigation = origin ?: SourceNavigation(current.page, current.selectedContext, enriched)
+        val resolved = resolveSource(enriched, current.access)
+        if (resolved is SourceResolution.Authorized) {
+            applyAuthorizedSource(resolved, navigation)
+            return
         }
+        if (needsAncestry(enriched, current.access)) {
+            resolveAncestry(enriched, navigation)
+            return
+        }
+        showUnavailable(navigation = navigation)
     }
 
     fun openListing(listingId: String) {
@@ -467,12 +475,36 @@ class TroOiViewModel @Inject constructor(
                 snackbarMessage = null,
                 sessionRestoring = false,
                 restoreFailed = false,
+                sourceReturn = null,
+                authorizedSource = null,
+                sourceUnavailable = false,
             )
         }
     }
 
     fun goBack() {
         val current = _state.value
+        if (current.sourceUnavailable && current.sourceReturn == null) {
+            _state.update { it.copy(sourceUnavailable = false, snackbarMessage = null) }
+            return
+        }
+        val returning = current.sourceReturn
+        if (returning != null) {
+            val (page, context) = returnFromSource(returning)
+            sessionGeneration++
+            _state.update {
+                applySelection(it, context, keepPage = true, page = page).copy(
+                    sourceReturn = if (page is AppPage.NotificationDetail) {
+                        SourceNavigation(AppPage.Notifications, context, returning.target)
+                    } else {
+                        null
+                    },
+                    authorizedSource = null,
+                    sourceUnavailable = false,
+                )
+            }
+            return
+        }
         val destination = when (current.page) {
             AppPage.AuthForgotPassword -> AppPage.AuthLogin
             is AppPage.NotificationDetail -> AppPage.Notifications
@@ -627,6 +659,140 @@ class TroOiViewModel @Inject constructor(
     private fun open(page: AppPage) = _state.update { current ->
         if (canOpenPage(page, current.isAuthenticated, current.access)) current.copy(page = page)
         else current.copy(snackbarMessage = "Bạn chưa được cấp quyền truy cập khu vực này.")
+    }
+
+    private fun enrichKnownScope(target: SourceTarget): SourceTarget {
+        var next = target
+        if (next.roomId.isNullOrBlank() && target.type.equals("ROOM", ignoreCase = true)) {
+            next = next.copy(roomId = target.id)
+        }
+        if (next.tenancyId.isNullOrBlank() && target.type.equals("TENANCY", ignoreCase = true)) {
+            next = next.copy(tenancyId = target.id)
+        }
+        if (next.organizationId.isNullOrBlank() && target.type.equals("ORGANIZATION", ignoreCase = true)) {
+            next = next.copy(organizationId = target.id)
+        }
+        if (next.propertyId.isNullOrBlank() && target.type.equals("PROPERTY", ignoreCase = true)) {
+            next = next.copy(propertyId = target.id)
+        }
+        return next
+    }
+
+    private fun applyAuthorizedSource(resolved: SourceResolution.Authorized, navigation: SourceNavigation) {
+        if (resolved.page is AppPage.ListingDetail &&
+            publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == resolved.target.id }
+        ) {
+            showUnavailable("Tin đăng nguồn không còn công khai.", navigation)
+            return
+        }
+        sessionGeneration++
+        _state.update { current ->
+            val next = applySelection(current, resolved.context, keepPage = true, page = resolved.page)
+            persistHints(current.backendUserId, next.selectedContext)
+            next.copy(
+                authorizedSource = resolved,
+                sourceReturn = navigation,
+                sourceUnavailable = false,
+            )
+        }
+    }
+
+    private fun needsAncestry(target: SourceTarget, access: AccessCapabilities): Boolean {
+        val type = target.type.uppercase()
+        if (type !in setOf(
+                "PAYMENT", "RECEIPT", "DEPOSIT", "BILLING_CYCLE", "CHARGE",
+                "INCIDENT", "TENANCY", "ROOM", "PROPERTY",
+            )
+        ) {
+            return false
+        }
+        val tenant = access.allows(ClientArea.TENANT_PORTAL)
+        val ops = access.allows(ClientArea.OPERATIONS)
+        if (!tenant && !ops) return false
+        if (ops && (target.organizationId.isNullOrBlank() || target.roomId.isNullOrBlank())) return true
+        return target.tenancyId.isNullOrBlank() && target.organizationId.isNullOrBlank()
+    }
+
+    private fun resolveAncestry(target: SourceTarget, navigation: SourceNavigation) {
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            val enriched = runCatching { enrichSource(target) }.getOrNull()
+            if (generation != sessionGeneration) return@launch
+            when (val resolved = enriched?.let { resolveSource(it, _state.value.access) }) {
+                is SourceResolution.Authorized -> applyAuthorizedSource(resolved, navigation.copy(target = enriched))
+                else -> showUnavailable(navigation = navigation)
+            }
+        }
+    }
+
+    private suspend fun enrichSource(target: SourceTarget): SourceTarget {
+        var next = target
+        when (target.type.uppercase()) {
+            "PAYMENT" -> {
+                val payment = rentalGateway.payment(target.id)
+                val tenancy = rentalGateway.tenancy(payment.tenancyId)
+                next = next.copy(tenancyId = payment.tenancyId, roomId = tenancy.roomId)
+            }
+            "RECEIPT" -> {
+                val receipt = rentalGateway.receipt(target.id)
+                val payment = rentalGateway.payment(receipt.paymentId)
+                val tenancy = rentalGateway.tenancy(payment.tenancyId)
+                next = next.copy(tenancyId = payment.tenancyId, roomId = tenancy.roomId)
+            }
+            "BILLING_CYCLE" -> {
+                val cycle = rentalGateway.billingCycle(target.id)
+                val tenancy = rentalGateway.tenancy(cycle.tenancyId)
+                next = next.copy(tenancyId = cycle.tenancyId, roomId = tenancy.roomId)
+            }
+            "DEPOSIT" -> {
+                val tenancyId = target.tenancyId ?: target.id
+                val tenancy = rentalGateway.tenancy(tenancyId)
+                next = next.copy(tenancyId = tenancy.id, roomId = tenancy.roomId)
+            }
+            "CHARGE" -> {
+                val tenancyId = target.tenancyId ?: _state.value.read.tenantFinanceByTenancy.entries
+                    .firstOrNull { it.value.charges.any { charge -> charge.chargeId == target.id } }?.key
+                if (tenancyId != null) {
+                    val tenancy = rentalGateway.tenancy(tenancyId)
+                    next = next.copy(tenancyId = tenancyId, roomId = tenancy.roomId)
+                }
+            }
+            "INCIDENT" -> {
+                val incident = rentalGateway.incident(target.id)
+                next = next.copy(roomId = incident.roomId)
+            }
+            "TENANCY" -> {
+                val tenancy = rentalGateway.tenancy(target.id)
+                next = next.copy(tenancyId = tenancy.id, roomId = tenancy.roomId)
+            }
+            "ROOM" -> next = next.copy(roomId = target.id)
+            "PROPERTY" -> {
+                val property = contractGateway.property(target.id)
+                next = next.copy(organizationId = property.organizationId, propertyId = property.id)
+            }
+        }
+        val roomId = next.roomId
+        if (roomId != null && (next.organizationId.isNullOrBlank() || next.propertyId.isNullOrBlank()) &&
+            _state.value.access.allows(ClientArea.OPERATIONS)
+        ) {
+            val (propertyId, organizationId) = contractGateway.roomScope(roomId)
+            next = next.copy(propertyId = propertyId, organizationId = organizationId)
+        }
+        return next
+    }
+
+    private fun showUnavailable(
+        message: String = "Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.",
+        navigation: SourceNavigation? = null,
+    ) {
+        _state.update {
+            it.copy(
+                sourceUnavailable = true,
+                authorizedSource = null,
+                snackbarMessage = message,
+                sourceReturn = navigation ?: it.sourceReturn,
+            )
+        }
     }
 
     private fun showMessage(text: String) = _state.update { it.copy(snackbarMessage = text) }

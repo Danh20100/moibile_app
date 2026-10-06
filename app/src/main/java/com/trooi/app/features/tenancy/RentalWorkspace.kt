@@ -24,13 +24,15 @@ import com.trooi.app.ui.theme.TroOiMuted
 fun V1RentalWorkspace(
     roomId: String,
     linkedTenancyId: String? = null,
+    entry: RentalRoute? = null,
+    focusId: String? = null,
     onExit: () -> Unit,
     onUnauthorized: () -> Unit,
     model: RentalViewModel = hiltViewModel(),
 ) {
     val state by model.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    LaunchedEffect(roomId, linkedTenancyId) { model.start(roomId, linkedTenancyId) }
+    LaunchedEffect(roomId, linkedTenancyId, entry, focusId) { model.start(roomId, linkedTenancyId, entry, focusId) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     BackHandler(enabled = state.stack.size > 1) { model.back() }
     LaunchedEffect(state.errorKind) { if (state.errorKind == "AUTH_EXPIRED") onUnauthorized() }
@@ -68,9 +70,11 @@ fun V1RentalWorkspace(
                     is RentalRoute.Terms -> "Điều khoản theo phiên bản"
                     is RentalRoute.Notices -> "Thông báo lượt thuê"
                     is RentalRoute.Billing -> "Kỳ tính tiền"
+                    is RentalRoute.BillingDetail -> "Chi tiết kỳ tính tiền"
                     is RentalRoute.Payment -> "Khoản tiền đã nhận"
                     is RentalRoute.Deposit -> "Tiền cọc"
                     is RentalRoute.Receipts -> "Biên nhận"
+                    is RentalRoute.ReceiptDetail -> "Chi tiết biên nhận"
                     is RentalRoute.History -> "Lịch sử lượt thuê"
                     is RentalRoute.Incidents -> "Sự cố"
                     is RentalRoute.Incident -> "Chi tiết sự cố"
@@ -232,7 +236,7 @@ fun V1RentalWorkspace(
                     }
                 }
             }
-            is RentalRoute.Billing -> {
+            is RentalRoute.Billing, is RentalRoute.BillingDetail -> {
                 if (state.billing.isEmpty() && !state.busy) {
                     item { V1Panel("Kỳ thanh toán") { V1Pending("Chưa có Billing Cycle.") } }
                 }
@@ -251,7 +255,7 @@ fun V1RentalWorkspace(
                                 title = charge.type,
                                 supporting = "Charge · ${charge.id}",
                                 amount = charge.amount,
-                                tone = LedgerTone.Warning,
+                                tone = if (charge.id == state.focusedChargeId) LedgerTone.Clay else LedgerTone.Warning,
                             )
                         }
                     }
@@ -265,7 +269,9 @@ fun V1RentalWorkspace(
                         V1Choice(V1RentalGateway.CHARGE_TYPES.toList(), choice, { choice = it }, "Loại Charge")
                         V1Input(price, { price = it }, "Amount", "billing-amount")
                         V1Action("Tạo Billing Cycle", {
-                            model.createBilling(route.id, name, extra, extra2, choice, price)
+                            val tenancyId = (route as? RentalRoute.Billing)?.id
+                                ?: (route as? RentalRoute.BillingDetail)?.tenancyId.orEmpty()
+                            model.createBilling(tenancyId, name, extra, extra2, choice, price)
                         }, enabled = !state.busy && name.isNotBlank() && extra.isNotBlank() && extra2.isNotBlank() &&
                             choice.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
                         V1Pending("Backend duy trì nghĩa vụ phải thu; UI không tự tính aggregate/outstanding.")
@@ -403,7 +409,7 @@ fun V1RentalWorkspace(
                     }
                 }
             }
-            is RentalRoute.Receipts -> {
+            is RentalRoute.Receipts, is RentalRoute.ReceiptDetail -> {
                 if (state.receipts.isEmpty() && !state.busy) item { V1Panel("Receipts") { V1Pending("Chưa có Receipt được Backend cấp quyền.") } }
                 items(state.receipts, key = { it.id }) { receipt ->
                     V1Panel("Receipt · " + receipt.id) {

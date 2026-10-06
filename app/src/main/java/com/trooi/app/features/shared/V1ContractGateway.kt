@@ -57,6 +57,11 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
     suspend fun rooms(propertyId: String): List<V1Room> =
         list(client.get("rooms", true, mapOf("propertyId" to propertyId)), ::room)
     suspend fun room(id: String): V1Room = read(client.get("rooms/${segment(id)}", true), ::room)
+    suspend fun roomScope(roomId: String): Pair<String, String> {
+        val room = room(roomId)
+        val parent = property(room.propertyId)
+        return room.propertyId to parent.organizationId
+    }
     suspend fun createRoom(propertyId: String, label: String): V1Room =
         read(client.postJson("rooms", fields("propertyId" to propertyId, "nameOrLabel" to label).toString(), true), ::room)
     suspend fun editRoom(id: String, label: String): V1Room =

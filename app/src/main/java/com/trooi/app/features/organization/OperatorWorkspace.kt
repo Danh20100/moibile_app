@@ -14,7 +14,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.LedgerSurface
 import com.trooi.app.features.shared.*
+import com.trooi.app.features.tenancy.RentalRoute
 import com.trooi.app.ui.components.*
 import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.ui.theme.TroOiMuted
@@ -24,12 +26,13 @@ import com.trooi.app.ui.theme.TroOiMuted
 fun V1OperatorWorkspace(
     access: AccessCapabilities,
     organizationId: String,
+    entry: OperatorRoute? = null,
     onUnauthorized: () -> Unit,
     onWorkspaceCreated: () -> Unit,
     model: OperatorViewModel = hiltViewModel(),
 ) {
     val ui by model.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(access, organizationId) { model.begin(access, organizationId) }
+    LaunchedEffect(access, organizationId, entry) { model.begin(access, organizationId, entry) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     LaunchedEffect(ui.errorKind) { if (ui.errorKind == "AUTH_EXPIRED") onUnauthorized() }
     LaunchedEffect(ui.organizationCreatedRevision) {
@@ -46,7 +49,14 @@ fun V1OperatorWorkspace(
     var price by remember(ui.route) { mutableStateOf("") }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
-        V1RentalWorkspace(roomId = rental.roomId, onExit = { model.back() }, onUnauthorized = onUnauthorized)
+        V1RentalWorkspace(
+            roomId = rental.roomId,
+            linkedTenancyId = rental.tenancyId,
+            entry = operatorRentalEntry(rental),
+            focusId = rental.focusId,
+            onExit = { model.back() },
+            onUnauthorized = onUnauthorized,
+        )
         return
     }
 
@@ -218,9 +228,30 @@ fun V1OperatorWorkspace(
                         )
                     }
                     item {
+                        val listing = ui.listing?.takeIf { it.roomId == route.id }
                         LedgerNavStrip(
-                            active = "Tổng quan",
-                            items = listOf("Tổng quan", "Tin đăng", "Lượt thuê", "Tài chính", "Sự cố", "Lịch sử"),
+                            active = LedgerSurface.OVERVIEW,
+                            items = LedgerSurface.ALL,
+                            enabledItems = buildSet {
+                                add(LedgerSurface.OVERVIEW)
+                                add(LedgerSurface.TENANCY)
+                                add(LedgerSurface.FINANCE)
+                                add(LedgerSurface.INCIDENT)
+                                add(LedgerSurface.HISTORY)
+                                if (listing != null) add(LedgerSurface.LISTING)
+                            },
+                            onSelect = { label ->
+                                when (label) {
+                                    LedgerSurface.OVERVIEW -> Unit
+                                    LedgerSurface.LISTING -> listing?.let {
+                                        model.open(OperatorRoute.Listing(it.id, route.id, route.propertyId, route.organizationId))
+                                    }
+                                    LedgerSurface.TENANCY -> model.open(OperatorRoute.Rentals(route.id, route.organizationId, LedgerSurface.TENANCY))
+                                    LedgerSurface.FINANCE -> model.open(OperatorRoute.Rentals(route.id, route.organizationId, LedgerSurface.FINANCE))
+                                    LedgerSurface.INCIDENT -> model.open(OperatorRoute.Rentals(route.id, route.organizationId, LedgerSurface.INCIDENT))
+                                    LedgerSurface.HISTORY -> model.open(OperatorRoute.RoomHistory(route.id, route.propertyId, route.organizationId))
+                                }
+                            },
                         )
                     }
                     item {
@@ -310,21 +341,28 @@ fun V1OperatorWorkspace(
                             V1Pending("Chưa có lịch sử tin đăng.")
                         } else {
                             history.listings.forEach { entry ->
-                                if (entry.events.isEmpty()) {
-                                    LedgerAttentionRow(
-                                        title = "Listing ${entry.listing.id}",
-                                        supporting = entry.listing.status,
-                                        tone = LedgerTone.Neutral,
-                                    )
-                                } else {
-                                    entry.events.forEach { event ->
-                                        LedgerHistoryEvent(
-                                            source = "Tin đăng",
-                                            title = "${event.fromStatus} → ${event.toStatus}",
-                                            occurredAt = event.occurredAt,
-                                            supporting = "Listing ${entry.listing.id}",
+                                LedgerAttentionRow(
+                                    title = "Listing ${entry.listing.id}",
+                                    supporting = entry.listing.status,
+                                    tone = LedgerTone.Neutral,
+                                    onClick = {
+                                        model.open(
+                                            OperatorRoute.Listing(
+                                                entry.listing.id,
+                                                route.id,
+                                                route.propertyId,
+                                                route.organizationId,
+                                            ),
                                         )
-                                    }
+                                    },
+                                )
+                                entry.events.forEach { event ->
+                                    LedgerHistoryEvent(
+                                        source = "Tin đăng",
+                                        title = "${event.fromStatus} → ${event.toStatus}",
+                                        occurredAt = event.occurredAt,
+                                        supporting = "Listing ${entry.listing.id}",
+                                    )
                                 }
                             }
                         }
@@ -341,6 +379,16 @@ fun V1OperatorWorkspace(
                                     title = "Lượt thuê ${entry.tenancy.id}",
                                     supporting = "${entry.tenancy.status} · ${entry.billingCycles.size} kỳ thanh toán",
                                     tone = LedgerTone.Neutral,
+                                    onClick = {
+                                        model.open(
+                                            OperatorRoute.Rentals(
+                                                route.id,
+                                                route.organizationId,
+                                                LedgerSurface.TENANCY,
+                                                entry.tenancy.id,
+                                            ),
+                                        )
+                                    },
                                 )
                                 entry.payments.forEach { paymentEntry ->
                                     LedgerAttentionRow(
@@ -348,12 +396,36 @@ fun V1OperatorWorkspace(
                                         supporting = paymentEntry.payment.confirmedAt,
                                         amount = paymentEntry.payment.amount,
                                         tone = LedgerTone.Success,
+                                        onClick = {
+                                            model.open(
+                                                OperatorRoute.Rentals(
+                                                    route.id,
+                                                    route.organizationId,
+                                                    LedgerSurface.FINANCE,
+                                                    entry.tenancy.id,
+                                                    paymentEntry.payment.id,
+                                                    "PAYMENT",
+                                                ),
+                                            )
+                                        },
                                     )
                                     paymentEntry.receipts.forEach { receipt ->
                                         LedgerAttentionRow(
                                             title = "Biên nhận ${receipt.id}",
                                             supporting = receipt.status,
                                             tone = LedgerTone.Neutral,
+                                            onClick = {
+                                                model.open(
+                                                    OperatorRoute.Rentals(
+                                                        route.id,
+                                                        route.organizationId,
+                                                        LedgerSurface.FINANCE,
+                                                        entry.tenancy.id,
+                                                        receipt.id,
+                                                        "RECEIPT",
+                                                    ),
+                                                )
+                                            },
                                         )
                                     }
                                 }
@@ -380,6 +452,17 @@ fun V1OperatorWorkspace(
                                         title = entry.incident.category,
                                         supporting = entry.incident.status,
                                         tone = LedgerTone.Warning,
+                                        onClick = {
+                                            model.open(
+                                                OperatorRoute.Rentals(
+                                                    route.id,
+                                                    route.organizationId,
+                                                    LedgerSurface.INCIDENT,
+                                                    focusId = entry.incident.id,
+                                                    sourceType = "INCIDENT",
+                                                ),
+                                            )
+                                        },
                                     )
                                 } else {
                                     entry.events.forEach { event ->
@@ -460,6 +543,27 @@ fun V1OperatorWorkspace(
         Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Mở chi tiết →", fontWeight = FontWeight.SemiBold)
     }
+}
+
+private fun operatorRentalEntry(route: OperatorRoute.Rentals): RentalRoute? = when (route.rentalSurface) {
+    LedgerSurface.INCIDENT -> if (!route.focusId.isNullOrBlank()) {
+        RentalRoute.Incident(route.focusId, route.roomId)
+    } else {
+        RentalRoute.Incidents(route.roomId)
+    }
+    LedgerSurface.FINANCE -> route.tenancyId?.let { tenancyId ->
+        when (route.sourceType?.uppercase()) {
+            "RECEIPT" -> RentalRoute.ReceiptDetail(tenancyId, route.focusId ?: return@let RentalRoute.Receipts(tenancyId))
+            "PAYMENT" -> RentalRoute.Payment(tenancyId)
+            "BILLING_CYCLE" -> RentalRoute.BillingDetail(tenancyId, route.focusId.orEmpty())
+            "CHARGE" -> RentalRoute.BillingDetail(tenancyId, "", route.focusId)
+            "DEPOSIT" -> RentalRoute.Deposit(tenancyId)
+            else -> RentalRoute.Billing(tenancyId)
+        }
+    }
+    LedgerSurface.TENANCY -> route.tenancyId?.let(RentalRoute::Tenancy)
+    LedgerSurface.HISTORY -> route.tenancyId?.let(RentalRoute::History)
+    else -> null
 }
 
 private fun operatorRoomStateLabel(value: String): String = when (value.lowercase()) {

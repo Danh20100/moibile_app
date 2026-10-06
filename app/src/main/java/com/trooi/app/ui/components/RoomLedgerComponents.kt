@@ -2,6 +2,7 @@ package com.trooi.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -122,11 +124,21 @@ fun LedgerAttentionRow(
     amount: String? = null,
     tone: LedgerTone = LedgerTone.Neutral,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
     val mark = if (tone == LedgerTone.Neutral) MaterialTheme.colorScheme.primary else ledgerToneColor(tone)
+    val clickable = onClick != null && enabled
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (clickable) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
             .padding(vertical = 11.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -278,14 +290,25 @@ fun LedgerNavStrip(
     active: String,
     items: List<String>,
     modifier: Modifier = Modifier,
+    enabledItems: Set<String> = items.toSet(),
+    onSelect: ((String) -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items.forEach { label ->
+            val enabled = onSelect != null && label in enabledItems
             Surface(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (enabled) {
+                            Modifier.clickable(role = Role.Button) { onSelect.invoke(label) }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 color = if (label == active) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(

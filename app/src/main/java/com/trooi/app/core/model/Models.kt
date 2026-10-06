@@ -45,6 +45,9 @@ data class TroOiUiState(
     val sessionRestoring: Boolean = false,
     val restoreFailed: Boolean = false,
     val backendUserId: String = "",
+    val sourceReturn: SourceNavigation? = null,
+    val authorizedSource: SourceResolution.Authorized? = null,
+    val sourceUnavailable: Boolean = false,
 )
 
 /** Only UI routing and relationship checks: the backend remains the authority for operations. */
