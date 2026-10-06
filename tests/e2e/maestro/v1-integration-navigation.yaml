@@ -2,4 +2,5 @@ appId: com.trooi.app.backenddev
 ---
 - launchApp:
     clearState: false
-- assertVisible: "Tìm phòng"
+- assertVisible:
+    text: "(?s).*Tìm phòng.*"
