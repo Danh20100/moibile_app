@@ -9,16 +9,19 @@ import { GatewaySettlementService } from './services/gateway-settlement.service'
 import { GatewayProviderRegistry } from './providers/gateway-provider.registry';
 import { MomoGatewayAdapter } from './providers/momo-gateway.adapter';
 import { DemoGatewayAdapter } from './providers/demo-gateway.adapter';
+import { DemoPaymentController } from './controllers/demo-payment.controller';
+import { DemoPaymentService } from './services/demo-payment.service';
 
 @Module({
   imports: [DatabaseModule, TenancyModule],
-  controllers: [PaymentGatewayController],
+  controllers: [PaymentGatewayController, DemoPaymentController],
   providers: [
     PaymentGatewayService,
     GatewaySettlementService,
     GatewayProviderRegistry,
     MomoGatewayAdapter,
     DemoGatewayAdapter,
+    DemoPaymentService,
     {
       provide: MOMO_PAYMENT_CLIENT,
       useFactory: () => new HttpMomoPaymentClient(loadMomoConfig(process.env)),

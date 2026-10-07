@@ -8,6 +8,8 @@ import type { ResourceAuthorizationService } from '../../../src/common';
 import type { GoogleIdTokenVerifier } from '../../../src/integrations/google-identity';
 import type { BillingService } from '../../../src/modules/billing/services/billing.service';
 import type { PaymentGatewayService } from '../../../src/modules/payment-gateway/services/payment-gateway.service';
+import type { DemoConfig } from '../../../src/modules/payment-gateway/demo/demo-config';
+import type { TransactionManager } from '../../../src/persistence/ports/transaction-manager';
 
 const require = createRequire(__filename);
 let compiled = false;
@@ -15,6 +17,7 @@ type GatewayDependencies = {
   service: Pick<PaymentGatewayService, 'createCheckout' | 'findCheckout' | 'handleMomoIpn'>;
   authz: Pick<ResourceAuthorizationService, 'assertCanAccessTenancy' | 'assertCanReadTenancy'>;
   verifier: GoogleIdTokenVerifier;
+  demo?: { tx: TransactionManager; config: () => DemoConfig | null; clock: () => Date };
 };
 type BillingDependencies = {
   service: BillingService;
@@ -41,7 +44,11 @@ async function startHttpHarness(
     | { trust: TrustDependencies },
 ): Promise<{ baseUrl: string; close: () => Promise<void> }> {
   const dependencies =
-    'gateway' in selection ? selection.gateway : 'billing' in selection ? selection.billing : selection.trust;
+    'gateway' in selection
+      ? selection.gateway
+      : 'billing' in selection
+        ? selection.billing
+        : selection.trust;
   // tsx strips decorator metadata; use the production compiler, never synthetic DTO metadata.
   if (!compiled) {
     execFileSync(
@@ -85,9 +92,45 @@ async function startHttpHarness(
   }: typeof import('../../../src/modules/audit-trust/services/audit-trust.service') = require('../../../build/modules/audit-trust/services/audit-trust.service');
   const trust = 'trust' in selection;
   const gateway = 'gateway' in selection;
+  const demo = gateway ? selection.gateway.demo : undefined;
+  const demoControllers = [];
+  const demoProviders = [];
+  if (demo) {
+    const {
+      DemoPaymentController,
+    } = require('../../../build/modules/payment-gateway/controllers/demo-payment.controller');
+    const {
+      DemoPaymentService,
+    } = require('../../../build/modules/payment-gateway/services/demo-payment.service');
+    const {
+      DemoGatewayAdapter,
+      DEMO_CONFIG,
+    } = require('../../../build/modules/payment-gateway/providers/demo-gateway.adapter');
+    const {
+      GatewaySettlementService,
+    } = require('../../../build/modules/payment-gateway/services/gateway-settlement.service');
+    const {
+      GATEWAY_CLOCK,
+    } = require('../../../build/modules/payment-gateway/providers/gateway-provider');
+    const { TRANSACTION_MANAGER } = require('../../../build/persistence/ports/transaction-manager');
+    demoControllers.push(DemoPaymentController);
+    demoProviders.push(
+      DemoPaymentService,
+      DemoGatewayAdapter,
+      GatewaySettlementService,
+      { provide: TRANSACTION_MANAGER, useValue: demo.tx },
+      { provide: DEMO_CONFIG, useValue: demo.config },
+      { provide: GATEWAY_CLOCK, useValue: demo.clock },
+    );
+  }
   @Module({
-    controllers: trust ? [AuditTrustController] : gateway ? [PaymentGatewayController] : [BillingController],
+    controllers: trust
+      ? [AuditTrustController]
+      : gateway
+        ? [PaymentGatewayController, ...demoControllers]
+        : [BillingController],
     providers: [
+      ...demoProviders,
       {
         provide: trust ? AuditTrustService : gateway ? PaymentGatewayService : BillingService,
         useValue: dependencies.service,
