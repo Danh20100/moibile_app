@@ -109,9 +109,11 @@ export class PostgresFinanceRepository implements FinanceRepository {
     return this.mapped(async () => {
       const result = await sql`UPDATE gateway.gateway_checkouts SET dispatch_lease_owner=${owner},
         dispatch_lease_until=${leaseUntil}, first_dispatch_at=COALESCE(first_dispatch_at, ${now}::timestamptz), updated_at=${now}
-        WHERE checkout_id=${id} AND provider='MOMO' AND status IN ('INITIATED','UNKNOWN') AND replay_blocker IS NULL
-          AND request_snapshot IS NOT NULL AND (dispatch_lease_until IS NULL OR dispatch_lease_until<=${now}::timestamptz)
-          AND (first_dispatch_at IS NULL OR first_dispatch_at > ${now}::timestamptz - interval '31 days')
+        WHERE checkout_id=${id} AND replay_blocker IS NULL
+          AND (dispatch_lease_until IS NULL OR dispatch_lease_until<=${now}::timestamptz)
+          AND ((provider='MOMO' AND status IN ('INITIATED','UNKNOWN') AND request_snapshot IS NOT NULL
+            AND (first_dispatch_at IS NULL OR first_dispatch_at > ${now}::timestamptz - interval '31 days'))
+            OR (provider='DEMO' AND status IN ('INITIATED','CREATED') AND request_snapshot IS NULL))
         RETURNING checkout_id`.execute(this.db);
       return result.rows.length === 1;
     });

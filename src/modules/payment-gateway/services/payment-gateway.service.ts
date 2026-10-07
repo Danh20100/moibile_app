@@ -47,7 +47,7 @@ export class PaymentGatewayService {
     idempotencyKey: string,
   ): Promise<GatewayCheckout> {
     const provider = input.provider === undefined ? 'MOMO' : input.provider;
-    if (provider !== 'MOMO' && provider !== 'SEPAY')
+    if (provider !== 'MOMO' && provider !== 'SEPAY' && provider !== 'DEMO')
       throw new BadRequestException('Invalid gateway provider');
     if (!isUUID(idempotencyKey)) throw new BadRequestException('Idempotency-Key must be a UUID');
     const key = idempotencyKey.toLowerCase();
