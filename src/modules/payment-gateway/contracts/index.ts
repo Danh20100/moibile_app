@@ -1,5 +1,6 @@
 import type { DecimalString } from '../../../common/domain/decimal-string';
 import type { GatewayCheckoutStatus } from '../../../persistence/ports/finance.repository';
+import type { GatewayProvider } from '../../../persistence/ports/gateway-checkout.types';
 
 export type { GatewayCheckoutStatus };
 
@@ -10,7 +11,7 @@ export interface GatewayCheckout {
   tenancyId: string;
   amount: DecimalString;
   referenceCode: string;
-  provider: 'MOMO';
+  provider: GatewayProvider;
   status: GatewayCheckoutStatus;
   payUrl?: string;
   deeplink?: string;
@@ -19,6 +20,7 @@ export interface GatewayCheckout {
 }
 
 export interface CreateGatewayCheckoutInput {
+  provider?: GatewayProvider;
   tenancyId: string;
   amount: DecimalString;
 }

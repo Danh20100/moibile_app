@@ -82,6 +82,9 @@ export class PaymentGatewayService {
     userId: string,
     idempotencyKey: string,
   ): Promise<GatewayCheckout> {
+    const provider = input.provider === undefined ? 'MOMO' : input.provider;
+    if (provider !== 'MOMO' && provider !== 'SEPAY')
+      throw new BadRequestException('Invalid gateway provider');
     if (!isUUID(idempotencyKey)) throw new BadRequestException('Idempotency-Key must be a UUID');
     const key = idempotencyKey.toLowerCase();
     const tenancy = await this.authz.assertCanAccessTenancy(userId, input.tenancyId);
@@ -89,12 +92,13 @@ export class PaymentGatewayService {
       throw new ForbiddenException('Tenancy is not writable');
     const amountVnd = vndInteger(input.amount);
     const fingerprint = createHash('sha256')
-      .update(JSON.stringify(['MOMO', input.tenancyId, amountVnd]))
+      .update(JSON.stringify([provider, input.tenancyId, amountVnd]))
       .digest('hex');
     let record = await this.tx.run(({ repositories }) =>
       repositories.finance.findGatewayCheckoutByClientKey(userId, key),
     );
     if (!record) {
+      if (provider === 'SEPAY') throw new ServiceUnavailableException('SEPAY checkout is unavailable');
       const now = this.clock().toISOString();
       const checkoutId = randomUUID();
       const orderId = checkoutId.replace(/-/g, '');
@@ -129,6 +133,9 @@ export class PaymentGatewayService {
         providerOutcomeStage: null,
         terminalEvidence: null,
         providerTransId: null,
+        providerRemoteOrderId: null,
+        handoffClaimedAt: null,
+        handoffAttempt: 0,
       };
       try {
         await this.tx.run(({ repositories }) => repositories.finance.insertGatewayCheckout(intent));
@@ -143,6 +150,7 @@ export class PaymentGatewayService {
     }
     if (record.fingerprint !== fingerprint)
       throw new ConflictException('Idempotency-Key payload differs');
+    if (record.provider !== 'MOMO') return this.toCheckout(record, userId);
     if (this.replayReason(record, userId)) return this.toCheckout(record, userId);
     const owner = randomUUID();
     const now = this.clock().toISOString();
@@ -227,6 +235,7 @@ export class PaymentGatewayService {
     await this.authz.assertCanReadTenancy(userId, record.tenancyId);
     if (
       record.status === 'INITIATED' &&
+      record.provider === 'MOMO' &&
       record.dispatchLeaseUntil &&
       new Date(record.dispatchLeaseUntil).getTime() <= this.clock().getTime()
     ) {
@@ -268,6 +277,7 @@ export class PaymentGatewayService {
   ): string | undefined {
     if (record.createdByUserId !== userId) return 'INTENT_OWNER_REQUIRED';
     if (!writeAllowed) return 'TENANCY_WRITE_ACCESS_REQUIRED';
+    if (record.provider !== 'MOMO') return 'PROVIDER_UNAVAILABLE';
     if (record.replayBlocker) return record.replayBlocker;
     if (!record.requestSnapshot) return 'LEGACY_RECONCILIATION_REQUIRED';
     if (!['INITIATED', 'UNKNOWN'].includes(record.status)) return 'CHECKOUT_NOT_REPLAYABLE';
@@ -297,6 +307,7 @@ export class PaymentGatewayService {
         await repositories.finance.lockGatewayCheckout(existing.checkoutId);
         const locked = await repositories.finance.findGatewayCheckout(existing.checkoutId);
         if (!locked) throw new NotFoundException('Gateway checkout not found');
+        if (locked.provider !== 'MOMO') throw new ConflictException('MoMo IPN provider conflict');
         if (
           !locked.requestSnapshot ||
           !locked.providerPartnerCode ||
@@ -443,7 +454,7 @@ export class PaymentGatewayService {
       tenancyId: record.tenancyId,
       amount: record.amount,
       referenceCode: record.referenceCode,
-      provider: 'MOMO',
+      provider: record.provider,
       status: record.status,
       createdAt: record.createdAt,
       ...(record.payUrl ? { payUrl: record.payUrl } : {}),

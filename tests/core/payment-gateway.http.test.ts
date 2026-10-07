@@ -290,6 +290,9 @@ async function settlementHarness(status: 'INITIATED' | 'UNKNOWN' = 'INITIATED') 
       providerOutcomeStage: null,
       terminalEvidence: null,
       providerTransId: null,
+      providerRemoteOrderId: null,
+      handoffClaimedAt: null,
+      handoffAttempt: 0,
     });
   });
   const service = new PaymentGatewayService(new TenancyService(transactions), transactions, client);

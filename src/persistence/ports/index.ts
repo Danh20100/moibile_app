@@ -1,4 +1,5 @@
 export * from './finance.repository';
+export * from './gateway-checkout.types';
 export * from './geography';
 export * from './identity.repository';
 export * from './incident.repository';

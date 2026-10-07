@@ -1,4 +1,4 @@
-import type { MomoRequestSnapshot } from '../../modules/payment-gateway/momo/momo-client';
+import type { GatewayProvider, GatewaySnapshotBinding } from './gateway-checkout.types';
 import type { DateString, DecimalString, TimestampString } from './repositories';
 
 export interface BillingCycleRecord { billingCycleId: string; tenancyId: string; tenancyTermsId: string; periodStart: DateString; periodEnd: DateString }
@@ -14,10 +14,9 @@ export interface DepositPaymentApplicationRecord { depositPaymentApplicationId: 
 export interface DepositSettlementRecord { depositSettlementId: string; depositId: string; refundedAmount: DecimalString; retainedAmount: DecimalString; reasonOrNote: string; actedByUserId: string; settledAt: TimestampString }
 export interface DepositEventRecord { depositEventId: string; depositId: string; eventType: string; amount: DecimalString; occurredAt: TimestampString; paymentApplicationId: string | null; settlementId: string | null }
 export type GatewayCheckoutStatus = 'INITIATED' | 'CREATED' | 'UNKNOWN' | 'FAILED' | 'SUCCEEDED';
-export interface GatewayCheckoutRecord {
+export type GatewayCheckoutRecord = GatewaySnapshotBinding & {
   idempotencyKey: string | null;
   fingerprint: string | null;
-  requestSnapshot: MomoRequestSnapshot | null;
   providerPartnerCode: string | null;
   firstDispatchAt: TimestampString | null;
   dispatchLeaseOwner: string | null;
@@ -25,15 +24,17 @@ export interface GatewayCheckoutRecord {
   replayBlocker: string | null;
   providerOutcome: string | null;
   providerResultCode: number | null;
-  providerOutcomeStage: 'CREATE' | 'PAYMENT_IPN' | null;
+  providerOutcomeStage: 'CREATE' | 'PAYMENT_IPN' | 'RECONCILIATION' | null;
   terminalEvidence: string | null;
   providerTransId: string | null;
+  providerRemoteOrderId: string | null;
+  handoffClaimedAt: TimestampString | null;
+  handoffAttempt: number;
   checkoutId: string;
   tenancyId: string;
   createdByUserId: string;
   amount: DecimalString;
   referenceCode: string;
-  provider: 'MOMO';
   providerOrderId: string;
   providerRequestId: string;
   status: GatewayCheckoutStatus;
@@ -44,7 +45,7 @@ export interface GatewayCheckoutRecord {
   lastIpnAt: TimestampString | null;
   createdAt: TimestampString;
   updatedAt: TimestampString;
-}
+};
 
 export interface FinanceRepository {
   insertBillingCycle(input: BillingCycleRecord): Promise<void>; findBillingCycle(id: string): Promise<BillingCycleRecord | undefined>; findBillingCyclesForTenancy(tenancyId?: string): Promise<BillingCycleRecord[]>;
@@ -62,6 +63,9 @@ export interface FinanceRepository {
   insertGatewayCheckout(input: GatewayCheckoutRecord): Promise<void>;
   findGatewayCheckout(id: string): Promise<GatewayCheckoutRecord | undefined>;
   findGatewayCheckoutByOrderId(orderId: string): Promise<GatewayCheckoutRecord | undefined>;
+  findGatewayCheckoutByProviderInvoice(provider: GatewayProvider, merchantScope: string, invoice: string): Promise<GatewayCheckoutRecord | undefined>;
+  findGatewayCheckoutByRemoteOrderId(provider: GatewayProvider, merchantScope: string, remoteId: string): Promise<GatewayCheckoutRecord | undefined>;
+  claimGatewayHandoff(id: string, expectedAttempt: number, now: TimestampString): Promise<boolean>;
   findGatewayCheckoutByClientKey(userId: string, key: string): Promise<GatewayCheckoutRecord | undefined>;
   acquireGatewayDispatchLease(id: string, owner: string, now: string, leaseUntil: string): Promise<boolean>;
   lockGatewayCheckout(id: string): Promise<void>;

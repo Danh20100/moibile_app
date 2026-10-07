@@ -12,6 +12,8 @@ import {
   signaturesMatch,
 } from './momo-hmac';
 import { classifyMomoResult } from './momo-result';
+import type { MomoRequestSnapshot } from '../../../persistence/ports/gateway-checkout.types';
+export type { MomoRequestSnapshot } from '../../../persistence/ports/gateway-checkout.types';
 
 export interface MomoConfig {
   partnerCode: string;
@@ -20,16 +22,6 @@ export interface MomoConfig {
   endpoint: string;
   ipnUrl: string;
   redirectUrl: string;
-}
-
-export interface MomoRequestSnapshot {
-  partnerCode: string;
-  endpoint: string;
-  ipnUrl: string;
-  redirectUrl: string;
-  extraData: string;
-  requestType: 'captureWallet';
-  autoCapture: true;
 }
 
 export class MomoVerificationError extends BadGatewayException {}

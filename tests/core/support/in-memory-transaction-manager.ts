@@ -1,3 +1,4 @@
+import type { GatewayProvider } from '../../../src/persistence/ports/gateway-checkout.types';
 import { PersistenceUniqueViolation } from '../../../src/persistence/errors';
 import type { OrganizationRecord } from '../../../src/persistence/ports/organization.repository';
 import type {
@@ -378,11 +379,21 @@ export function createCoreTestTransactionManager(
       findGatewayCheckout: async (id: string) => structuredClone(checkouts.get(id)),
       findGatewayCheckoutByOrderId: async (orderId: string) =>
         structuredClone([...checkouts.values()].find((v) => v.providerOrderId === orderId)),
+      findGatewayCheckoutByProviderInvoice: async (provider: GatewayProvider, merchantScope: string, invoice: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.provider === provider && v.providerPartnerCode === merchantScope && v.providerOrderId === invoice)),
+      findGatewayCheckoutByRemoteOrderId: async (provider: GatewayProvider, merchantScope: string, remoteId: string) =>
+        structuredClone([...checkouts.values()].find((v) => v.provider === provider && v.providerPartnerCode === merchantScope && v.providerRemoteOrderId === remoteId)),
+      claimGatewayHandoff: async (id: string, expectedAttempt: number, now: string) => {
+        const v = checkouts.get(id);
+        if (!v || v.provider !== 'SEPAY' || v.status !== 'CREATED' || v.replayBlocker || !v.requestSnapshot || v.handoffAttempt !== expectedAttempt || v.handoffAttempt >= 2147483647) return false;
+        checkouts.set(id, { ...v, handoffAttempt: v.handoffAttempt + 1, handoffClaimedAt: v.handoffClaimedAt ?? now, firstDispatchAt: v.firstDispatchAt ?? now, status: 'UNKNOWN', updatedAt: now });
+        return true;
+      },
       findGatewayCheckoutByClientKey: async (userId: string, key: string) =>
         structuredClone([...checkouts.values()].find((v) => v.createdByUserId === userId && v.idempotencyKey === key)),
       acquireGatewayDispatchLease: async (id: string, owner: string, now: string, until: string) => {
         const v = checkouts.get(id);
-        if (!v || !['INITIATED', 'UNKNOWN'].includes(v.status) || v.replayBlocker || !v.requestSnapshot ||
+        if (!v || v.provider !== 'MOMO' || !['INITIATED', 'UNKNOWN'].includes(v.status) || v.replayBlocker || !v.requestSnapshot ||
             (v.dispatchLeaseUntil && v.dispatchLeaseUntil > now) ||
             (v.firstDispatchAt && new Date(now).getTime() - new Date(v.firstDispatchAt).getTime() >= 31 * 86400000)) return false;
         checkouts.set(id, { ...v, dispatchLeaseOwner: owner, dispatchLeaseUntil: until, firstDispatchAt: v.firstDispatchAt ?? now });

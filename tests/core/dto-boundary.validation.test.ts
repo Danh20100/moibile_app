@@ -9,8 +9,19 @@ import { CreateListingDto } from '../../src/modules/listing/dto';
 import { UpdateOrganizationDto } from '../../src/modules/organization/dto';
 import { UpdatePropertyDto } from '../../src/modules/property/dto';
 import { UpdateRoomDto } from '../../src/modules/room/dto';
+import { CreateGatewayCheckoutDto } from '../../src/modules/payment-gateway/dto';
 
 type DtoClass = new () => object;
+
+test('gateway provider is optional and accepts only MOMO or SEPAY, excluding null', () => {
+  const body = { tenancyId: 'tenancy-a', amount: '1000' };
+  const validate = (input: object) => validateSync(plainToInstance(CreateGatewayCheckoutDto, input), { whitelist: true, forbidNonWhitelisted: true });
+  assert.deepEqual(validate(body), []);
+  for (const provider of ['MOMO', 'SEPAY']) assert.deepEqual(validate({ ...body, provider }), []);
+  for (const provider of [null, '', 'momo', 'OTHER', 1]) {
+    assert.ok(validate({ ...body, provider }).some((error) => error.property === 'provider'));
+  }
+});
 
 const TARGETS: Array<[string, DtoClass, string]> = [
   ['UpdateOrganizationDto', UpdateOrganizationDto, 'name'],

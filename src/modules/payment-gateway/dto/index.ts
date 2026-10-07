@@ -1,9 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString, Matches, Min, Max } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsString, Matches, Min, Max, ValidateIf } from 'class-validator';
+import type { GatewayProvider } from '../../../persistence/ports/gateway-checkout.types';
 
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
 export class CreateGatewayCheckoutDto {
+  @ApiPropertyOptional({ enum: ['MOMO', 'SEPAY'] })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsIn(['MOMO', 'SEPAY'])
+  provider?: GatewayProvider;
+
   @ApiProperty({ example: '60000000-0000-4000-8000-000000000001' })
   @IsString()
   @IsNotEmpty()
@@ -33,8 +39,8 @@ export class GatewayCheckoutDto {
   @ApiProperty()
   referenceCode!: string;
 
-  @ApiProperty({ enum: ['MOMO'] })
-  provider!: 'MOMO';
+  @ApiProperty({ enum: ['MOMO', 'SEPAY'] })
+  provider!: GatewayProvider;
 
   @ApiProperty({ enum: ['INITIATED', 'CREATED', 'UNKNOWN', 'FAILED', 'SUCCEEDED'] })
   status!: 'INITIATED' | 'CREATED' | 'UNKNOWN' | 'FAILED' | 'SUCCEEDED';

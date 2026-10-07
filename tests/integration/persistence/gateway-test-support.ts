@@ -51,6 +51,7 @@ export function signedCheckoutIpn(
   record: GatewayCheckoutRecord,
   overrides: Partial<MomoIpnPayload> = {},
 ): MomoIpnPayload {
+  if (record.provider !== 'MOMO') throw new Error('MoMo IPN fixture requires MOMO');
   const payload: MomoIpnPayload = {
     partnerCode: record.providerPartnerCode ?? TEST_MOMO.partnerCode,
     orderId: record.providerOrderId,
