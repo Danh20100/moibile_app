@@ -9,7 +9,7 @@ export class GatewayProviderRegistry {
   private readonly adapters: Record<GatewayProvider, GatewayProviderAdapter | null>;
 
   constructor(@Inject(MomoGatewayAdapter) momo: MomoGatewayAdapter) {
-    this.adapters = { MOMO: momo, SEPAY: null };
+    this.adapters = { MOMO: momo, SEPAY: null, DEMO: null };
   }
 
   find(provider: GatewayProvider): GatewayProviderAdapter | null {

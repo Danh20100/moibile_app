@@ -60,7 +60,7 @@ interface GatewayEvidenceFields {
   currency: 'VND';
   outcome: 'PAYMENT_SUCCEEDED' | 'FINAL_FAILURE' | 'PENDING' | 'RETRYABLE_NON_FINAL' | 'RECONCILE';
   providerSettlementId: string;
-  stage: 'PAYMENT_IPN' | 'RECONCILIATION';
+  stage: 'PAYMENT_IPN' | 'RECONCILIATION' | 'DEMO_CONFIRMATION';
   resultCode: number | null;
   observation: string;
   replayBlocker: string | null;

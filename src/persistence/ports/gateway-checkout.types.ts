@@ -1,4 +1,4 @@
-export type GatewayProvider = 'MOMO' | 'SEPAY';
+export type GatewayProvider = 'MOMO' | 'SEPAY' | 'DEMO';
 
 export interface MomoRequestSnapshot {
   partnerCode: string;
@@ -26,4 +26,5 @@ export interface SepayRequestSnapshot {
 
 export type GatewaySnapshotBinding =
   | { provider: 'MOMO'; requestSnapshot: MomoRequestSnapshot | null }
-  | { provider: 'SEPAY'; requestSnapshot: SepayRequestSnapshot | null };
+  | { provider: 'SEPAY'; requestSnapshot: SepayRequestSnapshot | null }
+  | { provider: 'DEMO'; requestSnapshot: null };

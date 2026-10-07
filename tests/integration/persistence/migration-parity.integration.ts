@@ -25,8 +25,13 @@ test('optional_sepay_upgrade_preserves_momo_rows', async () => {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    const latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    let latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    if (latest === '000006_demo_gateway') {
+      await runMigrations('down', url);
+      latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    }
     if (latest === '000005_optional_sepay_gateway') await runMigrations('down', url);
+    assert.equal((await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name, '000004_gateway_checkout_durability');
     const protocol = new HttpMomoPaymentClient({ partnerCode: 'TEST', accessKey: 'test', secretKey: 'test', endpoint: 'https://test-payment.momo.vn', ipnUrl: 'https://example.test/ipn', redirectUrl: 'trooi://payment/momo' });
     const paymentId = randomUUID();
     await f.finance.insertPayment({ paymentId, tenancyId: f.ids.tenancy, amount: '1000.00', source: 'GATEWAY', verification: 'PROVIDER_VERIFIED', confirmedAt: '2026-10-07T00:00:00.000Z', voidedOrReversedAt: null, correctionNote: null, replacementPaymentId: null });
@@ -191,6 +196,8 @@ test('provider_snapshot_mismatch_is_rejected; local_invoice_collision_rejected_b
     await client.query("UPDATE gateway.gateway_checkouts SET provider_outcome_stage='RECONCILIATION' WHERE checkout_id=$1", [sepayId]);
     await assert.rejects(client.query("UPDATE gateway.gateway_checkouts SET provider_result_code=0 WHERE checkout_id=$1", [sepayId]), /check constraint/);
     await assert.rejects(client.query("UPDATE gateway.gateway_checkouts SET status='SUCCEEDED' WHERE checkout_id=$1", [sepayId]), /ck_gateway_checkout_result/);
+    await runMigrations('down', url);
+    assert.equal((await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name, '000005_optional_sepay_gateway');
     await assert.rejects(runMigrations('down', url), /SEPAY/);
     assert.equal((await client.query('SELECT count(*)::int AS n FROM gateway.gateway_checkouts WHERE provider=\'SEPAY\'')).rows[0].n, 2);
     assert.equal((await queryCatalog(url)).tables.length, 29);
@@ -301,6 +308,7 @@ test('durability migration preserves legacy IDs/results and blocks unreconstruct
   try {
     await runMigrations('down', url);
     await runMigrations('down', url);
+    await runMigrations('down', url);
     const catalog = await client.query('SELECT name FROM schema_migrations ORDER BY id');
     assert.deepEqual(
       catalog.rows.map((row) => row.name),
@@ -355,6 +363,8 @@ test('durability migration preserves legacy IDs/results and blocks unreconstruct
       2,
     );
     await runMigrations('down', url);
+    await runMigrations('down', url);
+    assert.equal((await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name, '000004_gateway_checkout_durability');
     await runMigrations('up', url);
     assert.equal((await f.finance.findGatewayCheckout(ids[1]!))?.resultingPaymentId, paymentId);
   } finally {
