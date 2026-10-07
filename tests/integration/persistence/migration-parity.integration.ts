@@ -2,6 +2,9 @@ import type { TransactionManager } from '../../../src/persistence/ports/transact
 import { HttpMomoPaymentClient } from '../../../src/modules/payment-gateway/momo/momo-client';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 import { PaymentGatewayService } from '../../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -383,7 +386,9 @@ test('PostgreSQL dispatch sees committed intent and lease, releases locks, and e
   const started = new Promise<void>((resolve) => {
     entered = resolve;
   });
-  const gateway = new PaymentGatewayService(new TenancyService(f.manager), f.manager, {
+  const gateway = new PaymentGatewayService(new TenancyService(f.manager),
+    f.manager,
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
     snapshot: (id) => protocol.snapshot(id),
     verifyIpn: () => false,
     async createCaptureWallet(input) {
@@ -423,7 +428,8 @@ test('PostgreSQL dispatch sees committed intent and lease, releases locks, and e
         deeplink: null,
       };
     },
-  });
+  })),
+    new GatewaySettlementService(f.manager));
   try {
     const key = randomUUID();
     const first = gateway.createCheckout(
@@ -540,10 +546,9 @@ test('committed pre-HTTP crash lease recovers after 60s, and failed intent trans
     redirectUrl: 'trooi://payment/momo',
   });
   let calls = 0;
-  const gateway = new PaymentGatewayService(
-    new TenancyService(manager),
+  const gateway = new PaymentGatewayService(new TenancyService(manager),
     manager,
-    {
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
       snapshot: (id) => protocol.snapshot(id),
       verifyIpn: () => false,
       async createCaptureWallet() {
@@ -555,10 +560,10 @@ test('committed pre-HTTP crash lease recovers after 60s, and failed intent trans
           deeplink: null,
         };
       },
-    },
+    })),
+    new GatewaySettlementService(manager, () => now),
     undefined,
-    () => now,
-  );
+    () => now);
   const input = { tenancyId: f.ids.tenancy, amount: '1000' };
   const key = randomUUID();
   try {

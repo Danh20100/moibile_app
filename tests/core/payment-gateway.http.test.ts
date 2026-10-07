@@ -1,6 +1,9 @@
 import { HttpMomoPaymentClient } from '../../src/modules/payment-gateway/momo/momo-client';
 import { momoIpnRaw, signMomoRaw } from '../../src/modules/payment-gateway/momo/momo-hmac';
 import { PaymentGatewayService } from '../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import { ResourceAuthorizationService } from '../../src/common/auth/resource-authorization.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
@@ -205,11 +208,17 @@ test('production Nest service resolves optional clock and auth defaults with MoM
     require('../../build/persistence/ports/transaction-manager') as typeof import('../../src/persistence/ports/transaction-manager');
   const { MOMO_PAYMENT_CLIENT, HttpMomoPaymentClient, loadMomoConfig } =
     require('../../build/modules/payment-gateway/momo/momo-client') as typeof import('../../src/modules/payment-gateway/momo/momo-client');
+  const { GatewaySettlementService } = require('../../build/modules/payment-gateway/services/gateway-settlement.service') as typeof import('../../src/modules/payment-gateway/services/gateway-settlement.service');
+  const { GatewayProviderRegistry } = require('../../build/modules/payment-gateway/providers/gateway-provider.registry') as typeof import('../../src/modules/payment-gateway/providers/gateway-provider.registry');
+  const { MomoGatewayAdapter } = require('../../build/modules/payment-gateway/providers/momo-gateway.adapter') as typeof import('../../src/modules/payment-gateway/providers/momo-gateway.adapter');
   const disabled = new HttpMomoPaymentClient(loadMomoConfig({}));
   class RuntimeModule {}
   Module({
     providers: [
       PaymentGatewayService,
+      GatewaySettlementService,
+      GatewayProviderRegistry,
+      MomoGatewayAdapter,
       TenancyService,
       { provide: TRANSACTION_MANAGER, useValue: createCoreTestTransactionManager() },
       { provide: MOMO_PAYMENT_CLIENT, useValue: disabled },
@@ -295,7 +304,10 @@ async function settlementHarness(status: 'INITIATED' | 'UNKNOWN' = 'INITIATED') 
       handoffAttempt: 0,
     });
   });
-  const service = new PaymentGatewayService(new TenancyService(transactions), transactions, client);
+  const service = new PaymentGatewayService(new TenancyService(transactions),
+    transactions,
+    new GatewayProviderRegistry(new MomoGatewayAdapter(client)),
+    new GatewaySettlementService(transactions));
   const app = await startGatewayHttpHarness({
     service,
     authz: new ResourceAuthorizationService(transactions),

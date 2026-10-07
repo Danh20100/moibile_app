@@ -9,6 +9,9 @@ import {
   requireMomoConfig,
 } from '../../src/modules/payment-gateway/momo/momo-client';
 import { PaymentGatewayService } from '../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
@@ -53,7 +56,9 @@ test('existing checkout caller passes its checkout identity and rejects out-of-r
   );
   let calls = 0;
   let checkoutIdentity = '';
-  const gateway = new PaymentGatewayService(new TenancyService(transactions), transactions, {
+  const gateway = new PaymentGatewayService(new TenancyService(transactions),
+    transactions,
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
     snapshot: (id) => client.snapshot(id),
     async createCaptureWallet(request) {
       calls++;
@@ -69,7 +74,8 @@ test('existing checkout caller passes its checkout identity and rejects out-of-r
     verifyIpn() {
       return false;
     },
-  });
+  })),
+    new GatewaySettlementService(transactions));
   const checkout = await gateway.createCheckout(
     { tenancyId: 'tenancy-1', amount: '4470000.00' },
     'user-1',
