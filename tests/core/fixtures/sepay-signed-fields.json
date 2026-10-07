@@ -1,0 +1,84 @@
+{
+  "provenance": {
+    "sdkRevision": "62178220f36cda2f6657731ef182ecd84dd67e2f",
+    "source": "https://github.com/sepayvn/sepay-pg-node/blob/62178220f36cda2f6657731ef182ecd84dd67e2f/src/checkout.ts",
+    "oracle": "Python standard-library hmac/hashlib/base64; explicit ordered dictionaries; offline UTF-8 only",
+    "scope": "SOURCE_ALGORITHM_VERIFIED; transport and SANDBOX_UNVERIFIED"
+  },
+  "secret": "TASK0_NONSECRET_SECRET",
+  "ordered": {
+    "fields": {
+      "merchant": "TASK0_NONSECRET_MERCHANT",
+      "operation": "PURCHASE",
+      "payment_method": "BANK_TRANSFER",
+      "order_amount": "1000",
+      "currency": "VND",
+      "order_invoice_number": "TROOI-SEPAY-00000000000040008000000000000001",
+      "order_description": "Task0 fixture",
+      "success_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/success",
+      "error_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/error",
+      "cancel_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/cancel"
+    },
+    "canonical": "merchant=TASK0_NONSECRET_MERCHANT,operation=PURCHASE,payment_method=BANK_TRANSFER,order_amount=1000,currency=VND,order_invoice_number=TROOI-SEPAY-00000000000040008000000000000001,order_description=Task0 fixture,success_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/success,error_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/error,cancel_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/cancel",
+    "signature": "SUbHvJLD4/My0NVFoz59z0FmJwlqQmclnJEADt4nxMo="
+  },
+  "reversed": {
+    "fields": {
+      "cancel_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/cancel",
+      "error_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/error",
+      "success_url": "https://merchant.example/api/v1/finance/checkouts/sepay/return/success",
+      "order_description": "Task0 fixture",
+      "order_invoice_number": "TROOI-SEPAY-00000000000040008000000000000001",
+      "currency": "VND",
+      "order_amount": "1000",
+      "payment_method": "BANK_TRANSFER",
+      "operation": "PURCHASE",
+      "merchant": "TASK0_NONSECRET_MERCHANT"
+    },
+    "canonical": "cancel_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/cancel,error_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/error,success_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/success,order_description=Task0 fixture,order_invoice_number=TROOI-SEPAY-00000000000040008000000000000001,currency=VND,order_amount=1000,payment_method=BANK_TRANSFER,operation=PURCHASE,merchant=TASK0_NONSECRET_MERCHANT",
+    "signature": "iwcV21kRBYoCs4r2j4Qc96A4Sss/UzDLW4wxxf86vX4="
+  },
+  "rawUtf8": {
+    "fields": {
+      "order_description": "Trọ Ơi, a=b \"quoted\" & café",
+      "merchant": "NONSECRET",
+      "order_amount": 1000
+    },
+    "canonical": "order_description=Trọ Ơi, a=b \"quoted\" & café,merchant=NONSECRET,order_amount=1000",
+    "signature": "lQVtAVmgnTJffycD4KinbBOIgx0QGvmf+r/GeihnXG4="
+  },
+  "nullAndEmpty": {
+    "fields": {
+      "merchant": "NONSECRET",
+      "env": null,
+      "order_description": "",
+      "order_amount": 1000
+    },
+    "canonical": "merchant=NONSECRET,env=,order_description=,order_amount=1000",
+    "signature": "jEBx4+/ZtCSAkKLCYKp7SGGmZ/lRDeyvG1AIM06kikE="
+  },
+  "allowlist": {
+    "fields": {
+      "merchant": "NONSECRET",
+      "env": "sandbox",
+      "operation": "PURCHASE",
+      "payment_method": "BANK_TRANSFER",
+      "order_amount": 1000,
+      "currency": "VND",
+      "order_invoice_number": "NONSECRET-INVOICE",
+      "order_description": "Local fixture",
+      "customer_id": "local-customer",
+      "agreement_id": "local-agreement",
+      "agreement_name": "Local agreement",
+      "agreement_type": "LOCAL",
+      "agreement_payment_frequency": "LOCAL",
+      "agreement_amount_per_payment": 1000,
+      "success_url": "https://merchant.example/success",
+      "error_url": "https://merchant.example/error",
+      "cancel_url": "https://merchant.example/cancel",
+      "order_id": "LOCAL-ORDER"
+    },
+    "canonical": "merchant=NONSECRET,env=sandbox,operation=PURCHASE,payment_method=BANK_TRANSFER,order_amount=1000,currency=VND,order_invoice_number=NONSECRET-INVOICE,order_description=Local fixture,customer_id=local-customer,agreement_id=local-agreement,agreement_name=Local agreement,agreement_type=LOCAL,agreement_payment_frequency=LOCAL,agreement_amount_per_payment=1000,success_url=https://merchant.example/success,error_url=https://merchant.example/error,cancel_url=https://merchant.example/cancel,order_id=LOCAL-ORDER",
+    "signature": "qBYrx+LEIbjWQ/CieMM4//e/5J4r7mKIT+LRNOlHtNs="
+  }
+}
