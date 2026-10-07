@@ -37,7 +37,7 @@ ALTER TABLE gateway.gateway_checkouts
     CASE provider WHEN 'MOMO' THEN provider_trans_id ~ '^[1-9][0-9]*$'
     WHEN 'SEPAY' THEN provider_partner_code IS NOT NULL AND btrim(provider_trans_id) <> '' AND length(provider_trans_id) <= 255 ELSE false END),
   ADD CONSTRAINT ck_gateway_checkout_remote CHECK (provider_remote_order_id IS NULL OR
-    (provider_partner_code IS NOT NULL AND btrim(provider_remote_order_id) <> '' AND length(provider_remote_order_id) <= 255)),
+    (provider='SEPAY' AND provider_partner_code IS NOT NULL AND btrim(provider_remote_order_id) <> '' AND length(provider_remote_order_id) <= 255)),
   ADD CONSTRAINT ck_gateway_checkout_stage CHECK (provider_outcome_stage IN ('CREATE','PAYMENT_IPN','RECONCILIATION')),
   ADD CONSTRAINT ck_gateway_checkout_sepay_code CHECK (provider <> 'SEPAY' OR provider_result_code IS NULL),
   ADD CONSTRAINT ck_gateway_checkout_handoff CHECK (handoff_attempt >= 0 AND
@@ -57,7 +57,7 @@ BEGIN
     RAISE EXCEPTION 'Gateway checkout intent is immutable' USING ERRCODE='23514';
   END IF;
   IF NEW.handoff_attempt IS DISTINCT FROM OLD.handoff_attempt THEN
-    IF OLD.provider <> 'SEPAY' OR OLD.status <> 'CREATED' OR OLD.replay_blocker IS NOT NULL OR OLD.request_snapshot IS NULL
+    IF OLD.provider <> 'SEPAY' OR OLD.status NOT IN ('INITIATED','CREATED','UNKNOWN') OR OLD.request_snapshot IS NULL
       OR NEW.handoff_attempt::bigint <> OLD.handoff_attempt::bigint+1 OR NEW.status <> 'UNKNOWN'
       OR NEW.handoff_claimed_at IS NULL OR NEW.first_dispatch_at IS NULL THEN
       RAISE EXCEPTION 'Invalid gateway handoff attempt' USING ERRCODE='23514';

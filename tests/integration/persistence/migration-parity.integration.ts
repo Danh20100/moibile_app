@@ -66,6 +66,66 @@ const sepaySnapshot = {
   successUrl: 'https://merchant.example/success', errorUrl: 'https://merchant.example/error', cancelUrl: 'https://merchant.example/cancel',
 };
 
+test('momo_remote_order_id_is_rejected', async () => {
+  const url = process.env.TEST_DATABASE_URL;
+  assert.ok(url);
+  const f = await gatewayFixture(url);
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const id = randomUUID();
+    await client.query(`INSERT INTO gateway.gateway_checkouts
+      (checkout_id,tenancy_id,created_by_user_id,amount,reference_code,provider,provider_order_id,provider_request_id,status,replay_blocker,provider_partner_code,created_at,updated_at)
+      VALUES ($1,$2,$3,1000,'legacy','MOMO','momo-invoice','momo-request','CREATED','LEGACY_RECONCILIATION_REQUIRED','TEST',now(),now())`, [id, f.ids.tenancy, f.ids.creator]);
+    await assert.rejects(client.query('UPDATE gateway.gateway_checkouts SET provider_remote_order_id=$1 WHERE checkout_id=$2', ['opaque-remote', id]), /ck_gateway_checkout_remote/);
+    await assert.rejects(client.query(`INSERT INTO gateway.gateway_checkouts
+      (checkout_id,tenancy_id,created_by_user_id,amount,reference_code,provider,provider_order_id,provider_request_id,status,replay_blocker,provider_partner_code,provider_remote_order_id,created_at,updated_at)
+      VALUES ($1,$2,$3,1000,'legacy','MOMO','other-momo-invoice','other-momo-request','CREATED','LEGACY_RECONCILIATION_REQUIRED','TEST','opaque-remote',now(),now())`, [randomUUID(), f.ids.tenancy, f.ids.creator]), /ck_gateway_checkout_remote/);
+    assert.equal((await f.finance.findGatewayCheckout(id))?.providerRemoteOrderId, null);
+    assert.equal(await f.finance.findGatewayCheckoutByRemoteOrderId('MOMO', 'TEST', 'opaque-remote'), undefined);
+  } finally { await client.end(); await f.db.destroy(); }
+});
+
+test('sql_unknown_handoff_can_advance_without_authorizing_repository_resume', async () => {
+  const url = process.env.TEST_DATABASE_URL;
+  assert.ok(url);
+  const f = await gatewayFixture(url);
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  try {
+    const id = randomUUID();
+    const first = '2026-10-07T01:00:00.000Z';
+    const later = '2026-10-07T02:00:00.000Z';
+    await client.query(`INSERT INTO gateway.gateway_checkouts
+      (checkout_id,tenancy_id,created_by_user_id,amount,reference_code,provider,provider_order_id,provider_request_id,status,created_at,updated_at,idempotency_key,fingerprint,request_snapshot,provider_partner_code)
+      VALUES ($1,$2,$3,1000,'handoff storage','SEPAY','handoff-invoice','handoff-request','CREATED',now(),now(),$4,'storage-fingerprint',$5::jsonb,'sandbox:TEST')`, [id, f.ids.tenancy, f.ids.creator, randomUUID(), JSON.stringify(sepaySnapshot)]);
+    assert.equal(await f.finance.claimGatewayHandoff(id, 0, first), true);
+    assert.equal(await f.finance.claimGatewayHandoff(id, 1, later), false, 'B2 is unresolved; repository claim never authorizes resume');
+    const before = await f.finance.findGatewayCheckout(id);
+    assert.ok(before);
+    await client.query('UPDATE gateway.gateway_checkouts SET handoff_attempt=2,updated_at=$1 WHERE checkout_id=$2 AND handoff_attempt=1', [later, id]);
+    const advanced = await f.finance.findGatewayCheckout(id);
+    assert.deepEqual(advanced, { ...before, handoffAttempt: 2, updatedAt: later });
+    assert.equal(advanced?.handoffClaimedAt, first);
+    assert.equal(advanced?.firstDispatchAt, first);
+    assert.equal(await f.finance.claimGatewayHandoff(id, 2, later), false);
+    await client.query("UPDATE gateway.gateway_checkouts SET replay_blocker='PROVIDER_RESUME_CONTRACT_REQUIRED' WHERE checkout_id=$1", [id]);
+    assert.equal(await f.finance.claimGatewayHandoff(id, 2, later), false);
+    await client.query('UPDATE gateway.gateway_checkouts SET handoff_attempt=3 WHERE checkout_id=$1 AND handoff_attempt=2', [id]);
+    assert.equal((await f.finance.findGatewayCheckout(id))?.handoffAttempt, 3, 'SQL does not decide unresolved resume policy');
+    for (const set of ["handoff_attempt=2", "handoff_attempt=5", "handoff_attempt=4,status='CREATED'", "handoff_attempt=4,handoff_claimed_at=now()", "handoff_attempt=4,first_dispatch_at=now()", "handoff_claimed_at=NULL", "first_dispatch_at=NULL"]) {
+      await assert.rejects(client.query(`UPDATE gateway.gateway_checkouts SET ${set} WHERE checkout_id=$1`, [id]), /immutable|handoff/);
+    }
+    const paymentId = randomUUID();
+    await f.finance.insertPayment({ paymentId, tenancyId: f.ids.tenancy, amount: '1000.00', source: 'GATEWAY', verification: 'PROVIDER_VERIFIED', confirmedAt: first, voidedOrReversedAt: null, correctionNote: null, replacementPaymentId: null });
+    for (const status of ['FAILED', 'SUCCEEDED']) {
+      await client.query('UPDATE gateway.gateway_checkouts SET status=$1,resulting_payment_id=$2 WHERE checkout_id=$3', [status, status === 'SUCCEEDED' ? paymentId : null, id]);
+      await assert.rejects(client.query("UPDATE gateway.gateway_checkouts SET handoff_attempt=4,status='UNKNOWN',resulting_payment_id=NULL WHERE checkout_id=$1", [id]), /Invalid gateway handoff attempt/);
+      assert.equal((await f.finance.findGatewayCheckout(id))?.status, status);
+    }
+  } finally { await client.end(); await f.db.destroy(); }
+});
+
 test('provider_snapshot_mismatch_is_rejected; local_invoice_collision_rejected_before_handoff; remote_id_scopes_and_roles_are_distinct; sepay_down_refuses_existing_rows', async () => {
   const url = process.env.TEST_DATABASE_URL;
   assert.ok(url);
@@ -99,14 +159,6 @@ test('provider_snapshot_mismatch_is_rejected; local_invoice_collision_rejected_b
     assert.equal((await f.finance.findGatewayCheckoutByRemoteOrderId('SEPAY', 'sandbox:OTHER', 'same-local'))?.checkoutId, otherId);
     assert.equal(await f.finance.findGatewayCheckoutByRemoteOrderId('MOMO', 'TEST', 'same-local'), undefined);
     assert.equal(await f.finance.findGatewayCheckoutByRemoteOrderId('SEPAY', 'sandbox:TEST', 'invoice-a'), undefined);
-    // The same raw remote ID in a different provider namespace is independent.
-    await client.query('UPDATE gateway.gateway_checkouts SET provider_remote_order_id=$1 WHERE checkout_id=$2', ['same-local', momoId]);
-    assert.equal((await f.finance.findGatewayCheckoutByRemoteOrderId('MOMO', 'TEST', 'same-local'))?.checkoutId, momoId);
-    assert.equal((await f.finance.findGatewayCheckoutByRemoteOrderId('SEPAY', 'sandbox:TEST', 'same-local'))?.checkoutId, sepayId);
-    const sameScopeMomoId = await insert('MOMO', 'sandbox:TEST', 'same-scope-momo', { ...momo, partnerCode: 'sandbox:TEST' }, 'same-local', '43');
-    assert.equal((await f.finance.findGatewayCheckoutByRemoteOrderId('MOMO', 'sandbox:TEST', 'same-local'))?.checkoutId, sameScopeMomoId);
-    assert.equal((await f.finance.findGatewayCheckoutByRemoteOrderId('SEPAY', 'sandbox:TEST', 'same-local'))?.checkoutId, sepayId);
-    await assert.rejects(insert('MOMO', 'sandbox:TEST', 'same-scope-momo-duplicate', { ...momo, partnerCode: 'sandbox:TEST' }, 'same-local'), /unique constraint/);
     for (const remote of ['', ' ', 'x'.repeat(256)]) {
       await assert.rejects(insert('SEPAY', 'sandbox:TEST', randomUUID(), sepaySnapshot, remote), /ck_gateway_checkout_remote/);
     }
