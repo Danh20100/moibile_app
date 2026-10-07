@@ -88,10 +88,14 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
-    fun openLogin() = _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null) }
-    fun openSignUp() = open(AppPage.AuthSignUp)
+    fun completeSplash() = _state.update { it.copy(splashCompleted = true) }
+    fun openLogin() = _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null, splashCompleted = true) }
+    fun openSignUp() = _state.update { it.copy(page = AppPage.AuthSignUp, splashCompleted = true) }
     fun openForgotPassword() = open(AppPage.AuthForgotPassword)
     fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
+    fun openFavorites() = openContext(AppContext.DISCOVERY, AppPage.Favorites)
+    fun openCoreWorkspace() = openContext(AppContext.DISCOVERY, AppPage.CoreWorkspace)
+    fun openMessages() = openContext(AppContext.DISCOVERY, AppPage.Messages)
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
     fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
     fun openAccount() = open(AppPage.Account)
@@ -159,11 +163,11 @@ class TroOiViewModel @Inject constructor(
                     refreshRememberedCheckout()
                 }
                 RestoreOutcome.NeedsLogin ->
-                    _state.update { it.copy(sessionRestoring = false, restoreFailed = false) }
+                    _state.update { it.copy(sessionRestoring = false, restoreFailed = false, page = AppPage.AuthWelcome) }
                 RestoreOutcome.FailedClosed -> {
                     repository.clearSession()
                     _state.update {
-                        it.copy(sessionRestoring = false, restoreFailed = true, isAuthenticated = false)
+                        it.copy(sessionRestoring = false, restoreFailed = true, isAuthenticated = false, page = AppPage.AuthWelcome)
                     }
                 }
             }
@@ -552,7 +556,8 @@ class TroOiViewModel @Inject constructor(
                 read = FrontendReadSnapshot(
                     publicListings = publicDiscoveryFeed(current.read.publicListings),
                 ),
-                page = AppPage.Discovery,
+                page = AppPage.AuthWelcome,
+                splashCompleted = true,
                 activeContext = AppContext.DISCOVERY,
                 selectedContext = SelectedContext.Discovery,
                 authInProgress = false,
@@ -611,10 +616,12 @@ class TroOiViewModel @Inject constructor(
         }
         val destination = when (current.page) {
             AppPage.AuthForgotPassword -> AppPage.AuthLogin
+            AppPage.AuthLogin, AppPage.AuthSignUp -> AppPage.AuthWelcome
             is AppPage.NotificationDetail -> AppPage.Notifications
             AppPage.Notifications, AppPage.ContextSwitcher -> AppPage.Account
             is AppPage.ListingDetail -> AppPage.Discovery
-            else -> contextHomePage(current.activeContext, current.access)
+            AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages -> AppPage.Discovery
+            else -> if (!current.isAuthenticated) AppPage.AuthWelcome else contextHomePage(current.activeContext, current.access)
         }
         open(destination)
     }

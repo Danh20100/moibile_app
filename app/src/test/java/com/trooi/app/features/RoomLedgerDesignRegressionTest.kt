@@ -42,11 +42,15 @@ class RoomLedgerDesignRegressionTest {
     @Test
     fun rootNavigationMatchesThreePovDesign() {
         val app = source("com/trooi/app/ui/TroOiApp.kt")
+        val discoveryNav = source("com/trooi/app/ui/navigation/TroOiBottomNavigation.kt")
         assertTrue(app.contains("AppPage.GuestMap"))
         assertTrue(app.contains("AppPage.GuestActivity"))
-        listOf("Trang chủ", "Bản đồ", "Hoạt động", "Tài khoản").forEach {
-            assertTrue(app.contains("\"$it\""))
+        listOf("Khám phá", "Yêu thích", "Tin nhắn", "Hồ sơ").forEach {
+            assertTrue(discoveryNav.contains("\"$it\""))
         }
+        assertTrue(discoveryNav.contains("CoreTabIdentity.TEMPORARY_LABEL"))
+        assertFalse(discoveryNav.contains("\"Bản đồ\""))
+        assertFalse(discoveryNav.contains("\"Hoạt động\""))
         listOf("Nhà tôi", "Thanh toán", "Sự cố").forEach {
             assertTrue(app.contains("\"$it\""))
         }

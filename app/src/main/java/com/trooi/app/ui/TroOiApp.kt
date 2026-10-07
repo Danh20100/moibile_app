@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
+import com.trooi.app.features.discovery.*
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
@@ -34,6 +35,9 @@ import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
 import com.trooi.app.ui.components.*
+import com.trooi.app.ui.navigation.CoreTabIdentity
+import com.trooi.app.ui.navigation.TroOiBottomNavigation
+import com.trooi.app.ui.splash.TroOiFirstEntryScreen
 import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -53,9 +57,10 @@ fun TroOiApp(
         if (paymentReturnUri == null || state.sessionRestoring) return@LaunchedEffect
         viewModel.handlePaymentReturn(paymentReturnUri)
     }
-    val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
+    val rootNavigationVisible = state.isAuthenticated && state.splashCompleted && !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(
-            AppPage.Discovery, AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
+            AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages,
+            AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
             AppPage.Settings, AppPage.Help,
         )
         AppContext.TENANT -> state.page in setOf(
@@ -71,7 +76,8 @@ fun TroOiApp(
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
     val isContextRoot = state.page == AppPage.Discovery ||
-        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard
+        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard ||
+        state.page == AppPage.AuthWelcome
     BackHandler(
         enabled = state.page !is AppPage.ListingDetail &&
             state.page !is AppPage.TrustReport &&
@@ -106,19 +112,42 @@ fun TroOiApp(
             bottomBar = {
                 if (!useNavigationRail && rootNavigationVisible) {
                     when (state.activeContext) {
-                        AppContext.DISCOVERY -> V1GuestNavigation(state, viewModel)
+                        AppContext.DISCOVERY -> TroOiBottomNavigation(
+                            currentPage = state.page,
+                            onNavigate = { destination ->
+                                when (destination) {
+                                    AppPage.Discovery -> viewModel.openDiscovery()
+                                    AppPage.Favorites -> viewModel.openFavorites()
+                                    AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
+                                    AppPage.Messages -> viewModel.openMessages()
+                                    AppPage.Account -> viewModel.openAccount()
+                                    else -> Unit
+                                }
+                            },
+                        )
                         AppContext.TENANT -> V1TenantNavigation(state, viewModel)
                         AppContext.OPERATIONS -> V1OwnerNavigation(state, viewModel)
                     }
                 }
             },
         ) { insets ->
-            Row(Modifier.fillMaxSize().padding(insets)) {
+            Row(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
                 if (useNavigationRail && rootNavigationVisible) {
                     V1AdaptiveNavigationRail(state, viewModel)
                 }
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
-                if (state.sessionRestoring) {
+                if (!state.splashCompleted) {
+                    TroOiFirstEntryScreen(
+                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        onLoginClick = viewModel::openLogin,
+                        onSignUpClick = viewModel::openSignUp,
+                        authInProgress = state.authInProgress,
+                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        sessionRestoring = state.sessionRestoring,
+                        isAuthenticated = state.isAuthenticated,
+                        onCompleteTransition = viewModel::completeSplash,
+                    )
+                } else if (state.sessionRestoring) {
                     V1Panel("Đang khôi phục phiên") {
                         V1Pending("Đang xác minh tài khoản với Backend.")
                     }
@@ -132,24 +161,21 @@ fun TroOiApp(
                         V1Pending("Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.")
                         V1Action("Quay lại", viewModel::goBack)
                     }
-                } else if (BuildConfig.BACKEND_BACKED && state.page in setOf(
-                        AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
-                    )) {
-                    BackendGoogleAuthentication(
-                        inProgress = state.authInProgress,
-                        onSignIn = { viewModel.signInWithGoogle(context) },
-                        onBack = viewModel::goBack,
-                    )
                 } else when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
+                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        authInProgress = state.authInProgress,
                     )
                     AppPage.AuthLogin -> LoginScreen(
                         onBack = viewModel::goBack,
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
+                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        authInProgress = state.authInProgress,
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,
@@ -165,12 +191,22 @@ fun TroOiApp(
                         onSelect = viewModel::selectContext,
                         onBack = viewModel::goBack,
                     )
-                    AppPage.Discovery -> V1DiscoveryScreen(
+                    AppPage.Discovery -> ExploreScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
-                        onContextSwitcher = if (state.isAuthenticated) viewModel::openContextSwitcher else null,
                         onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
                         onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
+                    )
+                    AppPage.Favorites -> FavoritesPlaceholderScreen(
+                        onExplore = viewModel::openDiscovery,
+                    )
+                    AppPage.CoreWorkspace -> CoreWorkspacePlaceholderScreen(
+                        state = state,
+                        onOpenTenantRental = viewModel::openTenantRental,
+                        onExplore = viewModel::openDiscovery,
+                    )
+                    AppPage.Messages -> MessagesPlaceholderScreen(
+                        onExplore = viewModel::openDiscovery,
                     )
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,
@@ -278,29 +314,36 @@ private fun V1AdaptiveNavigationRail(state: TroOiUiState, viewModel: TroOiViewMo
                 NavigationRailItem(
                     selected = state.page == AppPage.Discovery,
                     onClick = viewModel::openDiscovery,
-                    icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-                    label = { Text("Trang chủ") },
+                    icon = { Icon(Icons.Rounded.Search, "Khám phá") },
+                    label = { Text("Khám phá") },
                     alwaysShowLabel = true,
                 )
                 NavigationRailItem(
-                    selected = state.page == AppPage.GuestMap,
-                    onClick = viewModel::openGuestMap,
-                    icon = { Icon(Icons.Rounded.Map, "Bản đồ") },
-                    label = { Text("Bản đồ") },
+                    selected = state.page == AppPage.Favorites,
+                    onClick = viewModel::openFavorites,
+                    icon = { Icon(if (state.page == AppPage.Favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Yêu thích") },
+                    label = { Text("Yêu thích") },
                     alwaysShowLabel = true,
                 )
                 NavigationRailItem(
-                    selected = state.page == AppPage.GuestActivity,
-                    onClick = viewModel::openGuestActivity,
-                    icon = { Icon(Icons.Rounded.Send, "Hoạt động") },
-                    label = { Text("Hoạt động") },
+                    selected = state.page == AppPage.CoreWorkspace,
+                    onClick = viewModel::openCoreWorkspace,
+                    icon = { Icon(CoreTabIdentity.icon, CoreTabIdentity.TEMPORARY_LABEL) },
+                    label = { Text(CoreTabIdentity.TEMPORARY_LABEL) },
                     alwaysShowLabel = true,
                 )
                 NavigationRailItem(
-                    selected = state.page == AppPage.Account,
+                    selected = state.page == AppPage.Messages,
+                    onClick = viewModel::openMessages,
+                    icon = { Icon(if (state.page == AppPage.Messages) Icons.Rounded.ChatBubble else Icons.Rounded.ChatBubbleOutline, "Tin nhắn") },
+                    label = { Text("Tin nhắn") },
+                    alwaysShowLabel = true,
+                )
+                NavigationRailItem(
+                    selected = accountTabSelected(state.page),
                     onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
+                    icon = { Icon(Icons.Rounded.PersonOutline, "Hồ sơ") },
+                    label = { Text("Hồ sơ") },
                     alwaysShowLabel = true,
                 )
             }
@@ -379,39 +422,6 @@ private fun V1AdaptiveNavigationRail(state: TroOiUiState, viewModel: TroOiViewMo
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun V1GuestNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-    ) {
-        NavigationBarItem(
-            selected = state.page == AppPage.Discovery,
-            onClick = viewModel::openDiscovery,
-            icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-            label = { Text("Trang chủ") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.GuestMap,
-            onClick = viewModel::openGuestMap,
-            icon = { Icon(Icons.Rounded.Map, "Bản đồ") },
-            label = { Text("Bản đồ") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.GuestActivity,
-            onClick = viewModel::openGuestActivity,
-            icon = { Icon(Icons.Rounded.Send, "Hoạt động") },
-            label = { Text("Hoạt động") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.Account,
-            onClick = viewModel::openAccount,
-            icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-            label = { Text("Tài khoản") },
-        )
     }
 }
 
@@ -540,7 +550,6 @@ private fun BackendGoogleAuthentication(
                     onClick = onSignIn,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextButton(onClick = onBack) { Text("Tiếp tục khám phá phòng") }
             }
         }
     }

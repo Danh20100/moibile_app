@@ -11,6 +11,9 @@ sealed interface AppPage {
     data object AuthForgotPassword : AppPage
     data object ContextSwitcher : AppPage
     data object Discovery : AppPage
+    data object Favorites : AppPage
+    data object CoreWorkspace : AppPage
+    data object Messages : AppPage
     data object GuestMap : AppPage
     data object GuestActivity : AppPage
     data class ListingDetail(val listingId: String) : AppPage
@@ -31,7 +34,8 @@ sealed interface AppPage {
 }
 
 data class TroOiUiState(
-    val page: AppPage = AppPage.Discovery,
+    val page: AppPage = AppPage.AuthWelcome,
+    val splashCompleted: Boolean = false,
     val activeContext: AppContext = AppContext.DISCOVERY,
     val selectedContext: SelectedContext = SelectedContext.Discovery,
     val isAuthenticated: Boolean = false,
@@ -63,6 +67,7 @@ data class TroOiUiState(
 fun canOpenPage(page: AppPage, authenticated: Boolean, access: AccessCapabilities): Boolean =
     when (page) {
         AppPage.ContextSwitcher, AppPage.Notifications, is AppPage.NotificationDetail -> authenticated
+        AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages -> authenticated
         AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance, AppPage.TenantIncidents ->
             authenticated && access.allows(ClientArea.TENANT_PORTAL)
         AppPage.OwnerDashboard, AppPage.OwnerFinance, AppPage.OwnerIncidents ->
