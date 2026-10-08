@@ -12,23 +12,22 @@ class ExploreNavigationTest {
         File(System.getProperty("user.dir"), "src/main/java/$relative").readText()
 
     @Test
-    fun unauthenticatedUsersDoNotSeeRootBottomNavigation() {
-        val unauthenticatedState = TroOiUiState(
-            isAuthenticated = false,
-            page = AppPage.Discovery,
-        )
-        assertFalse(
-            "Unauthenticated user must not have root navigation visible",
-            unauthenticatedState.isAuthenticated,
-        )
+    fun unauthenticatedRootNavigationAndProfileAreUnavailable() {
+        val unauthenticated = TroOiUiState(splashCompleted = true, page = AppPage.Discovery)
+        listOf(AppPage.Discovery, AppPage.Account, AppPage.AuthLogin, AppPage.Messages).forEach {
+            assertFalse(rootNavigationVisible(unauthenticated.copy(page = it)))
+        }
+        assertFalse(canOpenPage(AppPage.Account, false, unauthenticated.access))
+        assertTrue(rootNavigationVisible(unauthenticated.copy(isAuthenticated = true)))
+        assertFalse(rootNavigationVisible(unauthenticated.copy(isAuthenticated = true, sessionRestoring = true)))
     }
 
     @Test
-    fun authenticatedRootNavigationContainsExpectedFiveDestinations() {
+    fun authenticatedRootNavigationContainsExpectedFourDestinations() {
         val navSource = source("com/trooi/app/ui/navigation/TroOiBottomNavigation.kt")
         assertTrue("Must contain Khám phá destination", navSource.contains("\"Khám phá\""))
-        assertTrue("Must contain Yêu thích destination", navSource.contains("\"Yêu thích\""))
-        assertTrue("Must contain center core placeholder destination", navSource.contains("CoreTabIdentity.TEMPORARY_LABEL"))
+        assertFalse("Must not contain Yêu thích destination in 4-tab nav", navSource.contains("\"Yêu thích\""))
+        assertTrue("Must contain core placeholder destination", navSource.contains("CoreTabIdentity.TEMPORARY_LABEL"))
         assertTrue("Must contain Tin nhắn destination", navSource.contains("\"Tin nhắn\""))
         assertTrue("Must contain Hồ sơ destination", navSource.contains("\"Hồ sơ\""))
     }

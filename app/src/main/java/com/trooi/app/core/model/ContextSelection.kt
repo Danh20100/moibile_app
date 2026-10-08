@@ -50,7 +50,7 @@ fun destinationPage(resolution: ContextResolution): AppPage =
     if (resolution.needsPicker) AppPage.ContextSwitcher else homePageFor(resolution.selection)
 
 const val NEUTRAL_TENANCY_LABEL = "Lượt thuê"
-const val NEUTRAL_ORGANIZATION_LABEL = "Khu trọ"
+const val NEUTRAL_ORGANIZATION_LABEL = "Tài sản"
 
 fun contextLabel(selection: SelectedContext, read: FrontendReadSnapshot): String = when (selection) {
     SelectedContext.Discovery -> "Khám phá"

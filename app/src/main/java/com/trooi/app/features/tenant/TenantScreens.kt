@@ -439,31 +439,23 @@ fun V1AccountScreen(
     onSettings: () -> Unit,
     onHelp: () -> Unit,
     onLogout: () -> Unit,
+    onCompleteLandlord: suspend (com.trooi.app.core.model.LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
+    onOpenWorkspace: () -> Unit = {},
 ) {
-    LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        item { V1PageTitle("Tài khoản", "Quản lý đăng nhập và không gian sử dụng") }
-        if (state.demoPreview) item { V1PreviewNotice() }
-        item {
-            V1Panel(state.displayName.ifBlank { "Khách truy cập" }) {
-                V1Pending(if (state.isAuthenticated) "Đã đăng nhập" else "Bạn vẫn có thể tìm phòng công khai khi chưa đăng nhập.")
-                V1Action("Tìm phòng", onDiscovery, modifier = Modifier.fillMaxWidth())
-                if (!state.isAuthenticated) {
-                    V1Action(
-                        if (googleOnly) "Đăng nhập với Google" else "Đăng nhập",
-                        onLogin,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (!googleOnly) TextButton(onClick = onSignUp) { Text("Tạo tài khoản") }
-                } else {
-                    V1Action("Chuyển không gian", onContextSwitcher, modifier = Modifier.fillMaxWidth())
-                    V1Action("Thông báo", onNotifications, modifier = Modifier.fillMaxWidth())
-                    V1Action("Cài đặt", onSettings, modifier = Modifier.fillMaxWidth().testTag("account-settings"))
-                    V1Action("Trợ giúp", onHelp, modifier = Modifier.fillMaxWidth().testTag("account-help"))
-                    OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Đăng xuất") }
-                }
-            }
-        }
-    }
+    com.trooi.app.features.profile.ProfileScreen(
+        state = state,
+        googleOnly = googleOnly,
+        onLogin = onLogin,
+        onSignUp = onSignUp,
+        onDiscovery = onDiscovery,
+        onContextSwitcher = onContextSwitcher,
+        onNotifications = onNotifications,
+        onSettings = onSettings,
+        onHelp = onHelp,
+        onLogout = onLogout,
+        onCompleteLandlord = onCompleteLandlord,
+        onOpenWorkspace = onOpenWorkspace,
+    )
 }
 
 

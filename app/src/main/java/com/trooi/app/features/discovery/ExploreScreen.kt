@@ -57,7 +57,7 @@ import java.text.Normalizer
  * Purely presentation-only; no irreversible domain or backend concepts are bound.
  */
 object DiscoveryDemoTaxonomy {
-    val TAGS = listOf("Tất cả", "Phòng trọ", "Studio", "Căn hộ mini", "Ở ghép")
+    val TAGS = listOf("Tất cả", "Phòng trọ", "Căn hộ")
 }
 
 /**
@@ -71,6 +71,9 @@ data class DiscoveryListingItem(
     val metadataLabel: String,
     val badge: String? = null,
     val category: String = "Phòng trọ",
+    val rating: String? = null,
+    val photoUris: List<String> = emptyList(),
+    val photoResources: List<Int> = emptyList(),
 )
 
 /**
@@ -84,36 +87,20 @@ fun ExploreScreen(
     modifier: Modifier = Modifier,
     onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
     onResetSearch: (() -> Unit)? = null,
+    allowDemoFallback: Boolean = true,
 ) {
     var isSearchExperienceOpen by rememberSaveable { mutableStateOf(false) }
     var selectedTag by rememberSaveable { mutableStateOf("Tất cả") }
     val favoritedIds = remember { mutableStateListOf<String>() }
 
-    // Map public listings from backend or state
-    val publicListings = remember(state.read.publicListings) {
-        publicDiscoveryFeed(state.read.publicListings)
-    }
-
     var areaFilter by rememberSaveable { mutableStateOf("") }
     var roomFilter by rememberSaveable { mutableStateOf("") }
     var minimumFilter by rememberSaveable { mutableStateOf("") }
     var maximumFilter by rememberSaveable { mutableStateOf("") }
-    val filteredListings = exploreFilteredListings(
-        publicListings, areaFilter, roomFilter, minimumFilter, maximumFilter,
+    val allItems = discoveryCards(
+        state.read.publicListings, allowDemoFallback,
+        areaFilter, roomFilter.ifBlank { selectedTag }, minimumFilter, maximumFilter,
     )
-    val allItems = filteredListings.map { listing ->
-        DiscoveryListingItem(
-            listingId = listing.listingId,
-            title = listing.title,
-            publicAreaLabel = listing.publicAreaLabel,
-            askingPriceLabel = listing.askingPriceLabel ?: "Liên hệ để biết giá",
-            metadataLabel = listOfNotNull(
-                listing.publicAreaLabel.takeIf { it.isNotBlank() },
-                listing.distanceMeters?.let { "%.1f km".format(it / 1000.0) },
-            ).joinToString(" · "),
-            category = "Phòng cho thuê",
-        )
-    }
 
     Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(
@@ -172,52 +159,15 @@ fun ExploreScreen(
                 )
             }
 
-            // Public inventory; location and availability are not inferred.
             item {
-                ExploreSectionRow(
-                    sectionTitle = "Khám phá phòng cho thuê",
-                    sectionSubtitle = "Duyệt các phòng đang được đăng",
-                    items = allItems,
-                    favoritedIds = favoritedIds,
-                    onToggleFavorite = { id ->
-                        if (favoritedIds.contains(id)) favoritedIds.remove(id)
-                        else favoritedIds.add(id)
-                    },
-                    onOpenListing = onOpenListing,
-                )
+                Text("Tìm nơi ở lâu dài", Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             }
-
-            // Price ordering uses only published price labels.
-            item {
-                Spacer(Modifier.height(24.dp))
-                ExploreSectionRow(
-                    sectionTitle = "Tham khảo theo giá",
-                    sectionSubtitle = "Các phòng có giá công khai",
-                    items = allItems.filter { explorePriceVnd(it.askingPriceLabel) != null }
-                        .sortedBy { explorePriceVnd(it.askingPriceLabel) },
-                    favoritedIds = favoritedIds,
-                    onToggleFavorite = { id ->
-                        if (favoritedIds.contains(id)) favoritedIds.remove(id)
-                        else favoritedIds.add(id)
-                    },
-                    onOpenListing = onOpenListing,
-                )
-            }
-
-            // A second browsing row reuses the same public inventory.
-            item {
-                Spacer(Modifier.height(24.dp))
-                ExploreSectionRow(
-                    sectionTitle = "Xem thêm lựa chọn",
-                    sectionSubtitle = "Mở từng phòng để xem thông tin chi tiết",
-                    items = allItems,
-                    favoritedIds = favoritedIds,
-                    onToggleFavorite = { id ->
-                        if (favoritedIds.contains(id)) favoritedIds.remove(id)
-                        else favoritedIds.add(id)
-                    },
-                    onOpenListing = onOpenListing,
-                )
+            items(allItems, key = { it.listingId }) { item ->
+                ExploreListingCard(item, item.listingId in favoritedIds,
+                    { if (item.listingId in favoritedIds) favoritedIds.remove(item.listingId) else favoritedIds.add(item.listingId) },
+                    onClick = { onOpenListing(item.listingId) },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp))
             }
 
             if (allItems.isEmpty()) {
@@ -467,11 +417,10 @@ fun ExploreListingCard(
     isFavorited: Boolean,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.width(250.dp),
 ) {
     Column(
         modifier = modifier
-            .width(250.dp)
             .testTag("explore-card-${item.listingId}")
             .clickable(onClick = onClick),
     ) {
@@ -479,15 +428,22 @@ fun ExploreListingCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
-                .clip(RoundedCornerShape(14.dp)),
+                .aspectRatio(1.45f)
+                .clip(RoundedCornerShape(16.dp)),
         ) {
-            // Presentation room image illustration fallback
-            ExploreRoomImage(
-                listingId = item.listingId,
-                title = item.title,
-                category = item.category,
-            )
+            val fixture = ListingFixtures.resolve(item.listingId)?.takeIf { it.card == item }
+            if (item.photoUris.isNotEmpty() || item.photoResources.isNotEmpty()) {
+                com.trooi.app.ui.components.LocalRentalPhoto(item.photoUris.firstOrNull(), item.photoResources.firstOrNull(), item.title, Modifier.fillMaxSize())
+            } else if (fixture != null) {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(fixture.images.first()),
+                    contentDescription = "${item.title}",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                ExploreRoomImage(item.listingId, item.title, item.category)
+            }
 
             // Optional Badge on top-left
             item.badge?.let { badgeText ->
@@ -543,12 +499,19 @@ fun ExploreListingCard(
             text = item.title,
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 16.sp,
             ),
             color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+
+        item.rating?.let {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Rounded.Star, "Đánh giá minh họa", modifier = Modifier.size(16.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall)
+            }
+        }
 
         // 3. Monthly price
         Text(
@@ -1074,6 +1037,9 @@ fun explorePriceVnd(label: String?): BigDecimal? {
         if (value <= BigDecimal.ZERO) return null
         return value
     }
+    val formatted = Regex("""^([0-9]{1,3}(?:[.,][0-9]{3})+|[0-9]+)\s*[đ₫]\s*(?:/\s*tháng)?$""").matchEntire(trimmed)
+    if (formatted != null) return formatted.groupValues[1].filter(Char::isDigit)
+        .toBigDecimalOrNull()?.takeIf { it > BigDecimal.ZERO }
     return try {
         val parsed = BigDecimal(trimmed)
         if (parsed <= BigDecimal.ZERO) null else parsed
@@ -1082,7 +1048,7 @@ fun explorePriceVnd(label: String?): BigDecimal? {
     }
 }
 
-private fun unaccent(src: String?): String {
+internal fun unaccent(src: String?): String {
     if (src.isNullOrEmpty()) return ""
     val decomposed = Normalizer.normalize(src, Normalizer.Form.NFD)
         .replace(Regex("\\p{M}"), "")
@@ -1108,7 +1074,7 @@ fun exploreFilteredListings(
             if (!matchesArea && !matchesTitle) return@filter false
         }
         if (roomType.isNotBlank() && !roomType.equals("Tất cả", ignoreCase = true)) {
-            val matchesType = unaccent(listing.title).contains(unaccent(roomType), ignoreCase = true)
+            val matchesType = unaccent(listing.rentalDetails?.type ?: listing.title).contains(unaccent(roomType), ignoreCase = true)
             if (!matchesType) return@filter false
         }
         if (minPrice.isNotBlank()) {

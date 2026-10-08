@@ -45,9 +45,10 @@ class SessionHintsStore(
 
     fun snapshotValues(): Collection<String> = prefs.all.values.mapNotNull { it?.toString() }
 
-    fun upsertPendingCheckout(hint: PendingCheckoutHint) {
-        val current = read() ?: return
-        write(current.copy(pendingCheckouts = listOf(hint)))
+    fun upsertPendingCheckout(hint: PendingCheckoutHint): Boolean {
+        read() ?: return false
+        // The immutable intent must survive process death before its first network POST.
+        return prefs.edit().putString(KEY_PENDING, encodePending(listOf(hint))).commit()
     }
 
     companion object {

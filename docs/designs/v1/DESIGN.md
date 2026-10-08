@@ -2,15 +2,15 @@
 name: "TrọƠi · Room Ledger"
 description: "Warm residential Android screen atlas and room record component system"
 colors:
-  canvas: "#eeeae2"
-  paper: "#fffdf8"
-  surface: "#f4f1e9"
-  ink: "#242d2a"
-  muted: "#606b64"
-  line: "#d8dcd3"
-  primary: "#235a46"
+  canvas: "#f8f7f4"
+  paper: "#ffffff"
+  surface: "#f3f1ed"
+  ink: "#292927"
+  muted: "#696964"
+  line: "#e5e2dc"
+  primary: "#b9432d"
   on-primary: "#fff"
-  selected: "#dce9df"
+  selected: "#f8e6df"
   clay: "#a95034"
   clay-soft: "#f3e4d9"
   warning: "#7d5318"
@@ -347,3 +347,8 @@ This is a static illustrated artifact: it calls no API and changes no business s
 - **Don't** expose exact operational addresses through public discovery.
 - **Don't** move FUTURE surfaces into current app navigation or activate unresolved OPEN controls.
 - **Don't** present authored SVG placeholders or sample records as factual property evidence.
+
+
+## Android demo direction · 2026-10-08
+
+The latest demo brief supersedes the HTML atlas treatment for the native app. The shipped Android direction uses white surfaces, warm neutral background, dark readable type and a restrained terracotta action color. Discovery and rental identity lead with bundled photography. Ledgers use compact financial rows and asset cards, rather than green door plates or report blocks. Root navigation remains Khám phá | Sổ | Tin nhắn | Hồ sơ with the travelling notch. Profile has two centered shortcut cards of equal size, without a role switch. Backend financial and privacy boundaries are unchanged. The historical HTML atlas sections above describe the earlier artifact, not the current Android acceptance target.

@@ -51,6 +51,19 @@ class CheckoutTransportTest {
             val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
             assertEquals("t-1", body.get("tenancyId").asString)
             assertEquals("50000.00", body.get("amount").asString)
+            assertFalse(body.has("provider"))
+        }
+    }
+
+    @Test fun demoProviderIsExplicitAndNeverConfirmsPaymentOnCreation() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(201).setBody(checkoutJson().replace("MOMO", "DEMO")))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val checkout = V1PaymentGateway(client(server)).create("t-1", "50000", "22222222-2222-4222-8222-222222222222", "DEMO")
+            val body = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
+            assertEquals("DEMO", body.get("provider").asString)
+            assertEquals("CREATED", checkout.status)
+            assertFalse(com.trooi.app.features.tenancy.isConfirmedGatewayPayment(checkout))
         }
     }
 

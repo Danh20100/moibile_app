@@ -97,6 +97,20 @@ class CheckoutFlowTest {
         assertNull(launchableHttpsPayUrl("http://test-payment.momo.vn/pay"))
     }
 
+    @Test fun localDemoHandoffAndReturnRequireExplicitOptInAndNeverTrustQuerySuccess() {
+        val url = "http://localhost:3001/api/v1/finance/checkouts/demo/pay/signed.capability"
+        assertNull(launchableHttpsPayUrl(url))
+        assertEquals(url, launchableHttpsPayUrl(url, allowLocalHttp = true))
+        listOf("http://localhost:3001/other", url + "?status=SUCCEEDED", url.replace("localhost", "evil.example"), url.replace("localhost", "user@localhost")).forEach {
+            assertNull(it, launchableHttpsPayUrl(it, allowLocalHttp = true))
+        }
+        val uri = PaymentReturnUri("trooi", "payment", "/demo", mapOf("status" to "SUCCEEDED", "checkoutId" to "forged"))
+        val local = PendingCheckoutHint("t-1", "50000", intent.idempotencyKey, "chk-1")
+        assertSame(PaymentReturnAction.SafeRecovery, interpretPaymentReturn(uri, local))
+        assertEquals(PaymentReturnAction.RefreshCheckout("chk-1"), interpretPaymentReturn(uri, local, allowDemo = true))
+        assertFalse(isConfirmedGatewayPayment(checkout("CREATED")))
+    }
+
     @Test
     fun formerTenancyCannotCreateCheckout() {
         assertTrue(canCreateGatewayCheckout("active"))

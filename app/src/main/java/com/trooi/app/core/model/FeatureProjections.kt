@@ -30,6 +30,7 @@ data class PublicListingCard(
     val visibility: ListingVisibility,
     val amenities: List<String> = emptyList(),
     val distanceMeters: Double? = null,
+    val rentalDetails: PublicRentalDetails? = null,
 )
 
 /** A discovery feed may render only published public Listing projections. */
@@ -62,6 +63,7 @@ data class TenancyCard(
     val roomLabel: String,
     val lifecycle: TenancyLifecycle,
     val termsVersionLabel: String?,
+    val primaryTenantName: String? = null,
 )
 
 /** Finance projections are separate read surfaces, not inferred from Room rent/debt. */

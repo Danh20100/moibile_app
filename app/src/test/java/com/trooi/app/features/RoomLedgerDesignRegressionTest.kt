@@ -13,8 +13,8 @@ class RoomLedgerDesignRegressionTest {
     fun roomLedgerPaletteAndFlatSurfaceTokensMatchDesignAuthority() {
         val colors = source("com/trooi/app/ui/theme/Color.kt")
         listOf(
-            "0xFFEEEAE2", "0xFFFFFDF8", "0xFFF4F1E9", "0xFF242D2A",
-            "0xFF606B64", "0xFFD8DCD3", "0xFF235A46", "0xFFA95034",
+            "0xFFF8F7F4", "0xFFFFFFFF", "0xFFF3F1ED", "0xFF292927",
+            "0xFF696964", "0xFFE5E2DC", "0xFFB9432D", "0xFFA95034",
         ).forEach { assertTrue(colors.contains(it)) }
 
         val components = source("com/trooi/app/ui/components/V1Components.kt")
@@ -45,10 +45,11 @@ class RoomLedgerDesignRegressionTest {
         val discoveryNav = source("com/trooi/app/ui/navigation/TroOiBottomNavigation.kt")
         assertTrue(app.contains("AppPage.GuestMap"))
         assertTrue(app.contains("AppPage.GuestActivity"))
-        listOf("Khám phá", "Yêu thích", "Tin nhắn", "Hồ sơ").forEach {
+        listOf("Khám phá", "Tin nhắn", "Hồ sơ").forEach {
             assertTrue(discoveryNav.contains("\"$it\""))
         }
         assertTrue(discoveryNav.contains("CoreTabIdentity.TEMPORARY_LABEL"))
+        assertFalse(discoveryNav.contains("\"Yêu thích\""))
         assertFalse(discoveryNav.contains("\"Bản đồ\""))
         assertFalse(discoveryNav.contains("\"Hoạt động\""))
         listOf("Nhà tôi", "Thanh toán", "Sự cố").forEach {

@@ -41,9 +41,21 @@ data class NotificationCard(
     val sourceId: String? = null,
 )
 
+data class RentalHistoryCard(
+    val tenancyId: String, val roomId: String, val title: String, val publicArea: String,
+    val period: String, val endedState: String, val photoResources: List<Int> = emptyList(),
+)
+
+/** Supplemental local presentation, keyed by canonical Room ID; never a financial record. */
+data class RentalAssetPresentation(val type: String, val publicArea: String, val photoResources: List<Int>, val photoUris: List<String> = emptyList())
+
 /** Read projections do not own or mutate business facts. */
 data class FrontendReadSnapshot(
+    val conversations: List<ConversationCard> = emptyList(),
+    val localManagement: LocalManagement? = null,
     val publicListings: List<PublicListingCard> = emptyList(),
+    val rentalHistory: List<RentalHistoryCard> = emptyList(),
+    val rentalAssetPresentationByRoom: Map<String, RentalAssetPresentation> = emptyMap(),
     val organizations: List<OrganizationCard> = emptyList(),
     val properties: List<PropertyCard> = emptyList(),
     val operationalRooms: List<OperationalRoomCard> = emptyList(),
@@ -52,6 +64,7 @@ data class FrontendReadSnapshot(
     val tenantFinanceByTenancy: Map<String, TenantFinanceProjection> = emptyMap(),
     val noticesByTenancy: Map<String, List<TenancyNoticeCard>> = emptyMap(),
     val operatorFinanceByOrganization: Map<String, OperatorFinanceProjection> = emptyMap(),
+    val operatorFinanceByRoom: Map<String, OperatorFinanceProjection> = emptyMap(),
     val incidents: List<IncidentCard> = emptyList(),
     val dashboardByOrganization: Map<String, DashboardReadModel> = emptyMap(),
     val notifications: List<NotificationCard> = emptyList(),

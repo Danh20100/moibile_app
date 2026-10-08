@@ -17,10 +17,12 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
 import com.trooi.app.features.discovery.*
 import com.trooi.app.features.landlord.*
+import com.trooi.app.features.ledger.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.features.shared.HelpScreen
@@ -53,25 +55,11 @@ fun TroOiApp(
     val context = LocalContext.current
     val useNavigationRail = LocalConfiguration.current.screenWidthDp >= 600
     LaunchedEffect(Unit) { viewModel.bootstrapRestore(context) }
-    LaunchedEffect(paymentReturnUri, state.sessionRestoring) {
-        if (paymentReturnUri == null || state.sessionRestoring) return@LaunchedEffect
+    LaunchedEffect(paymentReturnUri, state.sessionRestoring, state.isAuthenticated) {
+        if (paymentReturnUri == null || state.sessionRestoring || !state.isAuthenticated) return@LaunchedEffect
         viewModel.handlePaymentReturn(paymentReturnUri)
     }
-    val rootNavigationVisible = state.isAuthenticated && state.splashCompleted && !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
-        AppContext.DISCOVERY -> state.page in setOf(
-            AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages,
-            AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
-            AppPage.Settings, AppPage.Help,
-        )
-        AppContext.TENANT -> state.page in setOf(
-            AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
-            AppPage.TenantIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
-        )
-        AppContext.OPERATIONS -> state.page in setOf(
-            AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
-            AppPage.OwnerIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
-        )
-    }
+    val rootNavigationVisible = rootNavigationVisible(state)
     var lastExitAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
@@ -111,23 +99,18 @@ fun TroOiApp(
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
                 if (!useNavigationRail && rootNavigationVisible) {
-                    when (state.activeContext) {
-                        AppContext.DISCOVERY -> TroOiBottomNavigation(
-                            currentPage = state.page,
-                            onNavigate = { destination ->
-                                when (destination) {
-                                    AppPage.Discovery -> viewModel.openDiscovery()
-                                    AppPage.Favorites -> viewModel.openFavorites()
-                                    AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
-                                    AppPage.Messages -> viewModel.openMessages()
-                                    AppPage.Account -> viewModel.openAccount()
-                                    else -> Unit
-                                }
-                            },
-                        )
-                        AppContext.TENANT -> V1TenantNavigation(state, viewModel)
-                        AppContext.OPERATIONS -> V1OwnerNavigation(state, viewModel)
-                    }
+                    TroOiBottomNavigation(
+                        currentPage = ledgerRootTab(state.page),
+                        onNavigate = { destination ->
+                            when (destination) {
+                                AppPage.Discovery -> viewModel.openDiscovery()
+                                AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
+                                AppPage.Messages -> viewModel.openMessages()
+                                AppPage.Account -> viewModel.openAccount()
+                                else -> Unit
+                            }
+                        },
+                    )
                 }
             },
         ) { insets ->
@@ -138,7 +121,7 @@ fun TroOiApp(
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
                 if (!state.splashCompleted) {
                     TroOiFirstEntryScreen(
-                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
                         onLoginClick = viewModel::openLogin,
                         onSignUpClick = viewModel::openSignUp,
                         authInProgress = state.authInProgress,
@@ -156,6 +139,14 @@ fun TroOiApp(
                         V1Pending("Phiên trước không thể được xác minh lại.")
                         V1Action("Thử lại", { viewModel.retryRestore(context) })
                     }
+                } else if (!state.isAuthenticated && state.page !in setOf(AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword)) {
+                    AuthWelcomeScreen(
+                        onLogin = viewModel::openLogin,
+                        onSignUp = viewModel::openSignUp,
+                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
+                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        authInProgress = state.authInProgress,
+                    )
                 } else if (state.sourceUnavailable) {
                     V1Panel("Nguồn không khả dụng") {
                         V1Pending("Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.")
@@ -165,7 +156,7 @@ fun TroOiApp(
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
-                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
                         googleBacked = BuildConfig.BACKEND_BACKED,
                         authInProgress = state.authInProgress,
                     )
@@ -174,7 +165,7 @@ fun TroOiApp(
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
-                        onSignInWithGoogle = { viewModel.signInWithGoogle(context) },
+                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
                         authInProgress = state.authInProgress,
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
@@ -196,30 +187,39 @@ fun TroOiApp(
                         onOpenListing = viewModel::openListing,
                         onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
                         onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
+                        allowDemoFallback = !BuildConfig.BACKEND_BACKED,
                     )
                     AppPage.Favorites -> FavoritesPlaceholderScreen(
                         onExplore = viewModel::openDiscovery,
                     )
-                    AppPage.CoreWorkspace -> CoreWorkspacePlaceholderScreen(
+                    AppPage.CoreWorkspace -> LedgerScreen(
                         state = state,
-                        onOpenTenantRental = viewModel::openTenantRental,
                         onExplore = viewModel::openDiscovery,
+                        onFinance = { tenancyId ->
+                            viewModel.selectContext(SelectedContext.Tenant(tenancyId))
+                            viewModel.openTenantFinance()
+                        },
+                        onOperations = viewModel::openOwnerProperties,
+                        onSaveAsset = viewModel::saveLocalAsset,
+                        onPurchaseCapacity = viewModel::purchaseLocalCapacity,
+                        onArchiveAsset = viewModel::archiveLocalAsset,
+                        onRetryRead = viewModel::retryAuthorizedRead,
                     )
-                    AppPage.Messages -> MessagesPlaceholderScreen(
-                        onExplore = viewModel::openDiscovery,
-                    )
+                    AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
+                        viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage)
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
                         onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
                     )
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)
-                    is AppPage.ListingDetail -> V1ListingDetailScreen(
-                        state = state,
-                        listingId = page.listingId,
-                        onBack = viewModel::goBack,
-                        onOpenLogin = viewModel::openLogin,
-                        onSubmitInquiry = viewModel::submitInquiry,
+                    is AppPage.ListingDetail -> if (state.read.publicListings.any { it.listingId == page.listingId && it.rentalDetails != null } || useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)) {
+                        ListingDetailScreen(page.listingId, viewModel::goBack,
+                            state.read.publicListings.firstOrNull { it.listingId == page.listingId }?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }
+                                ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId))
+                    } else V1ListingDetailScreen(
+                        state = state, listingId = page.listingId, onBack = viewModel::goBack,
+                        onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry,
                         onOpenReport = viewModel::openTrustReport,
                     )
                     is AppPage.TrustReport -> TrustReportScreen(
@@ -250,7 +250,10 @@ fun TroOiApp(
                             )
                         } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
-                    AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental, viewModel::openSource)
+                    AppPage.TenantFinance -> if (state.demoPreview) com.trooi.app.features.tenancy.RentPaymentScreen(
+                        state, viewModel::openCoreWorkspace, viewModel::finishDemoPayment, viewModel::retryAuthorizedRead, viewModel::rememberedDemoPayment,
+                        viewModel::createDemoPayment, viewModel::refreshDemoPayment,
+                    ) else V1TenantFinanceScreen(state, viewModel::openTenantRental, viewModel::openSource)
                     AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental, viewModel::openSource)
                     AppPage.Notifications -> V1NotificationCenterScreen(
                         state = state,
@@ -275,6 +278,8 @@ fun TroOiApp(
                         onSettings = viewModel::openSettings,
                         onHelp = viewModel::openHelp,
                         onLogout = viewModel::logout,
+                        onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
+                        onOpenWorkspace = viewModel::openCoreWorkspace,
                     )
                     AppPage.Settings -> SettingsScreen(
                         state = state,
@@ -309,118 +314,25 @@ private fun V1AdaptiveNavigationRail(state: TroOiUiState, viewModel: TroOiViewMo
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        when (state.activeContext) {
-            AppContext.DISCOVERY -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.Discovery,
-                    onClick = viewModel::openDiscovery,
-                    icon = { Icon(Icons.Rounded.Search, "Khám phá") },
-                    label = { Text("Khám phá") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.Favorites,
-                    onClick = viewModel::openFavorites,
-                    icon = { Icon(if (state.page == AppPage.Favorites) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, "Yêu thích") },
-                    label = { Text("Yêu thích") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.CoreWorkspace,
-                    onClick = viewModel::openCoreWorkspace,
-                    icon = { Icon(CoreTabIdentity.icon, CoreTabIdentity.TEMPORARY_LABEL) },
-                    label = { Text(CoreTabIdentity.TEMPORARY_LABEL) },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.Messages,
-                    onClick = viewModel::openMessages,
-                    icon = { Icon(if (state.page == AppPage.Messages) Icons.Rounded.ChatBubble else Icons.Rounded.ChatBubbleOutline, "Tin nhắn") },
-                    label = { Text("Tin nhắn") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = accountTabSelected(state.page),
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Hồ sơ") },
-                    label = { Text("Hồ sơ") },
-                    alwaysShowLabel = true,
-                )
-            }
-            AppContext.TENANT -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantHome,
-                    onClick = viewModel::openTenantHome,
-                    icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-                    label = { Text("Trang chủ") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantRental,
-                    onClick = viewModel::openTenantRental,
-                    icon = { Icon(Icons.Rounded.MeetingRoom, "Nhà tôi") },
-                    label = { Text("Nhà tôi") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantFinance,
-                    onClick = viewModel::openTenantFinance,
-                    icon = { Icon(Icons.Rounded.Payments, "Thanh toán") },
-                    label = { Text("Thanh toán") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantIncidents,
-                    onClick = viewModel::openTenantIncidents,
-                    icon = { Icon(Icons.Rounded.Build, "Sự cố") },
-                    label = { Text("Sự cố") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.Account,
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
-                    alwaysShowLabel = true,
-                )
-            }
-            AppContext.OPERATIONS -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerDashboard,
-                    onClick = viewModel::openOperations,
-                    icon = { Icon(Icons.Rounded.Dashboard, "Tổng quan") },
-                    label = { Text("Tổng quan") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerProperties,
-                    onClick = viewModel::openOwnerProperties,
-                    icon = { Icon(Icons.Rounded.MeetingRoom, "Phòng") },
-                    label = { Text("Phòng") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerFinance,
-                    onClick = viewModel::openOwnerFinance,
-                    icon = { Icon(Icons.Rounded.Payments, "Tài chính") },
-                    label = { Text("Tài chính") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerIncidents,
-                    onClick = viewModel::openOwnerIncidents,
-                    icon = { Icon(Icons.Rounded.Build, "Sự cố") },
-                    label = { Text("Sự cố") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = accountTabSelected(state.page),
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
-                    alwaysShowLabel = true,
-                )
-            }
+        listOf(
+            Triple(AppPage.Discovery, "Khám phá", Icons.Rounded.Search),
+            Triple(AppPage.CoreWorkspace, "Sổ", CoreTabIdentity.icon),
+            Triple(AppPage.Messages, "Tin nhắn", Icons.Rounded.ChatBubbleOutline),
+            Triple(AppPage.Account, "Hồ sơ", Icons.Rounded.PersonOutline),
+        ).forEach { (page, label, icon) ->
+            NavigationRailItem(
+                selected = if (page == AppPage.Account) accountTabSelected(state.page) else ledgerRootTab(state.page) == page,
+                onClick = {
+                    when (page) {
+                        AppPage.Discovery -> viewModel.openDiscovery()
+                        AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
+                        AppPage.Messages -> viewModel.openMessages()
+                        AppPage.Account -> viewModel.openAccount()
+                        else -> Unit
+                    }
+                },
+                icon = { Icon(icon, label) }, label = { Text(label) }, alwaysShowLabel = true,
+            )
         }
     }
 }

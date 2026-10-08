@@ -1,0 +1,127 @@
+{
+    "schema_version":  1,
+    "diagram_type":  "dataflow",
+    "meta":  {
+                 "title":  "TrọƠi fixture projection boundaries",
+                 "quality_profile":  "showcase",
+                 "animation":  "none",
+                 "viewBox":  [
+                                 940,
+                                 520
+                             ]
+             },
+    "stages":  [
+                   {
+                       "label":  "Sources"
+                   },
+                   {
+                       "label":  "Scoped reads"
+                   },
+                   {
+                       "label":  "Product surfaces"
+                   }
+               ],
+    "nodes":  [
+                  {
+                      "id":  "catalog",
+                      "type":  "database",
+                      "label":  "Local asset catalog",
+                      "sublabel":  "Seeds and saved edits",
+                      "stage":  0,
+                      "row":  0
+                  },
+                  {
+                      "id":  "money",
+                      "type":  "database",
+                      "label":  "PostgreSQL finance",
+                      "sublabel":  "Provider-verified history",
+                      "stage":  0,
+                      "row":  2
+                  },
+                  {
+                      "id":  "public",
+                      "type":  "security",
+                      "label":  "Public projection",
+                      "sublabel":  "Published and vacant only",
+                      "stage":  1,
+                      "row":  0
+                  },
+                  {
+                      "id":  "scoped",
+                      "type":  "security",
+                      "label":  "Authorized reads",
+                      "sublabel":  "Relationship-derived access",
+                      "stage":  1,
+                      "row":  2
+                  },
+                  {
+                      "id":  "discovery",
+                      "type":  "frontend",
+                      "label":  "Explore and Detail",
+                      "sublabel":  "Public facts and media",
+                      "stage":  2,
+                      "row":  0
+                  },
+                  {
+                      "id":  "ledger",
+                      "type":  "frontend",
+                      "label":  "Sổ and Messages",
+                      "sublabel":  "Canonical rental identities",
+                      "stage":  2,
+                      "row":  2
+                  }
+              ],
+    "flows":  [
+                  {
+                      "id":  "publish",
+                      "from":  "catalog",
+                      "to":  "public",
+                      "label":  "Public fields",
+                      "classification":  "No private pins",
+                      "route":  "straight"
+                  },
+                  {
+                      "id":  "authorize",
+                      "from":  "catalog",
+                      "to":  "scoped",
+                      "label":  "Owned assets",
+                      "classification":  "Account scoped",
+                      "fromSide":  "bottom",
+                      "toSide":  "top",
+                      "via":  [
+                                  [
+                                      100,
+                                      271
+                                  ],
+                                  [
+                                      315,
+                                      271
+                                  ]
+                              ]
+                  },
+                  {
+                      "id":  "history",
+                      "from":  "money",
+                      "to":  "scoped",
+                      "label":  "Confirmed history",
+                      "classification":  "No local settlement",
+                      "route":  "straight"
+                  },
+                  {
+                      "id":  "browse",
+                      "from":  "public",
+                      "to":  "discovery",
+                      "label":  "Listing read",
+                      "classification":  "Public only",
+                      "route":  "straight"
+                  },
+                  {
+                      "id":  "operate",
+                      "from":  "scoped",
+                      "to":  "ledger",
+                      "label":  "Rental read",
+                      "classification":  "Authorized",
+                      "route":  "straight"
+                  }
+              ]
+}

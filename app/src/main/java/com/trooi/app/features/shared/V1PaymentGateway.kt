@@ -23,13 +23,15 @@ data class GatewayCheckout(
 )
 
 class V1PaymentGateway @Inject constructor(private val client: BackendClient) {
-    suspend fun create(tenancyId: String, amount: String, key: String): GatewayCheckout {
+    suspend fun create(tenancyId: String, amount: String, key: String, provider: String? = null): GatewayCheckout {
         require(tenancyId.isNotBlank() && amount.isNotBlank() && key.isNotBlank()) {
             "Checkout cần tenancy, amount và Idempotency-Key."
         }
+        require(provider == null || provider in setOf("MOMO", "SEPAY", "DEMO")) { "Kênh thanh toán không hợp lệ." }
         val body = JsonObject().apply {
             addProperty("tenancyId", tenancyId)
             addProperty("amount", amount)
+            provider?.let { addProperty("provider", it) }
         }
         return read(
             client.postJson(

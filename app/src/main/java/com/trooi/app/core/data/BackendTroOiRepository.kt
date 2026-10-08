@@ -21,6 +21,7 @@ class BackendTroOiRepository @Inject constructor(
         Result.success(UserSession(
             userId = session.userId,
             displayName = session.name ?: session.email ?: session.userId,
+            pictureUrl = session.pictureUrl,
             access = AccessCapabilities(
                 linkedTenancyIds = session.linkedTenancyIds.toSet(),
                 operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
@@ -63,6 +64,7 @@ class BackendTroOiRepository @Inject constructor(
                 UserSession(
                     userId = session.userId,
                     displayName = displayName,
+                    pictureUrl = session.pictureUrl ?: principal.pictureUrl,
                     access = AccessCapabilities(
                         linkedTenancyIds = session.linkedTenancyIds.toSet(),
                         operatedOrganizationIds = session.operatedOrganizationIds.toSet(),

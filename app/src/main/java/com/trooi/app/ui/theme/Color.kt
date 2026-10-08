@@ -3,15 +3,15 @@ package com.trooi.app.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Room Ledger visual authority — docs/designs/v1/DESIGN.md
-val TroOiCanvas = Color(0xFFEEEAE2)
-val TroOiPaper = Color(0xFFFFFDF8)
-val TroOiSurface = Color(0xFFF4F1E9)
-val TroOiInk = Color(0xFF242D2A)
-val TroOiMuted = Color(0xFF606B64)
-val TroOiLine = Color(0xFFD8DCD3)
-val TroOiPrimary = Color(0xFF235A46)
+val TroOiCanvas = Color(0xFFF8F7F4)
+val TroOiPaper = Color(0xFFFFFFFF)
+val TroOiSurface = Color(0xFFF3F1ED)
+val TroOiInk = Color(0xFF292927)
+val TroOiMuted = Color(0xFF696964)
+val TroOiLine = Color(0xFFE5E2DC)
+val TroOiPrimary = Color(0xFFB9432D)
 val TroOiOnPrimary = Color(0xFFFFFFFF)
-val TroOiSelected = Color(0xFFDCE9DF)
+val TroOiSelected = Color(0xFFF8E6DF)
 val TroOiClay = Color(0xFFA95034)
 val TroOiClaySoft = Color(0xFFF3E4D9)
 val TroOiWarning = Color(0xFF7D5318)

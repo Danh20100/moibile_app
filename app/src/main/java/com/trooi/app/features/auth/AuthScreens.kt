@@ -16,6 +16,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -197,12 +199,14 @@ fun AuthWelcomeActions(
 
         Spacer(Modifier.height(12.dp))
 
+        if (onSignInWithGoogle != null) {
         GoogleAuthButton(
             onClick = { onSignInWithGoogle?.invoke() },
             text = "Đăng nhập với Google",
             enabled = onSignInWithGoogle != null,
             authInProgress = authInProgress,
         )
+        }
 
         Spacer(Modifier.height(18.dp))
 
@@ -379,6 +383,8 @@ fun LoginScreen(
     onSignInWithGoogle: (() -> Unit)? = null,
     authInProgress: Boolean = false,
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
@@ -428,13 +434,14 @@ fun LoginScreen(
 
         TroOiPrimaryButton(
             text = "Đăng nhập",
-            onClick = { onLogin(identifier.trim(), password) },
+            onClick = { focusManager.clearFocus(); keyboard?.hide(); onLogin(identifier.trim(), password) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
             enabled = identifierOk && passwordOk && !authInProgress,
         )
 
+        if (onSignInWithGoogle != null) {
         // Divider: ──────────── hoặc ────────────
         Row(
             modifier = Modifier
@@ -465,6 +472,7 @@ fun LoginScreen(
             enabled = onSignInWithGoogle != null,
             authInProgress = authInProgress,
         )
+        }
 
         Spacer(Modifier.height(20.dp))
 

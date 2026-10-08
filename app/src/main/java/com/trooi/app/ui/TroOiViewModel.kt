@@ -66,6 +66,7 @@ class TroOiViewModel @Inject constructor(
     val state: StateFlow<TroOiUiState> = _state.asStateFlow()
     /** Invalidates late auth and authorized read callbacks on logout/account change. */
     private var sessionGeneration = 0
+    private var verifiedDemoCheckout: Pair<String, String>? = null
     private var authenticationJob: Job? = null
     private var restoreStarted = false
     private var expiredAuthRetried = false
@@ -95,7 +96,20 @@ class TroOiViewModel @Inject constructor(
     fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
     fun openFavorites() = openContext(AppContext.DISCOVERY, AppPage.Favorites)
     fun openCoreWorkspace() = openContext(AppContext.DISCOVERY, AppPage.CoreWorkspace)
-    fun openMessages() = openContext(AppContext.DISCOVERY, AppPage.Messages)
+    fun openMessages() {
+        openContext(AppContext.DISCOVERY, AppPage.Messages)
+        if (!_state.value.isAuthenticated) return
+        val generation = sessionGeneration
+        _state.update { it.copy(messagesLoading = true, messagesLoadFailed = false) }
+        viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.loadLocalConversations() }
+            if (generation != sessionGeneration) return@launch
+            result.fold(
+                onSuccess = { conversations -> _state.update { it.copy(messagesLoading = false, read = it.read.copy(conversations = conversations)) } },
+                onFailure = { _state.update { it.copy(messagesLoading = false, messagesLoadFailed = true) } },
+            )
+        }
+    }
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
     fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
     fun openAccount() = open(AppPage.Account)
@@ -126,7 +140,24 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun bootstrapRestore(context: Context) {
-        if (!BuildConfig.BACKEND_BACKED || restoreStarted) return
+        if (restoreStarted) return
+        if (!BuildConfig.BACKEND_BACKED) {
+            restoreStarted = true
+            val generation = sessionGeneration
+            _state.update { it.copy(sessionRestoring = true) }
+            viewModelScope.launch {
+                repository.refreshSessionContext().fold(
+                    onSuccess = { session ->
+                        if (generation != sessionGeneration) return@fold
+                        sessionGeneration++
+                        _state.update { applyAuthenticatedSession(it, session).copy(sessionRestoring = false) }
+                        refreshAuthorizedRead(session.access)
+                    },
+                    onFailure = { if (generation == sessionGeneration) _state.update { it.copy(sessionRestoring = false) } },
+                )
+            }
+            return
+        }
         restoreStarted = true
         val startedAt = sessionGeneration
         _state.update { it.copy(sessionRestoring = true, restoreFailed = false) }
@@ -185,6 +216,14 @@ class TroOiViewModel @Inject constructor(
             ?.takeIf { it.userId == userId && userId.isNotBlank() && it.restoreEnabled }
             ?.pendingCheckouts
             ?.firstOrNull()
+        if (snapshot.demoPreview) {
+            if (interpretPaymentReturn(uri, local, allowDemo = true) != PaymentReturnAction.SafeRecovery &&
+                local?.tenancyId in _state.value.access.linkedTenancyIds) {
+                selectContext(SelectedContext.Tenant(local!!.tenancyId))
+                openTenantFinance()
+            } else showMessage("Chưa tìm thấy thanh toán trong phiên hiện tại. Mở Sổ để kiểm tra.")
+            return
+        }
         when (val action = interpretPaymentReturn(uri, local)) {
             is PaymentReturnAction.RefreshCheckout -> refreshRememberedCheckout(action.checkoutId)
             is PaymentReturnAction.ReplayCreate ->
@@ -428,6 +467,9 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun reloadPublicListings() = refreshPublicListings()
+    fun retryAuthorizedRead() {
+        if (_state.value.isAuthenticated) refreshAuthorizedRead(_state.value.access)
+    }
 
     private fun refreshAuthorizedRead(access: AccessCapabilities) {
         val generation = sessionGeneration
@@ -436,16 +478,99 @@ class TroOiViewModel @Inject constructor(
             repository.refreshAuthorizedRead(access).fold(
                 onSuccess = { read ->
                     if (generation == sessionGeneration) _state.update { current ->
-                        if (current.isAuthenticated) current.copy(read = read, runtimeLoading = false) else current
+                        if (current.isAuthenticated) current.copy(read = read, runtimeLoading = false, authorizedReadFailed = false) else current
                     }
                 },
                 onFailure = { error ->
                     if (generation == sessionGeneration) {
-                        _state.update { it.copy(runtimeLoading = false) }
-                        showMessage(error.message ?: "Không tải được dữ liệu theo quyền hiện tại.")
+                        _state.update { it.copy(runtimeLoading = false, authorizedReadFailed = true) }
+                        showMessage("Chưa tải được Sổ. Kiểm tra kết nối rồi thử lại.")
                     }
                 },
             )
+        }
+    }
+
+    fun rememberedDemoPayment(): com.trooi.app.core.auth.PendingCheckoutHint? = hintsStore.read()
+        ?.takeIf { _state.value.isAuthenticated && it.userId == _state.value.backendUserId }
+        ?.pendingCheckouts?.firstOrNull()?.takeIf { it.tenancyId in _state.value.access.linkedTenancyIds }
+
+    suspend fun createDemoPayment(tenancyId: String, amount: String): Result<com.trooi.app.features.shared.GatewayCheckout> = runCatching {
+        val current = _state.value
+        val generation = sessionGeneration
+        check(snapshot.demoPreview && current.isAuthenticated && tenancyId in current.access.linkedTenancyIds)
+        check(current.read.tenancies.any { it.tenancyId == tenancyId && it.lifecycle in setOf(TenancyLifecycle.ACTIVE, TenancyLifecycle.ENDING) })
+        require(com.trooi.app.features.tenancy.validGatewayAmount(amount))
+        val previous = rememberedDemoPayment()
+        check(previous == null || (previous.tenancyId == tenancyId && previous.amount == amount))
+        val hint = previous ?: com.trooi.app.core.auth.PendingCheckoutHint(tenancyId, amount, java.util.UUID.randomUUID().toString(), null)
+        check(hintsStore.upsertPendingCheckout(hint))
+        val checkout = repository.createDemoCheckout(tenancyId, amount, hint.idempotencyKey).getOrThrow()
+        check(generation == sessionGeneration)
+        check(com.trooi.app.features.tenancy.checkoutMatchesIntent(checkout, hint, "DEMO"))
+        check(hintsStore.upsertPendingCheckout(hint.copy(checkoutId = checkout.id)))
+        checkout
+    }
+
+    suspend fun refreshDemoPayment(): Result<com.trooi.app.features.shared.GatewayCheckout> = runCatching {
+        val generation = sessionGeneration
+        val current = _state.value
+        check(snapshot.demoPreview && current.isAuthenticated)
+        val hint = rememberedDemoPayment() ?: error("Chưa có thanh toán để kiểm tra.")
+        val checkout = repository.getDemoCheckout(requireNotNull(hint.checkoutId)).getOrThrow()
+        check(generation == sessionGeneration)
+        check(com.trooi.app.features.tenancy.checkoutMatchesIntent(checkout, hint, "DEMO"))
+        if (isConfirmedGatewayPayment(checkout)) {
+            val read = repository.refreshAuthorizedRead(current.access).getOrThrow()
+            check(generation == sessionGeneration)
+            check(read.tenantFinanceByTenancy[hint.tenancyId]?.payments?.any { it.paymentId == checkout.resultingPaymentId } == true)
+            _state.update { it.copy(read = read) }
+            verifiedDemoCheckout = current.backendUserId to checkout.id
+        }
+        checkout
+    }
+
+    fun finishDemoPayment() {
+        val hints = hintsStore.read()
+        val hint = rememberedDemoPayment()
+        if (hints != null && hint?.checkoutId != null && verifiedDemoCheckout == (_state.value.backendUserId to hint.checkoutId)) {
+            hintsStore.write(hints.copy(pendingCheckouts = hints.pendingCheckouts.filterNot { it.checkoutId == hint.checkoutId }))
+            verifiedDemoCheckout = null
+        }
+        openCoreWorkspace()
+    }
+
+    private suspend fun localManagementCommand(command: suspend () -> Result<FrontendReadSnapshot>): Result<Unit> {
+        val generation = sessionGeneration
+        if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập lại."))
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { command() }
+        if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+        return result.map { read -> _state.update { it.copy(read = read) }; Unit }
+    }
+
+    suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<Unit> =
+        localManagementCommand { repository.saveLocalAsset(asset, activate, publish) }
+    suspend fun saveLocalMessage(conversationId: String, text: String): Result<Unit> {
+        val userId = _state.value.backendUserId
+        return localManagementCommand { repository.saveLocalMessage(userId, conversationId, text) }
+    }
+    suspend fun purchaseLocalCapacity(purchaseId: String): Result<Unit> =
+        localManagementCommand { repository.purchaseLocalCapacity(purchaseId) }
+    suspend fun archiveLocalAsset(assetId: String): Result<Unit> =
+        localManagementCommand { repository.archiveLocalAsset(assetId) }
+
+    suspend fun completeLocalLandlordOnboarding(application: LocalLandlordApplication): Result<Unit> {
+        val generation = sessionGeneration
+        if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập lại."))
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            repository.completeLocalLandlordOnboarding(application).mapCatching { session ->
+                session to repository.refreshAuthorizedRead(session.access).getOrThrow()
+            }
+        }
+        if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+        return result.map { (session, read) ->
+            _state.update { applyAuthenticatedSession(it, session, resetRead = false).copy(read = read, page = it.page) }
+            Unit
         }
     }
 
@@ -458,6 +583,7 @@ class TroOiViewModel @Inject constructor(
                 onSuccess = { session ->
                     sessionGeneration++
                     _state.update { applyAuthenticatedSession(it, session) }
+                    refreshAuthorizedRead(session.access)
                 },
                 onFailure = { showMessage(it.message ?: "Đăng nhập thất bại.") },
             )
@@ -473,6 +599,7 @@ class TroOiViewModel @Inject constructor(
                 onSuccess = { session ->
                     sessionGeneration++
                     _state.update { applyAuthenticatedSession(it, session) }
+                    refreshAuthorizedRead(session.access)
                 },
                 onFailure = { showMessage(it.message ?: "Đăng ký thất bại.") },
             )
@@ -517,7 +644,7 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun refreshSessionContext() {
-        if (!BuildConfig.BACKEND_BACKED || !_state.value.isAuthenticated) return
+        if (!_state.value.isAuthenticated) return
         val generation = sessionGeneration
         viewModelScope.launch {
             repository.refreshSessionContext().fold(
@@ -525,7 +652,7 @@ class TroOiViewModel @Inject constructor(
                     if (generation == sessionGeneration) {
                         sessionGeneration++
                         _state.update { current ->
-                            applyReconciledAccess(current, session.displayName, session.access)
+                            applyReconciledAccess(current, session.displayName, session.access).copy(pictureUrl = session.pictureUrl)
                         }
                         refreshAuthorizedRead(session.access)
                     }
@@ -551,6 +678,7 @@ class TroOiViewModel @Inject constructor(
             current.copy(
                 isAuthenticated = false,
                 displayName = "",
+                pictureUrl = null,
                 backendUserId = "",
                 access = AccessCapabilities(),
                 read = FrontendReadSnapshot(
@@ -650,15 +778,19 @@ class TroOiViewModel @Inject constructor(
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
+            pictureUrl = session.pictureUrl,
             backendUserId = session.userId,
             access = session.access,
             read = nextRead,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
-            page = returnPage ?: destinationPage(resolved),
+            page = returnPage ?: if (snapshot.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved),
             sessionRestoring = false,
             restoreFailed = false,
             authReturnListingId = null,
+            authorizedReadFailed = false,
+            messagesLoading = false,
+            messagesLoadFailed = false,
             submittingTrustReport = false,
             trustReceipt = null,
             trustReportError = null,
@@ -759,11 +891,8 @@ class TroOiViewModel @Inject constructor(
             return
         }
         if (context == AppContext.DISCOVERY) {
-            if (current.selectedContext != SelectedContext.Discovery) sessionGeneration++
             _state.update {
                 it.copy(
-                    selectedContext = SelectedContext.Discovery,
-                    activeContext = AppContext.DISCOVERY,
                     page = page,
                 )
             }

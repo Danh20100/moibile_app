@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "TrọƠi — verified DemoPay settlement",
+    "subtitle": "Real PostgreSQL evidence; Android wiring remains pending",
+    "locale": "en",
+    "viewBox": [
+      1040,
+      970
+    ],
+    "column_fit": "spread",
+    "animation": "none",
+    "visual_preset": "editorial",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "client",
+      "type": "frontend",
+      "label": "HTTP client",
+      "sublabel": "verify.cjs"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Gateway API",
+      "sublabel": "local fixture auth"
+    },
+    {
+      "id": "browser",
+      "type": "external",
+      "label": "DemoPay",
+      "sublabel": "explicit confirmation"
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "financial authority"
+    }
+  ],
+  "messages": [
+    {
+      "from": "client",
+      "to": "api",
+      "y": 180,
+      "label": "Create checkout · DEMO",
+      "variant": "emphasis"
+    },
+    {
+      "from": "api",
+      "to": "store",
+      "y": 235,
+      "label": "Persist immutable checkout intent"
+    },
+    {
+      "from": "api",
+      "to": "client",
+      "y": 290,
+      "label": "CREATED + signed payUrl",
+      "variant": "return"
+    },
+    {
+      "from": "client",
+      "to": "browser",
+      "y": 345,
+      "label": "Open payUrl · GET"
+    },
+    {
+      "from": "browser",
+      "to": "store",
+      "y": 400,
+      "label": "Read checkout; create no Payment"
+    },
+    {
+      "from": "client",
+      "to": "browser",
+      "y": 455,
+      "label": "Confirm payment · POST",
+      "variant": "emphasis"
+    },
+    {
+      "from": "browser",
+      "to": "api",
+      "y": 510,
+      "label": "Verify signed provider evidence",
+      "variant": "security"
+    },
+    {
+      "from": "api",
+      "to": "store",
+      "y": 565,
+      "label": "Lock, settle, insert one Payment",
+      "variant": "emphasis"
+    },
+    {
+      "from": "browser",
+      "to": "client",
+      "y": 620,
+      "label": "Confirmed simulation page",
+      "variant": "return"
+    },
+    {
+      "from": "client",
+      "to": "api",
+      "y": 675,
+      "label": "Refresh checkout + Payment history"
+    },
+    {
+      "from": "api",
+      "to": "store",
+      "y": 730,
+      "label": "Read authoritative result"
+    },
+    {
+      "from": "api",
+      "to": "client",
+      "y": 785,
+      "label": "SUCCEEDED + provider-verified Payment",
+      "variant": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Verified on real PostgreSQL",
+      "items": [
+        "Signed confirmation creates one GATEWAY / PROVIDER_VERIFIED Payment.",
+        "A repeated confirmation produces no second Payment."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Financial boundaries",
+      "items": [
+        "Checkout creation, GET and app return cannot confirm money.",
+        "No automatic allocation, deposit application or Receipt."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Evidence and remaining work",
+      "items": [
+        "scripts/demo/verify.cjs exercises the production checkout and settlement code.",
+        "The Android review, browser handoff and refresh flow is still required."
+      ]
+    }
+  ]
+}

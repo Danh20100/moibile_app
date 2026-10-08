@@ -565,7 +565,7 @@ fun evaluateSplashHandoff(
  */
 @Composable
 fun TroOiFirstEntryScreen(
-    onSignInWithGoogle: () -> Unit,
+    onSignInWithGoogle: (() -> Unit)? = null,
     onLoginClick: () -> Unit,
     onSignUpClick: () -> Unit,
     authInProgress: Boolean = false,
