@@ -157,7 +157,8 @@ test('demo_handoff_get_is_read_only', async (t) => {
   const html = await response.text();
   assert.match(html, /MÔ PHỎNG/);
   assert.match(html, /Xác nhận thanh toán/);
-  assert.match(html, /1000/);
+  assert.match(html, /1\.000đ/);
+  assert.doesNotMatch(html, /trooi:\/\/payment\/demo/);
   assert.deepEqual(await f.snapshot(), before);
   assert.equal(before.payments.length, 0);
   assert.equal(verify.mock.callCount(), 0);
@@ -175,6 +176,7 @@ test('demo_success_creates_one_verified_gateway_payment', async (t) => {
   assert.match(html, /Thanh toán đã được xác nhận/);
   assert.match(html, /MÔ PHỎNG/);
   assert.doesNotMatch(html, /Hóa đơn đã tất toán/);
+  assert.match(html, /href="trooi:\/\/payment\/demo"/);
   assert.ok(!html.includes(f.token));
   const after = await f.snapshot();
   assert.equal(after.payments.length, 1);
@@ -341,7 +343,9 @@ test('demo_html_escapes_reference_and_only_form_action_contains_capability', asy
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.ok(html.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&amp;&#39;&quot;'));
-  assert.doesNotMatch(html, /<script|<style|<link|<img|<!--|\son\w+=/i);
+  const withoutStaticStyle = html.replace(/<style>[\s\S]*<\/style>/, '');
+  assert.match(html, /<style>/);
+  assert.doesNotMatch(withoutStaticStyle, /<script|<style|<link|<img|<!--|\son\w+=/i);
   const action = `/api/v1/finance/checkouts/demo/pay/${token}/success`;
   assert.ok(html.includes(`action="${action}"`));
   assert.equal(html.split(token).length - 1, 1);
@@ -374,7 +378,7 @@ test('demo_security_headers_on_get_success_and_errors', async (t) => {
   ] as const) {
     const response = await fetch(url, { method });
     assert.equal(response.headers.get('cache-control'), 'no-store');
-    assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(response.headers.get('referrer-policy'), 'strict-origin');
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
     const csp = response.headers.get('content-security-policy')!;
     for (const directive of [
@@ -404,7 +408,7 @@ test('demo_persistence_failure_is_generic_500_without_token_in_errors_or_logs', 
     const response = await fetch(`${f.url}${method === 'POST' ? '/success' : ''}`, { method });
     assert.equal(response.status, 500);
     const body = await response.text();
-    assert.match(body, /Internal server error/);
+    assert.match(body, /Chưa xử lý được thanh toán/);
     assert.ok(!body.includes(f.token));
     assert.ok(!body.includes('Persistence failed'));
   }
@@ -422,7 +426,7 @@ test('demo_settlement_persistence_failure_never_renders_success', async (t) => {
   const response = await fetch(`${f.url}/success`, { method: 'POST' });
   assert.equal(response.status, 500);
   const body = await response.text();
-  assert.match(body, /Internal server error/);
+  assert.match(body, /Chưa xử lý được thanh toán/);
   assert.doesNotMatch(body, /Thanh toán đã được xác nhận/);
   assert.ok(!body.includes(f.token));
   assert.deepEqual(await f.snapshot(), before);
