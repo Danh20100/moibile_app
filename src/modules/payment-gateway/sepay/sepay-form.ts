@@ -2,6 +2,33 @@ import { createHmac } from 'node:crypto';
 
 export const SEPAY_SANDBOX_CHECKOUT_URL = 'https://pay-sandbox.sepay.vn/v1/checkout/init';
 export const SEPAY_SANDBOX_API_ORIGIN = 'https://pgapi-sandbox.sepay.vn';
+// Pinned 2026-10-09 from developer.sepay.vn production checkout and order APIs.
+export const SEPAY_PRODUCTION_CHECKOUT_URL = 'https://pay.sepay.vn/v1/checkout/init';
+export const SEPAY_PRODUCTION_API_ORIGIN = 'https://pgapi.sepay.vn';
+export const SEPAY_PRODUCTION_PAID_STATUS = 'CAPTURED';
+
+export function sepayProductionFields(input: {
+  merchantId: string;
+  amountVnd: number;
+  invoice: string;
+  description: string;
+  successUrl: string;
+  errorUrl: string;
+  cancelUrl: string;
+}): Record<string, string> {
+  return {
+    merchant: input.merchantId,
+    operation: 'PURCHASE',
+    payment_method: 'BANK_TRANSFER',
+    order_amount: String(input.amountVnd),
+    currency: 'VND',
+    order_invoice_number: input.invoice,
+    order_description: input.description,
+    success_url: input.successUrl,
+    error_url: input.errorUrl,
+    cancel_url: input.cancelUrl,
+  };
+}
 
 type SepayFields = Readonly<Record<string, string | number | null | undefined>>;
 

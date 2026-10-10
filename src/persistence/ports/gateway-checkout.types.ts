@@ -10,12 +10,8 @@ export interface MomoRequestSnapshot {
   autoCapture: true;
 }
 
-// Local Sandbox storage binding; provider acceptance and evidence identity remain gated.
-export interface SepayRequestSnapshot {
-  environment: 'sandbox';
+interface SepaySnapshotFields {
   merchantId: string;
-  endpoint: 'https://pay-sandbox.sepay.vn/v1/checkout/init';
-  apiOrigin: 'https://pgapi-sandbox.sepay.vn';
   operation: 'PURCHASE';
   paymentMethod: 'BANK_TRANSFER';
   currency: 'VND';
@@ -23,6 +19,21 @@ export interface SepayRequestSnapshot {
   errorUrl: string;
   cancelUrl: string;
 }
+
+// Local storage binding. Sandbox and production hosts are not interchangeable.
+export type SepayRequestSnapshot = SepaySnapshotFields &
+  (
+    | {
+        environment: 'sandbox';
+        endpoint: 'https://pay-sandbox.sepay.vn/v1/checkout/init';
+        apiOrigin: 'https://pgapi-sandbox.sepay.vn';
+      }
+    | {
+        environment: 'production';
+        endpoint: 'https://pay.sepay.vn/v1/checkout/init';
+        apiOrigin: 'https://pgapi.sepay.vn';
+      }
+  );
 
 export type GatewaySnapshotBinding =
   | { provider: 'MOMO'; requestSnapshot: MomoRequestSnapshot | null }

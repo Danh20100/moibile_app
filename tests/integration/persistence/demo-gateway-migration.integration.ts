@@ -95,6 +95,8 @@ test('DEMO null snapshot without legacy blocker, exact transaction identity and 
     for (const trans of ['', ' ', 'x'.repeat(256)]) {
       await assert.rejects(insert(f, { provider: 'SEPAY', snapshot: sepaySnapshot, trans }), /ck_gateway_checkout_trans/);
     }
+    const latestBeforeRollback = (await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name;
+    if (latestBeforeRollback === '000007_sepay_production') await runMigrations('down', f.url);
     const before = (await f.client.query('SELECT * FROM gateway.gateway_checkouts ORDER BY checkout_id')).rows;
     const checksBefore = await constraints(f.client);
     const migrationsBefore = (await f.client.query('SELECT * FROM schema_migrations ORDER BY id')).rows;
@@ -109,7 +111,11 @@ test('DEMO null snapshot without legacy blocker, exact transaction identity and 
 test('000006 up and no-DEMO down/up preserve MOMO and SEPAY histories, payment links and exact prior constraints', async () => {
   const f = await fixture();
   try {
-    const latest = (await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name;
+    let latest = (await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name;
+    if (latest === '000007_sepay_production') {
+      await runMigrations('down', f.url);
+      latest = (await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name;
+    }
     if (latest === '000006_demo_gateway') await runMigrations('down', f.url);
     assert.equal((await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name, '000005_optional_sepay_gateway');
     const prior = await constraints(f.client);
@@ -128,11 +134,12 @@ test('000006 up and no-DEMO down/up preserve MOMO and SEPAY histories, payment l
     const payments = (await f.client.query('SELECT * FROM public.payments ORDER BY payment_id')).rows;
     assert.equal(before.length, 8);
     await runMigrations('up', f.url);
-    assert.equal((await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name, '000006_demo_gateway');
+    assert.equal((await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name, '000007_sepay_production');
     const changed = new Set(['ck_gateway_checkouts_provider', 'ck_gateway_checkout_snapshot', 'ck_gateway_checkout_trans', 'ck_gateway_checkout_stage', 'ck_gateway_checkout_legacy']);
     assert.deepEqual((await constraints(f.client)).filter((row) => !changed.has(row.conname)), prior.filter((row) => !changed.has(row.conname)));
     assert.deepEqual((await f.client.query("SELECT pg_get_functiondef('gateway.preserve_checkout_intent()'::regprocedure) AS definition")).rows, triggerBefore);
     assert.deepEqual((await f.client.query('SELECT * FROM gateway.gateway_checkouts ORDER BY checkout_id')).rows, before);
+    await runMigrations('down', f.url);
     await runMigrations('down', f.url);
     assert.deepEqual(await constraints(f.client), prior);
     assert.deepEqual((await f.client.query('SELECT * FROM gateway.gateway_checkouts ORDER BY checkout_id')).rows, before);
@@ -158,4 +165,32 @@ test('down refuses DEMO_CONFIRMATION history even without a DEMO provider row', 
     assert.deepEqual(await constraints(f.client), before);
     assert.equal((await f.client.query("SELECT count(*)::int AS n FROM gateway.gateway_checkouts WHERE provider_outcome_stage='DEMO_CONFIRMATION'")).rows[0].n, 1);
   } finally { await f.client.query('ROLLBACK'); await f.client.end(); await f.db.destroy(); }
+});
+
+test('production sepay snapshot is stored once, keeps its invoice, and blocks rollback', async () => {
+  const f = await fixture();
+  try {
+    assert.equal((await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name, '000007_sepay_production');
+    const snapshot = {
+      environment: 'production', merchantId: 'MERCHANT', endpoint: 'https://pay.sepay.vn/v1/checkout/init',
+      apiOrigin: 'https://pgapi.sepay.vn', operation: 'PURCHASE', paymentMethod: 'BANK_TRANSFER', currency: 'VND',
+      successUrl: 'https://merchant.example/success', errorUrl: 'https://merchant.example/error', cancelUrl: 'https://merchant.example/cancel',
+    };
+    const id = await insert(f, { provider: 'SEPAY', snapshot, scope: 'production:MERCHANT' });
+    const stored = (await f.client.query('SELECT idempotency_key, provider_order_id FROM gateway.gateway_checkouts WHERE checkout_id=$1', [id])).rows[0];
+    await assert.rejects(f.client.query(`INSERT INTO gateway.gateway_checkouts
+      (checkout_id,tenancy_id,created_by_user_id,amount,reference_code,provider,provider_order_id,provider_request_id,
+       status,created_at,updated_at,idempotency_key,fingerprint,request_snapshot,provider_partner_code)
+      VALUES ($1,$2,$3,1000,'again','SEPAY','other-invoice','other-request','CREATED',now(),now(),$4,'storage-fingerprint',$5::jsonb,'production:MERCHANT')`,
+      [randomUUID(), f.ids.tenancy, f.ids.creator, stored.idempotency_key, JSON.stringify(snapshot)]), /uq_gateway_checkout_client_key/);
+    await assert.rejects(f.client.query('UPDATE gateway.gateway_checkouts SET provider_order_id=$2 WHERE checkout_id=$1', [id, 'changed-invoice']), /immutable/);
+    await assert.rejects(insert(f, { provider: 'SEPAY', snapshot: { ...snapshot, endpoint: 'https://pay-sandbox.sepay.vn/v1/checkout/init' }, scope: 'production:MERCHANT' }), /ck_gateway_checkout_snapshot/);
+    await assert.rejects(insert(f, { provider: 'SEPAY', snapshot, scope: 'sandbox:MERCHANT' }), /ck_gateway_checkout_snapshot/);
+    await assert.rejects(insert(f, { provider: 'SEPAY', snapshot: { ...snapshot, secretKey: 'hidden' }, scope: 'production:MERCHANT' }), /ck_gateway_checkout_snapshot/);
+    await assert.rejects(insert(f, { provider: 'SEPAY', snapshot, scope: 'production:MERCHANT', trans: ' ' }), /ck_gateway_checkout_trans/);
+    const before = (await f.client.query('SELECT * FROM gateway.gateway_checkouts ORDER BY checkout_id')).rows;
+    await assert.rejects(runMigrations('down', f.url), /Cannot roll back while SePay production checkout rows exist/);
+    assert.deepEqual((await f.client.query('SELECT * FROM gateway.gateway_checkouts ORDER BY checkout_id')).rows, before);
+    assert.equal((await f.client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0].name, '000007_sepay_production');
+  } finally { await f.client.end(); await f.db.destroy(); }
 });

@@ -4,6 +4,7 @@ import type { GatewayProvider } from '../../../persistence/ports/gateway-checkou
 import type { GatewayProviderAdapter } from './gateway-provider';
 import { MomoGatewayAdapter } from './momo-gateway.adapter';
 import { DemoGatewayAdapter } from './demo-gateway.adapter';
+import { SepayGatewayAdapter } from './sepay-gateway.adapter';
 
 @Injectable()
 export class GatewayProviderRegistry {
@@ -12,12 +13,14 @@ export class GatewayProviderRegistry {
   constructor(
     @Inject(MomoGatewayAdapter) momo: MomoGatewayAdapter,
     @Optional() @Inject(DemoGatewayAdapter) private readonly demo?: DemoGatewayAdapter,
+    @Optional() @Inject(SepayGatewayAdapter) private readonly sepay?: SepayGatewayAdapter,
   ) {
     this.adapters = { MOMO: momo, SEPAY: null, DEMO: null };
   }
 
   find(provider: GatewayProvider): GatewayProviderAdapter | null {
     if (provider === 'DEMO') return this.demo?.isAvailable() ? this.demo : null;
+    if (provider === 'SEPAY') return this.sepay?.isAvailable() ? this.sepay : null;
     return this.adapters[provider];
   }
 

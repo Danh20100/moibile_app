@@ -8,6 +8,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 
 import { isUUID } from 'class-validator';
@@ -23,6 +24,8 @@ import type { CreateGatewayCheckoutInput, GatewayCheckout } from '../contracts';
 import type { MomoIpnPayload } from '../momo/momo-client';
 import { GATEWAY_CLOCK, gatewayAmountVnd } from '../providers/gateway-provider';
 import { GatewayProviderRegistry } from '../providers/gateway-provider.registry';
+import { SepayGatewayAdapter } from '../providers/sepay-gateway.adapter';
+import { readSepayIpnInvoice } from '../sepay/sepay-ipn';
 import { GatewaySettlementService } from './gateway-settlement.service';
 export { GATEWAY_CLOCK } from '../providers/gateway-provider';
 
@@ -114,6 +117,7 @@ export class PaymentGatewayService {
     if (record.fingerprint !== fingerprint)
       throw new ConflictException('Idempotency-Key payload differs');
     if (this.replayReason(record, userId)) return this.toCheckout(record, userId);
+    if (record.provider === 'SEPAY') return this.finishSepayCheckout(record, userId);
     const owner = randomUUID();
     const now = this.clock().toISOString();
     const acquired = await this.tx.run(async ({ repositories }) => {
@@ -161,6 +165,54 @@ export class PaymentGatewayService {
           status === 'FAILED'
             ? JSON.stringify({ stage: 'CREATE', resultCode, outcome })
             : locked.terminalEvidence,
+        updatedAt: this.clock().toISOString(),
+      });
+    });
+    return this.findCheckout(record.checkoutId, userId);
+  }
+
+  async reconcileSepay(id: string, userId: string): Promise<GatewayCheckout> {
+    const record = await this.tx.run(({ repositories }) =>
+      repositories.finance.findGatewayCheckout(id),
+    );
+    if (!record) throw new NotFoundException(`Gateway checkout not found: ${id}`);
+    if (record.provider !== 'SEPAY') throw new BadRequestException('Invalid gateway provider');
+    const tenancy = await this.authz.assertCanAccessTenancy(userId, record.tenancyId);
+    if (record.createdByUserId !== userId || !['ACTIVE', 'ENDING'].includes(tenancy.status))
+      throw new ForbiddenException('Tenancy is not writable');
+    if (record.status === 'SUCCEEDED') return this.findCheckout(id, userId);
+    const adapter = this.providers.require('SEPAY');
+    if (!(adapter instanceof SepayGatewayAdapter))
+      throw new ServiceUnavailableException('SEPAY checkout is unavailable');
+    const evidence = await adapter.reconcile(record);
+    if (evidence === 'uncertain')
+      throw new ServiceUnavailableException('SePay order is not uniquely paid');
+    if (evidence !== 'pending') await this.settlement.settle(evidence);
+    return this.findCheckout(id, userId);
+  }
+
+  private async finishSepayCheckout(
+    record: GatewayCheckoutRecord,
+    userId: string,
+  ): Promise<GatewayCheckout> {
+    if (record.status !== 'INITIATED') return this.findCheckout(record.checkoutId, userId);
+    const handoff = await this.providers.require('SEPAY').prepareHandoff(record);
+    await this.tx.run(async ({ repositories }) => {
+      await repositories.finance.lockGatewayCheckout(record.checkoutId);
+      const locked = await repositories.finance.findGatewayCheckout(record.checkoutId);
+      if (!locked || locked.status !== 'INITIATED' || locked.dispatchLeaseOwner || locked.lastIpnAt)
+        return;
+      await repositories.finance.updateGatewayCheckout({
+        ...locked,
+        status: handoff.ready ? 'CREATED' : 'UNKNOWN',
+        payUrl: handoff.payUrl,
+        deeplink: null,
+        dispatchLeaseOwner: null,
+        dispatchLeaseUntil: null,
+        replayBlocker: handoff.replayBlocker,
+        providerOutcome: handoff.outcome,
+        providerResultCode: null,
+        providerOutcomeStage: null,
         updatedAt: this.clock().toISOString(),
       });
     });
@@ -219,6 +271,27 @@ export class PaymentGatewayService {
     if (!writeAllowed) return 'TENANCY_WRITE_ACCESS_REQUIRED';
     const adapter = this.providers.find(record.provider);
     return adapter ? adapter.replayReason(record, this.clock()) : 'PROVIDER_UNAVAILABLE';
+  }
+
+  async handleSepayIpn(secret: unknown, payload: unknown): Promise<{ success: true }> {
+    const adapter = this.providers.require('SEPAY');
+    if (!(adapter instanceof SepayGatewayAdapter)) {
+      throw new ServiceUnavailableException('SEPAY checkout is unavailable');
+    }
+    adapter.authenticateNotification(secret);
+    const invoice = readSepayIpnInvoice(payload);
+    const record = await this.tx.run(({ repositories }) =>
+      repositories.finance.findGatewayCheckoutByOrderId(invoice),
+    );
+    if (!record || record.provider !== 'SEPAY') {
+      throw new ServiceUnavailableException('SePay order is not uniquely paid');
+    }
+    const evidence = await adapter.reconcile(record);
+    if (evidence === 'pending' || evidence === 'uncertain') {
+      throw new ServiceUnavailableException('SePay order is not uniquely paid');
+    }
+    await this.settlement.settle(evidence);
+    return { success: true };
   }
 
   async handleMomoIpn(payload: MomoIpnPayload): Promise<void> {

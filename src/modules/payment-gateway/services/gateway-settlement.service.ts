@@ -35,7 +35,8 @@ export class GatewaySettlementService {
     if (!VerifiedGatewayEvidence.isVerified(evidence))
       throw new ConflictException('Internally verified gateway evidence required');
     const data = evidence.data;
-    const providerName = data.provider === 'MOMO' ? 'MoMo' : data.provider;
+    const providerName =
+      data.provider === 'MOMO' ? 'MoMo' : data.provider === 'SEPAY' ? 'SePay' : data.provider;
     const now = this.clock().toISOString();
     try {
       await this.tx.run(async (context) => {
@@ -57,7 +58,14 @@ export class GatewaySettlementService {
           locked.referenceCode !== data.referenceCode ||
           locked.amount !== data.amount ||
           JSON.stringify(locked.requestSnapshot) !== data.snapshot ||
-          locked.providerRemoteOrderId !== data.remoteOrderId ||
+          !(
+            locked.providerRemoteOrderId === data.remoteOrderId ||
+            (locked.provider === 'SEPAY' &&
+              locked.providerRemoteOrderId === null &&
+              data.remoteOrderId !== null &&
+              data.outcome === 'PAYMENT_SUCCEEDED' &&
+              data.stage === 'RECONCILIATION')
+          ) ||
           data.currency !== 'VND' ||
           !['INITIATED', 'CREATED', 'UNKNOWN', 'FAILED', 'SUCCEEDED'].includes(locked.status)
         )
@@ -137,6 +145,10 @@ export class GatewaySettlementService {
           status: 'SUCCEEDED',
           resultingPaymentId: paymentId,
           providerTransId: transId,
+          providerRemoteOrderId:
+            locked.provider === 'SEPAY' && locked.providerRemoteOrderId === null
+              ? data.remoteOrderId
+              : locked.providerRemoteOrderId,
           terminalEvidence: data.observation,
         });
         const authorization = new ResourceAuthorizationService({ run: (work) => work(context) });
