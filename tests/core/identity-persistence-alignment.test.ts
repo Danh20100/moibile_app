@@ -35,6 +35,46 @@ test('authentication idempotently ensures USER and keeps provider claims at prin
   assert.deepEqual(await service.findUserById(first.userId), { userId: first.userId });
 });
 
+test('first Google login claims the seeded payment room from the synthetic user', async () => {
+  const googleUserId = googlePrincipalUserId('https://accounts.google.com', 'payer-1');
+  const org = {
+    organizationId: '00000000-0000-4000-8000-000000000002',
+    primaryOwnerUserId: '00000000-0000-4000-8000-000000000001',
+    name: 'TrọƠi Synthetic Development Organization',
+  };
+  const participant = {
+    tenancyParticipantId: '00000000-0000-4000-8000-000000000102',
+    tenancyId: '00000000-0000-4000-8000-000000000101',
+    userId: '00000000-0000-4000-8000-000000000001',
+    role: 'PRIMARY',
+    joinedAt: '2026-10-01T00:00:00.000Z',
+    leftAt: null,
+  };
+  const transactions = {
+    run: async <T>(work: (context: never) => Promise<T>) => work({
+      repositories: {
+        identity: { ensureUser: async () => undefined, userExists: async () => true },
+        organization: {
+          findOrganization: async () => org,
+          updateOrganization: async (record: typeof org) => { org.primaryOwnerUserId = record.primaryOwnerUserId; },
+        },
+        tenancy: {
+          findParticipant: async () => participant,
+          updateParticipant: async (record: typeof participant) => { participant.userId = record.userId; },
+        },
+      },
+      afterCommit: () => undefined,
+    } as never),
+  };
+  const service = new IdentityAccessService(transactions);
+  Object.defineProperty(service, 'verifier', { writable: true, value: {
+    verify: async () => ({ issuer: 'https://accounts.google.com', subject: 'payer-1' }),
+  } satisfies GoogleIdTokenVerifier });
+  await service.authenticateWithGoogle({ idToken: 'token' });
+  assert.equal(org.primaryOwnerUserId, googleUserId);
+  assert.equal(participant.userId, googleUserId);
+});
+
 test('physical-backed core contracts expose no non-persisted profile fields or prefixed random IDs', () => {
   const contracts = readRepoFiles([
     'src/modules/identity-access/contracts/index.ts',

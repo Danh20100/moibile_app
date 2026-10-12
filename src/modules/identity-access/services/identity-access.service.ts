@@ -9,6 +9,19 @@ import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persisten
 import { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
 import { VerifyGoogleTokenDto } from '../dto';
 
+const SEEDED_PAYMENT_ROOM = {
+  userId: '00000000-0000-4000-8000-000000000001',
+  organizationId: '00000000-0000-4000-8000-000000000002',
+  tenancyId: '00000000-0000-4000-8000-000000000101',
+  participantId: '00000000-0000-4000-8000-000000000102',
+} as const;
+
+const SEEDED_A02_TENANT = {
+  userId: 'e0080000-0000-4000-8000-000000000001',
+  tenancyId: 'e0080000-0000-4000-8000-000000000007',
+  participantId: 'e0080000-0000-4000-8000-000000000008',
+} as const;
+
 @Injectable()
 export class IdentityAccessService {
   private verifier?: GoogleIdTokenVerifier;
@@ -23,7 +36,37 @@ export class IdentityAccessService {
   async authenticateWithGoogle(dto: VerifyGoogleTokenDto): Promise<VerifiedPrincipal> {
     const principal = await verifyGoogleIdToken(this.verifier, dto.idToken);
     await this.transactions.run(({ repositories }) => repositories.identity.ensureUser(principal.userId));
+    await this.claimSeededPaymentRoom(principal.userId);
     return principal;
+  }
+
+  private async claimSeededPaymentRoom(userId: string): Promise<void> {
+    if (userId === SEEDED_PAYMENT_ROOM.userId || process.env.NODE_ENV === 'production') return;
+    await this.transactions.run(async ({ repositories }) => {
+      const organization = repositories.organization;
+      const tenancy = repositories.tenancy;
+      if (!organization?.findOrganization || !tenancy?.findParticipant || !tenancy.updateParticipant) return;
+      const org = await organization.findOrganization(SEEDED_PAYMENT_ROOM.organizationId);
+      if (org?.primaryOwnerUserId === SEEDED_PAYMENT_ROOM.userId) {
+        await organization.updateOrganization({ ...org, primaryOwnerUserId: userId });
+      }
+      const participant = await tenancy.findParticipant(SEEDED_PAYMENT_ROOM.participantId);
+      if (
+        participant?.tenancyId === SEEDED_PAYMENT_ROOM.tenancyId &&
+        participant.userId === SEEDED_PAYMENT_ROOM.userId &&
+        participant.leftAt === null
+      ) {
+        await tenancy.updateParticipant({ ...participant, userId });
+      }
+      const a02 = await tenancy.findParticipant(SEEDED_A02_TENANT.participantId);
+      if (
+        a02?.tenancyId === SEEDED_A02_TENANT.tenancyId &&
+        a02.userId === SEEDED_A02_TENANT.userId &&
+        a02.leftAt === null
+      ) {
+        await tenancy.updateParticipant({ ...a02, userId });
+      }
+    });
   }
 
   async findUserById(userId: string): Promise<UserReference> {

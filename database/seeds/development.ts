@@ -32,6 +32,87 @@ export async function seedDevelopmentData(context: TransactionContext): Promise<
       recordLifecycle: 'ACTIVE',
     });
   }
+  await seedPaymentRoom(r);
 }
-async function main(){const db=createDatabaseClient(loadDatabaseConfig(process.env));try{await new PostgresTransactionManager(db,createRepositorySet).run(seedDevelopmentData);}finally{await db.destroy();}}
+
+async function seedPaymentRoom(r: TransactionContext['repositories']): Promise<void> {
+  const existingRoom = await r.property.findRoom(s.paymentRoomId);
+  if (!existingRoom) {
+    await r.property.createRoom({
+      roomId: s.paymentRoomId,
+      propertyId: s.propertyId,
+      nameOrLabel: 'Phòng 101',
+      operationalState: 'OCCUPIED',
+      recordLifecycle: 'ACTIVE',
+    });
+  }
+  if (!(await r.listing.findListing(s.paymentListingId))) {
+    await r.listing.createListing({
+      listingId: s.paymentListingId,
+      roomId: s.paymentRoomId,
+      status: 'PUBLISHED',
+      publicTitle: 'Phòng 101',
+      publicDescription: 'Phòng dùng để thử thanh toán.',
+      publicPriceProjection: '10000.00',
+      publicLocationProjection: { longitude: 106.701, latitude: 10.701 },
+    });
+  }
+  if (!(await r.tenancy.findTenancy(s.paymentTenancyId))) {
+    await r.tenancy.createTenancy({
+      tenancyId: s.paymentTenancyId,
+      roomId: s.paymentRoomId,
+      status: 'ACTIVE',
+      startedAt: '2026-10-01T00:00:00.000Z',
+      endedAt: null,
+      endReason: null,
+    });
+  }
+  if (!(await r.tenancy.findParticipant(s.paymentParticipantId))) {
+    await r.tenancy.insertParticipant({
+      tenancyParticipantId: s.paymentParticipantId,
+      tenancyId: s.paymentTenancyId,
+      userId: s.userId,
+      role: 'PRIMARY',
+      joinedAt: '2026-10-01T00:00:00.000Z',
+      leftAt: null,
+    });
+  }
+  if (!(await r.tenancy.findTermsById(s.paymentTermsId))) {
+    await r.tenancy.insertTerms({
+      tenancyTermsId: s.paymentTermsId,
+      tenancyId: s.paymentTenancyId,
+      version: 1,
+      rentAmount: '10000.00',
+      agreedDepositRequirement: '0.00',
+      termStart: '2026-10-01',
+      termEnd: '2027-09-30',
+      billingDayOrDueDateRule: { day: 5 },
+      electricityArrangement: { mode: 'included' },
+      waterArrangement: { mode: 'included' },
+      minimalRentalConditions: { occupants: 1 },
+      effectiveFromCycleBoundary: '2026-10-01',
+    });
+  }
+  if (!(await r.finance.findBillingCycle(s.paymentCycleId))) {
+    await r.finance.insertBillingCycle({
+      billingCycleId: s.paymentCycleId,
+      tenancyId: s.paymentTenancyId,
+      tenancyTermsId: s.paymentTermsId,
+      periodStart: '2026-10-01',
+      periodEnd: '2026-10-31',
+    });
+  }
+  if (!(await r.finance.findCharge(s.paymentChargeId))) {
+    await r.finance.insertCharge({
+      chargeId: s.paymentChargeId,
+      billingCycleId: s.paymentCycleId,
+      chargeType: 'RENT',
+      amount: '10000.00',
+      utilityConnectionId: null,
+      startMeterReadingId: null,
+      endMeterReadingId: null,
+    });
+  }
+}
+async function main(){const db=createDatabaseClient(loadDatabaseConfig(process.env));try{const manager=new PostgresTransactionManager(db,createRepositorySet);await manager.run(seedDevelopmentData);const {seedDemoGraph}=require('../../scripts/demo/fixture.cjs') as {seedDemoGraph:(tx:PostgresTransactionManager)=>Promise<void>};await seedDemoGraph(manager);}finally{await db.destroy();}}
 if(require.main===module)void main().catch((error:unknown)=>{console.error(error instanceof Error?error.message:'Seed failed');process.exitCode=1;});
