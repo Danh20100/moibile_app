@@ -173,10 +173,6 @@ docker-compose.override.yml
 
 !.env.example
 
-# `dist/` is intentionally NOT ignored.
-# The landing-page branch versions its deployable static files
-# under `dist/`.
-
 # TroOi signing and local build configuration
 keystore.properties
 **/keystore.properties
@@ -184,4 +180,3 @@ keystore.properties
 *.keystore
 _trooi_backup_*/
 _trooi_backup_version_*/
-web/.vercel/

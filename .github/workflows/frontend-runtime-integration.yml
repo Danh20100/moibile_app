@@ -56,34 +56,3 @@ jobs:
             app/build/outputs/apk/
             app/build/outputs/bundle/
           if-no-files-found: warn
-  web:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '24'
-
-      - name: Web syntax check
-        working-directory: web
-        run: npm run check
-
-      - name: Web tests
-        working-directory: web
-        run: npm test
-
-      - name: Web browser smoke
-        working-directory: web
-        shell: bash
-        run: |
-          if command -v google-chrome >/dev/null 2>&1; then
-            export CHROME_PATH="$(command -v google-chrome)"
-          elif command -v chromium >/dev/null 2>&1; then
-            export CHROME_PATH="$(command -v chromium)"
-          fi
-          npm run test:browser

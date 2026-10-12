@@ -1,18 +1,18 @@
 # TrọƠi
 
 TrọƠi is a rental-lifecycle platform. This repository is a monorepo whose product surface is an
-Android application, backed by a NestJS backend and a PostgreSQL/PostGIS database, with a web
-project kept in a marketing/preview role.
+Android application, backed by a NestJS backend and a PostgreSQL/PostGIS database, with a separate public landing page maintained in its own repository.
 
 | Area | Location | Role |
 | --- | --- | --- |
 | Android app | `app/` | Primary product client (Kotlin/Compose, Gradle) |
 | Backend | `src/` | NestJS domain/application services and API |
 | Database | `database/`, `docs/database/v1/` | PostgreSQL/PostGIS migrations, seeds and the frozen Database v1 contract |
-| Web | `web/` | Marketing/preview surface, not a second business app |
 
 The backend source of truth is the frozen Canonical v3.7 / Database v1 model. Product prose, module
 documentation, DTOs, services and tests are implementation layers below that authority.
+
+The marketing landing page lives independently in [TroOi-Landing-Page](https://github.com/onsra520/TroOi-Landing-Page). It is not an Android/backend build dependency.
 
 ## Domain authority
 

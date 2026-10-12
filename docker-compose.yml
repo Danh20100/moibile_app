@@ -47,16 +47,6 @@ services:
     networks:
       - trooi-network
 
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    ports:
-      - "${WEB_PORT:-4173}:4173"
-    restart: unless-stopped
-    networks:
-      - trooi-network
-
 networks:
   trooi-network:
     driver: bridge
