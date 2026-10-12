@@ -171,7 +171,3 @@ docker-compose.override.yml
 # ------------------------------------------------------------
 
 !.env.example
-
-# `dist/` is intentionally NOT ignored.
-# The landing-page branch versions its deployable static files
-# under `dist/`.
