@@ -40,6 +40,16 @@ class ContractBoundaryTest {
         assertEquals(listOf("my-incident"), accessibleIncidents(source, access).map { it.incidentId })
     }
 
+    @Test fun chargesAfterPaymentsReduceOutstandingByConfirmedPayments() {
+        val charges = listOf(ChargeCard("c1", "RENT", "5000.00", null))
+        val payments = listOf(PaymentCard("p1", "2000.00", "ok"))
+        assertEquals("3000.00", chargesAfterPayments(charges, payments).single().outstandingLabel)
+        assertEquals(
+            "0.00",
+            chargesAfterPayments(charges, listOf(PaymentCard("p2", "5000.00", "ok"))).single().outstandingLabel,
+        )
+    }
+
     @Test fun financeAndDashboardAreScopedContainersNotCalculatedFromRooms() {
         val empty = FrontendReadSnapshot(
             operationalRooms = listOf(OperationalRoomCard("my-room", "my-property", "Mine", RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE)),

@@ -184,6 +184,7 @@ test('production form uses the pinned field order and does not treat the return 
     .digest('base64');
   assert.equal(independent, fixtures.ordered.signature);
   assert.match(sepayReturnHtml('success'), /không phải xác nhận đã thanh toán/);
+  assert.match(sepayReturnHtml('success'), /trooi:\/\/payment\/sepay/);
   assert.doesNotMatch(sepayReturnHtml('success'), /PROVIDER_VERIFIED|resultingPaymentId/);
 });
 
@@ -440,9 +441,29 @@ test('order detail parser refuses card, ambiguity, and invoice used as order id'
   const swapped = structuredClone(list);
   swapped.data[0].order_id = invoice;
   assert.equal(interpretSepayOrder(swapped, detail, invoice, 'MERCHANT').kind, 'uncertain');
+  const capturedList = {
+    data: [
+      {
+        id: '90000000-0000-4000-8000-000000000091',
+        order_id: 'PAY475TESTORDER0001',
+        order_invoice_number: invoice,
+        order_status: 'CAPTURED',
+        order_amount: '1000.00',
+        order_currency: 'VND',
+      },
+    ],
+    meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+  };
+  const fromList = interpretSepayOrder(capturedList, null, invoice, 'MERCHANT');
+  assert.equal(fromList.kind, 'paid');
+  if (fromList.kind === 'paid') {
+    assert.equal(fromList.remoteOrderId, 'PAY475TESTORDER0001');
+    assert.equal(fromList.transactionId, '90000000-0000-4000-8000-000000000091');
+    assert.equal(fromList.amount, '1000.00');
+  }
 });
 
-test('http client reads detail by remote order id and treats non-200 as uncertain', async () => {
+test('http client reads detail by remote order id and settles a unique captured list when detail is missing', async () => {
   const invoice = 'TROOI-SEPAY-00000000000040008000000000000001';
   const urls: string[] = [];
   const fetchImpl: typeof fetch = async (input) => {
@@ -450,16 +471,27 @@ test('http client reads detail by remote order id and treats non-200 as uncertai
     urls.push(`${url.origin}${url.pathname}`);
     if (url.pathname === '/v1/order') {
       return Response.json({
-        data: [{ order_id: 'SEPAY-68BA83CE637C1', order_invoice_number: invoice }],
+        data: [
+          {
+            id: '90000000-0000-4000-8000-000000000091',
+            order_id: 'PAY475TESTORDER0001',
+            order_invoice_number: invoice,
+            order_status: 'CAPTURED',
+            order_amount: '1000.00',
+            order_currency: 'VND',
+          },
+        ],
         meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
       });
     }
     return Response.json({ data: {} }, { status: 404 });
   };
   const client = new HttpSepayOrderClient(config, fetchImpl);
-  assert.equal((await client.readInvoice(invoice)).kind, 'uncertain');
+  const read = await client.readInvoice(invoice);
+  assert.equal(read.kind, 'paid');
+  if (read.kind === 'paid') assert.equal(read.remoteOrderId, 'PAY475TESTORDER0001');
   assert.deepEqual(urls, [
     'https://pgapi.sepay.vn/v1/order',
-    'https://pgapi.sepay.vn/v1/order/detail/SEPAY-68BA83CE637C1',
+    'https://pgapi.sepay.vn/v1/order/detail/PAY475TESTORDER0001',
   ]);
 });

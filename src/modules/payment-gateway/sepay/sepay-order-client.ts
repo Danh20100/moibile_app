@@ -54,11 +54,38 @@ function remoteOrderId(value: unknown, invoice: string): string | null {
   if (
     typeof value !== 'string' ||
     value === invoice ||
+    value.startsWith('TROOI-SEPAY-') ||
+    value.length === 0 ||
     value.length > 255 ||
-    !/^SEPAY-[A-Za-z0-9]+$/.test(value)
+    value.trim() !== value ||
+    /\s/.test(value) ||
+    !/^[A-Za-z0-9-]+$/.test(value)
   )
     return null;
   return value;
+}
+
+function paidFromCapturedList(
+  listed: Record<string, unknown>,
+  orderId: string,
+  invoice: string,
+): SepayReadResult {
+  if (listed.order_status === 'AUTHENTICATION_NOT_NEEDED' || listed.order_status === 'CANCELLED')
+    return pending;
+  if (listed.order_status !== SEPAY_PRODUCTION_PAID_STATUS) return uncertain;
+  const amount = wholeVnd(listed.order_amount);
+  const id = transactionId(listed.id);
+  if (!amount || listed.order_currency !== 'VND' || !id) return uncertain;
+  // ponytail: PAY* list rows 404 on /v1/order/detail; use transactions when that document exists.
+  return {
+    kind: 'paid',
+    remoteOrderId: orderId,
+    transactionId: id,
+    invoice,
+    amount,
+    currency: 'VND',
+    paymentMethod: 'BANK_TRANSFER',
+  };
 }
 
 export function interpretSepayOrder(
@@ -81,7 +108,9 @@ export function interpretSepayOrder(
   const listed = listBody.data[0];
   if (!isRecord(listed) || listed.order_invoice_number !== invoice) return uncertain;
   const orderId = remoteOrderId(listed.order_id, invoice);
-  if (!orderId || !isRecord(detailBody) || !isRecord(detailBody.data)) return uncertain;
+  if (!orderId) return uncertain;
+  if (!isRecord(detailBody) || !isRecord(detailBody.data))
+    return paidFromCapturedList(listed, orderId, invoice);
   const data = detailBody.data;
   if (
     data.order_id !== orderId ||
@@ -149,7 +178,6 @@ export class HttpSepayOrderClient implements SepayOrderReader {
       SEPAY_PRODUCTION_API_ORIGIN,
     );
     const detail = await this.get(detailUrl);
-    if (!detail) return uncertain;
     return interpretSepayOrder(listed, detail, invoice, this.config.merchantId);
   }
 

@@ -28,6 +28,7 @@ class V1PaymentGateway @Inject constructor(private val client: BackendClient) {
             "Checkout cần tenancy, amount và Idempotency-Key."
         }
         val body = JsonObject().apply {
+            addProperty("provider", "SEPAY")
             addProperty("tenancyId", tenancyId)
             addProperty("amount", amount)
         }
@@ -44,6 +45,11 @@ class V1PaymentGateway @Inject constructor(private val client: BackendClient) {
     suspend fun get(id: String): GatewayCheckout {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "Checkout ID không hợp lệ" }
         return read(client.get("finance/checkouts/$id", authenticated = true))
+    }
+
+    suspend fun reconcile(id: String): GatewayCheckout {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "Checkout ID không hợp lệ" }
+        return read(client.postJson("finance/checkouts/$id/reconcile", "{}", authenticated = true))
     }
 
     private fun read(outcome: TransportOutcome): GatewayCheckout {

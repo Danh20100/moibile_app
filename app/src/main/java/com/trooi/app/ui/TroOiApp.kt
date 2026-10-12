@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
@@ -52,6 +53,10 @@ fun TroOiApp(
     LaunchedEffect(paymentReturnUri, state.sessionRestoring) {
         if (paymentReturnUri == null || state.sessionRestoring) return@LaunchedEffect
         viewModel.handlePaymentReturn(paymentReturnUri)
+    }
+    LifecycleResumeEffect(state.isAuthenticated, state.sessionRestoring) {
+        if (state.isAuthenticated && !state.sessionRestoring) viewModel.onAppResume()
+        onPauseOrDispose { }
     }
     val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(

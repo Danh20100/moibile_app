@@ -23,13 +23,19 @@ sealed interface PaymentReturnAction {
     data object SafeRecovery : PaymentReturnAction
 }
 
+fun shouldStartFreshCheckout(checkout: GatewayCheckout?): Boolean =
+    isConfirmedGatewayPayment(checkout) || checkout?.status == "FAILED"
+
 fun rememberCheckoutBeforePost(
     tenancyId: String,
     amount: String,
     existing: CheckoutIntent?,
+    checkout: GatewayCheckout? = null,
     newKey: () -> String,
 ): CheckoutIntent {
-    val reuse = existing?.takeIf { it.tenancyId == tenancyId && it.amount == amount }
+    val reuse = existing?.takeIf {
+        !shouldStartFreshCheckout(checkout) && it.tenancyId == tenancyId && it.amount == amount
+    }
     return CheckoutIntent(
         tenancyId = tenancyId,
         amount = amount,
@@ -52,12 +58,18 @@ fun validGatewayAmount(amount: String): Boolean {
 fun canCreateGatewayCheckout(tenancyStatus: String?): Boolean =
     tenancyStatus?.lowercase() in setOf("active", "ending")
 
-fun launchableHttpsPayUrl(payUrl: String?, allowLocalHttp: Boolean = false): String? {
+fun launchableHttpsPayUrl(
+    payUrl: String?,
+    allowLocalHttp: Boolean = false,
+    paymentPublicOrigin: String = "",
+): String? {
     if (payUrl.isNullOrBlank()) return null
     val match = Regex("^https://([^/]+)(/.*)?$", RegexOption.IGNORE_CASE).matchEntire(payUrl.trim())
         ?: return null
     val host = match.groupValues[1].substringBefore(":").lowercase()
+    val pinned = paymentPublicOrigin.trim().trimEnd('/').lowercase()
     val allowed = host in setOf("test-payment.momo.vn", "payment.momo.vn") ||
+        (pinned.startsWith("https://") && "https://$host" == pinned) ||
         (allowLocalHttp && host in setOf("127.0.0.1", "localhost"))
     return payUrl.trim().takeIf { allowed }
 }
@@ -72,8 +84,9 @@ fun manualCheckoutAvailable(checkout: GatewayCheckout?, createFailed: Boolean): 
 }
 
 fun interpretPaymentReturn(uri: PaymentReturnUri, local: PendingCheckoutHint?): PaymentReturnAction {
+    val path = uri.path.orEmpty()
     val recognized = uri.scheme == "trooi" && uri.host == "payment" &&
-        (uri.path == "/momo" || uri.path?.startsWith("/momo") == true)
+        (path == "/momo" || path.startsWith("/momo") || path == "/sepay" || path.startsWith("/sepay"))
     if (!recognized || local == null) return PaymentReturnAction.SafeRecovery
     val checkoutId = local.checkoutId
     return if (!checkoutId.isNullOrBlank()) {

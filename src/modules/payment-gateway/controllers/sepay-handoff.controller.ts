@@ -20,7 +20,7 @@ export function sepayReturnHtml(result: string): string {
       : result === 'error'
         ? 'SePay báo lỗi trên trình duyệt'
         : 'SePay báo đã hủy trên trình duyệt';
-  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>TrọƠi</title></head><body><main><h1>${escapeHtml(label)}</h1><p>Trang quay về không phải xác nhận đã thanh toán. Hãy đối soát trong TrọƠi.</p></main></body></html>`;
+  return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta http-equiv="refresh" content="1;url=trooi://payment/sepay"><title>TrọƠi</title></head><body><main><h1>${escapeHtml(label)}</h1><p>Trang quay về không phải xác nhận đã thanh toán. Hãy đối soát trong TrọƠi.</p><p><a href="trooi://payment/sepay">Quay về TrọƠi</a></p></main></body></html>`;
 }
 
 function page(body: string): string {

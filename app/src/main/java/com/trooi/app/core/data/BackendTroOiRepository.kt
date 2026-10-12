@@ -203,16 +203,18 @@ class BackendTroOiRepository @Inject constructor(
                 .filter { it.tenancyId == tenancyId }
                 .flatMap { it.charges }
                 .map(::mapCharge)
+                .distinctBy { it.chargeId }
             val payments = api.getPayments(tenancyId).required("tenant payments")
                 .filter { it.tenancyId == tenancyId }
             payments.forEach { paymentsById[it.id] = it }
+            val paymentCards = payments.map(::mapPayment).distinctBy { it.paymentId }
             val deposit = api.getDeposit(tenancyId).optionalNotFound("tenant deposit")
                 ?.takeIf { it.tenancyId == tenancyId }
                 ?.let(::mapDeposit)
             tenantFinance[tenancyId] = TenantFinanceProjection(
                 tenancyId = tenancyId,
-                charges = charges.distinctBy { it.chargeId },
-                payments = payments.map(::mapPayment).distinctBy { it.paymentId },
+                charges = chargesAfterPayments(charges, paymentCards),
+                payments = paymentCards,
                 deposits = listOfNotNull(deposit),
             )
         }
