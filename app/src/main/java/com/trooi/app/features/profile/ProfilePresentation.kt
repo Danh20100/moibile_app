@@ -3,7 +3,7 @@ package com.trooi.app.features.profile
 import com.trooi.app.core.model.TroOiUiState
 
 const val PROFILE_UNSUPPORTED_MESSAGE = "Tính năng đang được phát triển."
-const val PROFILE_CONNECTIONS_MESSAGE = "Tính năng Kết nối đang được phát triển."
+const val PROFILE_CONNECTIONS_MESSAGE = "Kết nối cần nguồn liên hệ và quyền xem hồ sơ từ backend. Chưa có danh sách liên hệ; không công khai số điện thoại hoặc địa chỉ cá nhân."
 
 enum class LandlordEntry { ONBOARDING, REAL_OPERATIONS }
 

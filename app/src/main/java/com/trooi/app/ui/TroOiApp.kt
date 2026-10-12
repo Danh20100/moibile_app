@@ -2,6 +2,7 @@ package com.trooi.app.ui
 
 import android.os.SystemClock
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.data.RuntimeDataSource
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -47,9 +49,19 @@ import kotlinx.coroutines.launch
 fun TroOiApp(
     viewModel: TroOiViewModel = hiltViewModel(),
     paymentReturnUri: PaymentReturnUri? = null,
+    debugTestCommand: DebugTestCommand? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val accountDrafts = rememberSaveableStateHolder()
+    var lastAccountDraftKey by remember { mutableStateOf<String?>(null) }
+    val accountDraftKey = "account-settings-${state.backendUserId}"
+    LaunchedEffect(state.isAuthenticated, accountDraftKey) {
+        if (!state.isAuthenticated || lastAccountDraftKey != accountDraftKey) {
+            lastAccountDraftKey?.let(accountDrafts::removeState)
+            lastAccountDraftKey = if (state.isAuthenticated) accountDraftKey else null
+        }
+    }
     val scope = rememberCoroutineScope()
     val activity = LocalActivity.current
     val context = LocalContext.current
@@ -92,9 +104,9 @@ fun TroOiApp(
     }
 
     TroOiTheme {
-        Scaffold(
+        DebugTestBridge(viewModel, debugTestCommand)
+        TroOiScreenScaffold(
             modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
-            containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbar) },
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
@@ -121,43 +133,37 @@ fun TroOiApp(
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
                 if (!state.splashCompleted) {
                     TroOiFirstEntryScreen(
-                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
                         onLoginClick = viewModel::openLogin,
                         onSignUpClick = viewModel::openSignUp,
                         authInProgress = state.authInProgress,
-                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
                         sessionRestoring = state.sessionRestoring,
                         isAuthenticated = state.isAuthenticated,
                         onCompleteTransition = viewModel::completeSplash,
                     )
                 } else if (state.sessionRestoring) {
-                    V1Panel("Đang khôi phục phiên") {
-                        V1Pending("Đang xác minh tài khoản với Backend.")
-                    }
+                    TroOiStateMessage(TroOiStateKind.LOADING, "Đang xác minh tài khoản với Backend.", title = "Đang khôi phục phiên")
                 } else if (state.restoreFailed) {
-                    V1Panel("Không khôi phục được phiên") {
-                        V1Pending("Phiên trước không thể được xác minh lại.")
-                        V1Action("Thử lại", { viewModel.retryRestore(context) })
-                    }
+                    TroOiStateMessage(TroOiStateKind.ERROR, "Phiên trước không thể được xác minh lại.", title = "Không khôi phục được phiên",
+                        actionText = "Thử lại", onAction = { viewModel.retryRestore(context) })
                 } else if (!state.isAuthenticated && state.page !in setOf(AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword)) {
                     AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
-                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
-                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
                         authInProgress = state.authInProgress,
                     )
                 } else if (state.sourceUnavailable) {
-                    V1Panel("Nguồn không khả dụng") {
-                        V1Pending("Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.")
-                        V1Action("Quay lại", viewModel::goBack)
-                    }
+                    TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.", title = "Nguồn không khả dụng",
+                        actionText = "Quay lại", onAction = viewModel::goBack)
                 } else when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
-                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
-                        googleBacked = BuildConfig.BACKEND_BACKED,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
                         authInProgress = state.authInProgress,
                     )
                     AppPage.AuthLogin -> LoginScreen(
@@ -165,17 +171,29 @@ fun TroOiApp(
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
-                        onSignInWithGoogle = if (BuildConfig.BACKEND_BACKED) ({ viewModel.signInWithGoogle(context) }) else null,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
                         authInProgress = state.authInProgress,
+                        initialIdentifier = debugTestCommand?.takeIf { it.route == "login" }?.identifier.orEmpty(),
+                        initialPassword = debugTestCommand?.takeIf { it.route == "login" }?.password.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::signUp,
+                        mockMode = state.demoPreview,
+                        authInProgress = state.authInProgress,
+                        initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),
+                        initialPhone = debugTestCommand?.takeIf { it.route == "signup" }?.phone.orEmpty(),
+                        initialEmail = debugTestCommand?.takeIf { it.route == "signup" }?.email.orEmpty(),
+                        initialPassword = debugTestCommand?.takeIf { it.route == "signup" }?.password.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.AuthForgotPassword -> ForgotPasswordScreen(
                         onBack = viewModel::goBack,
                         onSubmit = viewModel::requestPasswordReset,
+                        initialIdentifier = debugTestCommand?.takeIf { it.route == "forgot" }?.identifier.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.ContextSwitcher -> V1ContextSwitcherScreen(
                         state = state,
@@ -185,9 +203,9 @@ fun TroOiApp(
                     AppPage.Discovery -> ExploreScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
-                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
-                        onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
-                        allowDemoFallback = !BuildConfig.BACKEND_BACKED,
+                        onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
+                        onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,
+                        allowDemoFallback = !RuntimeDataSource.isBackendBacked(),
                     )
                     AppPage.Favorites -> FavoritesPlaceholderScreen(
                         onExplore = viewModel::openDiscovery,
@@ -210,7 +228,7 @@ fun TroOiApp(
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
-                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
+                        onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                     )
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)
                     is AppPage.ListingDetail -> if (state.read.publicListings.any { it.listingId == page.listingId && it.rentalDetails != null } || useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)) {
@@ -236,7 +254,7 @@ fun TroOiApp(
                         onContextSwitcher = viewModel::openContextSwitcher,
                         onOpenSource = viewModel::openSource,
                     )
-                    AppPage.TenantRental -> if (BuildConfig.BACKEND_BACKED) {
+                    AppPage.TenantRental -> if (RuntimeDataSource.isBackendBacked()) {
                         val tenancyId = (state.selectedContext as? SelectedContext.Tenant)?.tenancyId
                         if (tenancyId != null) {
                             val authorized = state.authorizedSource
@@ -269,7 +287,7 @@ fun TroOiApp(
                     )
                     AppPage.Account -> V1AccountScreen(
                         state = state,
-                        googleOnly = BuildConfig.BACKEND_BACKED,
+                        googleOnly = RuntimeDataSource.isBackendBacked(),
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
                         onDiscovery = viewModel::openDiscovery,
@@ -277,20 +295,17 @@ fun TroOiApp(
                         onNotifications = viewModel::openNotifications,
                         onSettings = viewModel::openSettings,
                         onHelp = viewModel::openHelp,
+                        onPrivacy = viewModel::openPrivacy,
                         onLogout = viewModel::logout,
                         onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
                         onOpenWorkspace = viewModel::openCoreWorkspace,
                     )
-                    AppPage.Settings -> SettingsScreen(
-                        state = state,
-                        restoreEnabled = viewModel.sessionRestoreEnabled(),
-                        onBack = viewModel::goBack,
-                        onContext = viewModel::openContextSwitcher,
-                        onLogout = viewModel::logout,
-                    )
-                    AppPage.Help -> HelpScreen(onBack = viewModel::goBack)
+                    AppPage.Settings -> accountDrafts.SaveableStateProvider(accountDraftKey) {
+                        SettingsScreen(state = state, onBack = viewModel::goBack)
+                    }
+                    AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack)
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
-                    AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
+                    AppPage.OwnerProperties -> if (RuntimeDataSource.isBackendBacked()) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
                         V1OperatorWorkspace(
                             state.access,
@@ -432,7 +447,7 @@ private fun BackendGoogleAuthentication(
         TroOiBrand()
         Spacer(Modifier.height(8.dp))
         if (inProgress) {
-            V1PageTitle(
+            TroOiPageHeader(
                 "Mở lại không gian của bạn",
                 "Đang xác minh Google credential và capability từ Backend.",
             )
@@ -441,23 +456,23 @@ private fun BackendGoogleAuthentication(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
-            V1Panel("Đang xác minh") {
+            TroOiCard("Đang xác minh") {
                 LedgerStateLabel("Google credential đã được chọn", LedgerTone.Success)
                 LedgerStateLabel("Đang xác định không gian được truy cập", LedgerTone.Warning)
-                V1Pending(
+                TroOiFeedback(
                     "Token chỉ được giữ trong phiên chạy hiện tại; app chưa có persistent session restore qua process restart.",
                 )
             }
         } else {
-            V1PageTitle(
+            TroOiPageHeader(
                 "Mở không gian của bạn",
                 "Đăng nhập để xem nơi đang thuê hoặc khu trọ được cấp quyền.",
             )
-            V1Panel("Đăng nhập với Google") {
-                V1Pending(
+            TroOiCard("Đăng nhập với Google") {
+                TroOiFeedback(
                     "Google ID Token được Backend xác minh; Tenant/Landlord là context từ relationship thật, không phải USER.role.",
                 )
-                V1Action(
+                TroOiButton(
                     "Tiếp tục với Google",
                     onClick = onSignIn,
                     modifier = Modifier.fillMaxWidth(),

@@ -83,12 +83,13 @@ fun V1DiscoveryScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        item { V1PageTitle("TrọƠi", "Khám phá phòng") }
+        item { TroOiPageHeader("TrọƠi", "Khám phá phòng") }
         if (onContextSwitcher != null) {
             item {
-                V1SecondaryAction(
+                TroOiButton(
                     "Không gian khám phá",
                     onContextSwitcher,
+                    style = TroOiButtonStyle.SECONDARY,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -102,10 +103,10 @@ fun V1DiscoveryScreen(
         }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
-            V1Panel("Bạn muốn ở đâu?") {
+            TroOiCard("Bạn muốn ở đâu?") {
                 Text("Khu vực tìm kiếm", fontWeight = FontWeight.Bold)
-                V1Pending(locationMessage ?: "Chọn vị trí để app tạo tâm spatial search ở lớp nội bộ.")
-                V1Action(
+                TroOiFeedback(locationMessage ?: "Chọn vị trí để app tạo tâm spatial search ở lớp nội bộ.")
+                TroOiButton(
                     "Dùng vị trí hiện tại",
                     useCurrentLocation,
                     modifier = Modifier.fillMaxWidth().testTag("discovery-use-current-location"),
@@ -121,13 +122,13 @@ fun V1DiscoveryScreen(
                         )
                     }
                 }
-                OutlinedTextField(
+                TroOiFormField(
                     value = minPrice, onValueChange = { minPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá thấp nhất (VND)") },
                     modifier = Modifier.fillMaxWidth().testTag("discovery-filter-min-price"),
                     singleLine = true,
                 )
-                OutlinedTextField(
+                TroOiFormField(
                     value = maxPrice, onValueChange = { maxPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá cao nhất (VND)") },
                     modifier = Modifier.fillMaxWidth().testTag("discovery-filter-max-price"),
@@ -137,7 +138,7 @@ fun V1DiscoveryScreen(
                     Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("discovery-filter-error"))
                 }
                 if (onSearch != null) {
-                    V1Action(
+                    TroOiButton(
                         "Tìm theo bán kính",
                         {
                             onSearch(
@@ -152,7 +153,7 @@ fun V1DiscoveryScreen(
                     )
                 }
                 if (onResetSearch != null) {
-                    V1Action("Hiển thị lại tất cả tin công khai", {
+                    TroOiButton("Hiển thị lại tất cả tin công khai", {
                         centerLat = null
                         centerLng = null
                         radiusMeters = 3000
@@ -176,20 +177,18 @@ fun V1DiscoveryScreen(
             )
         }
         if (state.runtimeLoading && listings.isEmpty()) {
-            item { V1Panel("Đang tải tin đăng") { V1Pending("Đang đọc public Listing projection từ Backend.") } }
+            item { TroOiStateMessage(TroOiStateKind.LOADING, "Đang đọc public Listing projection từ Backend.", title = "Đang tải tin đăng") }
         } else if (listings.isEmpty()) {
-            item { V1Panel("Không có kết quả") {
-                V1Pending(if (filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
+            item { TroOiStateMessage(TroOiStateKind.EMPTY, if (filter.minPrice.isNotBlank() || filter.maxPrice.isNotBlank()) {
                     "Không có tin đăng PUBLISHED phù hợp bộ lọc trong dữ liệu đang tải."
-                } else "Hiện chưa có phòng nào được đăng công khai.")
-            } }
+                } else "Hiện chưa có phòng nào được đăng công khai.", title = "Không có kết quả") }
         } else {
             items(listings, key = { "public-listing-" + it.listingId }) { listing ->
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("public-listing-" + listing.listingId)
-                        .clickable { onOpenListing(listing.listingId) },
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenListing(listing.listingId) },
                     color = MaterialTheme.colorScheme.surface,
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
@@ -261,10 +260,10 @@ fun V1ListingDetailScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        item { TextButton(onClick = onBack) { Text("← Quay lại", color = MaterialTheme.colorScheme.primary) } }
+        item { TroOiButton("← Quay lại", onBack, style = TroOiButtonStyle.TERTIARY) }
         if (state.demoPreview) item { V1PreviewNotice() }
         if (listing == null) {
-            item { V1Panel("Tin đăng không khả dụng") { V1Pending("Chỉ tin đăng PUBLISHED mới xuất hiện trong Discovery.") } }
+            item { TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Chỉ tin đăng PUBLISHED mới xuất hiện trong Discovery.", title = "Tin đăng không khả dụng") }
         } else {
             item {
                 LedgerMediaPlaceholder(
@@ -273,7 +272,7 @@ fun V1ListingDetailScreen(
                     modifier = Modifier.height(220.dp),
                 )
             }
-            item { V1PageTitle(listing.title, listing.publicAreaLabel) }
+            item { TroOiPageHeader(listing.title, listing.publicAreaLabel) }
             item {
                 LedgerMoney(
                     amount = listing.askingPriceLabel ?: "Giá chưa công khai",
@@ -301,13 +300,13 @@ fun V1ListingDetailScreen(
                 )
                 if (listing.publicGeoPoint == null) {
                     Spacer(Modifier.height(8.dp))
-                    V1Pending("Tin đăng chưa có vị trí hiển thị trên bản đồ.")
+                    TroOiFeedback("Tin đăng chưa có vị trí hiển thị trên bản đồ.")
                 }
             }
             item { LedgerDivider() }
             item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry) }
             item {
-                V1Action(
+                TroOiButton(
                     "Báo cáo tin đăng",
                     { onOpenReport(listing.listingId) },
                     modifier = Modifier.fillMaxWidth().testTag("listing-open-report"),
@@ -342,87 +341,75 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { V1PageTitle("Khu vực người thuê", "Dữ liệu được cấp theo quan hệ Tenancy Participant") }
+        item { TroOiPageHeader("Khu vực người thuê", "Dữ liệu được cấp theo quan hệ Tenancy Participant") }
         if (state.demoPreview) item { V1PreviewNotice() }
         item {
-            V1Panel(selected.title) {
+            TroOiCard(selected.title) {
                 when (selected) {
                     PortalArea.MY_RENTAL -> {
-                        if (rentals.isEmpty()) V1Pending("Không có lượt thuê được Backend liên kết với tài khoản.")
+                        if (rentals.isEmpty()) TroOiFeedback("Không có lượt thuê được Backend liên kết với tài khoản.")
                         else rentals.forEach {
                             Text(it.roomLabel, fontWeight = FontWeight.SemiBold)
                             Text("Tenancy: ${it.lifecycle}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     PortalArea.TERMS -> {
-                        if (rentals.isEmpty()) V1Pending("Chưa có Terms theo quan hệ thuê.")
-                        else rentals.forEach { V1Metric(it.roomLabel, it.termsVersionLabel ?: "Chưa có Terms") }
-                        V1Pending("Xác nhận Terms chỉ khả dụng khi Backend cung cấp action hợp lệ.")
+                        if (rentals.isEmpty()) TroOiFeedback("Chưa có Terms theo quan hệ thuê.")
+                        else rentals.forEach { TroOiInformationRow(it.roomLabel, it.termsVersionLabel ?: "Chưa có Terms") }
+                        TroOiFeedback("Xác nhận Terms chỉ khả dụng khi Backend cung cấp action hợp lệ.")
                     }
                     PortalArea.DEPOSIT -> {
                         val deposits = scopedFinance.flatMap { it.deposits }
-                        if (deposits.isEmpty()) V1Pending()
+                        if (deposits.isEmpty()) TroOiFeedback("Đang chờ dữ liệu có phân quyền từ Backend.")
                         else deposits.forEach {
-                            V1Metric("Yêu cầu cọc theo Terms", it.requiredLabel ?: "Chưa có")
-                            V1Metric("Cọc đã thực sự ghi nhận", it.fundedLabel ?: "Chưa có")
-                            V1Pending(it.settlementLabel ?: "Chưa có trạng thái settlement")
+                            TroOiInformationRow("Yêu cầu cọc theo Terms", it.requiredLabel ?: "Chưa có")
+                            TroOiInformationRow("Cọc đã thực sự ghi nhận", it.fundedLabel ?: "Chưa có")
+                            TroOiFeedback(it.settlementLabel ?: "Chưa có trạng thái settlement")
                         }
                     }
                     PortalArea.BILLING -> {
                         val charges = scopedFinance.flatMap { it.charges }
-                        if (charges.isEmpty()) V1Pending()
+                        if (charges.isEmpty()) TroOiFeedback("Đang chờ dữ liệu có phân quyền từ Backend.")
                         else charges.forEach {
-                            V1Metric(it.label, it.amountLabel)
-                            V1Pending(it.outstandingLabel ?: "Chưa có số liệu outstanding")
+                            TroOiInformationRow(it.label, it.amountLabel)
+                            TroOiFeedback(it.outstandingLabel ?: "Chưa có số liệu outstanding")
                         }
                     }
                     PortalArea.PAYMENT -> {
                         val payments = scopedFinance.flatMap { it.payments }
-                        if (payments.isEmpty()) V1Pending("Chưa có Payment theo Tenancy.")
+                        if (payments.isEmpty()) TroOiFeedback("Chưa có Payment theo Tenancy.")
                         else payments.forEach {
-                            V1Metric("Payment", it.amountLabel)
-                            V1Pending(it.confirmationLabel ?: "Chưa có trạng thái xác nhận")
+                            TroOiInformationRow("Payment", it.amountLabel)
+                            TroOiFeedback(it.confirmationLabel ?: "Chưa có trạng thái xác nhận")
                         }
-                        V1Pending("MoMo là kênh tuỳ chọn. URI quay về không phải bằng chứng đã trả; người thuê không tự xác nhận tiền thủ công.")
+                        TroOiFeedback("MoMo là kênh tuỳ chọn. URI quay về không phải bằng chứng đã trả; người thuê không tự xác nhận tiền thủ công.")
                     }
                     PortalArea.RECEIPTS -> {
                         val receipts = scopedFinance.flatMap { it.receipts }
-                        if (receipts.isEmpty()) V1Pending("Chưa có Receipt từ confirmed Payment.")
-                        else receipts.forEach { V1Metric("Biên nhận " + it.receiptId, it.issuedAtLabel) }
+                        if (receipts.isEmpty()) TroOiFeedback("Chưa có Receipt từ confirmed Payment.")
+                        else receipts.forEach { TroOiInformationRow("Biên nhận " + it.receiptId, it.issuedAtLabel) }
                     }
                     PortalArea.NOTICES -> {
                         val notices = linked.flatMap { state.read.noticesByTenancy[it].orEmpty() }
-                        if (notices.isEmpty()) V1Pending("Chưa có thông báo cho lượt thuê đang chọn.")
+                        if (notices.isEmpty()) TroOiFeedback("Chưa có thông báo cho lượt thuê đang chọn.")
                         else notices.forEach { notice ->
-                            V1Metric(notice.type, notice.content)
-                            V1Pending(
+                            TroOiInformationRow(notice.type, notice.content)
+                            TroOiFeedback(
                                 notice.acknowledgedAtLabel?.let { "Đã xác nhận: $it" }
                                     ?: "Phát hành: ${notice.issuedAtLabel}",
                             )
                         }
                     }
-                    PortalArea.FIND_ROOMS -> V1Action("Mở Discovery", onFindRooms)
-                    else -> V1Pending("Đang chờ Backend cung cấp dữ liệu và quyền cụ thể cho ${selected.title}. Không tạo trạng thái nghiệp vụ giả ở client.")
+                    PortalArea.FIND_ROOMS -> TroOiButton("Mở Discovery", onFindRooms)
+                    else -> TroOiFeedback("Đang chờ Backend cung cấp dữ liệu và quyền cụ thể cho ${selected.title}. Không tạo trạng thái nghiệp vụ giả ở client.")
                 }
             }
         }
         items(PortalArea.entries.toList(), key = { it.name }) { section ->
-            Surface(
-                modifier = Modifier.fillMaxWidth().clickable { selected = section },
-                color = if (selected == section) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, TroOiLine),
-            ) {
-                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Apartment, null, tint = TroOiGreen)
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(section.title, fontWeight = FontWeight.Bold, color = TroOiText)
-                        Text(section.description, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                }
-            }
+            TroOiListRow(section.title, section.description, onClick = { selected = section },
+                selected = selected == section,
+                modifier = Modifier.testTag("tenant-portal-${section.name.lowercase()}"),
+                leading = { Icon(Icons.Rounded.Apartment, null, tint = MaterialTheme.colorScheme.primary) })
         }
     }
 }
@@ -441,6 +428,7 @@ fun V1AccountScreen(
     onLogout: () -> Unit,
     onCompleteLandlord: suspend (com.trooi.app.core.model.LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
     onOpenWorkspace: () -> Unit = {},
+    onPrivacy: (() -> Unit)? = null,
 ) {
     com.trooi.app.features.profile.ProfileScreen(
         state = state,
@@ -452,6 +440,7 @@ fun V1AccountScreen(
         onNotifications = onNotifications,
         onSettings = onSettings,
         onHelp = onHelp,
+        onPrivacy = onPrivacy,
         onLogout = onLogout,
         onCompleteLandlord = onCompleteLandlord,
         onOpenWorkspace = onOpenWorkspace,

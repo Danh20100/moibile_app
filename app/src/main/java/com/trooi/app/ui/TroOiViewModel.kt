@@ -3,6 +3,8 @@ package com.trooi.app.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.data.RuntimeDataSource
+import com.trooi.app.core.data.AppDataSource
 import com.trooi.app.core.auth.GoogleCredentialAuth
 import com.trooi.app.core.auth.RestoreOutcome
 import com.trooi.app.core.auth.SessionHints
@@ -73,12 +75,12 @@ class TroOiViewModel @Inject constructor(
     private val trustSubmitGate = AtomicBoolean(false)
 
     init {
-        if (BuildConfig.BACKEND_BACKED) refreshPublicListings()
+        if (RuntimeDataSource.isBackendBacked()) refreshPublicListings()
     }
 
     /** Raw transport probe only; never maps unverified OpenAPI into business state. */
     fun probePublicTransport() {
-        if (!BuildConfig.DEBUG || !BuildConfig.BACKEND_BACKED) return
+        if (!BuildConfig.DEBUG || !RuntimeDataSource.isBackendBacked()) return
         viewModelScope.launch {
             val message = when (val outcome = backendApi.getPublicListingsRaw()) {
                 is TransportOutcome.Success -> "GET /listings/public: HTTP ${outcome.status}. Contract runtime đã kết nối."
@@ -90,6 +92,79 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun completeSplash() = _state.update { it.copy(splashCompleted = true) }
+    /** Switching sources is debug-only; active credentials, pending payment hints and UI state are discarded. */
+    fun switchDebugDataSource(context: Context, next: AppDataSource): Boolean {
+        if (!BuildConfig.DEBUG) return false
+        if (next == RuntimeDataSource.currentMode()) return true
+
+        // Do not erase recovery context for an unresolved real/simulated checkout.
+        if (hintsStore.read()?.pendingCheckouts?.isNotEmpty() == true) {
+            showMessage("Đang có thanh toán chờ đối chiếu. Hãy xử lý trước khi đổi nguồn dữ liệu.")
+            return false
+        }
+        if (!RuntimeDataSource.chooseDebugSource(context, next)) {
+            showMessage("Không lưu được chế độ DEV.")
+            return false
+        }
+
+        sessionGeneration++
+        authenticationJob?.cancel()
+        authenticationJob = null
+        hintsStore.clear()
+        repository.clearSession()
+        trustSubmitGate.set(false)
+        verifiedDemoCheckout = null
+        restoreStarted = true // explicitly stay logged out instead of silently restoring an old account
+        expiredAuthRetried = false
+        val fresh = repository.initialSnapshot()
+        _state.value = TroOiUiState(
+            read = fresh.read,
+            demoPreview = fresh.demoPreview,
+            splashCompleted = true,
+            page = AppPage.AuthWelcome,
+            snackbarMessage = if (next == AppDataSource.BACKEND)
+                "Đã chuyển sang Backend. Hãy đăng nhập Google để tiếp tục."
+            else "Đã chuyển sang Mock. Đăng nhập bằng tài khoản demo.",
+        )
+        if (RuntimeDataSource.isBackendBacked()) refreshPublicListings()
+        return true
+    }
+
+    /** Debug harness opens real screens through ordinary access checks, never forges permissions. */
+    fun openDebugTestScreen(route: String, listingId: String = "") {
+        if (!BuildConfig.DEBUG) return
+        when (route.lowercase()) {
+            "welcome" -> _state.update { it.copy(page = AppPage.AuthWelcome, splashCompleted = true) }
+            "login" -> openLogin()
+            "signup" -> openSignUp()
+            "forgot" -> openForgotPassword()
+            "discovery" -> openDiscovery()
+            "map" -> openGuestMap()
+            "favorites" -> openFavorites()
+            "messages" -> openMessages()
+            "workspace" -> openCoreWorkspace()
+            "activity" -> openGuestActivity()
+            "account" -> openAccount()
+            "settings" -> openSettings()
+            "help" -> openHelp()
+            "context" -> openContextSwitcher()
+            "tenant-home" -> openTenantHome()
+            "tenant-rental" -> openTenantRental()
+            "tenant-finance" -> openTenantFinance()
+            "tenant-incidents" -> openTenantIncidents()
+            "owner-dashboard" -> openOperations()
+            "owner-properties" -> openOwnerProperties()
+            "owner-finance" -> openOwnerFinance()
+            "owner-incidents" -> openOwnerIncidents()
+            "notifications" -> openNotifications()
+            "listing" -> {
+                if (listingId.isNotBlank()) openListing(listingId)
+                else showMessage("Nhập Listing ID trước khi mở chi tiết.")
+            }
+            else -> showMessage("Không tìm thấy flow test: $route")
+        }
+    }
+
     fun openLogin() = _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null, splashCompleted = true) }
     fun openSignUp() = _state.update { it.copy(page = AppPage.AuthSignUp, splashCompleted = true) }
     fun openForgotPassword() = open(AppPage.AuthForgotPassword)
@@ -113,7 +188,14 @@ class TroOiViewModel @Inject constructor(
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
     fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
     fun openAccount() = open(AppPage.Account)
-    fun openSettings() = openShared(AppPage.Settings)
+    fun openSettings() {
+        _state.update { it.copy(settingsEntry = "settings") }
+        openShared(AppPage.Settings)
+    }
+    fun openPrivacy() {
+        _state.update { it.copy(settingsEntry = "privacy") }
+        openShared(AppPage.Settings)
+    }
     fun openHelp() = openShared(AppPage.Help)
     fun sessionRestoreEnabled(): Boolean {
         val hint = hintsStore.read() ?: return false
@@ -141,7 +223,7 @@ class TroOiViewModel @Inject constructor(
 
     fun bootstrapRestore(context: Context) {
         if (restoreStarted) return
-        if (!BuildConfig.BACKEND_BACKED) {
+        if (!RuntimeDataSource.isBackendBacked()) {
             restoreStarted = true
             val generation = sessionGeneration
             _state.update { it.copy(sessionRestoring = true) }
@@ -216,7 +298,7 @@ class TroOiViewModel @Inject constructor(
             ?.takeIf { it.userId == userId && userId.isNotBlank() && it.restoreEnabled }
             ?.pendingCheckouts
             ?.firstOrNull()
-        if (snapshot.demoPreview) {
+        if (_state.value.demoPreview) {
             if (interpretPaymentReturn(uri, local, allowDemo = true) != PaymentReturnAction.SafeRecovery &&
                 local?.tenancyId in _state.value.access.linkedTenancyIds) {
                 selectContext(SelectedContext.Tenant(local!!.tenancyId))
@@ -376,8 +458,17 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
+    /** Keep the Google action visible in mock UI without pretending to authenticate. */
+    fun onGoogleLoginTapped(context: Context) {
+        if (!RuntimeDataSource.isBackendBacked()) {
+            showMessage("Hiện chưa thể đăng nhập bằng Google. Vui lòng thử lại sau.")
+            return
+        }
+        signInWithGoogle(context)
+    }
+
     fun signInWithGoogle(context: Context) {
-        if (!BuildConfig.BACKEND_BACKED || _state.value.authInProgress) return
+        if (!RuntimeDataSource.isBackendBacked() || _state.value.authInProgress) return
         val startedAt = sessionGeneration
         _state.update { it.copy(authInProgress = true) }
         authenticationJob = viewModelScope.launch {
@@ -417,11 +508,12 @@ class TroOiViewModel @Inject constructor(
 
     private fun refreshPublicListings() {
         if (_state.value.runtimeLoading) return
+        val generation = sessionGeneration
         _state.update { it.copy(runtimeLoading = true) }
         viewModelScope.launch {
             repository.refreshPublicListings().fold(
                 onSuccess = { listings ->
-                    _state.update { current ->
+                    if (generation == sessionGeneration) _state.update { current ->
                         current.copy(
                             runtimeLoading = false,
                             read = current.read.copy(publicListings = publicDiscoveryFeed(listings)),
@@ -429,8 +521,10 @@ class TroOiViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
-                    _state.update { it.copy(runtimeLoading = false) }
-                    showMessage(error.message ?: "Không tải được tin đăng công khai.")
+                    if (generation == sessionGeneration) {
+                        _state.update { it.copy(runtimeLoading = false) }
+                        showMessage(error.message ?: "Không tải được tin đăng công khai.")
+                    }
                 },
             )
         }
@@ -446,7 +540,7 @@ class TroOiViewModel @Inject constructor(
         minPrice: String?,
         maxPrice: String?,
     ) {
-        if (!BuildConfig.BACKEND_BACKED || _state.value.runtimeLoading) return
+        if (!RuntimeDataSource.isBackendBacked() || _state.value.runtimeLoading) return
         _state.update { it.copy(runtimeLoading = true) }
         viewModelScope.launch {
             repository.searchPublicListings(latitude, longitude, radiusMeters, minPrice, maxPrice).fold(
@@ -496,9 +590,10 @@ class TroOiViewModel @Inject constructor(
         ?.pendingCheckouts?.firstOrNull()?.takeIf { it.tenancyId in _state.value.access.linkedTenancyIds }
 
     suspend fun createDemoPayment(tenancyId: String, amount: String): Result<com.trooi.app.features.shared.GatewayCheckout> = runCatching {
+        com.trooi.app.features.profile.requireBackendReauthentication()
         val current = _state.value
         val generation = sessionGeneration
-        check(snapshot.demoPreview && current.isAuthenticated && tenancyId in current.access.linkedTenancyIds)
+        check(_state.value.demoPreview && current.isAuthenticated && tenancyId in current.access.linkedTenancyIds)
         check(current.read.tenancies.any { it.tenancyId == tenancyId && it.lifecycle in setOf(TenancyLifecycle.ACTIVE, TenancyLifecycle.ENDING) })
         require(com.trooi.app.features.tenancy.validGatewayAmount(amount))
         val previous = rememberedDemoPayment()
@@ -515,7 +610,7 @@ class TroOiViewModel @Inject constructor(
     suspend fun refreshDemoPayment(): Result<com.trooi.app.features.shared.GatewayCheckout> = runCatching {
         val generation = sessionGeneration
         val current = _state.value
-        check(snapshot.demoPreview && current.isAuthenticated)
+        check(_state.value.demoPreview && current.isAuthenticated)
         val hint = rememberedDemoPayment() ?: error("Chưa có thanh toán để kiểm tra.")
         val checkout = repository.getDemoCheckout(requireNotNull(hint.checkoutId)).getOrThrow()
         check(generation == sessionGeneration)
@@ -555,13 +650,15 @@ class TroOiViewModel @Inject constructor(
         return localManagementCommand { repository.saveLocalMessage(userId, conversationId, text) }
     }
     suspend fun purchaseLocalCapacity(purchaseId: String): Result<Unit> =
-        localManagementCommand { repository.purchaseLocalCapacity(purchaseId) }
+        Result.failure(IllegalStateException(com.trooi.app.features.profile.REAUTH_UNAVAILABLE))
     suspend fun archiveLocalAsset(assetId: String): Result<Unit> =
         localManagementCommand { repository.archiveLocalAsset(assetId) }
 
     suspend fun completeLocalLandlordOnboarding(application: LocalLandlordApplication): Result<Unit> {
         val generation = sessionGeneration
         if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập lại."))
+        val reauthentication = runCatching { com.trooi.app.features.profile.requireBackendReauthentication() }
+        reauthentication.exceptionOrNull()?.let { return Result.failure(it) }
         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             repository.completeLocalLandlordOnboarding(application).mapCatching { session ->
                 session to repository.refreshAuthorizedRead(session.access).getOrThrow()
@@ -784,7 +881,7 @@ class TroOiViewModel @Inject constructor(
             read = nextRead,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
-            page = returnPage ?: if (snapshot.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved),
+            page = returnPage ?: if (current.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved),
             sessionRestoring = false,
             restoreFailed = false,
             authReturnListingId = null,

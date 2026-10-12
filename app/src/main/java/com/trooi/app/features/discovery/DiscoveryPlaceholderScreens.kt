@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.trooi.app.core.model.ClientArea
 import com.trooi.app.core.model.SelectedContext
 import com.trooi.app.core.model.TroOiUiState
-import com.trooi.app.ui.components.TroOiPrimaryButton
+import com.trooi.app.ui.components.TroOiButton
 import com.trooi.app.ui.navigation.CoreTabIdentity
 
 /**
@@ -77,7 +77,7 @@ fun FavoritesPlaceholderScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(24.dp))
-            TroOiPrimaryButton(
+            TroOiButton(
                 text = "Khám phá phòng ngay",
                 onClick = onExplore,
                 modifier = Modifier.fillMaxWidth(0.7f),
@@ -152,13 +152,13 @@ fun CoreWorkspacePlaceholderScreen(
             )
             Spacer(Modifier.height(24.dp))
             if (hasTenantAccess) {
-                TroOiPrimaryButton(
+                TroOiButton(
                     text = "Chọn nơi đang thuê",
                     onClick = onOpenTenantRental,
                     modifier = Modifier.fillMaxWidth(0.7f),
                 )
             } else {
-                TroOiPrimaryButton(
+                TroOiButton(
                     text = "Khám phá phòng ngay",
                     onClick = onExplore,
                     modifier = Modifier.fillMaxWidth(0.7f),

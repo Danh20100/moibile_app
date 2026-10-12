@@ -1,6 +1,5 @@
 package com.trooi.app.features.shared
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,8 +32,8 @@ fun V1ContextSwitcherScreen(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { TextButton(onClick = onBack) { Text("← Quay lại") } }
-        item { V1PageTitle("Chọn không gian", "Chọn nơi bạn muốn sử dụng") }
+        item { TroOiButton("← Quay lại", onBack, style = TroOiButtonStyle.TERTIARY) }
+        item { TroOiPageHeader("Chọn không gian", "Chọn nơi bạn muốn sử dụng") }
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
@@ -109,17 +108,7 @@ private fun ContextWorkspaceRow(
     subtitle: String,
     onClick: () -> Unit,
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-    ) {
-        Row(
-            Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    TroOiListRow(title, subtitle, onClick = onClick, leading = {
             Surface(
                 modifier = Modifier.size(44.dp),
                 shape = RoundedCornerShape(8.dp),
@@ -129,15 +118,5 @@ private fun ContextWorkspaceRow(
                     Text(monogram, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text("›", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-        }
-    }
+    })
 }

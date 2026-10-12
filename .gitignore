@@ -165,7 +165,9 @@ docker-compose.override.yml
 # ------------------------------------------------------------
 
 .worktrees/
-
+.agents/
+.codex/
+.kotlin/
 
 # ------------------------------------------------------------
 # Important project files that MUST remain tracked
@@ -180,3 +182,6 @@ keystore.properties
 *.keystore
 _trooi_backup_*/
 _trooi_backup_version_*/
+
+# Archived historic Round 2-7 UI screenshot/log output; use a new reviewed location for current evidence.
+/docs/testing/artifacts/

@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import com.trooi.app.ui.components.*
 
 @Composable
 fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: ListingFixture? = ListingFixtures.resolve(listingId), preview: Boolean = false) {
@@ -32,7 +33,7 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: Lis
     val scope = rememberCoroutineScope()
     var favorite by rememberSaveable(listingId) { mutableStateOf(false) }
     val feedback: (String) -> Unit = { scope.launch { snackbar.showSnackbar(it) } }
-    Scaffold(
+    TroOiScreenScaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             if (fixture != null && !preview) Surface(shadowElevation = 3.dp) {
@@ -45,17 +46,16 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: Lis
                         Text(fixture.card.askingPriceLabel, fontWeight = FontWeight.Bold)
                         Text("Xem chi phí thuê", style = MaterialTheme.typography.bodySmall)
                     }
-                    Button(onClick = { feedback("Tính năng đặt lịch xem đang được phát triển.") }, modifier = Modifier.testTag("listing-viewing-cta")) {
-                        Text("Đặt lịch xem")
-                    }
+                    TroOiButton("Đặt lịch xem", onClick = { feedback("Tính năng đặt lịch xem đang được phát triển.") },
+                        modifier = Modifier.testTag("listing-viewing-cta"))
                 }
             }
         },
     ) { padding ->
         if (fixture == null) {
             Column(Modifier.padding(padding).padding(20.dp)) {
-                TextButton(onClick = onBack, modifier = Modifier.testTag("listing-back")) { Text("Quay lại") }
-                Text("Tin đăng hiện không khả dụng.")
+                TroOiButton("Quay lại", onClick = onBack, modifier = Modifier.testTag("listing-back"), style = TroOiButtonStyle.TERTIARY)
+                TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Tin đăng hiện không khả dụng.")
             }
         } else {
             val photoCount = fixture.photoUris.size + fixture.images.size

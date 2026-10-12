@@ -2,18 +2,18 @@ package com.trooi.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Room Ledger visual authority — docs/designs/v1/DESIGN.md
-val TroOiCanvas = Color(0xFFF8F7F4)
+// Light Moss Green — approved native brief, 2026-10-10; green hue from the original atlas.
+val TroOiCanvas = Color(0xFFEAF0E3)
 val TroOiPaper = Color(0xFFFFFFFF)
-val TroOiSurface = Color(0xFFF3F1ED)
-val TroOiInk = Color(0xFF292927)
-val TroOiMuted = Color(0xFF696964)
-val TroOiLine = Color(0xFFE5E2DC)
-val TroOiPrimary = Color(0xFFB9432D)
+val TroOiSurface = Color(0xFFDCE6D4)
+val TroOiInk = Color(0xFF202D25)
+val TroOiMuted = Color(0xFF52634F)
+val TroOiLine = Color(0xFF94A58D)
+val TroOiPrimary = Color(0xFF235A46)
 val TroOiOnPrimary = Color(0xFFFFFFFF)
-val TroOiSelected = Color(0xFFF8E6DF)
-val TroOiClay = Color(0xFFA95034)
-val TroOiClaySoft = Color(0xFFF3E4D9)
+val TroOiSelected = Color(0xFFD4E8D6)
+val TroOiClay = Color(0xFF4F6744)
+val TroOiClaySoft = Color(0xFFDFEBD7)
 val TroOiWarning = Color(0xFF7D5318)
 val TroOiWarningSoft = Color(0xFFF8EDD7)
 val TroOiError = Color(0xFFA23631)
@@ -52,3 +52,6 @@ val TroOiRed = TroOiError
 val TroOiAmber = TroOiWarning
 val TroOiBlue = Color(0xFF3D625B)
 val TroOiSlate = TroOiInk
+
+// Google sign-in is the approved exception to moss primary actions.
+val TroOiGoogleRed = Color(0xFFB3261E)

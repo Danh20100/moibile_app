@@ -1,5 +1,11 @@
 package com.trooi.app.features.profile
 
+import com.trooi.app.ui.components.TroOiPage
+import com.trooi.app.ui.components.TroOiListRow
+import com.trooi.app.ui.components.TroOiPageHeader
+import com.trooi.app.ui.components.TroOiScreenScaffold
+
+import com.trooi.app.ui.components.TroOiConfirmDialog
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -14,6 +20,7 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +48,7 @@ fun ProfileScreen(
     onNotifications: () -> Unit = {},
     onSettings: () -> Unit = {},
     onHelp: () -> Unit = {},
+    onPrivacy: (() -> Unit)? = null,
     onLogout: () -> Unit = {},
     onCompleteLandlord: suspend (LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
     onOpenWorkspace: () -> Unit = {},
@@ -49,10 +57,24 @@ fun ProfileScreen(
     if (!state.isAuthenticated) return
     val presentation = profilePresentation(state)
     var onboarding by remember(state.backendUserId) { mutableStateOf(false) }
-    var detail by remember(state.backendUserId) { mutableStateOf<String?>(null) }
+    var detail by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
+    var section by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
+    var logoutConfirmation by rememberSaveable { mutableStateOf(false) }
+    section?.let { initial ->
+        Dialog(onDismissRequest = { section = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+            TroOiPage(Modifier.fillMaxSize().safeDrawingPadding()) {
+                AccountSettingsFlow(state, { section = null }, initial)
+            }
+        }
+    }
+    if (logoutConfirmation) TroOiConfirmDialog(
+        onDismissRequest = { logoutConfirmation = false },
+        title = "Đăng xuất?",
+        text = "Phiên đăng nhập trên thiết bị này sẽ được xóa. Bạn có thể đăng nhập lại bất cứ lúc nào.",
+        confirmLabel = "Đăng xuất", onConfirm = { logoutConfirmation = false; onLogout() }, destructive = true,
+    )
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val unsupported: () -> Unit = { scope.launch { snackbar.showSnackbar(PROFILE_UNSUPPORTED_MESSAGE) } }
     val landlordAction: () -> Unit = {
         when (presentation.landlordEntry) {
             LandlordEntry.ONBOARDING -> onboarding = true
@@ -64,7 +86,7 @@ fun ProfileScreen(
         onOpenWorkspace()
     }, onCompleteLandlord)
     detail?.let { title -> ProfileDetail(title, { detail = null }) {
-        if (title == "Tài khoản") {
+        if (title == "Xem hồ sơ") {
             item {
                 Text(presentation.name, style = MaterialTheme.typography.titleLarge)
                 Text(profileContextLabel(state), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -91,14 +113,13 @@ fun ProfileScreen(
             } }
         }
     } }
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, containerColor = MaterialTheme.colorScheme.background) { insets ->
+    TroOiScreenScaffold(snackbarHost = { SnackbarHost(snackbar) }) { insets ->
         LazyColumn(modifier.fillMaxSize().padding(insets).testTag("profile-scroll"),
             contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Hồ sơ", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                TroOiPageHeader("Hồ sơ", actions = {
                     IconButton(onNotifications, Modifier.testTag("profile-notification-bell")) { Icon(Icons.Rounded.NotificationsNone, "Thông báo") }
-                }
+                })
             }
             item {
                 Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
@@ -130,12 +151,13 @@ fun ProfileScreen(
                 }
             }
             item {
-                ActionRow(Icons.Rounded.PersonOutline, "Tài khoản", { detail = "Tài khoản" }, Modifier.testTag("account-settings"))
-                ActionRow(Icons.Rounded.Settings, "Cài đặt", unsupported)
-                ActionRow(Icons.AutoMirrored.Rounded.HelpOutline, "Nhận trợ giúp", unsupported, Modifier.testTag("account-help"))
-                ActionRow(Icons.Rounded.Shield, "Quyền riêng tư", unsupported)
-                ActionRow(Icons.Rounded.Description, "Pháp lý", unsupported)
-                if (state.isAuthenticated) ActionRow(Icons.AutoMirrored.Rounded.Logout, "Đăng xuất", onLogout, Modifier.testTag("account-logout"), true)
+                ActionRow(Icons.Rounded.Settings, "Cài đặt tài khoản", onSettings, Modifier.testTag("account-settings"))
+                ActionRow(Icons.Rounded.PersonOutline, "Xem hồ sơ", { detail = "Xem hồ sơ" })
+                ActionRow(Icons.AutoMirrored.Rounded.HelpOutline, "Nhận trợ giúp", onHelp, Modifier.testTag("account-help"))
+                ActionRow(Icons.Rounded.Shield, "Quyền riêng tư", { if (onPrivacy != null) onPrivacy() else section = "privacy" })
+                ActionRow(Icons.Rounded.Description, "Pháp lý", { section = "legal" })
+                ActionRow(Icons.Rounded.HomeWork, "Giới thiệu chủ nhà", { section = "host" })
+                if (state.isAuthenticated) ActionRow(Icons.AutoMirrored.Rounded.Logout, "Đăng xuất", { logoutConfirmation = true }, Modifier.testTag("account-logout"), true)
             }
         }
     }
@@ -153,11 +175,8 @@ private fun ProfileShortcut(title: String, icon: ImageVector, onClick: () -> Uni
 
 @Composable
 private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit, modifier: Modifier = Modifier, isDestructive: Boolean = false) {
-    Row(modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, Modifier.size(22.dp), tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-        Text(title, Modifier.weight(1f).padding(horizontal = 16.dp), color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    TroOiListRow(title, onClick = onClick, modifier = modifier, destructive = isDestructive,
+        leading = { Icon(icon, null, Modifier.size(22.dp), tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) })
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
@@ -165,12 +184,9 @@ private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit, mod
 private fun ProfileDetail(title: String, onBack: () -> Unit, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Dialog(onDismissRequest = onBack, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BackHandler(onBack = onBack)
-        Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+        TroOiPage(Modifier.fillMaxSize().safeDrawingPadding()) {
             LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                item { Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") }
-                    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                } }
+                item { TroOiPageHeader(title, onBack = onBack) }
                 content()
             }
         }

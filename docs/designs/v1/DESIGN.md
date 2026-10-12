@@ -131,6 +131,8 @@ components:
 
 # Design System: TrọƠi · Room Ledger
 
+> **Android native status — 11/10/2026:** YAML frontmatter above records the historical HTML atlas/terracotta palette; it is **not** the current native Android palette. Current approved native Android uses Moss Green roles in `app/src/main/java/com/trooi/app/ui/theme/Color.kt` / `Theme.kt` and the section **Approved Android rework · 2026-10-10** below. Round 4 catalog and Round 5 six-slice migration are **PASS**. Round 6 cleanup is **PASS**; Round 7 full regression is **PASS** (final acceptance 2026-10-12). [Current frontend architecture/component catalog](android-frontend-architecture.md) owns the settled implementation, [fixture schema/scenario guide](android-fixture-catalog.md) owns Debug scenario authoring; dated QA reports own executed verification. Historical drafts/audits remain provenance. This clarification does not supersede Canonical, backend API or database authority.
+
 ## Overview
 
 **Creative North Star: "The Room Ledger"**
@@ -352,3 +354,12 @@ This is a static illustrated artifact: it calls no API and changes no business s
 ## Android demo direction · 2026-10-08
 
 The latest demo brief supersedes the HTML atlas treatment for the native app. The shipped Android direction uses white surfaces, warm neutral background, dark readable type and a restrained terracotta action color. Discovery and rental identity lead with bundled photography. Ledgers use compact financial rows and asset cards, rather than green door plates or report blocks. Root navigation remains Khám phá | Sổ | Tin nhắn | Hồ sơ with the travelling notch. Profile has two centered shortcut cards of equal size, without a role switch. Backend financial and privacy boundaries are unchanged. The historical HTML atlas sections above describe the earlier artifact, not the current Android acceptance target.
+
+
+## Approved Android rework · 2026-10-10
+
+The owner's CHỐT supersedes the 2026-10-08 terracotta demo direction for native Android. The approved checklist in `docs/testing/LEGACY_UI_QA_ARCHIVE.md` defines UI coverage; canonical/contracts still own domain behavior.
+
+Light Moss Green uses screen `#EAF0E3`, paper `#FFFFFF`, supporting surface `#DCE6D4`, selected/input context `#D4E8D6`, primary `#235A46` (from the original atlas), ink `#202D25`, muted `#52634F`, outline `#94A58D`. These are native semantic roles in Color.kt/Theme.kt; primary green conveys action/selection, red remains error/destructive. No wallpaper override of the pinned palette. Dark semantic roles remain distinct.
+
+Compose keeps Material forms, 48dp targets, scalable type, system/IME insets and Back. Compact root navigation has a circular concave cradle with 6dp clearance, four stable tab targets and always-visible labels; expanded widths retain the existing native rail. Settings and Help are nested task screens without a root bar. Direct and settings Privacy use one AccountSettingsFlow implementation. Local preferences and forms are explicitly previews; server-dependent actions stop at contextual API boundaries. Debug email OTP uses a deterministic fixture, 120s TTL, 30s resend cooldown and five attempts; Release includes no usable OTP fixture. This paragraph describes implementation direction, not runtime acceptance. See the dated verification handoff for evidence.

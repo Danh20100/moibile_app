@@ -1,0 +1,52 @@
+[
+  {
+    "id": "conversation-a02",
+    "roomId": "e0080000-0000-4000-8000-000000000006",
+    "participantIds": [
+      "fixture-user-lan",
+      "fixture-user-ha"
+    ],
+    "messages": [
+      {
+        "id": "a02-message-1",
+        "senderUserId": "fixture-user-lan",
+        "text": "Chị Hà ơi, vòi nước bếp đang rò nhẹ. Chị xem giúp em nhé.",
+        "createdAt": "2026-10-06T02:15:00Z"
+      },
+      {
+        "id": "a02-message-2",
+        "senderUserId": "fixture-user-ha",
+        "text": "Chị đã tiếp nhận rồi. Chị hẹn thợ đến vào sáng 09/10, em sắp xếp giúp chị nhé.",
+        "createdAt": "2026-10-07T08:30:00Z"
+      },
+      {
+        "id": "a02-message-3",
+        "senderUserId": "fixture-user-lan",
+        "text": "Dạ, sáng đó em ở nhà. Cảm ơn chị!",
+        "createdAt": "2026-10-07T08:35:00Z"
+      }
+    ]
+  },
+  {
+    "id": "conversation-an-nhien",
+    "roomId": "fixture-room-an-nhien",
+    "participantIds": [
+      "fixture-user-lan",
+      "fixture-user-ha"
+    ],
+    "messages": [
+      {
+        "id": "an-message-1",
+        "senderUserId": "fixture-user-lan",
+        "text": "Em muốn tìm hiểu thêm về Căn hộ An Nhiên, chị nhé.",
+        "createdAt": "2026-05-20T03:00:00Z"
+      },
+      {
+        "id": "an-message-2",
+        "senderUserId": "fixture-user-ha",
+        "text": "Căn hộ có bếp riêng và góc làm việc cạnh cửa sổ. Em muốn hỏi thêm về tiện ích nào?",
+        "createdAt": "2026-05-20T03:12:00Z"
+      }
+    ]
+  }
+]

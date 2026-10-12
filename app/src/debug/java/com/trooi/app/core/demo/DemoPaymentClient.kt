@@ -26,7 +26,7 @@ class DemoPaymentClient internal constructor(private val baseUrl: String = "http
         val client = BackendClient(baseUrl, tokens, allowLocalHttp = true)
         try {
             val login = document(client.postJson("demo/login", JsonObject().apply {
-                addProperty("identifier", if (index == 0) "tenant@trooi.local" else "owner@trooi.local")
+                addProperty("identifier", DebugFixtureCatalog.current.accounts[index].email)
                 addProperty("password", "TroOi2026!")
             }.toString()))
             val expectedUser = "e0080000-0000-4000-8000-" + (index + 1).toString().padStart(12, '0')

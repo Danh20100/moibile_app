@@ -69,3 +69,9 @@ Redis and MinIO are not part of the current runtime.
 
 See `database/README.md` for the local database workflow and `docs/database/v1/implementation-history.md`
 for evidence-based provenance of what has been implemented.
+
+## Android test layout (root tests/)
+
+Android Kotlin tests now live under [tests/android/](tests/android/README.md), alongside but separate from the NestJS TypeScript tests already in tests/. Android Gradle Plugin 9.2.1 discovers them via the explicit Kotlin source directories in app/build.gradle.kts. Run `python scripts/verify_android_test_layout.py`, `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebugAndroidTest`, and `python scripts/verify_android_test_results.py` to ensure at least 192 JVM cases actually run.
+
+Historical HTML/PNG demo previews were archived outside the working tree, not merged with the active Backend. See [legacy demo retention](docs/testing/LEGACY_DEMO_ARCHIVE.md) and [UI QA artifact retention](docs/testing/EVIDENCE_ARCHIVE.md). These archives remain local until uploaded to a shared durable store.

@@ -15,9 +15,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Isolated fixture identity and local product metadata; rental finance is never mutated here. */
-@Singleton
-class TroOiRepositoryImpl internal constructor(private val prefs: android.content.SharedPreferences?, private val payments: com.trooi.app.core.demo.DemoPaymentClient? = null) : TroOiRepository {
-    @Inject constructor(@ApplicationContext context: Context) : this(context.getSharedPreferences("trooi_debug_session", Context.MODE_PRIVATE), com.trooi.app.core.demo.DemoPaymentClient())
+/** Debug-only fixture repository; never bundled in release. */
+class FixtureTroOiRepository internal constructor(private val prefs: android.content.SharedPreferences?, private val payments: com.trooi.app.core.demo.DemoPaymentClient? = null) : TroOiRepository {
+    constructor(context: Context) : this(context.getSharedPreferences("trooi_debug_session", Context.MODE_PRIVATE), com.trooi.app.core.demo.DemoPaymentClient())
     internal constructor() : this(null)
     private var session: UserSession? = null
     private val gson = Gson()
@@ -213,7 +213,7 @@ class TroOiRepositoryImpl internal constructor(private val prefs: android.conten
     }
 
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> =
-        Result.failure(IllegalStateException("Đăng ký tài khoản đang được phát triển."))
+        Result.failure(IllegalStateException("Hiện chưa thể tạo tài khoản. Vui lòng thử lại sau."))
 
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> =
         Result.failure(IllegalStateException("Preview chỉ hiển thị giao diện; chưa gửi yêu cầu khôi phục."))

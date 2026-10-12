@@ -1,5 +1,6 @@
 package com.trooi.app.features.profile
 
+import com.trooi.app.ui.components.*
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -23,7 +24,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.semantics.Role
@@ -33,12 +33,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
 import com.trooi.app.core.model.*
 import com.trooi.app.features.ledger.AssetWizard
 import com.trooi.app.features.discovery.rentalPriceLabel
-import com.trooi.app.ui.components.LocalRentalPhoto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,21 +107,18 @@ internal fun LandlordOnboardingScreen(name: String, onDismiss: () -> Unit, onFin
         }
     }
     Dialog({ if (!busy) exitReview = true }, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val window = (LocalView.current.parent as DialogWindowProvider).window
-        val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-        SideEffect { WindowCompat.getInsetsController(window, window.decorView).apply { isAppearanceLightStatusBars = light; isAppearanceLightNavigationBars = light } }
         BackHandler { if (!busy) { if (step == 6) onFinish() else if (step > 0) step-- else exitReview = true } }
-        Scaffold(topBar = { TopAppBar(title = { Text(if (step in 1..5) "Bước $step / 5" else "Trở thành chủ trọ") },
+        TroOiScreenScaffold(modifier = Modifier.fillMaxSize().imePadding(), contentWindowInsets = WindowInsets.safeDrawing,
+            topBar = { TroOiPageTopAppBar(title = { Text(if (step in 1..5) "Bước $step / 5" else "Trở thành chủ trọ") },
             navigationIcon = { IconButton({ if (step == 6) onFinish() else if (step > 0) step-- else exitReview = true }, enabled = !busy) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } },
-            actions = { if (step < 6) TextButton({ exitReview = true }, enabled = !busy) { Text("Đóng") } }) },
-            bottomBar = { Surface(shadowElevation = 3.dp) { Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            actions = { if (step < 6) TroOiButton("Đóng", { exitReview = true }, enabled = !busy, style = TroOiButtonStyle.TERTIARY) }) },
+            bottomBar = { Surface(shadowElevation = 3.dp) { Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                Button(::next, enabled = ready && !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("onboarding-next")) {
-                    Text(when (step) { 0 -> "Bắt đầu"; 5 -> "Hoàn tất"; 6 -> "Vào Sổ"; else -> "Tiếp tục" })
-                }
+                if (busy) TroOiStateMessage(TroOiStateKind.LOADING, "")
+                TroOiButton(when (step) { 0 -> "Bắt đầu"; 5 -> "Hoàn tất"; 6 -> "Vào Sổ"; else -> "Tiếp tục" }, ::next,
+                    enabled = ready && !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("onboarding-next"))
             } } }) { insets ->
-            LazyColumn(Modifier.fillMaxSize().padding(insets).imePadding().testTag("onboarding-scroll"), state = scroll,
+            LazyColumn(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets).testTag("onboarding-scroll"), state = scroll,
                 contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 item {
                     if (step in 1..5) { LinearProgressIndicator(progress = { step / 5f }, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(20.dp)) }
@@ -150,9 +144,10 @@ internal fun LandlordOnboardingScreen(name: String, onDismiss: () -> Unit, onFin
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(label, style = MaterialTheme.typography.titleMedium)
                                 identity[key]?.let { Image(it.asImageBitmap(), label, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Fit) }
-                                OutlinedButton({ picking = key; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("onboarding-id-$key")) { Icon(Icons.Rounded.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text(if (identity[key] == null) "Chọn ảnh" else "Thay ảnh") }
-                                if (key == "selfie") TextButton({ runCatching { camera.launch(null) }.onFailure { error = "Chưa mở được máy ảnh. Bạn có thể chọn ảnh khuôn mặt." } }, enabled = !busy, modifier = Modifier.testTag("onboarding-selfie-camera")) { Text("Chụp ảnh khuôn mặt") }
+                                TroOiButton(if (identity[key] == null) "Chọn ảnh" else "Thay ảnh", { picking = key; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("onboarding-id-$key"), style = TroOiButtonStyle.SECONDARY)
+                                if (key == "selfie") TroOiButton("Chụp ảnh khuôn mặt", { runCatching { camera.launch(null) }.onFailure { error = "Chưa mở được máy ảnh. Bạn có thể chọn ảnh khuôn mặt." } },
+                                    enabled = !busy, modifier = Modifier.testTag("onboarding-selfie-camera"), style = TroOiButtonStyle.TERTIARY)
                                 if (identity[key] != null) Text("Ảnh đã sẵn sàng", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             }
                         } }
@@ -174,7 +169,8 @@ internal fun LandlordOnboardingScreen(name: String, onDismiss: () -> Unit, onFin
                             Text("${rentalPriceLabel(it.monthlyRent)}/tháng")
                             Text(if (publish) "Đăng cho thuê sau khi hoàn tất" else "Lưu để quản lý · chưa công khai")
                         }
-                        OutlinedButton({ assetOpen = true }, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("onboarding-first-asset")) { Text(if (asset == null) "+ Thêm tài sản đầu tiên" else "Chỉnh sửa tài sản") }
+                        TroOiButton(if (asset == null) "+ Thêm tài sản đầu tiên" else "Chỉnh sửa tài sản", { assetOpen = true },
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("onboarding-first-asset"), style = TroOiButtonStyle.SECONDARY)
                     } }
                     5 -> item { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(fullName, style = MaterialTheme.typography.titleLarge)
@@ -197,9 +193,9 @@ internal fun LandlordOnboardingScreen(name: String, onDismiss: () -> Unit, onFin
         if (assetOpen) AssetWizard(asset, LocalManagement(), name, { assetOpen = false },
             { selected, activate, shouldPublish -> asset = selected; publish = activate && shouldPublish; Result.success(Unit) },
             { Result.failure(IllegalStateException("Không cần mua dung lượng cho tài sản đầu tiên.")) })
-        if (exitReview) AlertDialog({ exitReview = false }, shape = RoundedCornerShape(24.dp), containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text("Đóng đăng ký chủ trọ?") }, text = { Text("Ảnh giấy tờ và thông tin đang nhập sẽ được xóa. Bạn có thể bắt đầu lại từ Hồ sơ.") },
-            confirmButton = { TextButton({ identity = emptyMap(); onDismiss() }) { Text("Đóng đăng ký") } }, dismissButton = { TextButton({ exitReview = false }) { Text("Tiếp tục đăng ký") } })
+        if (exitReview) TroOiActionDialog({ exitReview = false },             title = { Text("Đóng đăng ký chủ trọ?") }, text = { Text("Ảnh giấy tờ và thông tin đang nhập sẽ được xóa. Bạn có thể bắt đầu lại từ Hồ sơ.") },
+            confirmButton = { TroOiButton("Đóng đăng ký", { identity = emptyMap(); onDismiss() }, style = TroOiButtonStyle.DESTRUCTIVE) },
+            dismissButton = { TroOiButton("Tiếp tục đăng ký", { exitReview = false }, style = TroOiButtonStyle.SECONDARY) })
     }
 }
 
@@ -224,7 +220,7 @@ private suspend fun identityPhoto(context: android.content.Context, uri: Uri): B
 private fun OnboardingField(label: String, value: String, tag: String, keyboardType: KeyboardType = KeyboardType.Text, onValue: (String) -> Unit) {
     val focus = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    OutlinedTextField(value, { onValue(it.take(200)) }, Modifier.fillMaxWidth().testTag(tag), label = { Text(label) }, singleLine = true,
+    TroOiFormField(value, { onValue(it.take(200)) }, Modifier.fillMaxWidth().testTag(tag), label = { Text(label) }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { focus.clearFocus(); keyboard?.hide() }))
 }
 

@@ -1,5 +1,6 @@
 package com.trooi.app.features.ledger
 
+import com.trooi.app.ui.components.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,7 +18,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.trooi.app.core.model.*
 import com.trooi.app.features.discovery.rentalPriceLabel
-import com.trooi.app.ui.components.LocalRentalPhoto
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,14 +33,17 @@ fun OwnerAssetDetail(state: TroOiUiState, asset: LocalRentalAsset, onClose: () -
     val scope = rememberCoroutineScope()
     Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
         BackHandler(onBack = onClose)
-        Scaffold(topBar = { TopAppBar(title = { Text(asset.name) }, navigationIcon = { IconButton(onClose, Modifier.testTag("owner-detail-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } }) },
+        TroOiScreenScaffold(contentWindowInsets = WindowInsets.safeDrawing,
+            topBar = { TroOiPageTopAppBar(title = { Text(asset.name) }, navigationIcon = { IconButton(onClose, Modifier.testTag("owner-detail-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } }) },
             bottomBar = { Surface(shadowElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onEdit, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("owner-asset-edit")) { Text(if (asset.status == ManagedAssetStatus.DRAFT) "Hoàn tất tài sản" else "Chỉnh sửa tài sản") }
-                    if (asset.status != ManagedAssetStatus.ARCHIVED) TextButton({ confirmArchive = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("owner-asset-archive")) { Text("Ngừng quản lý") }
+                    TroOiButton(if (asset.status == ManagedAssetStatus.DRAFT) "Hoàn tất tài sản" else "Chỉnh sửa tài sản", onEdit,
+                        Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("owner-asset-edit"))
+                    if (asset.status != ManagedAssetStatus.ARCHIVED) TroOiButton("Ngừng quản lý", { confirmArchive = true },
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("owner-asset-archive"), style = TroOiButtonStyle.TERTIARY)
                 }
             } }) { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).testTag("owner-asset-detail"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            LazyColumn(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).testTag("owner-asset-detail"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 item {
                     if (asset.photoUris.isNotEmpty() || asset.photoResources.isNotEmpty()) LocalRentalPhoto(asset.photoUris.firstOrNull(), asset.photoResources.firstOrNull(), asset.name,
                         Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(16.dp)))
@@ -63,10 +66,11 @@ fun OwnerAssetDetail(state: TroOiUiState, asset: LocalRentalAsset, onClose: () -
                     "Khu vực công khai: ${asset.publicArea}")) }
             }
         }
-        if (confirmArchive) AlertDialog({ if (!busy) confirmArchive = false }, shape = RoundedCornerShape(24.dp), containerColor = MaterialTheme.colorScheme.surface, title = { Text("Ngừng quản lý tài sản?") },
+        if (confirmArchive) TroOiActionDialog({ if (!busy) confirmArchive = false }, title = { Text("Ngừng quản lý tài sản?") },
             text = { Column { Text("Tài sản không dùng slot quản lý và tin đăng được gỡ khỏi Khám phá. Lịch sử thuê và thanh toán vẫn được giữ."); error?.let { Text(it, color = MaterialTheme.colorScheme.error) } } },
-            confirmButton = { TextButton({ scope.launch { busy = true; onArchive(asset.id).onSuccess { onClose() }.onFailure { error = "Chưa lưu được thay đổi. Vui lòng thử lại." }; busy = false } }, enabled = !busy, modifier = Modifier.testTag("owner-archive-confirm")) { Text("Ngừng quản lý") } },
-            dismissButton = { TextButton({ confirmArchive = false }, enabled = !busy) { Text("Giữ quản lý") } })
+            confirmButton = { TroOiButton("Ngừng quản lý", { scope.launch { busy = true; onArchive(asset.id).onSuccess { onClose() }.onFailure { error = "Chưa lưu được thay đổi. Vui lòng thử lại." }; busy = false } },
+                enabled = !busy, busy = busy, modifier = Modifier.testTag("owner-archive-confirm"), style = TroOiButtonStyle.DESTRUCTIVE) },
+            dismissButton = { TroOiButton("Giữ quản lý", { confirmArchive = false }, enabled = !busy, style = TroOiButtonStyle.SECONDARY) })
     }
 }
 

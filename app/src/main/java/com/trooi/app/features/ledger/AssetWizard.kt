@@ -1,5 +1,6 @@
 package com.trooi.app.features.ledger
 
+import com.trooi.app.ui.components.*
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -7,7 +8,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,20 +28,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
 import com.google.gson.Gson
 import com.trooi.app.core.model.*
 import com.trooi.app.features.discovery.*
-import com.trooi.app.ui.components.LocalRentalPhoto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -142,36 +140,31 @@ fun AssetWizard(
         else -> true
     }
     Dialog({ if (!busy) exitReview = true }, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        val window = (LocalView.current.parent as DialogWindowProvider).window
-        val lightSurface = MaterialTheme.colorScheme.surface.luminance() > 0.5f
-        SideEffect { WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = lightSurface
-            isAppearanceLightNavigationBars = lightSurface
-        } }
         BackHandler { if (!busy) { if (step > 0) step-- else exitReview = true } }
-        Scaffold(
-            modifier = Modifier.fillMaxSize().testTag("asset-wizard"),
-            topBar = { TopAppBar(title = { Text(if (step == 0) "Thêm tài sản" else "Bước $step / 6") },
+        TroOiScreenScaffold(
+            modifier = Modifier.fillMaxSize().imePadding().testTag("asset-wizard"), contentWindowInsets = WindowInsets.safeDrawing,
+            topBar = { TroOiPageTopAppBar(title = { Text(if (step == 0) "Thêm tài sản" else "Bước $step / 6") },
                 navigationIcon = { IconButton({ if (step > 0) step-- else exitReview = true }, enabled = !busy) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } },
-                actions = { TextButton({ save(false, false) }, enabled = !busy && asset.name.isNotBlank() && asset.type.isNotBlank(), modifier = Modifier.testTag("asset-save-draft")) { Text("Lưu nháp") } }) },
+                actions = { TroOiButton("Lưu nháp", { save(false, false) }, enabled = !busy && asset.name.isNotBlank() && asset.type.isNotBlank(),
+                    modifier = Modifier.testTag("asset-save-draft"), style = TroOiButtonStyle.TERTIARY) }) },
             bottomBar = {
                 Surface(shadowElevation = 4.dp) {
-                    Column(Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("asset-error")) }
-                        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (step < 6) Button({ focus.clearFocus(); keyboard?.hide(); step++ }, enabled = nextEnabled && !busy,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-next")) { Text("Tiếp tục") }
+                        if (busy) TroOiStateMessage(TroOiStateKind.LOADING, "")
+                        if (step < 6) TroOiButton("Tiếp tục", { focus.clearFocus(); keyboard?.hide(); step++ }, enabled = nextEnabled && !busy,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-next"))
                         else {
-                            Button({ save(true, true) }, enabled = asset.readyToPublish() && !busy,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-publish")) { Text("Đăng cho thuê") }
-                            OutlinedButton({ save(true, false) }, enabled = asset.valid() && !busy,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("asset-save-active")) { Text("Lưu tài sản · chưa đăng") }
+                            TroOiButton("Đăng cho thuê", { save(true, true) }, enabled = asset.readyToPublish() && !busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-publish"))
+                            TroOiButton("Lưu tài sản · chưa đăng", { save(true, false) }, enabled = asset.valid() && !busy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("asset-save-active"), style = TroOiButtonStyle.SECONDARY)
                         }
                     }
                 }
             },
         ) { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().testTag("asset-wizard-scroll"), state = scroll,
+            LazyColumn(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).testTag("asset-wizard-scroll"), state = scroll,
                 contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 item {
                     if (step > 0) { LinearProgressIndicator(progress = { step / 6f }, modifier = Modifier.fillMaxWidth()); Spacer(Modifier.height(24.dp)) }
@@ -197,9 +190,8 @@ fun AssetWizard(
                         AssetField("Địa chỉ chính xác", asset.operationalAddress, "asset-address") { asset = asset.copy(operationalAddress = it) }
                         Text("Địa chỉ này chỉ dùng để quản lý tài sản.", style = MaterialTheme.typography.bodySmall)
                         AssetField("Khu vực công khai · phường, quận, thành phố", asset.publicArea, "asset-public-area") { asset = asset.copy(publicArea = it) }
-                        OutlinedButton({ pin = true }, Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-location-pin")) {
-                            Icon(Icons.Rounded.LocationOn, null); Spacer(Modifier.width(8.dp)); Text(if (asset.operationalLatitude.isBlank()) "Ghim vị trí tài sản" else "Đã ghim vị trí · chỉnh sửa")
-                        }
+                        TroOiButton(if (asset.operationalLatitude.isBlank()) "Ghim vị trí tài sản" else "Đã ghim vị trí · chỉnh sửa", { pin = true },
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("asset-location-pin"), style = TroOiButtonStyle.SECONDARY)
                         AssetField("Diện tích (m²)", asset.area, "asset-area", true) { asset = asset.copy(area = it) }
                     } }
                     2 -> item { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -219,11 +211,12 @@ fun AssetWizard(
                         AssetField("Số người tối đa", asset.maxOccupants?.toString().orEmpty(), "asset-max-occupants", true) { asset = asset.copy(maxOccupants = it.toIntOrNull()) }
                         AssetField("Tầng · nếu có", asset.floorLabel.orEmpty(), "asset-floor") { asset = asset.copy(floorLabel = it) }
                         Text("Nội thất", fontWeight = FontWeight.SemiBold)
-                        listOf("Chưa có nội thất", "Nội thất cơ bản", "Đầy đủ nội thất").forEach { value ->
-                            Row(Modifier.fillMaxWidth().clickable { asset = asset.copy(furnishing = value) }, verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(asset.furnishing == value, { asset = asset.copy(furnishing = value) }); Text(value)
+                        Column(Modifier.selectableGroup()) { listOf("Chưa có nội thất", "Nội thất cơ bản", "Đầy đủ nội thất").forEach { value ->
+                            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(selected = asset.furnishing == value, role = Role.RadioButton,
+                                onClick = { asset = asset.copy(furnishing = value) }), verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(asset.furnishing == value, null); Text(value, Modifier.weight(1f))
                             }
-                        }
+                        } }
                         AssetField("Mô tả không gian", asset.description, "asset-description", multiline = true) { asset = asset.copy(description = it) }
                     } }
                     3 -> item { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -250,12 +243,13 @@ fun AssetWizard(
                     5 -> {
                         item { Text("Ảnh đầu tiên là ảnh bìa. Chọn ảnh rõ, đủ sáng và thể hiện đúng không gian.")
                             Spacer(Modifier.height(12.dp))
-                            OutlinedButton({ photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy && asset.photoUris.size < 10,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("asset-pick-photos")) { Icon(Icons.Rounded.AddPhotoAlternate, null); Spacer(Modifier.width(8.dp)); Text("Chọn ảnh · tối đa 10") } }
+                            TroOiButton("Chọn ảnh · tối đa 10", { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy && asset.photoUris.size < 10,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("asset-pick-photos"), style = TroOiButtonStyle.SECONDARY) }
                         asset.photoUris.forEachIndexed { index, uri -> item(key = uri) {
                             LocalRentalPhoto(uri, null, "Ảnh ${index + 1}", Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)))
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton({ asset = asset.copy(photoUris = listOf(uri) + asset.photoUris.filterNot { it == uri }) }, Modifier.weight(1f).testTag("asset-cover-$index")) { Text(if (index == 0) "Ảnh bìa" else "Chọn làm bìa") }
+                                TroOiButton(if (index == 0) "Ảnh bìa" else "Chọn làm bìa", { asset = asset.copy(photoUris = listOf(uri) + asset.photoUris.filterNot { it == uri }) },
+                                    Modifier.weight(1f).testTag("asset-cover-$index"), style = TroOiButtonStyle.TERTIARY)
                                 IconButton({ val next = asset.photoUris.toMutableList(); java.util.Collections.swap(next, index, index - 1); asset = asset.copy(photoUris = next) }, enabled = index > 0,
                                     modifier = Modifier.testTag("asset-photo-up-$index")) { Icon(Icons.Rounded.ArrowUpward, "Đưa ảnh lên trước") }
                                 IconButton({ asset = asset.copy(photoUris = asset.photoUris - uri) }, Modifier.testTag("asset-photo-remove-$index")) { Icon(Icons.Rounded.DeleteOutline, "Xóa ảnh ${index + 1}") }
@@ -269,7 +263,7 @@ fun AssetWizard(
                         Text("${asset.type} · ${asset.publicArea}")
                         Text("${rentalPriceLabel(asset.monthlyRent)}/tháng", style = MaterialTheme.typography.titleLarge)
                         Text("${asset.area} m² · ${asset.furnishing}")
-                        OutlinedButton({ preview = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("asset-detail-preview")) { Text("Xem trước tin đăng") }
+                        TroOiButton("Xem trước tin đăng", { preview = true }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("asset-detail-preview"), style = TroOiButtonStyle.SECONDARY)
                         Text("Lưu tài sản để quản lý riêng. Đăng cho thuê sẽ đưa tin vào Khám phá.", style = MaterialTheme.typography.bodyMedium)
                         if (asset.occupied) Text("Tài sản đang có người thuê, không thể đăng cho thuê.")
                     } }
@@ -280,43 +274,41 @@ fun AssetWizard(
             var latitude by remember { mutableStateOf(asset.operationalLatitude) }
             var longitude by remember { mutableStateOf(asset.operationalLongitude) }
             val validPin = latitude.toDoubleOrNull()?.let { it.isFinite() && it in -90.0..90.0 } == true && longitude.toDoubleOrNull()?.let { it.isFinite() && it in -180.0..180.0 } == true
-            AlertDialog({ pin = false }, shape = RoundedCornerShape(24.dp), containerColor = MaterialTheme.colorScheme.surface, title = { Text("Ghim vị trí tài sản") }, text = {
+            TroOiActionDialog({ pin = false }, title = { Text("Ghim vị trí tài sản") }, text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     StreetMapPicker(asset.publicArea, if (validPin) PublicGeoPoint(latitude.toDouble(), longitude.toDouble()) else null,
                         { latitude = it.latitude.toString(); longitude = it.longitude.toString() })
                     Text("Vị trí chính xác chỉ dùng để quản lý, không hiển thị công khai.")
                     if (validPin) Text("Đã ghim vị trí.", color = MaterialTheme.colorScheme.primary)
                 }
-            }, confirmButton = { TextButton({ asset = asset.copy(operationalLatitude = latitude, operationalLongitude = longitude); pin = false }, enabled = validPin) { Text("Lưu vị trí") } },
-                dismissButton = { TextButton({ pin = false }) { Text("Hủy") } })
+            }, confirmButton = { TroOiButton("Lưu vị trí", { asset = asset.copy(operationalLatitude = latitude, operationalLongitude = longitude); pin = false }, enabled = validPin) },
+                dismissButton = { TroOiButton("Hủy", { pin = false }, style = TroOiButtonStyle.SECONDARY) })
         }
         if (preview) Dialog({ preview = false }, DialogProperties(usePlatformDefaultWidth = false)) {
             ListingDetailScreen(asset.listingId, { preview = false }, publicRentalDetail(PublicListingCard(asset.listingId, asset.name, asset.publicArea, null,
                 "${asset.monthlyRent}đ/tháng", ListingVisibility.DRAFT, asset.amenities, rentalDetails = asset.publicDetails(host))), preview = true)
         }
-        if (exitReview) AlertDialog({ exitReview = false }, shape = RoundedCornerShape(24.dp), containerColor = MaterialTheme.colorScheme.surface, title = { Text("Rời bước thêm tài sản?") }, text = { Text("Bạn có thể lưu nháp và hoàn tất sau.") },
-            confirmButton = { TextButton({ exitReview = false; save(false, false) }, enabled = asset.name.isNotBlank() && asset.type.isNotBlank()) { Text("Lưu nháp") } },
-            dismissButton = { TextButton(onClose) { Text("Bỏ thay đổi") } })
-        if (capacityStage > 0) AlertDialog({ if (!busy) capacityStage = 0 }, modifier = Modifier.testTag("capacity-dialog"),
-            shape = RoundedCornerShape(24.dp), containerColor = MaterialTheme.colorScheme.surface,
-            title = { Text(when (capacityStage) { 1 -> "Dung lượng quản lý đã đầy"; 2 -> "Xác nhận mở thêm dung lượng"; else -> "Đã mở thêm 1 slot" }) },
+        if (exitReview) TroOiActionDialog({ exitReview = false }, title = { Text("Rời bước thêm tài sản?") }, text = { Text("Bạn có thể lưu nháp và hoàn tất sau.") },
+            confirmButton = { TroOiButton("Lưu nháp", { exitReview = false; save(false, false) }, enabled = asset.name.isNotBlank() && asset.type.isNotBlank()) },
+            dismissButton = { TroOiButton("Bỏ thay đổi", onClose, style = TroOiButtonStyle.DESTRUCTIVE) })
+        if (capacityStage > 0) TroOiActionDialog({ if (!busy) capacityStage = 0 }, modifier = Modifier.testTag("capacity-dialog"),
+                        title = { Text(when (capacityStage) { 1 -> "Dung lượng quản lý đã đầy"; 2 -> "Xác nhận mở thêm dung lượng"; else -> "Đã mở thêm 1 slot" }) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("${catalog.used} / ${catalog.capacity()} tài sản đang quản lý", modifier = Modifier.testTag("capacity-current"))
                 if (capacityStage < 3) {
                     Text("+1 slot quản lý", style = MaterialTheme.typography.titleLarge)
                     Text("259.000đ / 1 năm", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("Mỗi tài sản đang quản lý dùng 1 slot. Bản nháp và tài sản ngừng quản lý không dùng slot.")
-                    if (capacityStage == 2) Text("Thanh toán mô phỏng: không chuyển tiền thật, không tự gia hạn. Dung lượng được lưu trên thiết bị.")
                 } else Text("Dung lượng có hiệu lực 1 năm. Tiếp tục để ${if (pendingPublish) "đăng cho thuê" else "quản lý"} tài sản.")
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (busy) TroOiStateMessage(TroOiStateKind.LOADING, "")
             } },
-            confirmButton = { TextButton({ when (capacityStage) {
+            confirmButton = { TroOiButton(when (capacityStage) { 1 -> "Mở thêm 1 slot"; 2 -> "Xác nhận thanh toán"; else -> "Tiếp tục" }, { when (capacityStage) {
                 1 -> capacityStage = 2
-                2 -> scope.launch { busy = true; error = null; onPurchase(purchaseId).onSuccess { capacityStage = 3 }.onFailure { error = "Chưa mở được dung lượng. Vui lòng thử lại." }; busy = false }
+                2 -> scope.launch { busy = true; error = null; onPurchase(purchaseId).onSuccess { capacityStage = 3 }.onFailure { error = it.message ?: "Chưa mở được dung lượng. Vui lòng thử lại." }; busy = false }
                 else -> { capacityStage = 0; purchaseId = UUID.randomUUID().toString(); save(true, pendingPublish) }
-            } }, enabled = !busy, modifier = Modifier.testTag("capacity-confirm")) { Text(when (capacityStage) { 1 -> "Mở thêm 1 slot"; 2 -> "Xác nhận thanh toán mô phỏng"; else -> "Tiếp tục" }) } },
-            dismissButton = { TextButton({ capacityStage = 0 }, enabled = !busy) { Text("Để sau · đã lưu nháp") } })
+            } }, enabled = !busy, modifier = Modifier.testTag("capacity-confirm")) },
+            dismissButton = { TroOiButton("Để sau · đã lưu nháp", { capacityStage = 0 }, enabled = !busy, style = TroOiButtonStyle.SECONDARY) })
     }
 }
 
@@ -324,7 +316,7 @@ fun AssetWizard(
 private fun AssetField(label: String, value: String, tag: String, numeric: Boolean = false, modifier: Modifier = Modifier, multiline: Boolean = false, onValue: (String) -> Unit) {
     val focus = LocalFocusManager.current
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    OutlinedTextField(value, { onValue(if (numeric) it.filter { character -> character.isDigit() || character == '.' }.take(12) else it.take(2000)) },
+    TroOiFormField(value, { onValue(if (numeric) it.filter { character -> character.isDigit() || character == '.' }.take(12) else it.take(2000)) },
         modifier.fillMaxWidth().testTag(tag), label = { Text(label) }, singleLine = !multiline, minLines = if (multiline) 3 else 1,
         keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Decimal else KeyboardType.Text,
             imeAction = if (multiline) androidx.compose.ui.text.input.ImeAction.Default else androidx.compose.ui.text.input.ImeAction.Done),

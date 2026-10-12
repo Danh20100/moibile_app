@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.PublicGeoPoint
+import com.trooi.app.ui.components.TroOiButton
+import com.trooi.app.ui.components.TroOiButtonStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -155,8 +157,9 @@ fun StreetMapPicker(area: String, selectedPoint: PublicGeoPoint?, onPick: (Publi
                 TextButton({ links.openUri("https://opentopomap.org/about") }, contentPadding = PaddingValues(horizontal = 6.dp)) { Text("© OpenStreetMap contributors, SRTM\nMap: © OpenTopoMap (CC BY-SA)", style = MaterialTheme.typography.labelSmall) }
             }
         }
-        if (failed) TextButton({ retry++ }) { Text("Chưa tải được bản đồ · thử lại") }
+        if (failed) TroOiButton("Chưa tải được bản đồ · thử lại", { retry++ }, style = TroOiButtonStyle.TERTIARY)
         if (!positioned && !loading) Text("Di chuyển đến khu vực tài sản để chọn vị trí.", style = MaterialTheme.typography.bodySmall)
-        if (!readOnly) OutlinedButton({ onPick(center) }, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("asset-pin-center"), enabled = canPick) { Text("Ghim tại tâm bản đồ") }
+        if (!readOnly) TroOiButton("Ghim tại tâm bản đồ", { onPick(center) }, Modifier.fillMaxWidth().testTag("asset-pin-center"),
+            enabled = canPick, style = TroOiButtonStyle.SECONDARY)
     }
 }

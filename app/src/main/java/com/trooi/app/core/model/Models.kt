@@ -58,6 +58,7 @@ data class TroOiUiState(
     val trustReportUnavailable: Boolean = false,
     val authReturnListingId: String? = null,
     val sharedCaller: AppPage? = null,
+    val settingsEntry: String = "settings",
     val snackbarMessage: String? = null,
     val sessionRestoring: Boolean = false,
     val restoreFailed: Boolean = false,
@@ -114,15 +115,14 @@ fun rootNavigationVisible(state: TroOiUiState): Boolean =
         AppContext.DISCOVERY -> state.page in setOf(
             AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages,
             AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
-            AppPage.Settings, AppPage.Help,
         )
         AppContext.TENANT -> state.page in setOf(
             AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
-            AppPage.TenantIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
+            AppPage.TenantIncidents, AppPage.Account,
         )
         AppContext.OPERATIONS -> state.page in setOf(
             AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
-            AppPage.OwnerIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
+            AppPage.OwnerIncidents, AppPage.Account,
         )
     }
 )

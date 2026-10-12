@@ -10,6 +10,7 @@
         android:label="TrọƠi"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:localeConfig="@xml/locales_config"
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.TroOi.Splash"
         android:usesCleartextTraffic="false">
@@ -20,7 +21,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait">
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +50,7 @@ import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.model.publicDiscoveryFeed
+import com.trooi.app.ui.components.*
 import java.math.BigDecimal
 import java.text.Normalizer
 
@@ -172,11 +174,8 @@ fun ExploreScreen(
 
             if (allItems.isEmpty()) {
                 item {
-                    Text(
-                        "Chưa có phòng phù hợp. Thử đổi khu vực hoặc khoảng giá.",
-                        modifier = Modifier.padding(20.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    TroOiStateMessage(TroOiStateKind.EMPTY,
+                        "Chưa có phòng phù hợp. Thử đổi khu vực hoặc khoảng giá.", Modifier.padding(20.dp))
                 }
             }
         }
@@ -231,7 +230,7 @@ fun ExploreSearchBar(
         onClick = onClick,
         modifier = modifier
             .testTag("explore-search-entry")
-            .height(54.dp),
+            .heightIn(min = 54.dp),
         shape = RoundedCornerShape(27.dp),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
@@ -239,8 +238,8 @@ fun ExploreSearchBar(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Circular search icon badge
@@ -598,6 +597,7 @@ fun ExploreRoomImage(
  * Location-first -> Price Range -> Room Type -> Bottom action bar.
  * Strictly excludes Time / Guests travel semantics.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchExperienceScreen(
     onClose: () -> Unit,
@@ -635,51 +635,28 @@ fun SearchExperienceScreen(
         }
     }
 
-    Scaffold(
+    TroOiScreenScaffold(
         modifier = modifier.fillMaxSize().testTag("search-experience-screen"),
+        contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Đóng tìm kiếm",
-                        tint = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-                Text(
-                    text = "Tìm phòng",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                // Spacer for balanced centering
-                Spacer(Modifier.size(48.dp))
-            }
+            TroOiPageTopAppBar(title = { Text("Tìm phòng") }, navigationIcon = {
+                IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, "Đóng tìm kiếm") }
+            })
         },
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 4.dp,
-                shadowElevation = 8.dp,
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
+                        .imePadding()
                         .padding(horizontal = 20.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    TextButton(
+                    TroOiButton("Xóa tất cả", style = TroOiButtonStyle.TERTIARY,
                         onClick = {
                             queryText = ""
                             selectedLocationName = null
@@ -691,17 +668,9 @@ fun SearchExperienceScreen(
                             selectedRoomType = "Tất cả"
                             onResetSearch()
                         },
-                    ) {
-                        Text(
-                            text = "Xóa tất cả",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    )
 
-                    Button(
+                    TroOiButton("Tìm kiếm",
                         onClick = {
                             onLocalSearch(
                                 if (centerLat != null && centerLng != null) "" else queryText,
@@ -715,25 +684,7 @@ fun SearchExperienceScreen(
                                 maxPrice.takeIf { it.isNotBlank() },
                             )
                         },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        modifier = Modifier.height(48.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = "Tìm kiếm",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                            ),
-                        )
-                    }
+                    )
                 }
             }
         },
@@ -742,223 +693,174 @@ fun SearchExperienceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(insets)
+                .consumeWindowInsets(insets)
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(vertical = 12.dp),
         ) {
             // 1. KHU VỰC (Location/Area Card)
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
-                    shadowElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().testTag("search-location-card"),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Khu vực",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Spacer(Modifier.height(10.dp))
+                TroOiCard("Khu vực", Modifier.testTag("search-location-card")) {
 
-                        // Text input field
-                        OutlinedTextField(
-                            value = queryText,
-                            onValueChange = { queryText = it; centerLat = null; centerLng = null },
-                            placeholder = { Text("Tìm khu vực, trường hoặc địa điểm") },
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary)
-                            },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("search-location-input"),
-                        )
+                    // Text input field
+                    TroOiFormField(
+                        value = queryText,
+                        onValueChange = { queryText = it; centerLat = null; centerLng = null },
+                        placeholder = { Text("Tìm khu vực, trường hoặc địa điểm") },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("search-location-input"),
+                    )
 
-                        Spacer(Modifier.height(14.dp))
-                        Text(
-                            text = "Gợi ý",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        text = "Gợi ý",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
 
-                        // Suggestions List
-                        SearchSuggestionItem(
-                            icon = Icons.Rounded.MyLocation,
-                            title = "Gần bạn",
-                            subtitle = "Tìm phòng quanh vị trí hiện tại",
-                            onClick = {
-                                if (ContextCompat.checkSelfPermission(
-                                        context,
-                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                    ) == PackageManager.PERMISSION_GRANTED
-                                ) {
-                                    val pt = lastKnownPublicCenter(context)
-                                    if (pt != null) {
-                                        centerLat = pt.latitude
-                                        centerLng = pt.longitude
-                                        selectedLocationName = "Vị trí hiện tại của bạn"
-                                    }
-                                } else {
-                                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    // Suggestions List
+                    SearchSuggestionItem(
+                        icon = Icons.Rounded.MyLocation,
+                        title = "Gần bạn",
+                        subtitle = "Tìm phòng quanh vị trí hiện tại",
+                        onClick = {
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                val pt = lastKnownPublicCenter(context)
+                                if (pt != null) {
+                                    centerLat = pt.latitude
+                                    centerLng = pt.longitude
+                                    selectedLocationName = "Vị trí hiện tại của bạn"
                                 }
-                            },
-                        )
+                            } else {
+                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                            }
+                        },
+                    )
 
-                        SearchSuggestionItem(
-                            icon = Icons.Rounded.School,
-                            title = "Làng Đại học",
-                            subtitle = "TP. Thủ Đức",
-                            onClick = {
-                                queryText = "Làng Đại học"
-                                centerLat = null
-                                centerLng = null
-                            },
-                        )
+                    SearchSuggestionItem(
+                        icon = Icons.Rounded.School,
+                        title = "Làng Đại học",
+                        subtitle = "TP. Thủ Đức",
+                        onClick = {
+                            queryText = "Làng Đại học"
+                            centerLat = null
+                            centerLng = null
+                        },
+                    )
 
-                        SearchSuggestionItem(
-                            icon = Icons.Rounded.School,
-                            title = "Đại học FPT",
-                            subtitle = "TP. Thủ Đức",
-                            onClick = {
-                                queryText = "Đại học FPT"
-                                centerLat = null
-                                centerLng = null
-                            },
-                        )
+                    SearchSuggestionItem(
+                        icon = Icons.Rounded.School,
+                        title = "Đại học FPT",
+                        subtitle = "TP. Thủ Đức",
+                        onClick = {
+                            queryText = "Đại học FPT"
+                            centerLat = null
+                            centerLng = null
+                        },
+                    )
 
-                        SearchSuggestionItem(
-                            icon = Icons.Rounded.LocationCity,
-                            title = "Thủ Đức",
-                            subtitle = "TP. Hồ Chí Minh",
-                            onClick = {
-                                queryText = "Thủ Đức"
-                                centerLat = null
-                                centerLng = null
-                            },
-                        )
-                    }
+                    SearchSuggestionItem(
+                        icon = Icons.Rounded.LocationCity,
+                        title = "Thủ Đức",
+                        subtitle = "TP. Hồ Chí Minh",
+                        onClick = {
+                            queryText = "Thủ Đức"
+                            centerLat = null
+                            centerLng = null
+                        },
+                    )
                 }
             }
 
             // 2. KHOẢNG GIÁ (Price Range Card)
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
-                    shadowElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().testTag("search-price-card"),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Khoảng giá",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground,
+                TroOiCard("Khoảng giá", Modifier.testTag("search-price-card")) {
+
+                    // Quick Price Chips
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            "Dưới 3 tr" to ("" to "3000000"),
+                            "3 - 5 tr" to ("3000000" to "5000000"),
+                            "5 - 8 tr" to ("5000000" to "8000000"),
+                            "Trên 8 tr" to ("8000000" to ""),
+                        ).forEach { (label, range) ->
+                            val isSelected = selectedPriceRange == label
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    if (isSelected) {
+                                        selectedPriceRange = null
+                                        minPrice = ""
+                                        maxPrice = ""
+                                    } else {
+                                        selectedPriceRange = label
+                                        minPrice = range.first
+                                        maxPrice = range.second
+                                    }
+                                },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+
+
+                    // Min / Max text fields
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        maxItemsInEachRow = if (LocalDensity.current.fontScale > 1.2f) 1 else 2,
+                    ) {
+                        TroOiFormField(
+                            value = minPrice,
+                            onValueChange = { minPrice = it.filter(Char::isDigit).take(12) },
+                            label = { Text("Tối thiểu (₫)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.height(10.dp))
-
-                        // Quick Price Chips
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            listOf(
-                                "Dưới 3 tr" to ("" to "3000000"),
-                                "3 - 5 tr" to ("3000000" to "5000000"),
-                                "5 - 8 tr" to ("5000000" to "8000000"),
-                                "Trên 8 tr" to ("8000000" to ""),
-                            ).forEach { (label, range) ->
-                                val isSelected = selectedPriceRange == label
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        if (isSelected) {
-                                            selectedPriceRange = null
-                                            minPrice = ""
-                                            maxPrice = ""
-                                        } else {
-                                            selectedPriceRange = label
-                                            minPrice = range.first
-                                            maxPrice = range.second
-                                        }
-                                    },
-                                    label = { Text(label) },
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(10.dp))
-
-                        // Min / Max text fields
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            OutlinedTextField(
-                                value = minPrice,
-                                onValueChange = { minPrice = it.filter(Char::isDigit).take(12) },
-                                label = { Text("Tối thiểu (₫)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                            )
-                            OutlinedTextField(
-                                value = maxPrice,
-                                onValueChange = { maxPrice = it.filter(Char::isDigit).take(12) },
-                                label = { Text("Tối đa (₫)") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
+                        TroOiFormField(
+                            value = maxPrice,
+                            onValueChange = { maxPrice = it.filter(Char::isDigit).take(12) },
+                            label = { Text("Tối đa (₫)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
             }
 
             // 3. LOẠI PHÒNG (Room Type Card)
             item {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.8f)),
-                    shadowElevation = 1.dp,
-                    modifier = Modifier.fillMaxWidth().testTag("search-room-type-card"),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Loại phòng",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
-                        Spacer(Modifier.height(10.dp))
+                TroOiCard("Loại phòng", Modifier.testTag("search-room-type-card")) {
 
-                        // Room type choices
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            DiscoveryDemoTaxonomy.TAGS.forEach { type ->
-                                val isSelected = selectedRoomType == type
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { selectedRoomType = type },
-                                    label = { Text(type) },
-                                )
-                            }
+                    // Room type choices
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        DiscoveryDemoTaxonomy.TAGS.forEach { type ->
+                            val isSelected = selectedRoomType == type
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedRoomType = type },
+                                label = { Text(type) },
+                            )
                         }
                     }
                 }
@@ -974,46 +876,9 @@ private fun SearchSuggestionItem(
     subtitle: String,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.size(36.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                ),
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 12.sp,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    TroOiListRow(title, subtitle, onClick, leading = {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+    })
 }
 
 @SuppressLint("MissingPermission")

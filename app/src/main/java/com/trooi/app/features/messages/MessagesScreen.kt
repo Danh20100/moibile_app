@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
@@ -45,24 +45,23 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
         (it.counterpartName + " " + it.rentalLabel).contains(search.trim(), ignoreCase = true) }
         .sortedByDescending { it.messages.lastOrNull()?.createdAt }
     LazyColumn(Modifier.fillMaxSize().testTag("messages-screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        item { V1PageTitle("Tin nhắn", "Trao đổi quanh tài sản thuê") }
-        if (state.messagesLoading) item { CircularProgressIndicator(Modifier.size(24.dp)); Text("Đang tải tin nhắn…") }
+        item { TroOiPageHeader("Tin nhắn", "Trao đổi quanh tài sản thuê") }
+        if (state.messagesLoading) item { TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải tin nhắn…") }
         else if (state.messagesLoadFailed) item {
-            Text("Chưa tải được tin nhắn. Vui lòng thử lại.")
-            V1Action("Thử lại", onReload, modifier = Modifier.testTag("messages-retry"))
+            TroOiStateMessage(TroOiStateKind.ERROR, "Chưa tải được tin nhắn. Vui lòng thử lại.",
+                actionText = "Thử lại", onAction = onReload, actionModifier = Modifier.testTag("messages-retry"))
         }
         else if (state.read.conversations.isEmpty()) item {
             Spacer(Modifier.height(28.dp))
-            Text("Chưa có cuộc trò chuyện", style = MaterialTheme.typography.headlineSmall)
-            Text("Các trao đổi về tài sản thuê sẽ xuất hiện ở đây.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(16.dp))
-            V1Action("Khám phá tài sản", onExplore, modifier = Modifier.testTag("messages-empty-explore"))
+            TroOiStateMessage(TroOiStateKind.EMPTY, "Các trao đổi về tài sản thuê sẽ xuất hiện ở đây.",
+                title = "Chưa có cuộc trò chuyện", actionText = "Khám phá tài sản", onAction = onExplore,
+                actionModifier = Modifier.testTag("messages-empty-explore"))
         } else {
-            item { OutlinedTextField(search, { search = it }, singleLine = true, label = { Text("Tìm tên hoặc tài sản") },
+            item { TroOiFormField(search, { search = it }, singleLine = true, label = { Text("Tìm tên hoặc tài sản") },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) }, modifier = Modifier.fillMaxWidth().testTag("messages-search")) }
-            if (conversations.isEmpty()) item { Text("Không tìm thấy cuộc trò chuyện phù hợp.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (conversations.isEmpty()) item { TroOiStateMessage(TroOiStateKind.EMPTY, "Không tìm thấy cuộc trò chuyện phù hợp.") }
             items(conversations, key = { it.id }) { conversation ->
-                Column(Modifier.fillMaxWidth().clickable { selectedId = conversation.id }.testTag("conversation-${conversation.id}")) {
+                Column(Modifier.fillMaxWidth().clickable(role = Role.Button) { selectedId = conversation.id }.testTag("conversation-${conversation.id}")) {
                     Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         LocalRentalPhoto(conversation.photoUri, conversation.photoResource, conversation.rentalLabel, Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)))
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -91,12 +90,8 @@ private fun ConversationScreen(conversation: ConversationCard, userId: String, o
     val list = rememberLazyListState()
     LaunchedEffect(conversation.id, conversation.messages.size) { if (conversation.messages.isNotEmpty()) list.animateScrollToItem(conversation.messages.lastIndex) }
     Column(Modifier.fillMaxSize().imePadding().testTag("conversation-detail")) {
-        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại Tin nhắn") }
-            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
-                Text(conversation.counterpartName, style = MaterialTheme.typography.titleMedium)
-                Text(conversation.rentalLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Box(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
+            TroOiPageHeader(conversation.counterpartName, conversation.rentalLabel, onBack, "Quay lại Tin nhắn")
         }
         HorizontalDivider()
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversation-messages"), state = list,
@@ -118,12 +113,12 @@ private fun ConversationScreen(conversation: ConversationCard, userId: String, o
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Tin nhắn mới được lưu trên thiết bị, chưa gửi cho người nhận.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            error?.let { TroOiFeedback(it, error = true) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(draft, { draft = it }, label = { Text("Viết tin nhắn") }, maxLines = 3,
+                TroOiFormField(draft, { draft = it }, label = { Text("Viết tin nhắn") }, maxLines = 3,
                     isError = draft.length > 500,
                     enabled = !saving, modifier = Modifier.weight(1f).testTag("message-composer"))
-                V1Action(if (saving) "Đang lưu" else "Lưu", onClick = { if (!saving) {
+                TroOiButton(if (saving) "Đang lưu" else "Lưu", onClick = { if (!saving) {
                     saving = true
                     scope.launch {
                         error = null

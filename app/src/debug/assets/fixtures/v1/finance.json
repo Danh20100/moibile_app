@@ -1,0 +1,45 @@
+{
+  "projectionKind": "HISTORICAL_DEMO",
+  "tenancyId": "e0080000-0000-4000-8000-000000000007",
+  "organizationId": "e0080000-0000-4000-8000-000000000004",
+  "roomId": "e0080000-0000-4000-8000-000000000006",
+  "charges": [
+    {
+      "chargeId": "fixture-charge-rent-oct",
+      "label": "Tiền thuê tháng 10",
+      "amountLabel": "5.200.000đ",
+      "outstandingLabel": "5.200.000đ"
+    },
+    {
+      "chargeId": "fixture-charge-electricity-oct",
+      "label": "Điện · 86 kWh",
+      "amountLabel": "301.000đ",
+      "outstandingLabel": "301.000đ"
+    },
+    {
+      "chargeId": "fixture-charge-water-oct",
+      "label": "Nước · 5 m³",
+      "amountLabel": "100.000đ",
+      "outstandingLabel": "100.000đ"
+    }
+  ],
+  "payments": [
+    {
+      "paymentId": "fixture-payment-sep",
+      "amountLabel": "5.560.000đ",
+      "confirmationLabel": "Chuyển khoản · 05/09/2026"
+    }
+  ],
+  "deposits": [
+    {
+      "tenancyId": "e0080000-0000-4000-8000-000000000007",
+      "requiredLabel": "5.200.000đ",
+      "fundedLabel": "5.200.000đ",
+      "settlementLabel": null,
+      "depositId": "fixture-deposit-lan",
+      "heldLabel": "5.200.000đ",
+      "state": "HELD",
+      "blockedByOpenPolicy": false
+    }
+  ]
+}

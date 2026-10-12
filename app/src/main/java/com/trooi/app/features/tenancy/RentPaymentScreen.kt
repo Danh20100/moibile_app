@@ -77,15 +77,15 @@ fun RentPaymentScreen(
             .onFailure { error = "Không mở được trình duyệt. Kiểm tra ứng dụng trình duyệt rồi thử lại." }
     }
 
-    Column(Modifier.fillMaxSize().imePadding().testTag("rent-payment-screen")) {
-        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+    TroOiScreenScaffold(modifier = Modifier.fillMaxSize().imePadding().testTag("rent-payment-screen"),
+        topBar = { TroOiPageTopAppBar(title = { Text("Thanh toán") }, navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Về Sổ") }
-            Text("Thanh toán", style = MaterialTheme.typography.titleLarge)
-        }
+        }) }) { insets ->
+        Column(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             if (tenancy == null || finance == null) {
-                Text("Chưa tải được thông tin khoản thuê. Kiểm tra kết nối rồi thử lại.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                V1Action("Thử lại", onReload, enabled = !state.runtimeLoading, modifier = Modifier.testTag("rent-finance-retry"))
+                TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Chưa tải được thông tin khoản thuê. Kiểm tra kết nối rồi thử lại.")
+                TroOiButton("Thử lại", onReload, enabled = !state.runtimeLoading, modifier = Modifier.testTag("rent-finance-retry"))
             } else {
                 val media = state.read.rentalAssetPresentationByRoom[tenancy.roomId]
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -106,20 +106,17 @@ fun RentPaymentScreen(
                 } else {
                     Text(if (reviewing) "Kiểm tra thanh toán" else "Bạn muốn thanh toán bao nhiêu?", style = MaterialTheme.typography.headlineMedium)
                     if (reviewing) {
-                        V1Metric("Số tiền", money(amount))
-                        V1Metric("Phí thanh toán", "0đ")
+                        TroOiInformationRow("Số tiền", money(amount))
+                        TroOiInformationRow("Phí thanh toán", "0đ")
                     } else {
-                        OutlinedTextField(value = amount, onValueChange = { value -> if (value.length <= 8 && value.all(Char::isDigit)) amount = value },
+                        TroOiFormField(value = amount, onValueChange = { value -> if (value.length <= 8 && value.all(Char::isDigit)) amount = value },
                             label = { Text("Số tiền (đ)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             supportingText = { Text("Từ 1.000đ đến 50.000.000đ") }, modifier = Modifier.fillMaxWidth().testTag("rent-payment-amount"))
                     }
                     if (checkout != null || locked) Text("Thanh toán đang chờ xác nhận. Bạn có thể mở lại trang thanh toán hoặc kiểm tra trạng thái.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp)) {
-                        Text("Thanh toán mô phỏng qua DemoPay. Không có tiền thật được chuyển.", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-                    }
                     Text("Các khoản đã ghi nhận", style = MaterialTheme.typography.titleMedium)
-                    finance.charges.forEach { V1Metric(it.label, it.amountLabel) }
+                    finance.charges.forEach { TroOiInformationRow(it.label, it.amountLabel) }
                     Text("Thanh toán được ghi nhận riêng; các khoản thu chỉ được tất toán sau khi đối chiếu.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -131,9 +128,9 @@ fun RentPaymentScreen(
             }
         }
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (confirmed) V1Action("Về Sổ", onDone, modifier = Modifier.fillMaxWidth().testTag("rent-payment-done"))
+            if (confirmed) TroOiButton("Về Sổ", onDone, modifier = Modifier.fillMaxWidth().testTag("rent-payment-done"))
             else if (finance != null && tenancy != null) {
-                V1Action(if (!reviewing) "Tiếp tục" else if (locked) "Mở lại trang thanh toán" else "Mở trang thanh toán",
+                TroOiButton(if (!reviewing) "Tiếp tục" else if (locked) "Mở lại trang thanh toán" else "Mở trang thanh toán",
                     onClick = {
                         if (!reviewing) reviewing = true else scope.launch {
                             busy = true; error = null
@@ -143,15 +140,17 @@ fun RentPaymentScreen(
                                     if (isConfirmedGatewayPayment(it)) refresh().fold({ updated -> checkout = updated }, { error = "Chưa tải được lịch sử. Kiểm tra lại thanh toán." })
                                     else openBrowser(it.payUrl)
                                 },
-                                onFailure = { error = "Chưa mở được thanh toán. Thử lại sẽ tiếp tục cùng khoản thanh toán." },
+                                onFailure = { error = it.message ?: "Hiện chưa thể mở thanh toán. Vui lòng thử lại sau." },
                             )
                             busy = false
                         }
                     }, enabled = !busy && validGatewayAmount(amount), modifier = Modifier.fillMaxWidth().testTag(if (reviewing) "rent-payment-open" else "rent-payment-review"))
-                if (reviewing && !locked) TextButton(onClick = { reviewing = false }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("Sửa số tiền") }
-                if (locked) V1SecondaryAction("Kiểm tra thanh toán", onClick = { resume++ }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth().testTag("rent-payment-refresh"))
+                if (reviewing && !locked) TroOiButton("Sửa số tiền", onClick = { reviewing = false }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.TERTIARY)
+                if (locked) TroOiButton("Kiểm tra thanh toán", onClick = { resume++ }, enabled = !busy,
+                    modifier = Modifier.fillMaxWidth().testTag("rent-payment-refresh"), style = TroOiButtonStyle.SECONDARY)
             }
+        }
         }
     }
 }

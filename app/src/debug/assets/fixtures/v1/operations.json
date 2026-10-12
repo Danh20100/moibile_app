@@ -1,0 +1,99 @@
+{
+  "organizations": [
+    {
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "displayName": "Tài sản của Thu Hà"
+    }
+  ],
+  "properties": [
+    {
+      "propertyId": "e0080000-0000-4000-8000-000000000005",
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "displayName": "Nhà Phú Nhuận"
+    }
+  ],
+  "operationalRooms": [
+    {
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "propertyId": "e0080000-0000-4000-8000-000000000005",
+      "operationalState": "OCCUPIED",
+      "lifecycle": "ACTIVE"
+    }
+  ],
+  "operatorListings": [
+    {
+      "listingId": "demo-mini",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "visibility": "UNPUBLISHED"
+    }
+  ],
+  "tenancies": [
+    {
+      "tenancyId": "e0080000-0000-4000-8000-000000000007",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "lifecycle": "ACTIVE",
+      "termsVersionLabel": "5.200.000đ/tháng · 01/06/2026 – 31/05/2027",
+      "primaryTenantUserId": "fixture-user-lan"
+    }
+  ],
+  "noticesByTenancy": {
+    "e0080000-0000-4000-8000-000000000007": [
+      {
+        "noticeId": "fixture-notice-start",
+        "tenancyId": "e0080000-0000-4000-8000-000000000007",
+        "type": "RENTAL",
+        "content": "Bắt đầu thuê Căn hộ A02",
+        "issuedAtLabel": "01/06/2026",
+        "acknowledgedAtLabel": null
+      },
+      {
+        "noticeId": "fixture-notice-oct",
+        "tenancyId": "e0080000-0000-4000-8000-000000000007",
+        "type": "BILLING",
+        "content": "Ghi nhận điện, nước tháng 10",
+        "issuedAtLabel": "01/10/2026",
+        "acknowledgedAtLabel": null
+      }
+    ]
+  },
+  "incidents": [
+    {
+      "incidentId": "fixture-incident-tap",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "title": "Vòi nước bếp rò nhẹ",
+      "lifecycle": "IN_PROGRESS",
+      "timeline": [
+        {
+          "eventId": "fixture-event-tap-1",
+          "description": "Đã tiếp nhận yêu cầu",
+          "occurredAtLabel": "06/10/2026"
+        },
+        {
+          "eventId": "fixture-event-tap-2",
+          "description": "Hẹn sửa vào sáng 09/10",
+          "occurredAtLabel": "07/10/2026"
+        }
+      ],
+      "serverActions": []
+    }
+  ],
+  "dashboardByOrganization": {
+    "e0080000-0000-4000-8000-000000000004": {
+      "roomsByState": {
+        "OCCUPIED": 1
+      },
+      "activeTenancyCount": 1,
+      "outstandingReceivableLabel": "5.601.000đ",
+      "confirmedPaymentTotalLabel": "5.560.000đ",
+      "openIncidentCount": 1
+    }
+  },
+  "rentalHistory": [
+    {
+      "tenancyId": "fixture-tenancy-previous-lan",
+      "roomId": "fixture-room-previous-lan",
+      "period": "03/2025 – 05/2026",
+      "endedState": "Đã kết thúc"
+    }
+  ]
+}

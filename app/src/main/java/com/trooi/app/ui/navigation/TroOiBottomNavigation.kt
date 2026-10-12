@@ -8,6 +8,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -101,8 +104,8 @@ private val Destinations = listOf(
  * - Positions are calculated dynamically from measured nav width (no hardcoding).
  * - Sổ is at index 1 and travels dynamically, not a permanently centered/elevated tab.
  * - Inactive items remain on baseline and fade when their slot becomes active.
- * - Outer bar is a rounded floating pill with left/right margins and bottom gap.
- * - Monotonic C1-continuous bezier geometry guarantees zero clipping, kinks, or teleporting.
+ * - Circular cradle follows the active pod; labels stay visible below it.
+ * - Touch semantics belong to the four stable destination slots.
  */
 @Composable
 fun TroOiBottomNavigation(
@@ -123,8 +126,9 @@ fun TroOiBottomNavigation(
     val primaryColor = MaterialTheme.colorScheme.primary
     val onPrimaryColor = MaterialTheme.colorScheme.onPrimary
 
-    val barHeight = 64.dp
-    val elevationOverhang = 28.dp
+    val fontScale = LocalDensity.current.fontScale
+    val barHeight = if (fontScale <= 1f) 64.dp else (40f + 32f * fontScale).dp
+    val elevationOverhang = 26.dp
     val containerHeight = barHeight + elevationOverhang
     val podSize = 48.dp
     val podRadius = 24.dp
@@ -134,7 +138,7 @@ fun TroOiBottomNavigation(
             .fillMaxWidth()
             .wrapContentHeight()
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         BoxWithConstraints(
@@ -146,16 +150,18 @@ fun TroOiBottomNavigation(
             val navWidthPx = constraints.maxWidth.toFloat()
             val slotCount = Destinations.size
             val slotWidthPx = navWidthPx / slotCount.toFloat()
-            val targetCenterX = slotWidthPx * (selectedIndex + 0.5f)
+            val targetCenterFraction = (selectedIndex + 0.5f) / slotCount
 
-            val animatedCenterX by animateFloatAsState(
-                targetValue = targetCenterX,
+            val animatedCenterFraction by animateFloatAsState(
+                targetValue = targetCenterFraction,
                 animationSpec = tween(
-                    durationMillis = 320,
+                    durationMillis = 220,
                     easing = FastOutSlowInEasing,
                 ),
                 label = "notch_center_x",
             )
+            // Fractional animation keeps the pod and cradle inside the new width during resize.
+            val animatedCenterX = animatedCenterFraction * navWidthPx
 
             // 1. Floating Bar Surface with Animated Notch Cradle
             Box(
@@ -163,29 +169,19 @@ fun TroOiBottomNavigation(
                     .fillMaxWidth()
                     .height(barHeight)
                     .align(Alignment.BottomCenter)
-                    .shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(
-                            topStart = 14.dp,
-                            topEnd = 14.dp,
-                            bottomStart = 24.dp,
-                            bottomEnd = 24.dp,
-                        ),
-                        ambientColor = Color.Black.copy(alpha = 0.08f),
-                        spotColor = Color.Black.copy(alpha = 0.14f),
-                    ),
+
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val w = size.width
                     val h = size.height
                     val cx = animatedCenterX
 
-                    val topCornerRadius = 14.dp.toPx()
+                    val cradleRadius = 30.dp.toPx()
+                    val topCornerRadius = minOf(14.dp.toPx(), (slotWidthPx / 2f - cradleRadius - 4.dp.toPx()).coerceAtLeast(2.dp.toPx()))
                     val bottomCornerRadius = 24.dp.toPx()
                     val kTop = 0.55228475f * topCornerRadius
                     val kBottom = 0.55228475f * bottomCornerRadius
 
-                    val cradleRadius = 30.dp.toPx()
                     val cradleDepth = 28.dp.toPx()
                     val shoulderWidth = 12.dp.toPx()
 
@@ -195,8 +191,6 @@ fun TroOiBottomNavigation(
                     val notchLeft = rawLeft.coerceIn(topCornerRadius, cx - cradleRadius * 0.25f)
                     val notchRight = rawRight.coerceIn(cx + cradleRadius * 0.25f, w - topCornerRadius)
 
-                    val dxLeft = cx - notchLeft
-                    val dxRight = notchRight - cx
 
                     val barPath = Path().apply {
                         moveTo(topCornerRadius, 0f)
@@ -205,19 +199,15 @@ fun TroOiBottomNavigation(
                             lineTo(notchLeft, 0f)
                         }
 
-                        // Smooth left descent into notch cradle
-                        cubicTo(
-                            notchLeft + dxLeft * 0.38f, 0f,
-                            cx - dxLeft * 0.38f, cradleDepth,
-                            cx, cradleDepth,
-                        )
-
-                        // Smooth right ascent out of notch cradle
-                        cubicTo(
-                            cx + dxRight * 0.38f, cradleDepth,
-                            notchRight - dxRight * 0.38f, 0f,
-                            notchRight, 0f,
-                        )
+                        // Circular lower arc with tangent shoulders: 6dp clearance around the active pod.
+                        val arcX = cradleRadius * 0.9797959f
+                        val arcY = 4.dp.toPx()
+                        cubicTo((notchLeft + cx - arcX) / 2f, 0f,
+                            cx - arcX - 1.2.dp.toPx(), -2.dp.toPx(), cx - arcX, arcY)
+                        arcTo(Rect(cx - cradleRadius, -32.dp.toPx(), cx + cradleRadius, cradleDepth),
+                            168.463f, -156.926f, false)
+                        cubicTo(cx + arcX + 1.2.dp.toPx(), -2.dp.toPx(),
+                            (notchRight + cx + arcX) / 2f, 0f, notchRight, 0f)
 
                         if (notchRight < w - topCornerRadius) {
                             lineTo(w - topCornerRadius, 0f)
@@ -318,13 +308,8 @@ fun TroOiBottomNavigation(
                         spotColor = Color.Black.copy(alpha = 0.24f),
                     )
                     .clip(CircleShape)
-                    .background(primaryColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        role = Role.Tab,
-                        onClick = { onNavigate(Destinations[selectedIndex].page) },
-                    ),
+                    .background(primaryColor),
+
                 contentAlignment = Alignment.Center,
             ) {
                 Crossfade(
@@ -334,9 +319,9 @@ fun TroOiBottomNavigation(
                 ) { index ->
                     Icon(
                         imageVector = Destinations[index].activeIcon,
-                        contentDescription = Destinations[index].label,
+                        contentDescription = null,
                         tint = onPrimaryColor,
-                        modifier = Modifier.size(24.dp),
+                        modifier = Modifier.size(28.dp),
                     )
                 }
             }
@@ -354,7 +339,11 @@ private fun BottomNavItem(
     testTag: String,
     modifier: Modifier = Modifier,
 ) {
-    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val focused by interaction.collectIsFocusedAsState()
+    val highlighted = pressed || focused
 
     Column(
         modifier = modifier
@@ -366,30 +355,31 @@ private fun BottomNavItem(
             }
             .clip(MaterialTheme.shapes.small)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
                 role = Role.Tab,
                 onClick = onClick,
-            )
-            .graphicsLayer { this.alpha = alpha },
+            ),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Bottom,
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = label,
-            tint = unselectedColor,
-            modifier = Modifier.size(24.dp),
+            contentDescription = null,
+            tint = if (highlighted) MaterialTheme.colorScheme.primary else unselectedColor,
+            modifier = Modifier.size(28.dp).graphicsLayer { this.alpha = alpha },
         )
         Spacer(Modifier.height(3.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Normal,
+                fontSize = 13.sp,
+                fontWeight = if (selected || highlighted) FontWeight.SemiBold else FontWeight.Normal,
             ),
-            color = unselectedColor,
-            maxLines = 1,
+            color = if (selected || highlighted) MaterialTheme.colorScheme.primary else unselectedColor,
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
+        Spacer(Modifier.height(8.dp))
     }
 }

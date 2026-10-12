@@ -61,10 +61,9 @@ android {
 
     buildTypes {
         getByName("debug") {
-            buildConfigField("boolean", "BACKEND_BACKED", "false")
+            // Source selection happens at runtime in debug; there is no third build type.
         }
         release {
-            buildConfigField("boolean", "BACKEND_BACKED", "true")
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
@@ -75,13 +74,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-        }
-        create("backendDebug") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-            applicationIdSuffix = ".backenddev"
-            isDebuggable = true
-            buildConfigField("boolean", "BACKEND_BACKED", "true")
         }
     }
 
@@ -94,6 +86,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Android/Kotlin tests are hosted at repository root beside the TS/backend suite.
+    // Gradle still owns the compilation/runtime variants; no tests are disabled.
+    sourceSets.getByName("test").kotlin.directories.add("../tests/android/unit/java")
+    sourceSets.getByName("testDebug").kotlin.directories.add("../tests/android/unitDebug/java")
+    sourceSets.getByName("testDebug").resources.srcDir(rootProject.file("tests/android/unitDebug/resources"))
+    sourceSets.getByName("androidTest").kotlin.directories.add("../tests/android/instrumentation/java")
+    sourceSets.getByName("androidTestDebug").kotlin.directories.add("../tests/android/instrumentationDebug/java")
+    // Unit Debug test resources additionally require the built-in Debug fixture assets.
+    sourceSets.getByName("testDebug").resources.srcDir("src/debug/assets")
 
     testBuildType = providers.gradleProperty("trooiInstrumentationBuildType").orElse("debug").get()
 }
@@ -128,7 +130,6 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    "backendDebugImplementation"("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

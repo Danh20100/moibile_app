@@ -3,6 +3,7 @@ package com.trooi.app.features.tenancy
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.auth.SessionHintsStore
 import com.trooi.app.features.shared.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -266,13 +267,13 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(participants = api.participants(id)) }
     }
 
-    fun leaveParticipant(id: String, part: RentalParticipant) = write {
+    fun leaveParticipant(id: String, part: RentalParticipant) = write(requiresReauthentication = !part.userId.isNullOrBlank()) {
         require(!_ui.value.tenantMode && part.role == "OCCUPANT" && part.leftAt == null) { "Không tự thay PRIMARY policy." }
         api.leaveOccupant(id, part.id)
         _ui.update { it.copy(participants = api.participants(id)) }
     }
 
-    fun linkParticipant(id: String, participantId: String, userId: String) = write {
+    fun linkParticipant(id: String, participantId: String, userId: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode && userId.isNotBlank())
         api.linkParticipant(id, participantId, userId)
         _ui.update { it.copy(participants = api.participants(id)) }
@@ -295,13 +296,13 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(notices = api.notices(tenancyId)) }
     }
 
-    fun createBilling(id: String, termsId: String, from: String, to: String, type: String, amount: String) = write {
+    fun createBilling(id: String, termsId: String, from: String, to: String, type: String, amount: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode) { "Người thuê chỉ có quyền xem khoản phải thu." }
         api.createBilling(id, termsId, from, to, listOf(type to amount))
         _ui.update { it.copy(billing = api.billingCycles(id)) }
     }
 
-    fun recordPayment(id: String, amount: String, source: String) = write {
+    fun recordPayment(id: String, amount: String, source: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể ghi nhận tiền đã nhận." }
         val recorded = api.recordPayment(id, amount, source)
         _ui.update {
@@ -325,6 +326,7 @@ class RentalViewModel @Inject constructor(
             _ui.update { it.copy(error = "Lượt thuê hiện tại không được tạo checkout.", errorKind = "FORBIDDEN") }
             return
         }
+        if (securityUnavailable()) return
         val intent = rememberCheckoutBeforePost(tenancyId, normalized, _ui.value.checkoutIntent) {
             UUID.randomUUID().toString()
         }
@@ -387,7 +389,7 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(checkoutLaunchUrl = null) }
     }
 
-    fun createDeposit(tenancyId: String) = write {
+    fun createDeposit(tenancyId: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể tạo thông tin tiền cọc." }
         val created = api.createDeposit(tenancyId)
         require(created.tenancyId == tenancyId) { "Backend trả Deposit sai Tenancy." }
@@ -396,7 +398,7 @@ class RentalViewModel @Inject constructor(
         }
     }
 
-    fun settleDeposit(tenancyId: String, refunded: String, retained: String, reason: String) = write {
+    fun settleDeposit(tenancyId: String, refunded: String, retained: String, reason: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode) { "Tenant không thực hiện Deposit settlement." }
         val deposit = _ui.value.deposit ?: error("Chưa có Deposit từ Backend.")
         require(deposit.tenancyId == tenancyId && !deposit.blockedByOpenPolicy) {
@@ -415,13 +417,13 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(payment = pay) }
     }
 
-    fun allocate(paymentId: String, chargeId: String, amount: String) = write {
+    fun allocate(paymentId: String, chargeId: String, amount: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode && _ui.value.payment?.id == paymentId) { "Payment chưa được Backend xác minh." }
         api.allocate(paymentId, chargeId, amount)
         _ui.update { it.copy(payment = api.payment(paymentId)) }
     }
 
-    fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String) = write {
+    fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String) = write(requiresReauthentication = true) {
         val pay = _ui.value.payment?.takeIf { it.id == paymentId }
             ?: throw IllegalArgumentException("Payment chưa được Backend xác minh.")
         val deposit = _ui.value.deposit?.takeIf { it.id == depositId }
@@ -441,13 +443,13 @@ class RentalViewModel @Inject constructor(
         }
     }
 
-    fun issueReceipt(paymentId: String) = write {
+    fun issueReceipt(paymentId: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode && _ui.value.payment?.id == paymentId) { "Cần Payment đã xác minh." }
         api.issueReceipt(paymentId)
         _ui.update { it.copy(receipts = api.receipts(paymentId)) }
     }
 
-    fun voidReceipt(id: String) = write {
+    fun voidReceipt(id: String) = write(requiresReauthentication = true) {
         require(!_ui.value.tenantMode) { "Tenant không thể void Receipt." }
         api.voidReceipt(id)
         _ui.update { it.copy(receipts = api.receipts()) }
@@ -483,7 +485,7 @@ class RentalViewModel @Inject constructor(
         }
         persistHint(remembered)
         val url = if (launchPayUrl) {
-            launchableHttpsPayUrl(created.payUrl, BuildConfig.DEBUG && BuildConfig.BACKEND_BACKED)
+            launchableHttpsPayUrl(created.payUrl, BuildConfig.DEBUG && RuntimeDataSource.isBackendBacked())
         } else {
             null
         }
@@ -518,8 +520,15 @@ class RentalViewModel @Inject constructor(
         return CheckoutIntent(hint.tenancyId, hint.amount, hint.idempotencyKey, hint.checkoutId)
     }
 
-    private fun write(block: suspend () -> Unit) {
+    // shortcut: no server-issued step-up proof contract; keep final writes blocked until integrated.
+    private fun securityUnavailable(): Boolean {
+        _ui.update { it.copy(error = com.trooi.app.features.profile.REAUTH_UNAVAILABLE, errorKind = "REAUTH_UNAVAILABLE", success = null) }
+        return true
+    }
+
+    private fun write(requiresReauthentication: Boolean = false, block: suspend () -> Unit) {
         if (_ui.value.busy) return
+        if (requiresReauthentication) { securityUnavailable(); return }
         val current = ++revision
         _ui.update { it.copy(busy = true, success = null, error = null, errorKind = null) }
         viewModelScope.launch {

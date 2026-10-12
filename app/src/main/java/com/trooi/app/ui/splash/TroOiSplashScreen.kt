@@ -645,8 +645,7 @@ fun TroOiFirstEntryScreen(
         }
     }
 
-    // Warm background
-    val bgColor = if (isDark) TroOiDarkCanvas else Color(0xFFFFFDF8)
+    val bgColor = MaterialTheme.colorScheme.background
 
     Box(
         modifier = modifier

@@ -8,18 +8,22 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
 import com.trooi.app.features.tenancy.PaymentReturnUri
 import com.trooi.app.ui.TroOiApp
+import com.trooi.app.ui.DebugTestCommand
+import com.trooi.app.ui.DebugTestIntent
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val paymentReturn = mutableStateOf<PaymentReturnUri?>(null)
+    private val testCommand = mutableStateOf<DebugTestCommand?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         paymentReturn.value = paymentReturnFrom(intent)
+        testCommand.value = DebugTestIntent.parse(intent)
         enableEdgeToEdge()
         setContent {
-            TroOiApp(paymentReturnUri = paymentReturn.value)
+            TroOiApp(paymentReturnUri = paymentReturn.value, debugTestCommand = testCommand.value)
         }
     }
 
@@ -27,6 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         paymentReturn.value = paymentReturnFrom(intent)
+        DebugTestIntent.parse(intent)?.let { testCommand.value = it }
     }
 }
 

@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,15 +15,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import com.trooi.app.ui.components.TroOiFormField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,7 +42,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.trooi.app.ui.components.TroOiPrimaryButton
+import com.trooi.app.ui.components.TroOiButton
+import com.trooi.app.ui.components.TroOiButtonStyle
+import com.trooi.app.ui.components.TroOiScreenScaffold
+import com.trooi.app.features.profile.LegalDocumentOverlay
+import com.trooi.app.features.profile.LegalDocumentType
 import com.trooi.app.ui.theme.*
 
 /**
@@ -100,7 +116,7 @@ fun AuthBrandHero(
 }
 
 /**
- * Prominent Google provider authentication button with red background and white text.
+ * Secondary Google entry uses the paired neutral surface; authentication callbacks are unchanged.
  */
 @Composable
 fun GoogleAuthButton(
@@ -110,40 +126,43 @@ fun GoogleAuthButton(
     enabled: Boolean = true,
     authInProgress: Boolean = false,
 ) {
-    val googleRed = Color(0xFFD93025)
+    val providerSurface = TroOiGoogleRed
+    val providerInk = Color.White
     Button(
         onClick = onClick,
         enabled = enabled && !authInProgress,
         modifier = modifier
+            .testTag("google-auth-button")
             .fillMaxWidth()
             .height(52.dp),
         shape = RoundedCornerShape(10.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = googleRed,
-            contentColor = Color.White,
-            disabledContainerColor = googleRed.copy(alpha = 0.55f),
-            disabledContentColor = Color.White.copy(alpha = 0.8f),
+            containerColor = providerSurface,
+            contentColor = providerInk,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
     ) {
         if (authInProgress) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
-                color = Color.White,
+                color = LocalContentColor.current,
             )
             Spacer(Modifier.width(10.dp))
             Text(
                 text = "Đang xác thực Google...",
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = LocalContentColor.current,
                 ),
             )
         } else {
             Surface(
                 shape = RoundedCornerShape(4.dp),
-                color = Color.White.copy(alpha = 0.22f),
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier.size(22.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -152,7 +171,7 @@ fun GoogleAuthButton(
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         ),
                     )
                 }
@@ -162,7 +181,7 @@ fun GoogleAuthButton(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = LocalContentColor.current,
                 ),
             )
         }
@@ -172,7 +191,7 @@ fun GoogleAuthButton(
 /**
  * Bottom action block for Auth Welcome:
  * 1. [ Đăng nhập ] (Green primary)
- * 2. [ G   Đăng nhập với Google ] (Red background, white text)
+ * 2. [ G   Đăng nhập với Google ] (Neutral secondary action)
  * 3. Bạn chưa có tài khoản? Đăng ký
  * (No Terms/Privacy text, no large register button)
  */
@@ -188,7 +207,7 @@ fun AuthWelcomeActions(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        TroOiPrimaryButton(
+        TroOiButton(
             text = "Đăng nhập",
             onClick = onLogin,
             modifier = Modifier
@@ -227,7 +246,7 @@ fun AuthWelcomeActions(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .clickable(enabled = !authInProgress, onClick = onSignUp)
-                    .padding(vertical = 4.dp),
+                    .heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
             )
         }
     }
@@ -382,11 +401,14 @@ fun LoginScreen(
     onLogin: (String, String) -> Unit,
     onSignInWithGoogle: (() -> Unit)? = null,
     authInProgress: Boolean = false,
+    initialIdentifier: String = "",
+    initialPassword: String = "",
+    prefillKey: Long = 0L,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    var identifier by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var identifier by remember(initialIdentifier, prefillKey) { mutableStateOf(initialIdentifier) }
+    var password by remember(initialPassword, prefillKey) { mutableStateOf(initialPassword) }
     var showPassword by remember { mutableStateOf(false) }
     val identifierOk = isValidIdentifier(identifier)
     val passwordOk = isValidPassword(password)
@@ -416,23 +438,23 @@ fun LoginScreen(
                 IconButton(onClick = { showPassword = !showPassword }) {
                     Icon(
                         if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                        contentDescription = null,
-                        tint = TroOiMuted,
+                        contentDescription = if (showPassword) "Ẩn mật khẩu" else "Hiện mật khẩu",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             },
         )
 
-        TextButton(
+        TroOiButton(
+            text = "Quên mật khẩu?",
             onClick = onForgotPassword,
             modifier = Modifier.align(Alignment.End),
-        ) {
-            Text("Quên mật khẩu?", color = MaterialTheme.colorScheme.primary)
-        }
+            style = TroOiButtonStyle.TERTIARY,
+        )
 
         Spacer(Modifier.height(4.dp))
 
-        TroOiPrimaryButton(
+        TroOiButton(
             text = "Đăng nhập",
             onClick = { focusManager.clearFocus(); keyboard?.hide(); onLogin(identifier.trim(), password) },
             modifier = Modifier
@@ -493,15 +515,20 @@ fun LoginScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .clickable(onClick = onSignUp)
-                    .padding(vertical = 4.dp),
+                    .heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
             )
         }
     }
 }
 
 @Composable
-fun ForgotPasswordScreen(onBack: () -> Unit, onSubmit: (String) -> Unit) {
-    var identifier by remember { mutableStateOf("") }
+fun ForgotPasswordScreen(
+    onBack: () -> Unit,
+    onSubmit: (String) -> Unit,
+    initialIdentifier: String = "",
+    prefillKey: Long = 0L,
+) {
+    var identifier by remember(initialIdentifier, prefillKey) { mutableStateOf(initialIdentifier) }
     AuthFormScaffold(
         onBack = onBack,
         title = "khôi phục mật khẩu",
@@ -509,7 +536,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit, onSubmit: (String) -> Unit) {
     ) {
         AuthTextField(identifier, { identifier = it }, "Email hoặc số điện thoại", Icons.Rounded.AlternateEmail)
         Spacer(Modifier.height(18.dp))
-        TroOiPrimaryButton(
+        TroOiButton(
             text = "Gửi hướng dẫn khôi phục",
             onClick = { onSubmit(identifier.trim()) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -519,15 +546,29 @@ fun ForgotPasswordScreen(onBack: () -> Unit, onSubmit: (String) -> Unit) {
 }
 
 @Composable
-fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, String, String, String) -> Unit) {
-    var fullName by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-    var accepted by remember { mutableStateOf(false) }
+fun SignUpScreen(
+    onBack: () -> Unit,
+    onLogin: () -> Unit,
+    onSignUp: (String, String, String, String) -> Unit,
+    initialFullName: String = "",
+    initialPhone: String = "",
+    initialEmail: String = "",
+    initialPassword: String = "",
+    prefillKey: Long = 0L,
+    mockMode: Boolean = false,
+    authInProgress: Boolean = false,
+) {
+    var fullName by androidx.compose.runtime.saveable.rememberSaveable(initialFullName, prefillKey) { mutableStateOf(initialFullName) }
+    var phone by androidx.compose.runtime.saveable.rememberSaveable(initialPhone, prefillKey) { mutableStateOf(initialPhone) }
+    var email by androidx.compose.runtime.saveable.rememberSaveable(initialEmail, prefillKey) { mutableStateOf(initialEmail) }
+    var password by remember(initialPassword, prefillKey) { mutableStateOf(initialPassword) }
+    var confirmPassword by remember(initialPassword, prefillKey) { mutableStateOf(initialPassword) }
+    var showPassword by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var accepted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var legalDocument by remember { mutableStateOf<LegalDocumentType?>(null) }
+    legalDocument?.let { LegalDocumentOverlay(it, onDismiss = { legalDocument = null }) }
     val valid = isValidSignup(fullName, phone, email, password, confirmPassword, accepted)
+    val otp = rememberContactOtpForm(email)
 
     AuthFormScaffold(
         onBack = onBack,
@@ -538,38 +579,75 @@ fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, Str
         Spacer(Modifier.height(10.dp))
         AuthTextField(phone, { phone = it.filter { c -> c.isDigit() }.take(11) }, "Số điện thoại", Icons.Rounded.Phone, keyboardType = KeyboardType.Phone)
         Spacer(Modifier.height(10.dp))
-        AuthTextField(email, { email = it }, "Email", Icons.Rounded.Email, keyboardType = KeyboardType.Email)
+        EmailOtpPanel(email, mockMode, onValueChange = { email = it }, form = otp)
         Spacer(Modifier.height(10.dp))
         AuthTextField(
             password, { password = it }, "Mật khẩu (tối thiểu 8 ký tự)", Icons.Rounded.Lock,
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailing = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null, tint = TroOiMuted) } },
+            trailing = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, if (showPassword) "Ẩn mật khẩu" else "Hiện mật khẩu", tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         )
         Spacer(Modifier.height(10.dp))
         AuthTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu", Icons.Rounded.LockReset, visualTransformation = PasswordVisualTransformation())
         if (confirmPassword.isNotBlank() && confirmPassword != password) {
-            Text("Mật khẩu nhập lại chưa khớp.", color = TroOiRed, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
+            Text("Mật khẩu nhập lại chưa khớp.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
         }
         Spacer(Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.Top) {
+        // Keep the legal documents inside the consent sentence. Opening a link must
+        // never check the box automatically; consent remains an explicit user action.
+        val linkStyle = SpanStyle(
+            color = MaterialTheme.colorScheme.primary,
+            textDecoration = TextDecoration.Underline,
+            fontWeight = FontWeight.SemiBold,
+        )
+        val consentText = buildAnnotatedString {
+            append("Tôi đồng ý với ")
+            pushStringAnnotation(tag = "legal-document", annotation = LegalDocumentType.TERMS.route)
+            withStyle(linkStyle) { append("Điều khoản sử dụng") }
+            pop()
+            append(" và ")
+            pushStringAnnotation(tag = "legal-document", annotation = LegalDocumentType.PRIVACY.route)
+            withStyle(linkStyle) { append("Chính sách quyền riêng tư") }
+            pop()
+            append(".")
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Checkbox(
                 checked = accepted,
                 onCheckedChange = { accepted = it },
                 colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
+                modifier = Modifier.testTag("signup-legal-consent"),
             )
-            Text(
-                text = "Tôi đồng ý với Điều khoản sử dụng và Chính sách quyền riêng tư.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 12.dp),
+            ClickableText(
+                text = consentText,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+                modifier = Modifier.padding(top = 12.dp).semantics {
+                    customActions = listOf(
+                        CustomAccessibilityAction("Mở Điều khoản sử dụng") {
+                            legalDocument = LegalDocumentType.TERMS
+                            true
+                        },
+                        CustomAccessibilityAction("Mở Chính sách quyền riêng tư") {
+                            legalDocument = LegalDocumentType.PRIVACY
+                            true
+                        },
+                    )
+                },
+                onClick = { offset ->
+                    consentText.getStringAnnotations("legal-document", offset, offset)
+                        .firstOrNull()?.item?.let { route ->
+                            legalDocument = LegalDocumentType.fromRoute(route)
+                        }
+                },
             )
         }
-        Spacer(Modifier.height(14.dp))
-        TroOiPrimaryButton(
-            text = "Tạo tài khoản",
-            onClick = { onSignUp(fullName, phone, email, password) },
+        Spacer(Modifier.height(10.dp))
+        TroOiButton(
+            text = if (authInProgress) "Đang tạo tài khoản…" else "Tạo tài khoản",
+            onClick = { if (otp.validateOnSubmit(email, mockMode)) onSignUp(fullName, phone, email, password) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            enabled = valid,
+            enabled = valid && !authInProgress,
         )
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -581,7 +659,7 @@ fun SignUpScreen(onBack: () -> Unit, onLogin: () -> Unit, onSignUp: (String, Str
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier
                     .clickable(onClick = onLogin)
-                    .padding(vertical = 4.dp),
+                    .heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
             )
         }
     }
@@ -594,11 +672,11 @@ private fun AuthFormScaffold(
     subtitle: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    TroOiScreenScaffold { insets ->
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
+            .padding(insets)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
@@ -626,6 +704,7 @@ private fun AuthFormScaffold(
 
         Spacer(Modifier.height(24.dp))
     }
+    }
 }
 
 @Composable
@@ -638,23 +717,15 @@ private fun AuthTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: @Composable (() -> Unit)? = null,
 ) {
-    OutlinedTextField(
+    TroOiFormField(
         value = value,
         onValueChange = onValueChange,
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
-        leadingIcon = { Icon(icon, null, tint = TroOiMuted) },
+        leadingIcon = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingIcon = trailing,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = visualTransformation,
-        shape = RoundedCornerShape(8.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-        ),
     )
 }

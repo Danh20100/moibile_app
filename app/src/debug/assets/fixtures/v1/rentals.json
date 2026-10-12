@@ -1,0 +1,227 @@
+{
+  "rentals": [
+    {
+      "ownerId": "fixture-user-ha",
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "asset": {
+        "id": "e0080000-0000-4000-8000-000000000006",
+        "propertyId": "e0080000-0000-4000-8000-000000000005",
+        "type": "Căn hộ",
+        "name": "Căn hộ A02",
+        "operationalAddress": "Nhà Phú Nhuận · Căn hộ A02",
+        "publicArea": "Phường 7, Phú Nhuận",
+        "area": "32",
+        "monthlyRent": "5200000",
+        "advertisedDeposit": "5200000",
+        "description": "Căn hộ với phòng khách thoáng và khu bếp riêng. Có ban công, tủ đồ rộng và chỗ để xe. Không gian phù hợp sinh hoạt dài hạn.",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "amenities": [
+          "Wi-Fi",
+          "Máy lạnh",
+          "Bếp riêng",
+          "Ban công",
+          "Chỗ để xe"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:30",
+          "Không hút thuốc",
+          "Tối đa 2 người"
+        ],
+        "photoUris": [],
+        "status": "ACTIVE",
+        "listingStatus": "UNPUBLISHED",
+        "occupied": true,
+        "electricityOffer": "3.500đ/kWh",
+        "waterOffer": "20.000đ/m³",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "",
+        "operationalLatitude": "",
+        "operationalLongitude": "",
+        "bathroomArrangement": null,
+        "maxOccupants": 2,
+        "floorLabel": null,
+        "publicListingId": "demo-mini",
+        "photoNames": [
+          "rental_living",
+          "rental_bedroom",
+          "rental_kitchen"
+        ]
+      },
+      "publicPoint": null
+    },
+    {
+      "ownerId": "fixture-user-ha",
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "asset": {
+        "id": "fixture-room-an-nhien",
+        "propertyId": "fixture-property-linh-trung",
+        "type": "Căn hộ",
+        "name": "Căn hộ An Nhiên",
+        "operationalAddress": "Nhà Linh Trung · Căn hộ An Nhiên",
+        "publicArea": "Linh Trung, Thủ Đức",
+        "area": "28",
+        "monthlyRent": "3200000",
+        "advertisedDeposit": "3200000",
+        "description": "Căn hộ sáng thoáng với góc làm việc cạnh cửa sổ và bếp riêng. Khu dân cư yên tĩnh, thuận tiện đi chợ và di chuyển đến các trường đại học.",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "amenities": [
+          "Wi-Fi",
+          "Máy lạnh",
+          "Bếp riêng",
+          "Máy giặt chung",
+          "Chỗ để xe",
+          "Camera khu vực chung"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:00",
+          "Tối đa 2 người",
+          "Thú cưng: trao đổi trước"
+        ],
+        "photoUris": [],
+        "status": "ACTIVE",
+        "listingStatus": "PUBLISHED",
+        "occupied": false,
+        "electricityOffer": "3.500đ/kWh",
+        "waterOffer": "20.000đ/m³",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "2026-10-15",
+        "operationalLatitude": "",
+        "operationalLongitude": "",
+        "bathroomArrangement": null,
+        "maxOccupants": 2,
+        "floorLabel": null,
+        "publicListingId": "demo-studio",
+        "photoNames": [
+          "rental_studio",
+          "rental_kitchen",
+          "rental_balcony"
+        ]
+      },
+      "publicPoint": {
+        "latitude": 10.87,
+        "longitude": 106.8
+      }
+    },
+    {
+      "ownerId": "fixture-user-nam",
+      "organizationId": "fixture-organization-nam",
+      "asset": {
+        "id": "fixture-room-window",
+        "propertyId": "fixture-property-binh-thanh",
+        "type": "Phòng trọ",
+        "name": "Phòng trọ có cửa sổ",
+        "operationalAddress": "Nhà Bình Thạnh · Phòng có cửa sổ",
+        "publicArea": "Bình Thạnh, TP.HCM",
+        "area": "22",
+        "monthlyRent": "2800000",
+        "advertisedDeposit": "2800000",
+        "description": "Phòng riêng gọn gàng, nhiều ánh sáng và có khu để xe chung. Có sẵn giường, tủ và bàn làm việc, gần tiện ích hằng ngày.",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "amenities": [
+          "Wi-Fi",
+          "Máy lạnh",
+          "Máy giặt chung",
+          "Chỗ để xe"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:00",
+          "Tối đa 2 người",
+          "Thú cưng: trao đổi trước"
+        ],
+        "photoUris": [],
+        "status": "ACTIVE",
+        "listingStatus": "PUBLISHED",
+        "occupied": false,
+        "electricityOffer": "Trao đổi với chủ trọ",
+        "waterOffer": "Trao đổi với chủ trọ",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "",
+        "operationalLatitude": "",
+        "operationalLongitude": "",
+        "bathroomArrangement": "PRIVATE",
+        "maxOccupants": 2,
+        "floorLabel": null,
+        "publicListingId": "demo-room",
+        "photoNames": [
+          "rental_bedroom",
+          "rental_balcony"
+        ]
+      },
+      "publicPoint": {
+        "latitude": 10.81,
+        "longitude": 106.71
+      }
+    },
+    {
+      "ownerId": "fixture-user-nam",
+      "organizationId": "fixture-organization-nam",
+      "asset": {
+        "id": "fixture-room-previous-lan",
+        "propertyId": "fixture-property-binh-thanh",
+        "type": "Phòng trọ",
+        "name": "Phòng B03",
+        "operationalAddress": "Nhà Bình Thạnh · Phòng có cửa sổ",
+        "publicArea": "Bình Thạnh, TP.HCM",
+        "area": "22",
+        "monthlyRent": "2800000",
+        "advertisedDeposit": "2800000",
+        "description": "Phòng riêng gọn gàng, nhiều ánh sáng và có khu để xe chung. Có sẵn giường, tủ và bàn làm việc, gần tiện ích hằng ngày.",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "amenities": [
+          "Wi-Fi",
+          "Máy lạnh",
+          "Máy giặt chung",
+          "Chỗ để xe"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:00",
+          "Tối đa 2 người",
+          "Thú cưng: trao đổi trước"
+        ],
+        "photoUris": [],
+        "status": "ARCHIVED",
+        "listingStatus": "ARCHIVED",
+        "occupied": false,
+        "electricityOffer": "Trao đổi với chủ trọ",
+        "waterOffer": "Trao đổi với chủ trọ",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "",
+        "operationalLatitude": "",
+        "operationalLongitude": "",
+        "bathroomArrangement": "PRIVATE",
+        "maxOccupants": 2,
+        "floorLabel": null,
+        "publicListingId": "fixture-listing-previous-b03",
+        "photoNames": [
+          "rental_bedroom",
+          "rental_balcony"
+        ]
+      },
+      "publicPoint": null
+    }
+  ],
+  "ownerSeed": {
+    "entitlements": [
+      {
+        "purchaseId": "fixture-history-an-nhien-capacity",
+        "validUntilEpochMillis": 1822348800000
+      }
+    ],
+    "roomIds": [
+      "e0080000-0000-4000-8000-000000000006",
+      "fixture-room-an-nhien"
+    ]
+  }
+}

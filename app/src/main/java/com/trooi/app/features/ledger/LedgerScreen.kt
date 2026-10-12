@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
 import com.trooi.app.ui.components.*
@@ -32,9 +33,10 @@ fun LedgerScreen(
     if ((state.runtimeLoading || state.authorizedReadFailed) && state.read.tenancies.isEmpty() && state.read.localManagement == null &&
         (state.access.linkedTenancyIds.isNotEmpty() || state.access.operatedOrganizationIds.isNotEmpty())) {
         Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            V1PageTitle("Sổ", "Sổ vận hành thuê trọ")
-            if (state.runtimeLoading) { CircularProgressIndicator(); Text("Đang tải Sổ…") }
-            else { Text("Chưa tải được Sổ. Kiểm tra kết nối rồi thử lại."); V1Action("Thử lại", onRetryRead, modifier = Modifier.testTag("ledger-read-retry")) }
+            TroOiPageHeader("Sổ", "Sổ vận hành thuê trọ")
+            if (state.runtimeLoading) TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải Sổ…")
+            else TroOiStateMessage(TroOiStateKind.ERROR, "Chưa tải được Sổ. Kiểm tra kết nối rồi thử lại.",
+                actionText = "Thử lại", onAction = onRetryRead, actionModifier = Modifier.testTag("ledger-read-retry"))
         }
         return
     }
@@ -50,16 +52,16 @@ fun LedgerScreen(
         Modifier.fillMaxSize().testTag("ledger-screen"),
         contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        item { V1PageTitle("Sổ", if (owner) "Quản lý tài sản cho thuê" else "Sổ vận hành thuê trọ") }
+        item { TroOiPageHeader("Sổ", if (owner) "Quản lý tài sản cho thuê" else "Sổ vận hành thuê trọ") }
         if (state.authorizedReadFailed) item {
             Text("Chưa cập nhật được Sổ. Thông tin bên dưới là lần tải gần nhất.", style = MaterialTheme.typography.bodyMedium)
-            V1SecondaryAction("Thử lại", onRetryRead, enabled = !state.runtimeLoading)
+            TroOiButton("Thử lại", onRetryRead, enabled = !state.runtimeLoading, style = TroOiButtonStyle.SECONDARY)
         }
         if (!owner && selected == null) item {
-            V1Panel("Bạn chưa có tài sản thuê nào được liên kết.") {
-                Text("Sổ theo dõi tiền thuê / khoản cần thanh toán, tiền cọc, xác nhận thanh toán, sự cố / yêu cầu sửa chữa và lịch sử thuê.")
-                V1Action("Khám phá", onExplore, modifier = Modifier.testTag("ledger-empty-explore"))
-            }
+            TroOiStateMessage(TroOiStateKind.EMPTY,
+                "Sổ theo dõi tiền thuê / khoản cần thanh toán, tiền cọc, xác nhận thanh toán, sự cố / yêu cầu sửa chữa và lịch sử thuê.",
+                title = "Bạn chưa có tài sản thuê nào được liên kết.", actionText = "Khám phá", onAction = onExplore,
+                actionModifier = Modifier.testTag("ledger-empty-explore"))
         }
         if (!owner && selected != null) {
             if (assets.size > 1) item {
@@ -83,13 +85,10 @@ fun LedgerScreen(
                 if (finance == null) Text("Chưa có dữ liệu khoản cần thanh toán.")
                 else if (finance.charges.isEmpty()) Text("Chưa có khoản phải trả được ghi nhận.")
                 finance?.charges?.forEach { charge ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(charge.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        Text(charge.outstandingLabel ?: charge.amountLabel, fontWeight = FontWeight.SemiBold)
-                    }
+                    TroOiInformationRow(charge.label, charge.outstandingLabel ?: charge.amountLabel)
                     if (charge.outstandingLabel == null) Text("Chưa có dữ liệu phân bổ", style = MaterialTheme.typography.bodySmall)
                 }
-                if (selected.lifecycle != null && finance != null) V1Action("Thanh toán", { onFinance(selected.tenancyId) }, modifier = Modifier.testTag("ledger-payment-entry"))
+                if (selected.lifecycle != null && finance != null) TroOiButton("Thanh toán", { onFinance(selected.tenancyId) }, modifier = Modifier.testTag("ledger-payment-entry"))
             }
             item {
                 LedgerDivider()
@@ -97,10 +96,10 @@ fun LedgerScreen(
                 val deposits = finance?.deposits.orEmpty().filter { it.tenancyId == selected.tenancyId }
                 if (deposits.isEmpty()) Text("Chưa có thông tin ghi nhận tiền cọc.")
                 deposits.forEach {
-                    LedgerLine("Cọc yêu cầu", it.requiredLabel ?: "Chưa có dữ liệu")
-                    LedgerLine("Đã ghi nhận vào cọc", it.fundedLabel ?: "Chưa có dữ liệu")
-                    LedgerLine("Đang giữ", it.heldLabel ?: "Chưa có dữ liệu")
-                    it.settlementLabel?.let { value -> LedgerLine("Xử lý cọc", value) }
+                    TroOiInformationRow("Cọc yêu cầu", it.requiredLabel ?: "Chưa có dữ liệu")
+                    TroOiInformationRow("Đã ghi nhận vào cọc", it.fundedLabel ?: "Chưa có dữ liệu")
+                    TroOiInformationRow("Đang giữ", it.heldLabel ?: "Chưa có dữ liệu")
+                    it.settlementLabel?.let { value -> TroOiInformationRow("Xử lý cọc", value) }
                 }
                 Text("Ghi nhận tiền cọc và biên nhận được theo dõi riêng.", style = MaterialTheme.typography.bodySmall)
             }
@@ -108,23 +107,23 @@ fun LedgerScreen(
                 LedgerDivider()
                 LedgerSectionTitle("Thanh toán / xác nhận")
                 if (finance?.payments.isNullOrEmpty()) Text("Chưa có thanh toán được xác nhận.")
-                finance?.payments?.forEach { LedgerLine("Thanh toán đã được xác nhận", "${it.amountLabel} · ${it.confirmationLabel ?: "Đã ghi nhận thanh toán"}") }
+                finance?.payments?.forEach { TroOiInformationRow("Thanh toán đã được xác nhận", "${it.amountLabel} · ${it.confirmationLabel ?: "Đã ghi nhận thanh toán"}") }
                 Text("Việc ghi nhận thanh toán không xác định khoản phải trả đã được phân bổ đầy đủ.", style = MaterialTheme.typography.bodySmall)
-                finance?.receipts?.forEach { LedgerLine("Biên nhận ${it.receiptId}", it.issuedAtLabel) }
+                finance?.receipts?.forEach { TroOiInformationRow("Biên nhận ${it.receiptId}", it.issuedAtLabel) }
             }
             item {
                 LedgerDivider()
                 LedgerSectionTitle("Sự cố")
                 val incidents = state.read.incidents.filter { selected.roomId != null && it.roomId == selected.roomId }
                 if (incidents.isEmpty()) Text("Chưa có sự cố được tải cho tài sản này.")
-                incidents.forEach { LedgerLine(it.title, incidentLabel(it.lifecycle)) }
+                incidents.forEach { TroOiInformationRow(it.title, incidentLabel(it.lifecycle)) }
             }
             item {
                 LedgerDivider()
                 LedgerSectionTitle("Lịch sử")
                 val notices = state.read.noticesByTenancy[selected.tenancyId].orEmpty().filter { it.tenancyId == selected.tenancyId }
                 if (notices.isEmpty()) Text("Chưa có lịch sử thuê được tải.")
-                notices.forEach { LedgerLine(it.content, it.issuedAtLabel) }
+                notices.forEach { TroOiInformationRow(it.content, it.issuedAtLabel) }
             }
         }
         if (owner) {
@@ -137,12 +136,13 @@ fun LedgerScreen(
                         Text(if (catalog != null) "${catalog.used} / ${catalog.capacity()} đang quản lý" else "${rooms.count { it.lifecycle == RecordLifecycle.ACTIVE && it.operationalState != RoomOperationalState.INACTIVE }} tài sản đang quản lý",
                             modifier = Modifier.testTag("ledger-capacity"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    FilledTonalButton({ if (catalog != null) { editAsset = null; wizardOpen = true } else onOperations() }, modifier = Modifier.testTag("ledger-add-asset")) { Text("+ Thêm tài sản") }
+                    TroOiButton("+ Thêm tài sản", { if (catalog != null) { editAsset = null; wizardOpen = true } else onOperations() },
+                        modifier = Modifier.testTag("ledger-add-asset"), style = TroOiButtonStyle.SECONDARY)
                 }
             }
             if (rooms.isEmpty()) item { Text("Chưa có tài sản. Thêm phòng trọ hoặc căn hộ đầu tiên của bạn.") }
             if (catalog != null) catalog.assets.forEach { asset -> item(key = asset.id) {
-                Column(Modifier.fillMaxWidth().clickable { detailId = asset.id }.testTag("owner-asset-${asset.id}"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth().clickable(role = Role.Button) { detailId = asset.id }.testTag("owner-asset-${asset.id}"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (asset.photoUris.isNotEmpty() || asset.photoResources.isNotEmpty()) com.trooi.app.ui.components.LocalRentalPhoto(asset.photoUris.firstOrNull(), asset.photoResources.firstOrNull(), asset.name,
                         Modifier.fillMaxWidth().height(176.dp).clip(RoundedCornerShape(16.dp)))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -172,8 +172,8 @@ fun LedgerScreen(
             item {
                 LedgerSectionTitle("Tổng quan vận hành")
                 val summary = state.access.operatedOrganizationIds.mapNotNull { state.read.dashboardByOrganization[it] }.firstOrNull()
-                LedgerLine("Công nợ / khoản phải thu", summary?.outstandingReceivableLabel ?: if (finance.any { it.charges.isNotEmpty() }) "Đang chờ đối chiếu" else "Chưa có khoản phải thu")
-                LedgerLine("Thanh toán đã được xác nhận", summary?.confirmedPaymentTotalLabel ?: if (finance.any { it.confirmedPayments.isNotEmpty() }) "Xem các khoản đã nhận bên dưới" else "Chưa có thanh toán")
+                TroOiInformationRow("Công nợ / khoản phải thu", summary?.outstandingReceivableLabel ?: if (finance.any { it.charges.isNotEmpty() }) "Đang chờ đối chiếu" else "Chưa có khoản phải thu")
+                TroOiInformationRow("Thanh toán đã được xác nhận", summary?.confirmedPaymentTotalLabel ?: if (finance.any { it.confirmedPayments.isNotEmpty() }) "Xem các khoản đã nhận bên dưới" else "Chưa có thanh toán")
             }
             item {
                 LedgerDivider()
@@ -181,30 +181,30 @@ fun LedgerScreen(
                 val tenants = state.read.tenancies.filter { rental -> rooms.any { it.roomId == rental.roomId } }
                 if (tenants.isEmpty()) Text("Chưa có người thuê được liên kết.")
                 tenants.forEach {
-                    LedgerLine(it.primaryTenantName ?: it.roomLabel, "${it.roomLabel} · ${it.termsVersionLabel ?: "Chưa có điều khoản"}")
+                    TroOiInformationRow(it.primaryTenantName ?: it.roomLabel, "${it.roomLabel} · ${it.termsVersionLabel ?: "Chưa có điều khoản"}")
                 }
             }
             item {
                 LedgerSectionTitle("Công nợ / khoản phải thu")
                 if (finance.all { it.charges.isEmpty() }) Text("Chưa có khoản phải thu.")
-                finance.flatMap { it.charges }.forEach { LedgerLine(it.label, it.outstandingLabel ?: "${it.amountLabel} · Chờ đối chiếu") }
+                finance.flatMap { it.charges }.forEach { TroOiInformationRow(it.label, it.outstandingLabel ?: "${it.amountLabel} · Chờ đối chiếu") }
                 LedgerSectionTitle("Thanh toán / xác nhận")
                 if (finance.all { it.confirmedPayments.isEmpty() }) Text("Chưa có thanh toán được xác nhận.")
-                finance.flatMap { it.confirmedPayments }.forEach { LedgerLine(it.amountLabel, it.confirmationLabel ?: "Đã ghi nhận") }
+                finance.flatMap { it.confirmedPayments }.forEach { TroOiInformationRow(it.amountLabel, it.confirmationLabel ?: "Đã ghi nhận") }
             }
             item {
                 LedgerDivider()
                 LedgerSectionTitle("Sự cố")
                 val incidents = accessibleIncidents(state.read, state.access)
                 if (incidents.isEmpty()) Text("Không có sự cố đang xử lý.")
-                incidents.forEach { LedgerLine(it.title, incidentLabel(it.lifecycle)) }
+                incidents.forEach { TroOiInformationRow(it.title, incidentLabel(it.lifecycle)) }
             }
             item {
                 LedgerSectionTitle("Hoạt động gần đây")
                 val ownedTenancyIds = state.read.tenancies.filter { tenancy -> rooms.any { it.roomId == tenancy.roomId } }.map { it.tenancyId }.toSet()
                 val notices = state.read.noticesByTenancy.filterKeys { it in ownedTenancyIds }.values.flatten()
                 if (notices.isEmpty()) Text("Chưa có hoạt động quản lý được ghi nhận.")
-                notices.forEach { LedgerLine(it.content, it.issuedAtLabel) }
+                notices.forEach { TroOiInformationRow(it.content, it.issuedAtLabel) }
             }
         }
     }
@@ -213,14 +213,6 @@ fun LedgerScreen(
         catalog.assets.firstOrNull { it.id == detailId }?.let { asset ->
             OwnerAssetDetail(state, asset, { detailId = null }, { editAsset = asset; detailId = null; wizardOpen = true }, onArchiveAsset)
         }
-    }
-}
-
-@Composable
-private fun LedgerLine(title: String, detail: String) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -235,7 +227,7 @@ internal fun incidentLabel(state: IncidentLifecycle): String = when (state) {
 
 @Composable
 private fun LedgerAssetCard(name: String, metadata: RentalAssetPresentation?, detail: String, status: String, onClick: (() -> Unit)? = null) {
-    Column(Modifier.fillMaxWidth().then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)),
+    Column(Modifier.fillMaxWidth().then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick)),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (metadata != null && (metadata.photoResources.isNotEmpty() || metadata.photoUris.isNotEmpty())) LocalRentalPhoto(metadata.photoUris.firstOrNull(), metadata.photoResources.firstOrNull(), name,
             Modifier.fillMaxWidth().height(176.dp).clip(RoundedCornerShape(16.dp)))
