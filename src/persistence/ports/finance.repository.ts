@@ -24,7 +24,7 @@ export type GatewayCheckoutRecord = GatewaySnapshotBinding & {
   replayBlocker: string | null;
   providerOutcome: string | null;
   providerResultCode: number | null;
-  providerOutcomeStage: 'CREATE' | 'PAYMENT_IPN' | 'RECONCILIATION' | null;
+  providerOutcomeStage: 'CREATE' | 'PAYMENT_IPN' | 'RECONCILIATION' | 'DEMO_CONFIRMATION' | null;
   terminalEvidence: string | null;
   providerTransId: string | null;
   providerRemoteOrderId: string | null;

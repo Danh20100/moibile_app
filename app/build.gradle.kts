@@ -25,6 +25,11 @@ val googleWebClientId = providers.gradleProperty("trooiGoogleWebClientId")
     .orElse("")
     .get()
 val escapedGoogleWebClientId = googleWebClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+val paymentPublicOrigin = providers.gradleProperty("trooiPaymentPublicOrigin")
+    .orElse(providers.environmentVariable("TROOI_PAYMENT_PUBLIC_ORIGIN"))
+    .orElse("")
+    .get()
+val escapedPaymentPublicOrigin = paymentPublicOrigin.replace("\\", "\\\\").replace("\"", "\\\"")
 val mapsApiKey = providers.gradleProperty("trooiMapsApiKey")
     .orElse(providers.environmentVariable("TROOI_MAPS_API_KEY"))
     .orElse("")
@@ -44,6 +49,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BACKEND_API_BASE_URL", "\"$escapedBackendApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")
+        buildConfigField("String", "PAYMENT_PUBLIC_ORIGIN", "\"$escapedPaymentPublicOrigin\"")
         buildConfigField("String", "MAPS_API_KEY", "\"$escapedMapsApiKey\"")
         manifestPlaceholders["trooiMapsApiKey"] = mapsApiKey
     }

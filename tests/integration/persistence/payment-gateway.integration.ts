@@ -7,6 +7,9 @@ import {
   type MomoPaymentClient,
 } from '../../../src/modules/payment-gateway/momo/momo-client';
 import { PaymentGatewayService } from '../../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 import type { TransactionManager } from '../../../src/persistence/ports/transaction-manager';
 import {
@@ -23,7 +26,12 @@ function protocol() {
 }
 
 function gatewayFor(manager: TransactionManager, momo: MomoPaymentClient, clock?: () => Date) {
-  return new PaymentGatewayService(new TenancyService(manager), manager, momo, undefined, clock);
+  return new PaymentGatewayService(new TenancyService(manager),
+    manager,
+    new GatewayProviderRegistry(new MomoGatewayAdapter(momo)),
+    new GatewaySettlementService(manager, clock),
+    undefined,
+    clock);
 }
 
 test('two managers elect one same-key intent and replay the same provider IDs after restart', async () => {

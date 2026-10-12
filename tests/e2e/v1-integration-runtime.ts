@@ -7,6 +7,9 @@ import { ResourceAuthorizationService } from '../../src/common/auth/resource-aut
 import { googlePrincipalUserId } from '../../src/common/identity/deterministic-user-id';
 import { HttpMomoPaymentClient } from '../../src/modules/payment-gateway/momo/momo-client';
 import { PaymentGatewayService } from '../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { AuditTrustService } from '../../src/modules/audit-trust/services/audit-trust.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
 import {
@@ -58,10 +61,9 @@ async function persistedHttp() {
   });
   const proto = new HttpMomoPaymentClient(TEST_MOMO);
   const authz = new ResourceAuthorizationService(fixture.manager);
-  const gateway = new PaymentGatewayService(
-    new TenancyService(fixture.manager),
+  const gateway = new PaymentGatewayService(new TenancyService(fixture.manager),
     fixture.manager,
-    {
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
       snapshot: (id) => proto.snapshot(id),
       verifyIpn: proto.verifyIpn.bind(proto),
       async createCaptureWallet() {
@@ -72,9 +74,9 @@ async function persistedHttp() {
           deeplink: null,
         };
       },
-    },
-    authz,
-  );
+    })),
+    new GatewaySettlementService(fixture.manager),
+    authz);
   const checkoutApp = await startGatewayHttpHarness({ service: gateway, authz, verifier });
   const trustApp = await startTrustHttpHarness({
     service: new AuditTrustService(fixture.manager),

@@ -1,4 +1,4 @@
-export type GatewayProvider = 'MOMO' | 'SEPAY';
+export type GatewayProvider = 'MOMO' | 'SEPAY' | 'DEMO';
 
 export interface MomoRequestSnapshot {
   partnerCode: string;
@@ -10,12 +10,8 @@ export interface MomoRequestSnapshot {
   autoCapture: true;
 }
 
-// Local Sandbox storage binding; provider acceptance and evidence identity remain gated.
-export interface SepayRequestSnapshot {
-  environment: 'sandbox';
+interface SepaySnapshotFields {
   merchantId: string;
-  endpoint: 'https://pay-sandbox.sepay.vn/v1/checkout/init';
-  apiOrigin: 'https://pgapi-sandbox.sepay.vn';
   operation: 'PURCHASE';
   paymentMethod: 'BANK_TRANSFER';
   currency: 'VND';
@@ -24,6 +20,22 @@ export interface SepayRequestSnapshot {
   cancelUrl: string;
 }
 
+// Local storage binding. Sandbox and production hosts are not interchangeable.
+export type SepayRequestSnapshot = SepaySnapshotFields &
+  (
+    | {
+        environment: 'sandbox';
+        endpoint: 'https://pay-sandbox.sepay.vn/v1/checkout/init';
+        apiOrigin: 'https://pgapi-sandbox.sepay.vn';
+      }
+    | {
+        environment: 'production';
+        endpoint: 'https://pay.sepay.vn/v1/checkout/init';
+        apiOrigin: 'https://pgapi.sepay.vn';
+      }
+  );
+
 export type GatewaySnapshotBinding =
   | { provider: 'MOMO'; requestSnapshot: MomoRequestSnapshot | null }
-  | { provider: 'SEPAY'; requestSnapshot: SepayRequestSnapshot | null };
+  | { provider: 'SEPAY'; requestSnapshot: SepayRequestSnapshot | null }
+  | { provider: 'DEMO'; requestSnapshot: null };

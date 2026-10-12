@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.features.shared.*
 import com.trooi.app.ui.components.*
@@ -42,6 +43,10 @@ fun V1RentalWorkspace(
         val url = state.checkoutLaunchUrl ?: return@LaunchedEffect
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         model.consumeLaunchUrl()
+    }
+    LifecycleResumeEffect(Unit) {
+        model.refreshGatewayCheckout()
+        onPauseOrDispose { }
     }
     var name by remember(state.route) { mutableStateOf("") }
     var extra by remember(state.route) { mutableStateOf("") }

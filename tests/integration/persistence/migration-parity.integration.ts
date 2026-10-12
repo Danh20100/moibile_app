@@ -2,6 +2,9 @@ import type { TransactionManager } from '../../../src/persistence/ports/transact
 import { HttpMomoPaymentClient } from '../../../src/modules/payment-gateway/momo/momo-client';
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 import { PaymentGatewayService } from '../../../src/modules/payment-gateway/services/payment-gateway.service';
+import { MomoGatewayAdapter } from '../../../src/modules/payment-gateway/providers/momo-gateway.adapter';
+import { GatewayProviderRegistry } from '../../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { GatewaySettlementService } from '../../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -22,8 +25,16 @@ test('optional_sepay_upgrade_preserves_momo_rows', async () => {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    const latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
-    if (latest === '000005_optional_sepay_gateway') await runMigrations('down', url);
+    let latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    while (
+      latest === '000007_sepay_production' ||
+      latest === '000006_demo_gateway' ||
+      latest === '000005_optional_sepay_gateway'
+    ) {
+      await runMigrations('down', url);
+      latest = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    }
+    assert.equal((await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name, '000004_gateway_checkout_durability');
     const protocol = new HttpMomoPaymentClient({ partnerCode: 'TEST', accessKey: 'test', secretKey: 'test', endpoint: 'https://test-payment.momo.vn', ipnUrl: 'https://example.test/ipn', redirectUrl: 'trooi://payment/momo' });
     const paymentId = randomUUID();
     await f.finance.insertPayment({ paymentId, tenancyId: f.ids.tenancy, amount: '1000.00', source: 'GATEWAY', verification: 'PROVIDER_VERIFIED', confirmedAt: '2026-10-07T00:00:00.000Z', voidedOrReversedAt: null, correctionNote: null, replacementPaymentId: null });
@@ -188,6 +199,12 @@ test('provider_snapshot_mismatch_is_rejected; local_invoice_collision_rejected_b
     await client.query("UPDATE gateway.gateway_checkouts SET provider_outcome_stage='RECONCILIATION' WHERE checkout_id=$1", [sepayId]);
     await assert.rejects(client.query("UPDATE gateway.gateway_checkouts SET provider_result_code=0 WHERE checkout_id=$1", [sepayId]), /check constraint/);
     await assert.rejects(client.query("UPDATE gateway.gateway_checkouts SET status='SUCCEEDED' WHERE checkout_id=$1", [sepayId]), /ck_gateway_checkout_result/);
+    let rolled = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    while (rolled === '000007_sepay_production' || rolled === '000006_demo_gateway') {
+      await runMigrations('down', url);
+      rolled = (await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name;
+    }
+    assert.equal(rolled, '000005_optional_sepay_gateway');
     await assert.rejects(runMigrations('down', url), /SEPAY/);
     assert.equal((await client.query('SELECT count(*)::int AS n FROM gateway.gateway_checkouts WHERE provider=\'SEPAY\'')).rows[0].n, 2);
     assert.equal((await queryCatalog(url)).tables.length, 29);
@@ -298,6 +315,8 @@ test('durability migration preserves legacy IDs/results and blocks unreconstruct
   try {
     await runMigrations('down', url);
     await runMigrations('down', url);
+    await runMigrations('down', url);
+    await runMigrations('down', url);
     const catalog = await client.query('SELECT name FROM schema_migrations ORDER BY id');
     assert.deepEqual(
       catalog.rows.map((row) => row.name),
@@ -352,6 +371,9 @@ test('durability migration preserves legacy IDs/results and blocks unreconstruct
       2,
     );
     await runMigrations('down', url);
+    await runMigrations('down', url);
+    await runMigrations('down', url);
+    assert.equal((await client.query('SELECT name FROM schema_migrations ORDER BY id DESC LIMIT 1')).rows[0]?.name, '000004_gateway_checkout_durability');
     await runMigrations('up', url);
     assert.equal((await f.finance.findGatewayCheckout(ids[1]!))?.resultingPaymentId, paymentId);
   } finally {
@@ -383,7 +405,9 @@ test('PostgreSQL dispatch sees committed intent and lease, releases locks, and e
   const started = new Promise<void>((resolve) => {
     entered = resolve;
   });
-  const gateway = new PaymentGatewayService(new TenancyService(f.manager), f.manager, {
+  const gateway = new PaymentGatewayService(new TenancyService(f.manager),
+    f.manager,
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
     snapshot: (id) => protocol.snapshot(id),
     verifyIpn: () => false,
     async createCaptureWallet(input) {
@@ -423,7 +447,8 @@ test('PostgreSQL dispatch sees committed intent and lease, releases locks, and e
         deeplink: null,
       };
     },
-  });
+  })),
+    new GatewaySettlementService(f.manager));
   try {
     const key = randomUUID();
     const first = gateway.createCheckout(
@@ -540,10 +565,9 @@ test('committed pre-HTTP crash lease recovers after 60s, and failed intent trans
     redirectUrl: 'trooi://payment/momo',
   });
   let calls = 0;
-  const gateway = new PaymentGatewayService(
-    new TenancyService(manager),
+  const gateway = new PaymentGatewayService(new TenancyService(manager),
     manager,
-    {
+    new GatewayProviderRegistry(new MomoGatewayAdapter({
       snapshot: (id) => protocol.snapshot(id),
       verifyIpn: () => false,
       async createCaptureWallet() {
@@ -555,10 +579,10 @@ test('committed pre-HTTP crash lease recovers after 60s, and failed intent trans
           deeplink: null,
         };
       },
-    },
+    })),
+    new GatewaySettlementService(manager, () => now),
     undefined,
-    () => now,
-  );
+    () => now);
   const input = { tenancyId: f.ids.tenancy, amount: '1000' };
   const key = randomUUID();
   try {

@@ -49,6 +49,7 @@ class CheckoutTransportTest {
             assertEquals("22222222-2222-4222-8222-222222222222", request.getHeader("Idempotency-Key"))
             assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
             val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
+            assertEquals("SEPAY", body.get("provider").asString)
             assertEquals("t-1", body.get("tenancyId").asString)
             assertEquals("50000.00", body.get("amount").asString)
             assertFalse(body.has("provider"))
@@ -106,6 +107,19 @@ class CheckoutTransportTest {
             server.start(InetAddress.getLoopbackAddress(), 0)
             assertTrue(client(server).get("listings/public") is TransportOutcome.Success)
             assertEquals(2, server.requestCount)
+        }
+    }
+
+    @Test
+    fun reconcilePostsToCheckoutIdAndIsNotAGet() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(checkoutJson()))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            V1PaymentGateway(client(server)).reconcile("chk-1")
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/finance/checkouts/chk-1/reconcile", request.path)
+            assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
         }
     }
 

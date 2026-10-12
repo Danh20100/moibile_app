@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TrọƠi · DemoPay Test Console</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">TEST ONLY · MÔ PHỎNG</span>
+        <h1>DemoPay Test Console</h1>
+        <p>
+          Tạo checkout DEMO, mở trang thanh toán mô phỏng và kiểm tra trạng thái backend
+          mà không cần Android.
+        </p>
+      </div>
+      <div class="backend-pill">
+        <span class="dot"></span>
+        <div>
+          <small>Backend proxy</small>
+          <strong id="backendTarget">đang tải…</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="notice">
+      <strong>Không phải cổng thanh toán thật.</strong>
+      <span>Trang này chỉ phục vụ kiểm thử backend TrọƠi trong môi trường local.</span>
+    </section>
+
+    <section class="grid">
+      <article class="card setup-card">
+        <div class="card-heading">
+          <div>
+            <span class="step-label">BƯỚC 1</span>
+            <h2>Tạo DEMO checkout</h2>
+          </div>
+          <span id="createState" class="status status-idle">CHƯA TẠO</span>
+        </div>
+
+        <form id="checkoutForm" autocomplete="off">
+          <label>
+            <span>Bearer token</span>
+            <input id="authToken" type="password" placeholder="Dán access token dùng để test" />
+            <small>Chỉ giữ trong bộ nhớ tab hiện tại, không lưu localStorage.</small>
+          </label>
+
+          <label>
+            <span>Tenancy ID</span>
+            <input id="tenancyId" type="text" required placeholder="60000000-0000-4000-8000-000000000001" />
+          </label>
+
+          <div class="form-row">
+            <label>
+              <span>Số tiền (VND)</span>
+              <input id="amount" type="text" inputmode="decimal" required value="4470000.00" />
+            </label>
+
+            <label>
+              <span>Idempotency-Key</span>
+              <div class="inline-input">
+                <input id="idempotencyKey" type="text" required />
+                <button id="regenKey" class="icon-button" type="button" title="Tạo UUID mới">↻</button>
+              </div>
+            </label>
+          </div>
+
+          <button id="createCheckout" class="button button-primary" type="submit">
+            Tạo DEMO checkout
+          </button>
+        </form>
+      </article>
+
+      <article class="card payment-card">
+        <div class="card-heading">
+          <div>
+            <span class="step-label">BƯỚC 2</span>
+            <h2>Thanh toán mô phỏng</h2>
+          </div>
+          <span id="checkoutStatus" class="status status-idle">—</span>
+        </div>
+
+        <div class="payment-visual">
+          <div class="demo-badge">MÔ PHỎNG</div>
+          <span class="muted">TrọƠi DemoPay</span>
+          <strong id="amountDisplay" class="amount">—</strong>
+          <dl class="details">
+            <div>
+              <dt>Reference</dt>
+              <dd id="referenceDisplay">—</dd>
+            </div>
+            <div>
+              <dt>Checkout ID</dt>
+              <dd id="checkoutIdDisplay">—</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="stack">
+          <button id="openPayment" class="button button-primary" type="button" disabled>
+            Mở trang DemoPay
+          </button>
+          <button id="refreshStatus" class="button button-secondary" type="button" disabled>
+            Kiểm tra trạng thái
+          </button>
+        </div>
+
+        <p id="flowHint" class="hint">
+          Sau khi tạo checkout, nút DemoPay sẽ mở payUrl do backend trả về.
+        </p>
+      </article>
+    </section>
+
+    <section class="card response-card">
+      <div class="card-heading">
+        <div>
+          <span class="step-label">BƯỚC 3</span>
+          <h2>Backend response</h2>
+        </div>
+        <button id="clearLog" class="button button-ghost" type="button">Xóa log</button>
+      </div>
+
+      <div id="summary" class="summary summary-idle">
+        Chưa có response.
+      </div>
+      <pre id="responseOutput" aria-live="polite">{}</pre>
+    </section>
+
+    <footer>
+      <span>tests/demo-payment-web</span>
+      <span>Không tạo Receipt / Allocation / DepositApplication.</span>
+    </footer>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

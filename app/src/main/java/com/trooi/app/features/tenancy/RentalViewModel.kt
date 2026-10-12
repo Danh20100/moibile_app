@@ -327,24 +327,35 @@ class RentalViewModel @Inject constructor(
             return
         }
         if (securityUnavailable()) return
-        val intent = rememberCheckoutBeforePost(tenancyId, normalized, _ui.value.checkoutIntent) {
-            UUID.randomUUID().toString()
-        }
-        persistHint(intent)
+        if (_ui.value.busy) return
+        val current = ++revision
         _ui.update {
             it.copy(
-                checkoutIntent = intent,
+                busy = true,
+                checkoutCreateFailed = false,
                 checkoutLaunchUrl = null,
                 error = null,
                 errorKind = null,
                 success = null,
             )
         }
-        if (_ui.value.busy) return
-        val current = ++revision
-        _ui.update { it.copy(busy = true, checkoutCreateFailed = false) }
         viewModelScope.launch {
             try {
+                val prior = _ui.value.gatewayCheckout
+                val latest = if (prior?.provider == "SEPAY" && !isConfirmedGatewayPayment(prior)) {
+                    runCatching { gateway.reconcile(prior.id) }.getOrDefault(prior)
+                } else {
+                    prior
+                }
+                if (current != revision) return@launch
+                val intent = rememberCheckoutBeforePost(
+                    tenancyId,
+                    normalized,
+                    _ui.value.checkoutIntent,
+                    latest,
+                ) { UUID.randomUUID().toString() }
+                persistHint(intent)
+                _ui.update { it.copy(checkoutIntent = intent) }
                 val created = gateway.create(intent.tenancyId, intent.amount, intent.idempotencyKey)
                 applyCheckout(current, tenancyId, intent, created, launchPayUrl = true)
             } catch (error: Exception) {
@@ -378,7 +389,13 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(busy = true, error = null, errorKind = null, success = null) }
         viewModelScope.launch {
             try {
-                applyCheckout(current, tenancyId, intent, gateway.get(id), launchPayUrl = false)
+                val fetched = gateway.get(id)
+                val checkout = if (fetched.provider == "SEPAY" && !isConfirmedGatewayPayment(fetched)) {
+                    runCatching { gateway.reconcile(id) }.getOrDefault(fetched)
+                } else {
+                    fetched
+                }
+                applyCheckout(current, tenancyId, intent, checkout, launchPayUrl = false)
             } catch (error: Exception) {
                 fail(current, error)
             }
@@ -485,7 +502,11 @@ class RentalViewModel @Inject constructor(
         }
         persistHint(remembered)
         val url = if (launchPayUrl) {
-            launchableHttpsPayUrl(created.payUrl, BuildConfig.DEBUG && RuntimeDataSource.isBackendBacked())
+            launchableHttpsPayUrl(
+                created.payUrl,
+                BuildConfig.DEBUG && RuntimeDataSource.isBackendBacked(),
+                BuildConfig.PAYMENT_PUBLIC_ORIGIN,
+            )
         } else {
             null
         }
@@ -493,6 +514,11 @@ class RentalViewModel @Inject constructor(
             api.payments(tenancyId).filter { payment -> payment.tenancyId == tenancyId }
         } else {
             _ui.value.payments
+        }
+        val billing = if (tenancyId != null && isConfirmedGatewayPayment(created)) {
+            api.billingCycles(tenancyId).filter { cycle -> cycle.tenancyId == tenancyId }
+        } else {
+            _ui.value.billing
         }
         val confirmed = isConfirmedGatewayPayment(created) &&
             payments.any { it.id == created.resultingPaymentId }
@@ -505,6 +531,7 @@ class RentalViewModel @Inject constructor(
                 checkoutLaunchUrl = url,
                 checkoutCreateFailed = manualCheckoutAvailable(created, false),
                 payments = payments,
+                billing = billing,
                 success = if (confirmed) "Backend đã xác nhận Payment." else null,
             )
         }

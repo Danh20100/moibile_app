@@ -19,6 +19,51 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    if (
+      /^\/api\/v1\/finance\/checkouts\/demo\/pay(?:\/|\?|$)/i.test(
+        request.originalUrl || request.url,
+      )
+    ) {
+      const parser = exception as {
+        type?: string;
+        status?: number;
+        getStatus?: () => number;
+      } | null;
+      const status =
+        typeof parser?.getStatus === 'function'
+          ? parser.getStatus()
+          : isPayloadTooLarge(exception)
+            ? HttpStatus.PAYLOAD_TOO_LARGE
+            : parser?.type === 'entity.parse.failed' ||
+                (exception instanceof URIError && parser?.status === 400)
+              ? HttpStatus.BAD_REQUEST
+              : HttpStatus.INTERNAL_SERVER_ERROR;
+      const messages: Record<number, string> = {
+        400: 'Bad request',
+        403: 'Forbidden',
+        404: 'Not found',
+        409: 'Conflict',
+        413: 'Payload too large',
+        503: 'Service unavailable',
+        500: 'Internal server error',
+      };
+      const safeStatus = messages[status] ? status : HttpStatus.INTERNAL_SERVER_ERROR;
+      response.set({
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy':
+          "default-src 'none'; script-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      });
+      response.status(safeStatus).json({
+        statusCode: safeStatus,
+        timestamp: new Date().toISOString(),
+        path: '/api/v1/finance/checkouts/demo/pay/[redacted]',
+        message: messages[safeStatus],
+      });
+      return;
+    }
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let errors: unknown = undefined;

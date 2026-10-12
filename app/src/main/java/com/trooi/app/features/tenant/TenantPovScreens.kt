@@ -40,6 +40,7 @@ fun V1TenantHomeScreen(
     val notices = current?.let { state.read.noticesByTenancy[it.tenancyId].orEmpty() }.orEmpty()
     val outstanding = finance?.charges?.firstOrNull()?.outstandingLabel
         ?: finance?.charges?.firstOrNull()?.amountLabel
+    val paidUp = outstanding == "0.00" || outstanding == "0"
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("tenant-pov-home"),
@@ -74,10 +75,16 @@ fun V1TenantHomeScreen(
                     amount = outstanding ?: "Chưa có khoản phải thu",
                     context = if (finance?.charges.isNullOrEmpty()) {
                         "Chưa có khoản phải thu cho lượt thuê này."
+                    } else if (paidUp) {
+                        "Đã thanh toán đủ khoản hiện tại."
                     } else {
                         "Khoản cần thanh toán hiện tại."
                     },
-                    tone = if (outstanding == null) LedgerTone.Neutral else LedgerTone.Warning,
+                    tone = when {
+                        outstanding == null -> LedgerTone.Neutral
+                        paidUp -> LedgerTone.Success
+                        else -> LedgerTone.Warning
+                    },
                 )
                 Spacer(Modifier.height(10.dp))
                 TroOiButton("Xem thanh toán", onFinance, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
@@ -163,6 +170,8 @@ fun V1TenantFinanceScreen(
         items(rentals, key = { "tenant-finance-" + it.tenancyId }) { tenancy ->
             val finance = state.read.tenantFinanceByTenancy[tenancy.tenancyId]
             val primaryCharge = finance?.charges?.firstOrNull()
+            val remaining = primaryCharge?.outstandingLabel ?: primaryCharge?.amountLabel
+            val paidUp = remaining == "0.00" || remaining == "0"
             RoomLedgerPlate(
                 roomLabel = tenancy.roomLabel,
                 contextLabel = "Thanh toán",
@@ -170,9 +179,13 @@ fun V1TenantFinanceScreen(
             )
             Spacer(Modifier.height(12.dp))
             LedgerMoney(
-                amount = primaryCharge?.outstandingLabel ?: primaryCharge?.amountLabel ?: "Chưa có khoản phải thu",
-                context = "Khoản cần thanh toán hiện tại",
-                tone = if (primaryCharge == null) LedgerTone.Neutral else LedgerTone.Warning,
+                amount = remaining ?: "Chưa có khoản phải thu",
+                context = if (paidUp) "Đã thanh toán đủ khoản hiện tại" else "Khoản cần thanh toán hiện tại",
+                tone = when {
+                    primaryCharge == null -> LedgerTone.Neutral
+                    paidUp -> LedgerTone.Success
+                    else -> LedgerTone.Warning
+                },
             )
             Spacer(Modifier.height(12.dp))
             LedgerSectionTitle("Các khoản trong kỳ")

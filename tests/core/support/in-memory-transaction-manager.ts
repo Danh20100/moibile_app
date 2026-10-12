@@ -393,9 +393,10 @@ export function createCoreTestTransactionManager(
         structuredClone([...checkouts.values()].find((v) => v.createdByUserId === userId && v.idempotencyKey === key)),
       acquireGatewayDispatchLease: async (id: string, owner: string, now: string, until: string) => {
         const v = checkouts.get(id);
-        if (!v || v.provider !== 'MOMO' || !['INITIATED', 'UNKNOWN'].includes(v.status) || v.replayBlocker || !v.requestSnapshot ||
-            (v.dispatchLeaseUntil && v.dispatchLeaseUntil > now) ||
-            (v.firstDispatchAt && new Date(now).getTime() - new Date(v.firstDispatchAt).getTime() >= 31 * 86400000)) return false;
+        if (!v || v.replayBlocker || (v.dispatchLeaseUntil && v.dispatchLeaseUntil > now) ||
+            !((v.provider === 'MOMO' && ['INITIATED', 'UNKNOWN'].includes(v.status) && v.requestSnapshot &&
+              (!v.firstDispatchAt || new Date(now).getTime() - new Date(v.firstDispatchAt).getTime() < 31 * 86400000)) ||
+              (v.provider === 'DEMO' && ['INITIATED', 'CREATED'].includes(v.status) && v.requestSnapshot === null))) return false;
         checkouts.set(id, { ...v, dispatchLeaseOwner: owner, dispatchLeaseUntil: until, firstDispatchAt: v.firstDispatchAt ?? now });
         return true;
       },

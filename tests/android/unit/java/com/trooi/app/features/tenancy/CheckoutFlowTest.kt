@@ -22,6 +22,16 @@ class CheckoutFlowTest {
     }
 
     @Test
+    fun paidCheckoutStartsANewInvoiceForTheSameAmount() {
+        val paid = checkout("SUCCEEDED", resultingPaymentId = "pay-1")
+        val next = rememberCheckoutBeforePost("t-1", "50000.00", intent, paid) { "key-new" }
+        assertEquals("key-new", next.idempotencyKey)
+        assertNull(next.checkoutId)
+        assertTrue(shouldStartFreshCheckout(paid))
+        assertFalse(shouldStartFreshCheckout(checkout("CREATED")))
+    }
+
+    @Test
     fun lostCreateResponseReplaysTheSamePostKey() {
         val remembered = rememberCheckoutBeforePost("t-1", "50000.00", intent) { "other" }
         assertEquals(intent.idempotencyKey, remembered.idempotencyKey)
@@ -73,6 +83,13 @@ class CheckoutFlowTest {
         assertEquals(PaymentReturnAction.RefreshCheckout("chk-1"), before)
         assertTrue(afterIpn)
         assertFalse(isConfirmedGatewayPayment(checkout("CREATED", resultingPaymentId = "pay-1")))
+        assertEquals(
+            PaymentReturnAction.RefreshCheckout("chk-1"),
+            interpretPaymentReturn(
+                PaymentReturnUri("trooi", "payment", "/sepay"),
+                PendingCheckoutHint("t-1", "50000.00", intent.idempotencyKey, "chk-1"),
+            ),
+        )
     }
 
     @Test
@@ -95,6 +112,9 @@ class CheckoutFlowTest {
         assertNull(launchableHttpsPayUrl("momo://app?token=abc"))
         assertNull(launchableHttpsPayUrl("https://evil.example/pay"))
         assertNull(launchableHttpsPayUrl("http://test-payment.momo.vn/pay"))
+        val handoff = "https://pay.example/api/v1/finance/checkouts/sepay/handoff?token=abc"
+        assertEquals(handoff, launchableHttpsPayUrl(handoff, paymentPublicOrigin = "https://pay.example"))
+        assertNull(launchableHttpsPayUrl("https://evil.example/pay", paymentPublicOrigin = "https://pay.example"))
     }
 
     @Test fun localDemoHandoffAndReturnRequireExplicitOptInAndNeverTrustQuerySuccess() {

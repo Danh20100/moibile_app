@@ -292,6 +292,11 @@ class TroOiViewModel @Inject constructor(
         bootstrapRestore(context)
     }
 
+    fun onAppResume() {
+        if (!_state.value.isAuthenticated || _state.value.sessionRestoring) return
+        refreshRememberedCheckout()
+    }
+
     fun handlePaymentReturn(uri: PaymentReturnUri) {
         val userId = _state.value.backendUserId
         val local = hintsStore.read()
@@ -912,15 +917,23 @@ class TroOiViewModel @Inject constructor(
         }
         val generation = sessionGeneration
         viewModelScope.launch {
-            runCatching { paymentGateway.get(id) }
+            runCatching {
+                val current = paymentGateway.get(id)
+                if (current.provider == "SEPAY" && !isConfirmedGatewayPayment(current)) {
+                    runCatching { paymentGateway.reconcile(id) }.getOrDefault(current)
+                } else {
+                    current
+                }
+            }
                 .onSuccess { checkout ->
                     if (generation != sessionGeneration) return@onSuccess
                     if (hint != null && hint.tenancyId == checkout.tenancyId) {
                         hintsStore.upsertPendingCheckout(hint.copy(checkoutId = checkout.id))
                     }
+                    refreshAuthorizedRead(_state.value.access)
                     showMessage(
                         if (isConfirmedGatewayPayment(checkout)) {
-                            "Checkout SUCCEEDED. Payment chỉ hiện sau khi Backend xác nhận trong danh sách."
+                            "Backend đã xác nhận Payment. Số liệu được làm mới từ danh sách."
                         } else {
                             "Checkout ${checkout.status}. URI không phải bằng chứng đã trả."
                         },

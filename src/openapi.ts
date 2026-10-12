@@ -19,7 +19,10 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .addBearerAuth()
     .addSecurityRequirements('bearer')
     .addTag('Health', 'Kiểm tra trạng thái hoạt động của hệ thống')
-    .addTag('Identity & Access', 'Danh tính người dùng và capability truy cập theo relationship, không dùng global role')
+    .addTag(
+      'Identity & Access',
+      'Danh tính người dùng và capability truy cập theo relationship, không dùng global role',
+    )
     .addTag('Organization', 'Phạm vi vận hành cấp cao nhất của chủ trọ/đơn vị quản lý')
     .addTag('Property', 'Quản lý tài sản và bất động sản ở cấp địa điểm')
     .addTag('Room', 'Đơn vị cho thuê cốt lõi và operational anchor')
@@ -29,7 +32,10 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .addTag('Incident', 'Sự cố vận hành và lifecycle xử lý ticket')
     .addTag('Listing', 'Public projection của phòng phục vụ tìm kiếm/khám phá')
     .addTag('Audit & Trust', 'Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ')
-    .addTag('Payment Gateway', 'MoMo checkout channel. Confirmed Payment is created only after provider IPN.')
+    .addTag(
+      'Payment Gateway',
+      'MoMo checkout channel. Confirmed Payment is created only after provider IPN.',
+    )
     .build();
 }
 
@@ -39,6 +45,7 @@ const PUBLIC_PATHS = [
   { path: '/listings/public/search', method: 'get' },
   { path: '/identity-access/auth/google', method: 'post' },
   { path: '/finance/checkouts/momo/ipn', method: 'post' },
+  { path: '/finance/checkouts/sepay/ipn', method: 'post' },
 ];
 
 /**
