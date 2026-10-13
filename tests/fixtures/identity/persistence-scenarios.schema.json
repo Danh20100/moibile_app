@@ -1,0 +1,690 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "populatedUpgradeFixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "now": {
+          "type": "string",
+          "minLength": 1
+        },
+        "later": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalIssuer": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "https://accounts.google.com"
+          ]
+        },
+        "googleProvider": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "google"
+          ]
+        },
+        "initialName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliasRace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliasRaceTagExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bareIssuer": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "accounts.google.com"
+          ]
+        },
+        "legacyVector": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compatibilityFixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyProperty": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activeLifecycle": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "ACTIVE"
+          ]
+        },
+        "testFixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "testRoom": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vacantRoom": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "VACANT"
+          ]
+        },
+        "draftTenancy": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "DRAFT"
+          ]
+        },
+        "occupantRole": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "OCCUPANT"
+          ]
+        },
+        "dualConflict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "badOwner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailOwner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ownerNameTagExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailCollision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ownerNameTagExampleTestCaseVariant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailChange": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beforeExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailOther": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occupiedExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "initialRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "afterExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "otpVerificationSource": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "email_otp"
+          ]
+        },
+        "secondRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thirdExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailReused": {
+          "type": "string",
+          "minLength": 1
+        },
+        "beforeExampleTestCaseVariant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailCasRace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "casOriginalExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "leftExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rightExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profilePreserve": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profileExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "userChoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerChangedExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "providerNewName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "noName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "noNameExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "newGoogleName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "completedByUser": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credentialCas": {
+          "type": "string",
+          "minLength": 1
+        },
+        "credentialExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resetKind": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "reset"
+          ]
+        },
+        "rehashKind": {
+          "type": "string",
+          "minLength": 1,
+          "enum": [
+            "rehash"
+          ]
+        },
+        "rehashAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thirdRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackNew": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackExisting": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keptExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rolledBackExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sqlGuards": {
+          "type": "string",
+          "minLength": 1
+        },
+        "guardsExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "changed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "plaintextHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailLoginRace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loginOldExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loginNewExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "managerRollback": {
+          "type": "string",
+          "minLength": 1
+        },
+        "managerExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "staleRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "neverExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockLifetime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockLifetimeExampleTest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encodedHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invalidEncodedHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crossEmailLeftSubject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crossEmailRightSubject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crossEmailLeftAddress": {
+          "type": "string",
+          "minLength": 1
+        },
+        "crossEmailRightAddress": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "populatedUpgradeFixture",
+        "now",
+        "later",
+        "canonicalIssuer",
+        "googleProvider",
+        "initialName",
+        "aliasRace",
+        "aliasRaceTagExampleTest",
+        "bareIssuer",
+        "legacyVector",
+        "compatibilityFixture",
+        "legacyProperty",
+        "activeLifecycle",
+        "testFixture",
+        "testRoom",
+        "vacantRoom",
+        "draftTenancy",
+        "occupantRole",
+        "dualConflict",
+        "badOwner",
+        "emailOwner",
+        "ownerNameTagExampleTest",
+        "emailCollision",
+        "ownerNameTagExampleTestCaseVariant",
+        "emailChange",
+        "beforeExampleTest",
+        "emailOther",
+        "occupiedExampleTest",
+        "initialRevision",
+        "afterExampleTest",
+        "otpVerificationSource",
+        "secondRevision",
+        "thirdExampleTest",
+        "emailReused",
+        "beforeExampleTestCaseVariant",
+        "emailCasRace",
+        "casOriginalExampleTest",
+        "leftExampleTest",
+        "rightExampleTest",
+        "profilePreserve",
+        "profileExampleTest",
+        "userChoice",
+        "providerChangedExampleTest",
+        "providerNewName",
+        "noName",
+        "noNameExampleTest",
+        "newGoogleName",
+        "completedByUser",
+        "credentialCas",
+        "credentialExampleTest",
+        "resetKind",
+        "rehashKind",
+        "rehashAt",
+        "thirdRevision",
+        "rollbackNew",
+        "rollbackExampleTest",
+        "rollbackExisting",
+        "keptExampleTest",
+        "rolledBackExampleTest",
+        "sqlGuards",
+        "guardsExampleTest",
+        "changed",
+        "plaintextHash",
+        "emailLoginRace",
+        "loginOldExampleTest",
+        "loginNewExampleTest",
+        "managerRollback",
+        "managerExampleTest",
+        "staleRevision",
+        "neverExampleTest",
+        "lockLifetime",
+        "lockLifetimeExampleTest",
+        "encodedHash",
+        "invalidEncodedHash",
+        "crossEmailLeftSubject",
+        "crossEmailRightSubject",
+        "crossEmailLeftAddress",
+        "crossEmailRightAddress"
+      ],
+      "additionalProperties": false
+    },
+    "errors": {
+      "type": "object",
+      "properties": {
+        "legacyConflict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "principalConflict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emailConflict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "staleState": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auditUnavailable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "immutable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cannotBeDeleted": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nextRevision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "foreignKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invalidHash": {
+          "type": "string",
+          "minLength": 1
+        },
+        "googleBindingRequired": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiresCombinedIntegrationMigrations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "populatedDownRefusal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "barrierTimeout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockObservationTimeout": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "legacyConflict",
+        "principalConflict",
+        "emailConflict",
+        "staleState",
+        "auditUnavailable",
+        "immutable",
+        "cannotBeDeleted",
+        "nextRevision",
+        "foreignKey",
+        "invalidHash",
+        "googleBindingRequired",
+        "requiresCombinedIntegrationMigrations",
+        "populatedDownRefusal",
+        "barrierTimeout",
+        "lockObservationTimeout"
+      ],
+      "additionalProperties": false
+    },
+    "ids": {
+      "type": "object",
+      "properties": {
+        "upgradeUser": {
+          "type": "string",
+          "minLength": 1
+        },
+        "upgradeOrganization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyOrganization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyProperty": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyRoom": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyTenancy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyParticipant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacyUnregisteredParticipant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conflictUser": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conflictIdentity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "missingCredentialUser": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unboundCredentialUser": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "upgradeUser",
+        "upgradeOrganization",
+        "legacyOrganization",
+        "legacyProperty",
+        "legacyRoom",
+        "legacyTenancy",
+        "legacyParticipant",
+        "legacyUnregisteredParticipant",
+        "conflictUser",
+        "conflictIdentity",
+        "missingCredentialUser",
+        "unboundCredentialUser"
+      ],
+      "additionalProperties": false
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "registrationConcurrency": {
+          "type": "integer",
+          "enum": [
+            8
+          ]
+        },
+        "credentialConcurrency": {
+          "type": "integer",
+          "enum": [
+            4
+          ]
+        },
+        "longitude": {
+          "type": "integer",
+          "enum": [
+            106
+          ]
+        },
+        "latitude": {
+          "type": "integer",
+          "enum": [
+            10
+          ]
+        },
+        "barrierParticipants": {
+          "type": "integer",
+          "enum": [
+            2
+          ]
+        },
+        "barrierTimeoutMs": {
+          "type": "integer",
+          "enum": [
+            5000
+          ]
+        }
+      },
+      "required": [
+        "registrationConcurrency",
+        "credentialConcurrency",
+        "longitude",
+        "latitude",
+        "barrierParticipants",
+        "barrierTimeoutMs"
+      ],
+      "additionalProperties": false
+    },
+    "states": {
+      "type": "object",
+      "properties": {
+        "missingDisplayName": {
+          "type": "null"
+        },
+        "absentCredentialRevision": {
+          "type": "null"
+        },
+        "tenancyStartedAt": {
+          "type": "null"
+        },
+        "tenancyEndedAt": {
+          "type": "null"
+        },
+        "tenancyEndReason": {
+          "type": "null"
+        },
+        "unregisteredUserId": {
+          "type": "null"
+        },
+        "participantLeftAt": {
+          "type": "null"
+        },
+        "missingLookup": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "missingDisplayName",
+        "absentCredentialRevision",
+        "tenancyStartedAt",
+        "tenancyEndedAt",
+        "tenancyEndReason",
+        "unregisteredUserId",
+        "participantLeftAt",
+        "missingLookup"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "values",
+    "errors",
+    "ids",
+    "configuration",
+    "states"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

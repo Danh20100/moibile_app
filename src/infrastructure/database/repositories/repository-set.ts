@@ -1,3 +1,4 @@
+import { PostgresIdentityFoundationRepository } from './identity-foundation.repository';
 import type { Transaction } from 'kysely';
 
 import type { PersistenceRepositories } from '../../../persistence/ports/transaction-manager';
@@ -17,6 +18,7 @@ export interface RepositorySetFactory {
 }
 
 export const createRepositorySet: RepositorySetFactory = (executor) => ({
+  identityFoundation: new PostgresIdentityFoundationRepository(executor),
   identity: new PostgresIdentityRepository(executor), organization: new PostgresOrganizationRepository(executor),
   property: new PostgresPropertyRepository(executor), listing: new PostgresListingRepository(executor),
   tenancy: new PostgresTenancyRepository(executor), finance: new PostgresFinanceRepository(executor),

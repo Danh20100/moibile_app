@@ -1,0 +1,11 @@
+{
+  "freezeVersion": "vnext.identity-foundation.1",
+  "sourceCommit": "079047bc986e71a2993959c0e7c22cc6834deaeb",
+  "accepted": "2026-10-13 ACCEPTED_WITH_NON_SCHEMA_CONDITIONS",
+  "algorithm": "SHA-256 over exact UTF-8 file bytes",
+  "files": {
+    "logical.json": "10209264dd91e1a2aa211fbaac962252822e1e540fc7fe7662c1f6afd4a650b9",
+    "physical.json": "74b98a622ba8f564d35ea3e946e3b196b219c46d64fa32038a5e404f8e46833e",
+    "transaction-contract.md": "66b593bc26b25425ca54fcdf862089d53cfa56e66195795db4e2ee6270b00f59"
+  }
+}

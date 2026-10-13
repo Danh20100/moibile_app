@@ -1,0 +1,84 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "ids": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unregisteredParticipant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "upgradeOrganization": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "organization",
+        "participant",
+        "unregisteredParticipant",
+        "upgradeOrganization"
+      ],
+      "additionalProperties": false
+    },
+    "email": {
+      "type": "string",
+      "minLength": 1
+    },
+    "organizationName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "upgradeOrganizationName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "joinedAt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "providerFailure": {
+      "type": "string",
+      "minLength": 1
+    },
+    "unavailableToken": {
+      "type": "string",
+      "minLength": 1
+    },
+    "foreignKeyViolationCode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "emailVerified": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "version",
+    "ids",
+    "email",
+    "organizationName",
+    "upgradeOrganizationName",
+    "joinedAt",
+    "providerFailure",
+    "unavailableToken",
+    "foreignKeyViolationCode",
+    "emailVerified"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

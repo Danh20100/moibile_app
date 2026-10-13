@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "subjectFirst": "subject-1",
+  "subjectSecond": "subject-2",
+  "userFirst": "9bf59ca6-7a6c-5265-b11e-57a25de6d4a8",
+  "userBare": "706e2c41-e4a1-57f9-ae4c-6d241e65eadc",
+  "userSecond": "f57a9c78-76d8-59a8-b155-496a1511e586",
+  "whitespaceIssuer": " https://accounts.google.com ",
+  "whitespaceSubject": " subject-1 ",
+  "mockEmail": "person@example.com",
+  "mockToken": "token",
+  "expectedUserExists": true
+}

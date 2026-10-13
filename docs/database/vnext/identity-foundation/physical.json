@@ -1,0 +1,339 @@
+{
+  "schemaVersion": "vnext.identity-foundation.1",
+  "title": "Minimal Identity Foundation physical addendum",
+  "level": "LV3_PHYSICAL_ADDENDUM",
+  "status": "REVIEWED_FROZEN",
+  "source": {
+    "canonical": {
+      "path": "docs/database/v1/canonical.md",
+      "version": "v3.7",
+      "status": "REVIEWED_FROZEN"
+    },
+    "basePhysical": "docs/database/v1/erd/physical.json",
+    "decisions": "docs/superpowers/specs/2026-10-12-profile-identity-decision-register.md",
+    "ownerApproval": "2026-10-13 Minimal Physical Contract Approval & Freeze Preparation instruction",
+    "profileHead": "079047bc986e71a2993959c0e7c22cc6834deaeb"
+  },
+  "platform": {
+    "database": "PostgreSQL",
+    "defaultSchema": "public"
+  },
+  "typePolicy": [
+    "uuid",
+    "text",
+    "bigint",
+    "timestamptz"
+  ],
+  "tables": [
+    {
+      "name": "auth_identities",
+      "logicalEntity": "AUTH_IDENTITY",
+      "primaryKey": {
+        "name": "pk_auth_identities",
+        "columns": [
+          "auth_identity_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "auth_identity_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "references": {
+            "name": "fk_auth_identities_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION"
+          }
+        },
+        {
+          "name": "provider",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "issuer",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "linked_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_auth_identities_google_principal",
+          "expression": "provider = 'google' AND issuer = 'https://accounts.google.com'"
+        },
+        {
+          "name": "ck_auth_identities_subject_present",
+          "expression": "length(subject) > 0"
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "uq_auth_identities_principal",
+          "columns": [
+            "provider",
+            "issuer",
+            "subject"
+          ]
+        }
+      ],
+      "indexes": [
+        {
+          "name": "ix_auth_identities_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "method": "btree",
+          "unique": false
+        }
+      ]
+    },
+    {
+      "name": "user_emails",
+      "logicalEntity": "USER_EMAIL",
+      "primaryKey": {
+        "name": "pk_user_emails",
+        "columns": [
+          "user_email_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "user_email_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "references": {
+            "name": "fk_user_emails_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION"
+          }
+        },
+        {
+          "name": "email_address",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "normalized_email",
+          "type": "text",
+          "nullable": false,
+          "collation": "C"
+        },
+        {
+          "name": "verified_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "verification_source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "email_revision",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_user_emails_address_present",
+          "expression": "length(email_address) > 0 AND length(normalized_email) > 0"
+        },
+        {
+          "name": "ck_user_emails_revision_positive",
+          "expression": "email_revision > 0"
+        },
+        {
+          "name": "ck_user_emails_verification_source",
+          "expression": "verification_source IN ('google', 'email_otp')"
+        },
+        {
+          "name": "ck_user_emails_key_ascii_lower",
+          "expression": "(normalized_email COLLATE \"C\") !~ '[^!-~]' AND (normalized_email COLLATE \"C\") !~ '[A-Z]'"
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "uq_user_emails_user",
+          "columns": [
+            "user_id"
+          ]
+        },
+        {
+          "name": "uq_user_emails_address",
+          "columns": [
+            "normalized_email"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "user_profiles",
+      "logicalEntity": "USER_PROFILE",
+      "primaryKey": {
+        "name": "pk_user_profiles",
+        "columns": [
+          "user_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "references": {
+            "name": "fk_user_profiles_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION"
+          }
+        },
+        {
+          "name": "display_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": []
+    },
+    {
+      "name": "password_credentials",
+      "logicalEntity": "PASSWORD_CREDENTIAL",
+      "primaryKey": {
+        "name": "pk_password_credentials",
+        "columns": [
+          "user_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "references": {
+            "name": "fk_password_credentials_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION"
+          }
+        },
+        {
+          "name": "password_hash",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "credential_revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "name": "password_changed_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_password_credentials_hash_present",
+          "expression": "length(password_hash) > 0"
+        },
+        {
+          "name": "ck_password_credentials_revision_positive",
+          "expression": "credential_revision > 0"
+        },
+        {
+          "name": "ck_password_credentials_argon2id_encoding",
+          "expression": "left(password_hash, 10) = '$argon2id$'"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": []
+    }
+  ],
+  "normalization": {
+    "loginLocalPart": "ASCII lowercase",
+    "domain": "validated IDNA A-label lowercase",
+    "originalAddress": "preserved for delivery/display",
+    "providerAliases": "dots/plus/domain aliases unchanged",
+    "smtpUtf8LocalPart": "unsupported in MVP",
+    "comparison": "C collation byte equality",
+    "databaseNormalization": "repository supplies approved key; SQL does not infer IDNA or mailbox proof"
+  },
+  "writeInvariants": [
+    "Provider principal and owner immutable; no email-based merge/rekey",
+    "Exactly one verified primary email at new registration completion; legacy Users may have no row",
+    "Stable email row; positive monotonic CAS revision; no delete/reinsert during change",
+    "Salted encoded Argon2id only; SQL nonempty/prefix guards reject obvious plaintext/other-algorithm values, but library/parser validation of salt/encoding/strength remains a runtime trust boundary.",
+    "Credential optional; revision starts at 1 and increases for replacement/rehash; no removal/delete/reinsert in MVP",
+    "Profile insert once; self-edit only; never Google overwrite or public projection",
+    "Sensitive mutation requires accepted same-transaction audit/revocation collaborator before activation; missing collaborator disables operation"
+  ],
+  "excludedTables": [
+    "auth_sessions",
+    "security_events",
+    "email_history",
+    "pending_registration",
+    "media_objects",
+    "identity_verifications"
+  ],
+  "freezeGate": {
+    "ownerSchemaDecisions": "APPROVED F-E1/F-E2/F-A1/F-C1/F-G2",
+    "physicalReview": "COMPLETE documentation review; no executable SQL or DB test",
+    "persistenceAcceptance": "ACCEPTED_WITH_NON_SCHEMA_CONDITIONS",
+    "runtimeActivation": "BLOCKED",
+    "migrationAllocation": "000008 verified unused in 26 local refs; combined integration 55985da required"
+  },
+  "freezeVersion": "vnext.identity-foundation.1",
+  "freezeSourceCommit": "079047bc986e71a2993959c0e7c22cc6834deaeb",
+  "acceptance": {
+    "date": "2026-10-13",
+    "decision": "ACCEPTED_WITH_NON_SCHEMA_CONDITIONS",
+    "authority": "Account Verification review confirmed by owner; formal freeze and Task 2 explicitly authorized",
+    "runtimeActivation": "BLOCKED"
+  }
+}

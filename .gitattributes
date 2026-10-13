@@ -8,3 +8,8 @@
 *.yml text eol=lf
 *.sh text eol=lf
 .env.example text eol=lf
+
+# Frozen fingerprints cover exact CRLF bytes; bypass Git newline conversion.
+docs/database/vnext/identity-foundation/logical.json -text whitespace=cr-at-eol,-blank-at-eof
+docs/database/vnext/identity-foundation/physical.json -text whitespace=cr-at-eol,-blank-at-eof
+docs/database/vnext/identity-foundation/transaction-contract.md -text whitespace=cr-at-eol,-blank-at-eof

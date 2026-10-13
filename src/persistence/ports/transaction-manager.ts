@@ -1,3 +1,4 @@
+import type { IdentityFoundationRepository } from './identity-foundation.repository';
 import type { FinanceRepository } from './finance.repository';
 import type { IdentityRepository } from './identity.repository';
 import type { IncidentRepository } from './incident.repository';
@@ -10,6 +11,7 @@ import type { TrustRepository } from './trust.repository';
 
 export interface PersistenceRepositories {
   identity: IdentityRepository;
+  identityFoundation: IdentityFoundationRepository;
   organization: OrganizationRepository;
   property: PropertyRepository;
   listing: ListingRepository;

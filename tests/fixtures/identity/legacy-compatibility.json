@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "ids": {
+    "organization": "2f62be49-e07d-573c-b0e9-f836243b32c4",
+    "participant": "bfc81ad7-f7cb-507f-9f22-0edee5781dee",
+    "unregisteredParticipant": "5dff8b4a-ba79-5163-b030-1016c04dc1bd",
+    "upgradeOrganization": "603f1388-b43c-5543-b30a-0039be9f3c62"
+  },
+  "email": "identity@example.test",
+  "organizationName": "Identity compatibility fixture",
+  "upgradeOrganizationName": "Upgrade compatibility fixture",
+  "joinedAt": "2026-10-12T00:00:00.000Z",
+  "providerFailure": "Provider proof unavailable",
+  "unavailableToken": "unavailable",
+  "foreignKeyViolationCode": "23503",
+  "emailVerified": true
+}

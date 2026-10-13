@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "valid": [
+    {
+      "address": "Name.Dot+Tag@EXAMPLE.test",
+      "expected": "name.dot+tag@example.test"
+    },
+    {
+      "address": "Name@bücher.example",
+      "expected": "name@xn--bcher-kva.example"
+    }
+  ],
+  "distinctPairs": [
+    [
+      "name.dot@example.test",
+      "namedot@example.test"
+    ],
+    [
+      "name+tag@example.test",
+      "name@example.test"
+    ]
+  ],
+  "invalid": [
+    "Tên@example.test",
+    " name@example.test",
+    "a..b@example.test",
+    "name@example.test/path",
+    "name@example.test\\ignored",
+    "name@[127.0.0.1]",
+    "name@example.test:443",
+    "name@-bad.test",
+    "name@%65xample.test",
+    "name@example.test?ignored",
+    "name@example.test#ignored",
+    "name@127.1",
+    "name@2130706433"
+  ],
+  "expectedError": "invalid_email"
+}
