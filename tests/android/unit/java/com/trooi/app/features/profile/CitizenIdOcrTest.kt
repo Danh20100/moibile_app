@@ -29,4 +29,12 @@ class CitizenIdOcrTest {
         assertNull(draft.fullName)
         assertNull(draft.birthDate)
     }
+
+    @Test fun futureBirthDatesAndNumericNamesAreNotSuggested() {
+        val future = java.time.LocalDate.now().plusYears(1)
+            .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu"))
+        val draft = extractCitizenIdDraft("Họ và tên: NGUYỄN VĂN 123\nNgày sinh: $future")
+        assertNull(draft.fullName)
+        assertNull(draft.birthDate)
+    }
 }

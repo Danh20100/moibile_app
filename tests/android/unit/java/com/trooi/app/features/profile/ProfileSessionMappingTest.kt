@@ -45,4 +45,16 @@ class ProfileSessionMappingTest {
             assertEquals(setOf("o"), session.access.operatedOrganizationIds)
         }
     }
+
+    @Test fun rejectedProfileWriteDoesNotRefreshOrReportASavedName() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(401).setBody("""{"message":"Unauthorized"}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("expired") }
+            val repository = BackendTroOiRepository(OkHttpBackendApi(BackendClient(server.url("/").newBuilder().host("127.0.0.1").build().toString(), tokens, true)), tokens)
+            assertTrue(repository.updateDisplayName("Mai").isFailure)
+            assertEquals(1, server.requestCount)
+            assertEquals("PATCH", server.takeRequest().method)
+        }
+    }
 }
