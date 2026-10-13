@@ -1,54 +1,50 @@
 package com.trooi.app.core.demo
 
+import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.*
 
-/** Screen-preview fixtures exist only in src/debug. They never claim backend confirmation. */
+/** Canonical debug-only graph. Seed history is never a runtime payment confirmation. */
 object DemoData {
-    val read = FrontendReadSnapshot(
-        publicListings = listOf(
-            PublicListingCard(
-                listingId = "preview-listing-a",
-                title = "Căn phòng có ban công",
-                publicAreaLabel = "Khu vực Phú Nhuận, TP.HCM",
-                publicGeoPoint = null,
-                askingPriceLabel = "5,2 triệu/tháng",
-                visibility = ListingVisibility.PUBLISHED,
-                amenities = listOf("Ban công", "Máy lạnh", "Wifi"),
-            ),
-            PublicListingCard(
-                listingId = "preview-listing-b",
-                title = "Studio thoáng sáng",
-                publicAreaLabel = "Khu vực Quận 3, TP.HCM",
-                publicGeoPoint = null,
-                askingPriceLabel = "4,6 triệu/tháng",
-                visibility = ListingVisibility.PUBLISHED,
-                amenities = listOf("Bếp riêng", "Thang máy", "Wifi"),
-            ),
-        ),
-        organizations = listOf(OrganizationCard("demo-organization-1", "Không gian vận hành minh hoạ")),
-        properties = listOf(PropertyCard("preview-property-1", "demo-organization-1", "Tòa nhà minh họa")),
-        operationalRooms = listOf(
-            OperationalRoomCard("preview-room-a", "preview-property-1", "Phòng A01", RoomOperationalState.VACANT, RecordLifecycle.ACTIVE),
-            OperationalRoomCard("preview-room-b", "preview-property-1", "Phòng A02", RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE),
-        ),
-        operatorListings = listOf(OperatorListingCard("demo-listing-owner", "preview-room-a", "Tin đăng minh họa", ListingVisibility.DRAFT)),
-        tenancies = listOf(TenancyCard("demo-tenancy-1", "demo-room-2", "Phòng A02", TenancyLifecycle.ACTIVE, "Phiên bản minh họa")),
-        incidents = listOf(
-            IncidentCard(
-                incidentId = "preview-incident-1",
-                roomId = "preview-room-b",
-                title = "Minh họa sự cố thiết bị",
-                lifecycle = IncidentLifecycle.REPORTED,
-                timeline = listOf(IncidentEventCard("preview-event-1", "Tiếp nhận mô tả sự cố", "Ví dụ")),
-                serverActions = emptyList(),
-            ),
-        ),
-        dashboardByOrganization = mapOf("demo-organization-1" to DashboardReadModel(
-            roomsByState = mapOf(RoomOperationalState.VACANT to 1, RoomOperationalState.OCCUPIED to 1),
-            activeTenancyCount = 1,
-            outstandingReceivableLabel = null,
-            confirmedPaymentTotalLabel = null,
-            openIncidentCount = 1,
-        )),
-    )
+    val ORGANIZATION get() = DebugFixtureCatalog.current.roles.getValue("organization")
+    val PROPERTY get() = DebugFixtureCatalog.current.roles.getValue("property")
+    val ROOM get() = DebugFixtureCatalog.current.roles.getValue("room")
+    val TENANCY get() = DebugFixtureCatalog.current.roles.getValue("tenancy")
+    val accounts = DebugFixtureCatalog.current.accounts.map { it.session() }
+    val ownerManagement get() = DemoRentalGraph.ownerSeed
+    val occupiedAsset get() = DemoRentalGraph.occupied
+    /** Shared seed dialogue references the same rental/listing and account identities as the ledger. */
+    fun conversations(userId: String): List<ConversationCard> {
+        return DebugFixtureCatalog.current.conversations.filter { userId in it.participantIds }.map { conversation ->
+            val other = accounts.single { it.userId == conversation.participantIds.single { id -> id != userId } }
+            val asset = DemoRentalGraph.all.single { it.asset.id == conversation.roomId }.asset
+            ConversationCard(conversation.id, other.userId, other.displayName, asset.name, asset.id,
+                asset.photoResources.firstOrNull(), conversation.messages)
+        }
+    }
+    fun authenticate(identifier: String, password: String): UserSession? {
+        // Synthetic sandbox hook; never sent to the backend or packaged in Release.
+        if (password != "TroOi2026!") return null
+        val id = DebugFixtureCatalog.current.accounts.firstOrNull { it.email == identifier.trim().lowercase() }?.userId
+        return accounts.firstOrNull { it.userId == id }
+    }
+    val read get() = DebugFixtureCatalog.current.domains.read
+    fun authorizedRead(access: AccessCapabilities): FrontendReadSnapshot {
+        val properties = read.properties.filter { it.organizationId in access.operatedOrganizationIds }
+        val rooms = read.operationalRooms.filter { room -> properties.any { it.propertyId == room.propertyId } }
+        val tenancies = read.tenancies.filter { it.tenancyId in access.linkedTenancyIds || rooms.any { room -> room.roomId == it.roomId } }
+        return read.copy(
+            rentalHistory = if (TENANCY in access.linkedTenancyIds) read.rentalHistory else emptyList(),
+            rentalAssetPresentationByRoom = read.rentalAssetPresentationByRoom.filterKeys { id -> tenancies.any { it.roomId == id } },
+            organizations = read.organizations.filter { it.organizationId in access.operatedOrganizationIds },
+            properties = properties, operationalRooms = rooms,
+            operatorListings = read.operatorListings.filter { listing -> rooms.any { it.roomId == listing.roomId } },
+            tenancies = tenancies,
+            tenantFinanceByTenancy = read.tenantFinanceByTenancy.filterKeys { it in access.linkedTenancyIds },
+            noticesByTenancy = read.noticesByTenancy.filterKeys { id -> tenancies.any { it.tenancyId == id } },
+            operatorFinanceByOrganization = read.operatorFinanceByOrganization.filterKeys { it in access.operatedOrganizationIds },
+            operatorFinanceByRoom = read.operatorFinanceByRoom.filterKeys { id -> rooms.any { it.roomId == id } },
+            incidents = read.incidents.filter { incident -> tenancies.any { it.roomId == incident.roomId } },
+            dashboardByOrganization = read.dashboardByOrganization.filterKeys { it in access.operatedOrganizationIds },
+        )
+    }
 }

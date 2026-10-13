@@ -1,0 +1,355 @@
+{
+  "conversations": [],
+  "localManagement": null,
+  "publicListings": [
+    {
+      "listingId": "demo-studio",
+      "title": "Căn hộ An Nhiên",
+      "publicAreaLabel": "Linh Trung, Thủ Đức",
+      "publicGeoPoint": {
+        "latitude": 10.87,
+        "longitude": 106.8
+      },
+      "askingPriceLabel": "3200000đ/tháng",
+      "visibility": "PUBLISHED",
+      "amenities": [
+        "Wi-Fi",
+        "Máy lạnh",
+        "Bếp riêng",
+        "Máy giặt chung",
+        "Chỗ để xe",
+        "Camera khu vực chung"
+      ],
+      "distanceMeters": null,
+      "rentalDetails": {
+        "type": "Căn hộ",
+        "area": "28",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "description": "Căn hộ sáng thoáng với góc làm việc cạnh cửa sổ và bếp riêng. Khu dân cư yên tĩnh, thuận tiện đi chợ và di chuyển đến các trường đại học.",
+        "host": "Trần Thu Hà",
+        "photoUris": [],
+        "photoResources": [
+          "rental_studio",
+          "rental_kitchen",
+          "rental_balcony"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:00",
+          "Tối đa 2 người",
+          "Thú cưng: trao đổi trước"
+        ],
+        "advertisedDeposit": "3200000",
+        "electricityOffer": "3.500đ/kWh",
+        "waterOffer": "20.000đ/m³",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "2026-10-15",
+        "bathroomArrangement": null,
+        "maxOccupants": 2,
+        "floorLabel": null
+      }
+    },
+    {
+      "listingId": "demo-room",
+      "title": "Phòng trọ có cửa sổ",
+      "publicAreaLabel": "Bình Thạnh, TP.HCM",
+      "publicGeoPoint": {
+        "latitude": 10.81,
+        "longitude": 106.71
+      },
+      "askingPriceLabel": "2800000đ/tháng",
+      "visibility": "PUBLISHED",
+      "amenities": [
+        "Wi-Fi",
+        "Máy lạnh",
+        "Máy giặt chung",
+        "Chỗ để xe"
+      ],
+      "distanceMeters": null,
+      "rentalDetails": {
+        "type": "Phòng trọ",
+        "area": "22",
+        "bedrooms": "1",
+        "bathrooms": "1",
+        "furnishing": "Đủ nội thất",
+        "description": "Phòng riêng gọn gàng, nhiều ánh sáng và có khu để xe chung. Có sẵn giường, tủ và bàn làm việc, gần tiện ích hằng ngày.",
+        "host": "Hoàng Nam",
+        "photoUris": [],
+        "photoResources": [
+          "rental_bedroom",
+          "rental_balcony"
+        ],
+        "rules": [
+          "Giữ yên tĩnh sau 22:00",
+          "Tối đa 2 người",
+          "Thú cưng: trao đổi trước"
+        ],
+        "advertisedDeposit": "2800000",
+        "electricityOffer": "Trao đổi với chủ trọ",
+        "waterOffer": "Trao đổi với chủ trọ",
+        "serviceOffer": "",
+        "minimumTermMonths": "12",
+        "availableFrom": "",
+        "bathroomArrangement": "PRIVATE",
+        "maxOccupants": 2,
+        "floorLabel": null
+      }
+    }
+  ],
+  "rentalHistory": [
+    {
+      "tenancyId": "fixture-tenancy-previous-lan",
+      "roomId": "fixture-room-previous-lan",
+      "title": "Phòng B03",
+      "publicArea": "Bình Thạnh, TP.HCM",
+      "period": "03/2025 – 05/2026",
+      "endedState": "Đã kết thúc",
+      "photoResources": [
+        "rental_bedroom",
+        "rental_balcony"
+      ]
+    }
+  ],
+  "rentalAssetPresentationByRoom": {
+    "e0080000-0000-4000-8000-000000000006": {
+      "type": "Căn hộ",
+      "publicArea": "Phường 7, Phú Nhuận",
+      "photoResources": [
+        "rental_living",
+        "rental_bedroom",
+        "rental_kitchen"
+      ],
+      "photoUris": []
+    }
+  },
+  "organizations": [
+    {
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "displayName": "Tài sản của Thu Hà"
+    }
+  ],
+  "properties": [
+    {
+      "propertyId": "e0080000-0000-4000-8000-000000000005",
+      "organizationId": "e0080000-0000-4000-8000-000000000004",
+      "displayName": "Nhà Phú Nhuận"
+    }
+  ],
+  "operationalRooms": [
+    {
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "propertyId": "e0080000-0000-4000-8000-000000000005",
+      "label": "Căn hộ A02",
+      "operationalState": "OCCUPIED",
+      "lifecycle": "ACTIVE"
+    }
+  ],
+  "operatorListings": [
+    {
+      "listingId": "demo-mini",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "title": "Căn hộ A02",
+      "visibility": "UNPUBLISHED"
+    }
+  ],
+  "tenancies": [
+    {
+      "tenancyId": "e0080000-0000-4000-8000-000000000007",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "roomLabel": "Căn hộ A02",
+      "lifecycle": "ACTIVE",
+      "termsVersionLabel": "5.200.000đ/tháng · 01/06/2026 – 31/05/2027",
+      "primaryTenantName": "Nguyễn Ngọc Lan"
+    }
+  ],
+  "tenantFinanceByTenancy": {
+    "e0080000-0000-4000-8000-000000000007": {
+      "tenancyId": "e0080000-0000-4000-8000-000000000007",
+      "charges": [
+        {
+          "chargeId": "fixture-charge-rent-oct",
+          "label": "Tiền thuê tháng 10",
+          "amountLabel": "5.200.000đ",
+          "outstandingLabel": "5.200.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-electricity-oct",
+          "label": "Điện · 86 kWh",
+          "amountLabel": "301.000đ",
+          "outstandingLabel": "301.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-water-oct",
+          "label": "Nước · 5 m³",
+          "amountLabel": "100.000đ",
+          "outstandingLabel": "100.000đ"
+        }
+      ],
+      "payments": [
+        {
+          "paymentId": "fixture-payment-sep",
+          "amountLabel": "5.560.000đ",
+          "confirmationLabel": "Chuyển khoản · 05/09/2026"
+        }
+      ],
+      "deposits": [
+        {
+          "tenancyId": "e0080000-0000-4000-8000-000000000007",
+          "requiredLabel": "5.200.000đ",
+          "fundedLabel": "5.200.000đ",
+          "settlementLabel": null,
+          "depositId": "fixture-deposit-lan",
+          "heldLabel": "5.200.000đ",
+          "state": "HELD",
+          "blockedByOpenPolicy": false
+        }
+      ],
+      "receipts": []
+    }
+  },
+  "noticesByTenancy": {
+    "e0080000-0000-4000-8000-000000000007": [
+      {
+        "noticeId": "fixture-notice-start",
+        "tenancyId": "e0080000-0000-4000-8000-000000000007",
+        "type": "RENTAL",
+        "content": "Bắt đầu thuê Căn hộ A02",
+        "issuedAtLabel": "01/06/2026",
+        "acknowledgedAtLabel": null
+      },
+      {
+        "noticeId": "fixture-notice-oct",
+        "tenancyId": "e0080000-0000-4000-8000-000000000007",
+        "type": "BILLING",
+        "content": "Ghi nhận điện, nước tháng 10",
+        "issuedAtLabel": "01/10/2026",
+        "acknowledgedAtLabel": null
+      }
+    ]
+  },
+  "operatorFinanceByOrganization": {
+    "e0080000-0000-4000-8000-000000000004": {
+      "charges": [
+        {
+          "chargeId": "fixture-charge-rent-oct",
+          "label": "Tiền thuê tháng 10",
+          "amountLabel": "5.200.000đ",
+          "outstandingLabel": "5.200.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-electricity-oct",
+          "label": "Điện · 86 kWh",
+          "amountLabel": "301.000đ",
+          "outstandingLabel": "301.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-water-oct",
+          "label": "Nước · 5 m³",
+          "amountLabel": "100.000đ",
+          "outstandingLabel": "100.000đ"
+        }
+      ],
+      "confirmedPayments": [
+        {
+          "paymentId": "fixture-payment-sep",
+          "amountLabel": "5.560.000đ",
+          "confirmationLabel": "Chuyển khoản · 05/09/2026"
+        }
+      ],
+      "allocations": [],
+      "deposits": [
+        {
+          "tenancyId": "e0080000-0000-4000-8000-000000000007",
+          "requiredLabel": "5.200.000đ",
+          "fundedLabel": "5.200.000đ",
+          "settlementLabel": null,
+          "depositId": "fixture-deposit-lan",
+          "heldLabel": "5.200.000đ",
+          "state": "HELD",
+          "blockedByOpenPolicy": false
+        }
+      ],
+      "receipts": []
+    }
+  },
+  "operatorFinanceByRoom": {
+    "e0080000-0000-4000-8000-000000000006": {
+      "charges": [
+        {
+          "chargeId": "fixture-charge-rent-oct",
+          "label": "Tiền thuê tháng 10",
+          "amountLabel": "5.200.000đ",
+          "outstandingLabel": "5.200.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-electricity-oct",
+          "label": "Điện · 86 kWh",
+          "amountLabel": "301.000đ",
+          "outstandingLabel": "301.000đ"
+        },
+        {
+          "chargeId": "fixture-charge-water-oct",
+          "label": "Nước · 5 m³",
+          "amountLabel": "100.000đ",
+          "outstandingLabel": "100.000đ"
+        }
+      ],
+      "confirmedPayments": [
+        {
+          "paymentId": "fixture-payment-sep",
+          "amountLabel": "5.560.000đ",
+          "confirmationLabel": "Chuyển khoản · 05/09/2026"
+        }
+      ],
+      "allocations": [],
+      "deposits": [
+        {
+          "tenancyId": "e0080000-0000-4000-8000-000000000007",
+          "requiredLabel": "5.200.000đ",
+          "fundedLabel": "5.200.000đ",
+          "settlementLabel": null,
+          "depositId": "fixture-deposit-lan",
+          "heldLabel": "5.200.000đ",
+          "state": "HELD",
+          "blockedByOpenPolicy": false
+        }
+      ],
+      "receipts": []
+    }
+  },
+  "incidents": [
+    {
+      "incidentId": "fixture-incident-tap",
+      "roomId": "e0080000-0000-4000-8000-000000000006",
+      "title": "Vòi nước bếp rò nhẹ",
+      "lifecycle": "IN_PROGRESS",
+      "timeline": [
+        {
+          "eventId": "fixture-event-tap-1",
+          "description": "Đã tiếp nhận yêu cầu",
+          "occurredAtLabel": "06/10/2026"
+        },
+        {
+          "eventId": "fixture-event-tap-2",
+          "description": "Hẹn sửa vào sáng 09/10",
+          "occurredAtLabel": "07/10/2026"
+        }
+      ],
+      "serverActions": []
+    }
+  ],
+  "dashboardByOrganization": {
+    "e0080000-0000-4000-8000-000000000004": {
+      "roomsByState": {
+        "OCCUPIED": 1
+      },
+      "activeTenancyCount": 1,
+      "outstandingReceivableLabel": "5.601.000đ",
+      "confirmedPaymentTotalLabel": "5.560.000đ",
+      "openIncidentCount": 1
+    }
+  },
+  "notifications": []
+}

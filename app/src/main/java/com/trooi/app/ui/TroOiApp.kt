@@ -2,6 +2,7 @@ package com.trooi.app.ui
 
 import android.os.SystemClock
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.data.RuntimeDataSource
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -18,9 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.trooi.app.core.model.*
 import com.trooi.app.features.auth.*
+import com.trooi.app.features.discovery.*
 import com.trooi.app.features.landlord.*
+import com.trooi.app.features.ledger.*
 import com.trooi.app.features.tenant.*
 import com.trooi.app.features.organization.V1OperatorWorkspace
 import com.trooi.app.features.shared.HelpScreen
@@ -35,6 +40,9 @@ import com.trooi.app.features.tenancy.V1RentalWorkspace
 import com.trooi.app.features.notifications.V1NotificationCenterScreen
 import com.trooi.app.features.notifications.V1NotificationDetailScreen
 import com.trooi.app.ui.components.*
+import com.trooi.app.ui.navigation.CoreTabIdentity
+import com.trooi.app.ui.navigation.TroOiBottomNavigation
+import com.trooi.app.ui.splash.TroOiFirstEntryScreen
 import com.trooi.app.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -42,41 +50,39 @@ import kotlinx.coroutines.launch
 fun TroOiApp(
     viewModel: TroOiViewModel = hiltViewModel(),
     paymentReturnUri: PaymentReturnUri? = null,
+    debugTestCommand: DebugTestCommand? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val accountDrafts = rememberSaveableStateHolder()
+    var lastAccountDraftKey by remember { mutableStateOf<String?>(null) }
+    val accountDraftKey = "account-settings-${state.backendUserId}"
+    LaunchedEffect(state.isAuthenticated, accountDraftKey) {
+        if (!state.isAuthenticated || lastAccountDraftKey != accountDraftKey) {
+            lastAccountDraftKey?.let(accountDrafts::removeState)
+            lastAccountDraftKey = if (state.isAuthenticated) accountDraftKey else null
+        }
+    }
     val scope = rememberCoroutineScope()
     val activity = LocalActivity.current
     val context = LocalContext.current
     val useNavigationRail = LocalConfiguration.current.screenWidthDp >= 600
     LaunchedEffect(Unit) { viewModel.bootstrapRestore(context) }
-    LaunchedEffect(paymentReturnUri, state.sessionRestoring) {
-        if (paymentReturnUri == null || state.sessionRestoring) return@LaunchedEffect
+    LaunchedEffect(paymentReturnUri, state.sessionRestoring, state.isAuthenticated) {
+        if (paymentReturnUri == null || state.sessionRestoring || !state.isAuthenticated) return@LaunchedEffect
         viewModel.handlePaymentReturn(paymentReturnUri)
     }
     LifecycleResumeEffect(state.isAuthenticated, state.sessionRestoring) {
         if (state.isAuthenticated && !state.sessionRestoring) viewModel.onAppResume()
         onPauseOrDispose { }
     }
-    val rootNavigationVisible = !state.sessionRestoring && !state.restoreFailed && when (state.activeContext) {
-        AppContext.DISCOVERY -> state.page in setOf(
-            AppPage.Discovery, AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
-            AppPage.Settings, AppPage.Help,
-        )
-        AppContext.TENANT -> state.page in setOf(
-            AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
-            AppPage.TenantIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
-        )
-        AppContext.OPERATIONS -> state.page in setOf(
-            AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
-            AppPage.OwnerIncidents, AppPage.Account, AppPage.Settings, AppPage.Help,
-        )
-    }
+    val rootNavigationVisible = rootNavigationVisible(state)
     var lastExitAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
     val isContextRoot = state.page == AppPage.Discovery ||
-        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard
+        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard ||
+        state.page == AppPage.AuthWelcome
     BackHandler(
         enabled = state.page !is AppPage.ListingDetail &&
             state.page !is AppPage.TrustReport &&
@@ -103,92 +109,140 @@ fun TroOiApp(
     }
 
     TroOiTheme {
-        Scaffold(
+        DebugTestBridge(viewModel, debugTestCommand)
+        TroOiScreenScaffold(
             modifier = Modifier.fillMaxSize().semantics { testTagsAsResourceId = true },
-            containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbar) },
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
                 if (!useNavigationRail && rootNavigationVisible) {
-                    when (state.activeContext) {
-                        AppContext.DISCOVERY -> V1GuestNavigation(state, viewModel)
-                        AppContext.TENANT -> V1TenantNavigation(state, viewModel)
-                        AppContext.OPERATIONS -> V1OwnerNavigation(state, viewModel)
-                    }
+                    TroOiBottomNavigation(
+                        currentPage = ledgerRootTab(state.page),
+                        onNavigate = { destination ->
+                            when (destination) {
+                                AppPage.Discovery -> viewModel.openDiscovery()
+                                AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
+                                AppPage.Messages -> viewModel.openMessages()
+                                AppPage.Account -> viewModel.openAccount()
+                                else -> Unit
+                            }
+                        },
+                    )
                 }
             },
         ) { insets ->
-            Row(Modifier.fillMaxSize().padding(insets)) {
+            Row(Modifier.fillMaxSize().padding(insets).consumeWindowInsets(insets)) {
                 if (useNavigationRail && rootNavigationVisible) {
                     V1AdaptiveNavigationRail(state, viewModel)
                 }
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
-                if (state.sessionRestoring) {
-                    V1Panel("Đang khôi phục phiên") {
-                        V1Pending("Đang xác minh tài khoản với Backend.")
-                    }
-                } else if (state.restoreFailed) {
-                    V1Panel("Không khôi phục được phiên") {
-                        V1Pending("Phiên trước không thể được xác minh lại.")
-                        V1Action("Thử lại", { viewModel.retryRestore(context) })
-                    }
-                } else if (state.sourceUnavailable) {
-                    V1Panel("Nguồn không khả dụng") {
-                        V1Pending("Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.")
-                        V1Action("Quay lại", viewModel::goBack)
-                    }
-                } else if (BuildConfig.BACKEND_BACKED && state.page in setOf(
-                        AppPage.AuthWelcome, AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword,
-                    )) {
-                    BackendGoogleAuthentication(
-                        inProgress = state.authInProgress,
-                        onSignIn = { viewModel.signInWithGoogle(context) },
-                        onBack = viewModel::goBack,
+                if (!state.splashCompleted) {
+                    TroOiFirstEntryScreen(
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        onLoginClick = viewModel::openLogin,
+                        onSignUpClick = viewModel::openSignUp,
+                        authInProgress = state.authInProgress,
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        sessionRestoring = state.sessionRestoring,
+                        isAuthenticated = state.isAuthenticated,
+                        onCompleteTransition = viewModel::completeSplash,
                     )
+                } else if (state.sessionRestoring) {
+                    TroOiStateMessage(TroOiStateKind.LOADING, "Đang xác minh tài khoản với Backend.", title = "Đang khôi phục phiên")
+                } else if (state.restoreFailed) {
+                    TroOiStateMessage(TroOiStateKind.ERROR, "Phiên trước không thể được xác minh lại.", title = "Không khôi phục được phiên",
+                        actionText = "Thử lại", onAction = { viewModel.retryRestore(context) })
+                } else if (!state.isAuthenticated && state.page !in setOf(AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword)) {
+                    AuthWelcomeScreen(
+                        onLogin = viewModel::openLogin,
+                        onSignUp = viewModel::openSignUp,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        authInProgress = state.authInProgress,
+                    )
+                } else if (state.sourceUnavailable) {
+                    TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Bản ghi nguồn đã bị xóa hoặc bạn không còn quyền truy cập.", title = "Nguồn không khả dụng",
+                        actionText = "Quay lại", onAction = viewModel::goBack)
                 } else when (val page = state.page) {
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        authInProgress = state.authInProgress,
                     )
                     AppPage.AuthLogin -> LoginScreen(
                         onBack = viewModel::goBack,
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
+                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        authInProgress = state.authInProgress,
+                        initialIdentifier = debugTestCommand?.takeIf { it.route == "login" }?.identifier.orEmpty(),
+                        initialPassword = debugTestCommand?.takeIf { it.route == "login" }?.password.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::signUp,
+                        mockMode = state.demoPreview,
+                        authInProgress = state.authInProgress,
+                        initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),
+                        initialPhone = debugTestCommand?.takeIf { it.route == "signup" }?.phone.orEmpty(),
+                        initialEmail = debugTestCommand?.takeIf { it.route == "signup" }?.email.orEmpty(),
+                        initialPassword = debugTestCommand?.takeIf { it.route == "signup" }?.password.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.AuthForgotPassword -> ForgotPasswordScreen(
                         onBack = viewModel::goBack,
                         onSubmit = viewModel::requestPasswordReset,
+                        initialIdentifier = debugTestCommand?.takeIf { it.route == "forgot" }?.identifier.orEmpty(),
+                        prefillKey = debugTestCommand?.id ?: 0L,
                     )
                     AppPage.ContextSwitcher -> V1ContextSwitcherScreen(
                         state = state,
                         onSelect = viewModel::selectContext,
                         onBack = viewModel::goBack,
                     )
-                    AppPage.Discovery -> V1DiscoveryScreen(
+                    AppPage.Discovery -> ExploreScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
-                        onContextSwitcher = if (state.isAuthenticated) viewModel::openContextSwitcher else null,
-                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
-                        onResetSearch = if (BuildConfig.BACKEND_BACKED) viewModel::reloadPublicListings else null,
+                        onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
+                        onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,
+                        allowDemoFallback = !RuntimeDataSource.isBackendBacked(),
                     )
+                    AppPage.Favorites -> FavoritesPlaceholderScreen(
+                        onExplore = viewModel::openDiscovery,
+                    )
+                    AppPage.CoreWorkspace -> LedgerScreen(
+                        state = state,
+                        onExplore = viewModel::openDiscovery,
+                        onFinance = { tenancyId ->
+                            viewModel.selectContext(SelectedContext.Tenant(tenancyId))
+                            viewModel.openTenantFinance()
+                        },
+                        onOperations = viewModel::openOwnerProperties,
+                        onSaveAsset = viewModel::saveLocalAsset,
+                        onPurchaseCapacity = viewModel::purchaseLocalCapacity,
+                        onArchiveAsset = viewModel::archiveLocalAsset,
+                        onRetryRead = viewModel::retryAuthorizedRead,
+                    )
+                    AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
+                        viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage)
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,
-                        onSearch = if (BuildConfig.BACKEND_BACKED) viewModel::searchPublicListings else null,
+                        onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                     )
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)
-                    is AppPage.ListingDetail -> V1ListingDetailScreen(
-                        state = state,
-                        listingId = page.listingId,
-                        onBack = viewModel::goBack,
-                        onOpenLogin = viewModel::openLogin,
-                        onSubmitInquiry = viewModel::submitInquiry,
+                    is AppPage.ListingDetail -> if (state.read.publicListings.any { it.listingId == page.listingId && it.rentalDetails != null } || useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)) {
+                        ListingDetailScreen(page.listingId, viewModel::goBack,
+                            state.read.publicListings.firstOrNull { it.listingId == page.listingId }?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }
+                                ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId))
+                    } else V1ListingDetailScreen(
+                        state = state, listingId = page.listingId, onBack = viewModel::goBack,
+                        onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry,
                         onOpenReport = viewModel::openTrustReport,
                     )
                     is AppPage.TrustReport -> TrustReportScreen(
@@ -205,7 +259,7 @@ fun TroOiApp(
                         onContextSwitcher = viewModel::openContextSwitcher,
                         onOpenSource = viewModel::openSource,
                     )
-                    AppPage.TenantRental -> if (BuildConfig.BACKEND_BACKED) {
+                    AppPage.TenantRental -> if (RuntimeDataSource.isBackendBacked()) {
                         val tenancyId = (state.selectedContext as? SelectedContext.Tenant)?.tenancyId
                         if (tenancyId != null) {
                             val authorized = state.authorizedSource
@@ -219,7 +273,10 @@ fun TroOiApp(
                             )
                         } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
-                    AppPage.TenantFinance -> V1TenantFinanceScreen(state, viewModel::openTenantRental, viewModel::openSource)
+                    AppPage.TenantFinance -> if (state.demoPreview) com.trooi.app.features.tenancy.RentPaymentScreen(
+                        state, viewModel::openCoreWorkspace, viewModel::finishDemoPayment, viewModel::retryAuthorizedRead, viewModel::rememberedDemoPayment,
+                        viewModel::createDemoPayment, viewModel::refreshDemoPayment,
+                    ) else V1TenantFinanceScreen(state, viewModel::openTenantRental, viewModel::openSource)
                     AppPage.TenantIncidents -> V1TenantIncidentsScreen(state, viewModel::openTenantRental, viewModel::openSource)
                     AppPage.Notifications -> V1NotificationCenterScreen(
                         state = state,
@@ -235,7 +292,7 @@ fun TroOiApp(
                     )
                     AppPage.Account -> V1AccountScreen(
                         state = state,
-                        googleOnly = BuildConfig.BACKEND_BACKED,
+                        googleOnly = RuntimeDataSource.isBackendBacked(),
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
                         onDiscovery = viewModel::openDiscovery,
@@ -243,18 +300,17 @@ fun TroOiApp(
                         onNotifications = viewModel::openNotifications,
                         onSettings = viewModel::openSettings,
                         onHelp = viewModel::openHelp,
+                        onPrivacy = viewModel::openPrivacy,
                         onLogout = viewModel::logout,
+                        onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
+                        onOpenWorkspace = viewModel::openCoreWorkspace,
                     )
-                    AppPage.Settings -> SettingsScreen(
-                        state = state,
-                        restoreEnabled = viewModel.sessionRestoreEnabled(),
-                        onBack = viewModel::goBack,
-                        onContext = viewModel::openContextSwitcher,
-                        onLogout = viewModel::logout,
-                    )
-                    AppPage.Help -> HelpScreen(onBack = viewModel::goBack)
+                    AppPage.Settings -> accountDrafts.SaveableStateProvider(accountDraftKey) {
+                        SettingsScreen(state = state, onBack = viewModel::goBack)
+                    }
+                    AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack)
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
-                    AppPage.OwnerProperties -> if (BuildConfig.BACKEND_BACKED) {
+                    AppPage.OwnerProperties -> if (RuntimeDataSource.isBackendBacked()) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
                         V1OperatorWorkspace(
                             state.access,
@@ -278,145 +334,26 @@ private fun V1AdaptiveNavigationRail(state: TroOiUiState, viewModel: TroOiViewMo
     NavigationRail(
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        when (state.activeContext) {
-            AppContext.DISCOVERY -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.Discovery,
-                    onClick = viewModel::openDiscovery,
-                    icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-                    label = { Text("Trang chủ") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.GuestMap,
-                    onClick = viewModel::openGuestMap,
-                    icon = { Icon(Icons.Rounded.Map, "Bản đồ") },
-                    label = { Text("Bản đồ") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.GuestActivity,
-                    onClick = viewModel::openGuestActivity,
-                    icon = { Icon(Icons.Rounded.Send, "Hoạt động") },
-                    label = { Text("Hoạt động") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.Account,
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
-                    alwaysShowLabel = true,
-                )
-            }
-            AppContext.TENANT -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantHome,
-                    onClick = viewModel::openTenantHome,
-                    icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-                    label = { Text("Trang chủ") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantRental,
-                    onClick = viewModel::openTenantRental,
-                    icon = { Icon(Icons.Rounded.MeetingRoom, "Nhà tôi") },
-                    label = { Text("Nhà tôi") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantFinance,
-                    onClick = viewModel::openTenantFinance,
-                    icon = { Icon(Icons.Rounded.Payments, "Thanh toán") },
-                    label = { Text("Thanh toán") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.TenantIncidents,
-                    onClick = viewModel::openTenantIncidents,
-                    icon = { Icon(Icons.Rounded.Build, "Sự cố") },
-                    label = { Text("Sự cố") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.Account,
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
-                    alwaysShowLabel = true,
-                )
-            }
-            AppContext.OPERATIONS -> {
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerDashboard,
-                    onClick = viewModel::openOperations,
-                    icon = { Icon(Icons.Rounded.Dashboard, "Tổng quan") },
-                    label = { Text("Tổng quan") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerProperties,
-                    onClick = viewModel::openOwnerProperties,
-                    icon = { Icon(Icons.Rounded.MeetingRoom, "Phòng") },
-                    label = { Text("Phòng") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerFinance,
-                    onClick = viewModel::openOwnerFinance,
-                    icon = { Icon(Icons.Rounded.Payments, "Tài chính") },
-                    label = { Text("Tài chính") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = state.page == AppPage.OwnerIncidents,
-                    onClick = viewModel::openOwnerIncidents,
-                    icon = { Icon(Icons.Rounded.Build, "Sự cố") },
-                    label = { Text("Sự cố") },
-                    alwaysShowLabel = true,
-                )
-                NavigationRailItem(
-                    selected = accountTabSelected(state.page),
-                    onClick = viewModel::openAccount,
-                    icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-                    label = { Text("Tài khoản") },
-                    alwaysShowLabel = true,
-                )
-            }
+        listOf(
+            Triple(AppPage.Discovery, "Khám phá", Icons.Rounded.Search),
+            Triple(AppPage.CoreWorkspace, "Sổ", CoreTabIdentity.icon),
+            Triple(AppPage.Messages, "Tin nhắn", Icons.Rounded.ChatBubbleOutline),
+            Triple(AppPage.Account, "Hồ sơ", Icons.Rounded.PersonOutline),
+        ).forEach { (page, label, icon) ->
+            NavigationRailItem(
+                selected = if (page == AppPage.Account) accountTabSelected(state.page) else ledgerRootTab(state.page) == page,
+                onClick = {
+                    when (page) {
+                        AppPage.Discovery -> viewModel.openDiscovery()
+                        AppPage.CoreWorkspace -> viewModel.openCoreWorkspace()
+                        AppPage.Messages -> viewModel.openMessages()
+                        AppPage.Account -> viewModel.openAccount()
+                        else -> Unit
+                    }
+                },
+                icon = { Icon(icon, label) }, label = { Text(label) }, alwaysShowLabel = true,
+            )
         }
-    }
-}
-
-@Composable
-private fun V1GuestNavigation(state: TroOiUiState, viewModel: TroOiViewModel) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp,
-    ) {
-        NavigationBarItem(
-            selected = state.page == AppPage.Discovery,
-            onClick = viewModel::openDiscovery,
-            icon = { Icon(Icons.Rounded.Home, "Trang chủ") },
-            label = { Text("Trang chủ") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.GuestMap,
-            onClick = viewModel::openGuestMap,
-            icon = { Icon(Icons.Rounded.Map, "Bản đồ") },
-            label = { Text("Bản đồ") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.GuestActivity,
-            onClick = viewModel::openGuestActivity,
-            icon = { Icon(Icons.Rounded.Send, "Hoạt động") },
-            label = { Text("Hoạt động") },
-        )
-        NavigationBarItem(
-            selected = state.page == AppPage.Account,
-            onClick = viewModel::openAccount,
-            icon = { Icon(Icons.Rounded.PersonOutline, "Tài khoản") },
-            label = { Text("Tài khoản") },
-        )
     }
 }
 
@@ -515,7 +452,7 @@ private fun BackendGoogleAuthentication(
         TroOiBrand()
         Spacer(Modifier.height(8.dp))
         if (inProgress) {
-            V1PageTitle(
+            TroOiPageHeader(
                 "Mở lại không gian của bạn",
                 "Đang xác minh Google credential và capability từ Backend.",
             )
@@ -524,28 +461,27 @@ private fun BackendGoogleAuthentication(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
-            V1Panel("Đang xác minh") {
+            TroOiCard("Đang xác minh") {
                 LedgerStateLabel("Google credential đã được chọn", LedgerTone.Success)
                 LedgerStateLabel("Đang xác định không gian được truy cập", LedgerTone.Warning)
-                V1Pending(
+                TroOiFeedback(
                     "Token chỉ được giữ trong phiên chạy hiện tại; app chưa có persistent session restore qua process restart.",
                 )
             }
         } else {
-            V1PageTitle(
+            TroOiPageHeader(
                 "Mở không gian của bạn",
                 "Đăng nhập để xem nơi đang thuê hoặc khu trọ được cấp quyền.",
             )
-            V1Panel("Đăng nhập với Google") {
-                V1Pending(
+            TroOiCard("Đăng nhập với Google") {
+                TroOiFeedback(
                     "Google ID Token được Backend xác minh; Tenant/Landlord là context từ relationship thật, không phải USER.role.",
                 )
-                V1Action(
+                TroOiButton(
                     "Tiếp tục với Google",
                     onClick = onSignIn,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextButton(onClick = onBack) { Text("Tiếp tục khám phá phòng") }
             }
         }
     }

@@ -23,6 +23,6 @@ object BackendNetworkModule {
     fun backendClient(provider: AuthTokenProvider): BackendClient = BackendClient(
         rawBaseUrl = BuildConfig.BACKEND_API_BASE_URL,
         tokens = provider,
-        allowLocalHttp = BuildConfig.DEBUG && BuildConfig.BACKEND_BACKED,
+        allowLocalHttp = BuildConfig.DEBUG // BackendEnvironment still restricts HTTP to explicit loopback origins.,
     )
 }

@@ -1,0 +1,33 @@
+[
+  {
+    "userId": "fixture-user-lan",
+    "displayName": "Nguyễn Ngọc Lan",
+    "email": "tenant@trooi.local",
+    "phone": "0901234567",
+    "residentialAddress": "Căn hộ A02, Bình Thạnh, TP. Hồ Chí Minh",
+    "linkedTenancyIds": [
+      "e0080000-0000-4000-8000-000000000007"
+    ],
+    "operatedOrganizationIds": []
+  },
+  {
+    "userId": "fixture-user-ha",
+    "displayName": "Trần Thu Hà",
+    "email": "owner@trooi.local",
+    "phone": "0902345678",
+    "residentialAddress": "Bình Thạnh, TP. Hồ Chí Minh",
+    "linkedTenancyIds": [],
+    "operatedOrganizationIds": [
+      "e0080000-0000-4000-8000-000000000004"
+    ]
+  },
+  {
+    "userId": "fixture-user-linh",
+    "displayName": "Phạm Thảo Linh",
+    "email": "onboarding@trooi.local",
+    "phone": "0903456789",
+    "residentialAddress": "Thủ Đức, TP. Hồ Chí Minh",
+    "linkedTenancyIds": [],
+    "operatedOrganizationIds": []
+  }
+]

@@ -9,7 +9,8 @@ import { TenancyService } from '../../tenancy/services/tenancy.service';
 import { BillingCycle, Charge, CorrectPaymentInput, CreateBillingCycleInput, Deposit, DepositEvent, DepositPaymentApplication, DepositProjection, DepositSettlement, DepositState, Payment, PaymentAllocation, ManualRecordPaymentInput, SettleDepositInput } from '../contracts';
 
 function cents(v: DecimalString): bigint { if (!isNumeric18Scale2NonNegative(v)) throw new BadRequestException('Amount must be a non-negative decimal with at most two decimals'); const [w,f='']=v.split('.'); return BigInt(w)*100n+BigInt(f.padEnd(2,'0')); }
-function decimal(value: bigint): DecimalString { const safe=value<0n?0n:value; return `${safe/100n}.${(safe%100n).toString().padStart(2,'0')}`; }
+function money(value: bigint): DecimalString { return `${value/100n}.${(value%100n).toString().padStart(2,'0')}`; }
+function decimal(value: bigint): DecimalString { const safe=value<0n?0n:value; return money(safe); }
 @Injectable()
 export class BillingService {
   private readonly billingGuard: BillingTransactionCoordinator; private readonly financeGuard: FinanceTransactionCoordinator;
@@ -18,7 +19,7 @@ export class BillingService {
     await this.tenancyService.findById(i.tenancyId);
     if(i.periodStart>i.periodEnd||!i.charges.length)throw new BadRequestException('Billing Cycle period and charges are required');
     const r:BillingCycleRecord={billingCycleId:randomUUID(),tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd};
-    const charges=i.charges.map((x):Charge=>{if(!['RENT','ELECTRICITY','WATER'].includes(x.type)||cents(x.amount)<=0n)throw new BadRequestException('Charge type and positive amount are required');return{id:randomUUID(),billingCycleId:r.billingCycleId,...x};});
+    const charges=i.charges.map((x):Charge=>{if(!['RENT','ELECTRICITY','WATER'].includes(x.type)||cents(x.amount)<=0n)throw new BadRequestException('Charge type and positive amount are required');return{id:randomUUID(),billingCycleId:r.billingCycleId,...x,outstandingAmount:money(cents(x.amount))};});
     await this.billingGuard.createBillingCycle(r,charges.map(x=>this.chargeRecord(x)));
     const now = new Date().toISOString();
     await this.tx.run(async ({ repositories }) => {
@@ -123,7 +124,15 @@ export class BillingService {
   }
   private async usable(id:string){const v=await this.findPaymentById(id);if(v.voidedOrReversedAt)throw new BadRequestException('Voided or reversed Payment cannot be used');return v;}
   private chargeRecord(x:Charge):ChargeRecord{return{chargeId:x.id,billingCycleId:x.billingCycleId,chargeType:x.type,amount:x.amount,utilityConnectionId:null,startMeterReadingId:null,endMeterReadingId:null};}
-  private cycle(x:BillingCycleRecord,cs:ChargeRecord[]):BillingCycle{return{id:x.billingCycleId,tenancyId:x.tenancyId,tenancyTermsId:x.tenancyTermsId,periodStart:x.periodStart,periodEnd:x.periodEnd,charges:cs.map(c=>({id:c.chargeId,billingCycleId:c.billingCycleId,type:c.chargeType as Charge['type'],amount:c.amount}))};}
+  private async cycle(x:BillingCycleRecord,cs:ChargeRecord[]):Promise<BillingCycle>{
+    const charges:Charge[]=[];
+    for(const c of cs){
+      const allocated=await this.tx.run(({repositories})=>repositories.finance.sumActiveAllocationsForCharge(c.chargeId));
+      const due=cents(c.amount),used=cents(allocated);
+      charges.push({id:c.chargeId,billingCycleId:c.billingCycleId,type:c.chargeType as Charge['type'],amount:c.amount,outstandingAmount:used>due?null:money(due-used)});
+    }
+    return{id:x.billingCycleId,tenancyId:x.tenancyId,tenancyTermsId:x.tenancyTermsId,periodStart:x.periodStart,periodEnd:x.periodEnd,charges};
+  }
   private paymentRecord(x:Payment):PaymentRecord{return{paymentId:x.id,tenancyId:x.tenancyId,amount:x.amount,source:x.source,verification:x.verification,confirmedAt:x.confirmedAt,voidedOrReversedAt:x.voidedOrReversedAt??null,correctionNote:x.correctionNote??null,replacementPaymentId:x.replacementPaymentId??null};}
   private payment(x:PaymentRecord):Payment{return{id:x.paymentId,tenancyId:x.tenancyId,amount:x.amount,source:x.source as Payment['source'],verification:x.verification as Payment['verification'],confirmedAt:x.confirmedAt,...(x.voidedOrReversedAt?{voidedOrReversedAt:x.voidedOrReversedAt}:{}),...(x.correctionNote?{correctionNote:x.correctionNote}:{}),...(x.replacementPaymentId?{replacementPaymentId:x.replacementPaymentId}:{})};}
   private event(depositId:string,eventType:'REFUNDED'|'RETAINED',amount:DecimalString,occurredAt:string,settlementId:string):DepositEventRecord{return{depositEventId:randomUUID(),depositId,eventType,amount,occurredAt,paymentApplicationId:null,settlementId};}

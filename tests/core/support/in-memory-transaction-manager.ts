@@ -303,6 +303,15 @@ export function createCoreTestTransactionManager(
       },
       findPaymentAllocations: async (id: string) =>
         Array.from(allocations.values()).filter((v) => v.paymentId === id),
+      sumActiveAllocationsForCharge: async (chargeId: string) => {
+        const total = [...allocations.values()]
+          .filter((row) => {
+            const payment = payments.get(row.paymentId);
+            return row.chargeId === chargeId && payment != null && payment.voidedOrReversedAt == null;
+          })
+          .reduce((sum, row) => sum + Number(row.allocatedAmount), 0);
+        return total.toFixed(2);
+      },
       sumPaymentCommittedAmount: async (id: string) => {
         const n =
           [...allocations.values()]

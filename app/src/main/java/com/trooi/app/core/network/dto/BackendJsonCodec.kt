@@ -253,6 +253,7 @@ object BackendJsonCodec {
         billingCycleId = obj.requiredString("billingCycleId"),
         type = obj.requiredEnumString("type", CHARGE_TYPES),
         amount = obj.requiredString("amount"),
+        outstandingAmount = obj.optionalString("outstandingAmount"),
     )
 
     private fun payment(obj: JsonObject) = PaymentTransport(

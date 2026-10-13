@@ -1,7 +1,6 @@
 package com.trooi.app.features.organization
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,7 +25,6 @@ import com.trooi.app.features.shared.*
 import com.trooi.app.features.tenancy.RentalRoute
 import com.trooi.app.ui.components.*
 import com.trooi.app.features.tenancy.V1RentalWorkspace
-import com.trooi.app.ui.theme.TroOiMuted
 
 /** Visual composition is independent from backend commands and route state. */
 @Composable
@@ -71,7 +68,7 @@ fun V1OperatorWorkspace(
     ) {
         val route = ui.route
         item {
-            V1PageTitle(
+            TroOiPageHeader(
                 when (route) {
                     OperatorRoute.Organizations -> "Không gian vận hành"
                     is OperatorRoute.Organization -> "Khu trọ"
@@ -89,16 +86,16 @@ fun V1OperatorWorkspace(
                 "Quản lý thông tin và trạng thái vận hành.",
             )
         }
-        if (ui.stack.size > 1) item { TextButton(onClick = { model.back() }) { Text("← Quay lại") } }
-        if (ui.busy) item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("operator-loading")) }
+        if (ui.stack.size > 1) item { TroOiButton("← Quay lại", { model.back() }, style = TroOiButtonStyle.TERTIARY) }
+        if (ui.busy) item { TroOiStateMessage(TroOiStateKind.LOADING, "", Modifier.testTag("operator-loading")) }
         if (ui.error != null) item {
-            V1Panel("Không thể hoàn thành yêu cầu") {
-                Text(ui.error.orEmpty(), color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("operator-error"))
-                V1Action("Thử lại", model::load, enabled = !ui.busy)
+            TroOiCard("Không thể hoàn thành yêu cầu") {
+                TroOiStateMessage(TroOiStateKind.ERROR, ui.error.orEmpty(), Modifier.testTag("operator-error"))
+                TroOiButton("Thử lại", model::load, enabled = !ui.busy)
             }
         }
         if (ui.success != null) item {
-            V1Panel("Đã xác nhận") {
+            TroOiCard("Đã xác nhận") {
                 Text(ui.success.orEmpty(), modifier = Modifier.testTag("operator-success"))
             }
         }
@@ -106,17 +103,17 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Rentals -> Unit // Rendered above as a separate nested workflow.
             OperatorRoute.Organizations -> {
                 if (!ui.busy && ui.organizations.isEmpty()) item {
-                    V1Panel("Chưa có khu trọ") { V1Pending("Tạo khu trọ mới hoặc chờ được cấp quyền quản lý.") }
+                    TroOiCard("Chưa có khu trọ") { TroOiStateMessage(TroOiStateKind.EMPTY, "Tạo khu trọ mới hoặc chờ được cấp quyền quản lý.") }
                 }
                 items(ui.organizations, key = { "org-" + it.id }) { org ->
-                    V1Row(org.name, "Mở khu trọ", "org-" + org.id) {
+                    TroOiListRow(org.name, "Mở khu trọ", action = "Mở chi tiết →", modifier = Modifier.testTag("org-" + org.id), onClick = {
                         model.open(OperatorRoute.Organization(org.id))
-                    }
+                    })
                 }
                 item {
-                    V1Panel("Tạo khu trọ") {
-                        V1Input(name, { name = it }, "Tên workspace", "organization-name")
-                        V1Action("Tạo khu trọ", { model.createOrganization(name) },
+                    TroOiCard("Tạo khu trọ") {
+                        TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên workspace") }, modifier = Modifier.fillMaxWidth().testTag("organization-name"), singleLine = true)
+                        TroOiButton("Tạo khu trọ", { model.createOrganization(name) },
                             enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -124,11 +121,11 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Organization -> {
                 ui.organization?.takeIf { it.id == route.id }?.let { org ->
                     item {
-                        V1Panel(org.name) {
-                            V1Input(name, { name = it }, "Tên khu trọ mới", "organization-edit-name")
-                            V1Action("Lưu tên", { model.renameOrganization(org.id, name) }, enabled = !ui.busy && name.isNotBlank())
-                            V1Action("Tổng quan", { model.open(OperatorRoute.Dashboard(org.id)) })
-                            V1Action("Quản lý khu nhà", { model.open(OperatorRoute.Properties(org.id)) })
+                        TroOiCard(org.name) {
+                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu trọ mới") }, modifier = Modifier.fillMaxWidth().testTag("organization-edit-name"), singleLine = true)
+                            TroOiButton("Lưu tên", { model.renameOrganization(org.id, name) }, enabled = !ui.busy && name.isNotBlank())
+                            TroOiButton("Tổng quan", { model.open(OperatorRoute.Dashboard(org.id)) })
+                            TroOiButton("Quản lý khu nhà", { model.open(OperatorRoute.Properties(org.id)) })
                         }
                     }
                 }
@@ -136,18 +133,18 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Dashboard -> {
                 ui.dashboard?.takeIf { it.organizationId == route.organizationId }?.let { dashboard ->
                     item {
-                        V1Panel("Tổng quan") {
-                            V1Metric("Phòng trống", dashboard.roomsByState.vacant.toString())
-                            V1Metric("Có người thuê", dashboard.roomsByState.occupied.toString())
-                            V1Metric("Đang bảo trì", dashboard.roomsByState.maintenance.toString())
-                            V1Metric("Ngừng sử dụng", dashboard.roomsByState.inactive.toString())
-                            V1Metric("Lượt thuê đang hoạt động", dashboard.activeTenancyCount.toString())
-                            V1Metric("Sự cố đang mở", dashboard.openIncidentCount.toString())
-                            V1Metric(
+                        TroOiCard("Tổng quan") {
+                            TroOiInformationRow("Phòng trống", dashboard.roomsByState.vacant.toString())
+                            TroOiInformationRow("Có người thuê", dashboard.roomsByState.occupied.toString())
+                            TroOiInformationRow("Đang bảo trì", dashboard.roomsByState.maintenance.toString())
+                            TroOiInformationRow("Ngừng sử dụng", dashboard.roomsByState.inactive.toString())
+                            TroOiInformationRow("Lượt thuê đang hoạt động", dashboard.activeTenancyCount.toString())
+                            TroOiInformationRow("Sự cố đang mở", dashboard.openIncidentCount.toString())
+                            TroOiInformationRow(
                                 "Khoản còn cần thu",
                                 dashboard.outstandingReceivable ?: "Chưa có số liệu tổng hợp",
                             )
-                            V1Metric(
+                            TroOiInformationRow(
                                 "Tiền đã nhận",
                                 dashboard.confirmedPaymentTotal ?: "Chưa có số liệu tổng hợp",
                             )
@@ -156,21 +153,21 @@ fun V1OperatorWorkspace(
                 }
             }
             is OperatorRoute.Properties -> {
-                if (!ui.busy && ui.properties.isEmpty()) item { V1Panel("Khu nhà") { V1Pending("Chưa có khu nhà trong khu trọ này.") } }
+                if (!ui.busy && ui.properties.isEmpty()) item { TroOiCard("Khu nhà") { TroOiStateMessage(TroOiStateKind.EMPTY, "Chưa có khu nhà trong khu trọ này.") } }
                 items(ui.properties, key = { "property-" + it.id }) { property ->
-                    V1Row(property.name, "Mở khu nhà", "property-" + property.id) {
+                    TroOiListRow(property.name, "Mở khu nhà", action = "Mở chi tiết →", modifier = Modifier.testTag("property-" + property.id), onClick = {
                         model.open(OperatorRoute.Property(property.id, route.organizationId))
-                    }
+                    })
                 }
                 item {
-                    V1Panel("Tạo khu nhà") {
+                    TroOiCard("Tạo khu nhà") {
                         Text("Địa chỉ vận hành được giữ riêng với vị trí công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        V1Input(name, { name = it }, "Tên khu nhà", "property-name")
-                        V1Input(
-                            locationForm.privateLocation.address,
-                            { locationForm = setPrivateAddress(locationForm, it) },
-                            "Địa chỉ vận hành (riêng tư)",
-                            "private-address",
+                        TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu nhà") }, modifier = Modifier.fillMaxWidth().testTag("property-name"), singleLine = true)
+                        TroOiFormField(
+                            value = locationForm.privateLocation.address,
+                            onValueChange = { locationForm = setPrivateAddress(locationForm, it) },
+                            label = { Text("Địa chỉ vận hành (riêng tư)") },
+                            modifier = Modifier.fillMaxWidth().testTag("private-address"), singleLine = true,
                         )
                         LocationPickerMap(
                             "pin vận hành",
@@ -184,16 +181,16 @@ fun V1OperatorWorkspace(
                             { locationForm = setPublicPin(locationForm, it) },
                             "public-pin-map",
                         )
-                        V1Action(
+                        TroOiButton(
                             if (locationForm.publicLocation.confirmed) "Đã xác nhận pin công khai" else "Xác nhận pin công khai",
                             { locationForm = confirmPublicPin(locationForm) },
                             enabled = locationForm.publicLocation.point != null && !locationForm.publicLocation.confirmed,
                             modifier = Modifier.fillMaxWidth().testTag("confirm-public-pin"),
                         )
-                        V1Pending("Pin công khai phải chọn và xác nhận riêng; không sao chép từ địa chỉ hoặc pin vận hành.")
-                        V1Action("Tạo khu nhà", {
-                            val privatePoint = locationForm.privateLocation.point ?: return@V1Action
-                            val publicPoint = locationForm.publicLocation.point ?: return@V1Action
+                        TroOiFeedback("Pin công khai phải chọn và xác nhận riêng; không sao chép từ địa chỉ hoặc pin vận hành.")
+                        TroOiButton("Tạo khu nhà", {
+                            val privatePoint = locationForm.privateLocation.point ?: return@TroOiButton
+                            val publicPoint = locationForm.publicLocation.point ?: return@TroOiButton
                             model.createProperty(
                                 route.organizationId,
                                 name,
@@ -209,13 +206,13 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Property -> {
                 ui.property?.takeIf { it.id == route.id }?.let { property ->
                     item {
-                        V1Panel(property.name) {
+                        TroOiCard(property.name) {
                             Text("Địa chỉ vận hành không xuất hiện trên tin đăng công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            V1Input(name, { name = it }, "Tên khu nhà mới", "property-edit-name")
-                            V1Action("Lưu tên", {
+                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu nhà mới") }, modifier = Modifier.fillMaxWidth().testTag("property-edit-name"), singleLine = true)
+                            TroOiButton("Lưu tên", {
                                 model.renameProperty(route.id, route.organizationId, name)
                             }, enabled = !ui.busy && name.isNotBlank())
-                            V1Action("Danh sách phòng", {
+                            TroOiButton("Danh sách phòng", {
                                 model.open(OperatorRoute.Rooms(route.id, route.organizationId))
                             })
                         }
@@ -223,16 +220,17 @@ fun V1OperatorWorkspace(
                 }
             }
             is OperatorRoute.Rooms -> {
-                if (!ui.busy && ui.rooms.isEmpty()) item { V1Panel("Phòng") { V1Pending("Chưa có phòng nào.") } }
+                if (!ui.busy && ui.rooms.isEmpty()) item { TroOiCard("Phòng") { TroOiStateMessage(TroOiStateKind.EMPTY, "Chưa có phòng nào.") } }
                 items(ui.rooms, key = { "room-" + it.id }) { room ->
-                    V1Row(room.name, operatorRoomStateLabel(room.state) + " · " + recordLifecycleLabel(room.lifecycle), "room-" + room.id) {
+                    TroOiListRow(room.name, operatorRoomStateLabel(room.state) + " · " + recordLifecycleLabel(room.lifecycle),
+                        action = "Mở chi tiết →", modifier = Modifier.testTag("room-" + room.id), onClick = {
                         model.open(OperatorRoute.Room(room.id, route.propertyId, route.organizationId))
-                    }
+                    })
                 }
                 item {
-                    V1Panel("Tạo phòng") {
-                        V1Input(name, { name = it }, "Tên hoặc mã phòng", "room-name")
-                        V1Action("Tạo phòng", {
+                    TroOiCard("Tạo phòng") {
+                        TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên hoặc mã phòng") }, modifier = Modifier.fillMaxWidth().testTag("room-name"), singleLine = true)
+                        TroOiButton("Tạo phòng", {
                             model.createRoom(route.propertyId, route.organizationId, name)
                         }, enabled = !ui.busy && name.isNotBlank())
                     }
@@ -284,29 +282,29 @@ fun V1OperatorWorkspace(
                     item {
                         LedgerSectionTitle("Thông tin hiện tại", "Trạng thái phòng và tin đăng đang áp dụng")
                         Spacer(Modifier.height(8.dp))
-                        V1Metric("Trạng thái vận hành", room.state)
-                        V1Metric("Vòng đời record", room.lifecycle)
+                        TroOiInformationRow("Trạng thái vận hành", room.state)
+                        TroOiInformationRow("Vòng đời record", room.lifecycle)
                         ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->
-                            V1Metric("Tin đăng hiện tại", "${listing.status} · ${listing.price}")
+                            TroOiInformationRow("Tin đăng hiện tại", "${listing.status} · ${listing.price}")
                         }
                     }
                     item {
-                        V1Panel("Thao tác phòng") {
-                            V1Input(name, { name = it }, "Tên phòng mới", "room-edit-name")
-                            V1Action("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
+                        TroOiCard("Thao tác phòng") {
+                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên phòng mới") }, modifier = Modifier.fillMaxWidth().testTag("room-edit-name"), singleLine = true)
+                            TroOiButton("Lưu tên", { model.renameRoom(room.id, name) }, enabled = !ui.busy && name.isNotBlank())
                             val targets = legalRoomTargets(room.state)
                             if (room.state.equals("occupied", true)) {
-                                V1Pending("Phòng đang có người thuê. Trạng thái trống chỉ sau khi lượt thuê được checkout trên Backend.")
-                                V1SecondaryAction("Mở lượt thuê để checkout", {
+                                TroOiFeedback("Phòng đang có người thuê. Trạng thái trống chỉ sau khi lượt thuê được checkout trên Backend.")
+                                TroOiButton("Mở lượt thuê để checkout", {
                                     model.open(OperatorRoute.Rentals(room.id, route.organizationId))
-                                }, enabled = !ui.busy)
+                                }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY)
                             } else if (targets.isEmpty()) {
-                                V1Pending("Không có chuyển trạng thái thủ công hợp lệ từ ${room.state}.")
+                                TroOiFeedback("Không có chuyển trạng thái thủ công hợp lệ từ ${room.state}.")
                             } else {
                                 targets.forEach { target ->
-                                    V1SecondaryAction(manualRoomTargetLabel(target), {
+                                    TroOiButton(manualRoomTargetLabel(target), {
                                         model.transitionRoomState(route, target)
-                                    }, enabled = !ui.busy)
+                                    }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY)
                                 }
                             }
                         }
@@ -314,45 +312,45 @@ fun V1OperatorWorkspace(
                     item {
                         LedgerSectionTitle("Mở bản ghi nguồn")
                         Spacer(Modifier.height(8.dp))
-                        V1SecondaryAction("Lượt thuê · Tài chính · Sự cố", {
+                        TroOiButton("Lượt thuê · Tài chính · Sự cố", {
                             model.open(OperatorRoute.Rentals(room.id, route.organizationId))
-                        }, modifier = Modifier.fillMaxWidth())
+                        }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
                         Spacer(Modifier.height(8.dp))
-                        V1SecondaryAction("Lịch sử đầy đủ", {
+                        TroOiButton("Lịch sử đầy đủ", {
                             model.open(OperatorRoute.RoomHistory(room.id, route.propertyId, route.organizationId))
-                        }, modifier = Modifier.fillMaxWidth())
+                        }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
                     }
                 }
                 if (!ui.busy && ui.listing?.roomId != route.id) item {
-                    V1Panel("Tạo tin đăng cho phòng") {
-                        V1Pending("Mỗi phòng chỉ có một tin đăng hiện hành.")
-                        V1Input(name, { name = it }, "Tiêu đề công khai", "listing-title")
-                        V1Input(description, { description = it }, "Mô tả công khai", "listing-description")
-                        V1Input(price, { price = it.filter(Char::isDigit).take(16) }, "Giá công khai (VND)", "listing-price")
+                    TroOiCard("Tạo tin đăng cho phòng") {
+                        TroOiFeedback("Mỗi phòng chỉ có một tin đăng hiện hành.")
+                        TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tiêu đề công khai") }, modifier = Modifier.fillMaxWidth().testTag("listing-title"), singleLine = true)
+                        TroOiFormField(value = description, onValueChange = { description = it }, label = { Text("Mô tả công khai") }, modifier = Modifier.fillMaxWidth().testTag("listing-description"), singleLine = true)
+                        TroOiFormField(value = price, onValueChange = { price = it.filter(Char::isDigit).take(16) }, label = { Text("Giá công khai (VND)") }, modifier = Modifier.fillMaxWidth().testTag("listing-price"), singleLine = true)
                         LocationPickerMap(
                             "pin công khai của tin đăng",
                             locationForm.publicLocation.point,
                             { locationForm = setPublicPin(locationForm, it) },
                             "listing-public-pin-map",
                         )
-                        V1Action(
+                        TroOiButton(
                             if (locationForm.publicLocation.confirmed) "Đã xác nhận pin công khai" else "Xác nhận pin công khai",
                             { locationForm = confirmPublicPin(locationForm) },
                             enabled = locationForm.publicLocation.point != null && !locationForm.publicLocation.confirmed,
                             modifier = Modifier.fillMaxWidth().testTag("confirm-listing-public-pin"),
                         )
-                        V1Action("Tạo bản nháp", {
-                            val publicPoint = locationForm.publicLocation.point ?: return@V1Action
+                        TroOiButton("Tạo bản nháp", {
+                            val publicPoint = locationForm.publicLocation.point ?: return@TroOiButton
                             model.createListing(route, name, description, price, publicPoint)
                         }, enabled = !ui.busy && canCreateListing(name, description, price, locationForm.publicLocation))
                     }
                 }
                 ui.listing?.takeIf { it.roomId == route.id }?.let { listing ->
                     item {
-                        V1Panel("Tin đăng hiện tại") {
-                            V1Metric("Mã tin đăng", listing.id)
-                            V1Metric("Trạng thái", listingStatusLabel(listing.status))
-                            V1Action("Mở tin đăng", {
+                        TroOiCard("Tin đăng hiện tại") {
+                            TroOiInformationRow("Mã tin đăng", listing.id)
+                            TroOiInformationRow("Trạng thái", listingStatusLabel(listing.status))
+                            TroOiButton("Mở tin đăng", {
                                 model.open(OperatorRoute.Listing(listing.id, route.id, route.propertyId, route.organizationId))
                             }, enabled = !ui.busy)
                         }
@@ -372,7 +370,7 @@ fun V1OperatorWorkspace(
                         LedgerSectionTitle("Lịch sử tin đăng", "Chỉ đọc")
                         Spacer(Modifier.height(8.dp))
                         if (history.listings.isEmpty()) {
-                            V1Pending("Chưa có lịch sử tin đăng.")
+                            TroOiFeedback("Chưa có lịch sử tin đăng.")
                         } else {
                             history.listings.forEach { entry ->
                                 LedgerAttentionRow(
@@ -406,7 +404,7 @@ fun V1OperatorWorkspace(
                         LedgerSectionTitle("Lượt thuê & tài chính", "Lịch sử liên quan đến phòng")
                         Spacer(Modifier.height(8.dp))
                         if (history.tenancies.isEmpty()) {
-                            V1Pending("Chưa có lịch sử lượt thuê.")
+                            TroOiFeedback("Chưa có lịch sử lượt thuê.")
                         } else {
                             history.tenancies.forEach { entry ->
                                 LedgerAttentionRow(
@@ -464,7 +462,7 @@ fun V1OperatorWorkspace(
                                     }
                                 }
                                 entry.deposit?.let { depositHistory ->
-                                    V1Metric("Tiền cọc đang giữ", depositHistory.projection.heldAmount)
+                                    TroOiInformationRow("Tiền cọc đang giữ", depositHistory.projection.heldAmount)
                                     LedgerStateLabel(
                                         depositHistory.projection.state ?: "Chưa có trạng thái",
                                         LedgerTone.Clay,
@@ -478,7 +476,7 @@ fun V1OperatorWorkspace(
                         LedgerSectionTitle("Sự cố", "Lịch sử xử lý")
                         Spacer(Modifier.height(8.dp))
                         if (history.incidents.isEmpty()) {
-                            V1Pending("Chưa có lịch sử sự cố.")
+                            TroOiFeedback("Chưa có lịch sử sự cố.")
                         } else {
                             history.incidents.forEach { entry ->
                                 if (entry.events.isEmpty()) {
@@ -516,66 +514,50 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Listing -> {
                 ui.listing?.takeIf { it.id == route.id && it.roomId == route.roomId }?.let { listing ->
                     item {
-                        V1Panel(listing.title) {
-                            V1Metric("Trạng thái", listingStatusLabel(listing.status))
-                            V1Metric("Giá công khai", listing.price)
-                            V1Input(name, { name = it }, "Tiêu đề mới", "listing-edit-title")
-                            V1Input(description, { description = it }, "Mô tả mới", "listing-edit-description")
-                            V1Input(price, { price = it.filter(Char::isDigit).take(16) }, "Giá mới (VND)", "listing-edit-price")
-                            V1Action("Lưu tin đăng", { model.editListing(route, name, description, price) },
+                        TroOiCard(listing.title) {
+                            TroOiInformationRow("Trạng thái", listingStatusLabel(listing.status))
+                            TroOiInformationRow("Giá công khai", listing.price)
+                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tiêu đề mới") }, modifier = Modifier.fillMaxWidth().testTag("listing-edit-title"), singleLine = true)
+                            TroOiFormField(value = description, onValueChange = { description = it }, label = { Text("Mô tả mới") }, modifier = Modifier.fillMaxWidth().testTag("listing-edit-description"), singleLine = true)
+                            TroOiFormField(value = price, onValueChange = { price = it.filter(Char::isDigit).take(16) }, label = { Text("Giá mới (VND)") }, modifier = Modifier.fillMaxWidth().testTag("listing-edit-price"), singleLine = true)
+                            TroOiButton("Lưu tin đăng", { model.editListing(route, name, description, price) },
                                 enabled = !ui.busy && listing.status != "archived" &&
                                     name.isNotBlank() && description.isNotBlank() &&
                                     price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
                             if (listing.status == "draft" || listing.status == "unpublished") {
-                                V1Action("Đăng tin", { model.publishListing(route) }, enabled = !ui.busy)
+                                TroOiButton("Đăng tin", { model.publishListing(route) }, enabled = !ui.busy)
                             }
                             if (listing.status == "published") {
-                                V1Action("Ẩn tin", { model.unpublishListing(route) }, enabled = !ui.busy)
+                                TroOiButton("Ẩn tin", { model.unpublishListing(route) }, enabled = !ui.busy)
                             }
                             if (listing.status != "archived") {
-                                V1Action("Lưu trữ", { model.archiveListing(route) }, enabled = !ui.busy)
+                                TroOiButton("Lưu trữ", { model.archiveListing(route) }, enabled = !ui.busy)
                             }
-                            V1Action("Inbox liên hệ", { model.open(OperatorRoute.Inquiries(listing.id)) })
+                            TroOiButton("Inbox liên hệ", { model.open(OperatorRoute.Inquiries(listing.id)) })
                         }
                     }
                 }
             }
             is OperatorRoute.Inquiries -> {
-                if (!ui.busy && ui.inquiries.isEmpty()) item { V1Panel("Yêu cầu liên hệ") { V1Pending("Chưa có yêu cầu liên hệ cho tin đăng này.") } }
+                if (!ui.busy && ui.inquiries.isEmpty()) item { TroOiCard("Yêu cầu liên hệ") { TroOiStateMessage(TroOiStateKind.EMPTY, "Chưa có yêu cầu liên hệ cho tin đăng này.") } }
                 items(ui.inquiries, key = { "inquiry-" + it.id }) { entry ->
-                    V1Row(entry.message, entry.status, "inquiry-" + entry.id) {
+                    TroOiListRow(entry.message, entry.status, action = "Mở chi tiết →", modifier = Modifier.testTag("inquiry-" + entry.id), onClick = {
                         model.open(OperatorRoute.Inquiry(entry.id, route.listingId))
-                    }
+                    })
                 }
             }
             is OperatorRoute.Inquiry -> {
                 ui.inquiry?.takeIf { it.id == route.id && it.listingId == route.listingId }?.let { entry ->
                     item {
-                        V1Panel("Yêu cầu liên hệ") {
+                        TroOiCard("Yêu cầu liên hệ") {
                             Text(entry.message)
-                            V1Metric("Trạng thái", entry.status)
-                            V1Pending("Yêu cầu liên hệ không tự động giữ phòng hoặc tạo lượt thuê.")
+                            TroOiInformationRow("Trạng thái", entry.status)
+                            TroOiFeedback("Yêu cầu liên hệ không tự động giữ phòng hoặc tạo lượt thuê.")
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable private fun V1Input(
-    value: String, onValue: (String) -> Unit, label: String, tag: String,
-) {
-    OutlinedTextField(
-        value = value, onValueChange = onValue, label = { Text(label) },
-        modifier = Modifier.fillMaxWidth().testTag(tag), singleLine = true,
-    )
-}
-
-@Composable private fun V1Row(title: String, detail: String, tag: String, onOpen: () -> Unit) {
-    V1Panel(title, modifier = Modifier.fillMaxWidth().testTag(tag).clickable(onClick = onOpen)) {
-        Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Mở chi tiết →", fontWeight = FontWeight.SemiBold)
     }
 }
 

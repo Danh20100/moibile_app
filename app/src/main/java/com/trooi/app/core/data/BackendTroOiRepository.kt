@@ -21,6 +21,7 @@ class BackendTroOiRepository @Inject constructor(
         Result.success(UserSession(
             userId = session.userId,
             displayName = session.name ?: session.email ?: session.userId,
+            pictureUrl = session.pictureUrl,
             access = AccessCapabilities(
                 linkedTenancyIds = session.linkedTenancyIds.toSet(),
                 operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
@@ -63,6 +64,7 @@ class BackendTroOiRepository @Inject constructor(
                 UserSession(
                     userId = session.userId,
                     displayName = displayName,
+                    pictureUrl = session.pictureUrl ?: principal.pictureUrl,
                     access = AccessCapabilities(
                         linkedTenancyIds = session.linkedTenancyIds.toSet(),
                         operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
@@ -213,7 +215,7 @@ class BackendTroOiRepository @Inject constructor(
                 ?.let(::mapDeposit)
             tenantFinance[tenancyId] = TenantFinanceProjection(
                 tenancyId = tenancyId,
-                charges = chargesAfterPayments(charges, paymentCards),
+                charges = charges,
                 payments = paymentCards,
                 deposits = listOfNotNull(deposit),
             )
@@ -332,7 +334,7 @@ class BackendTroOiRepository @Inject constructor(
         chargeId = charge.id,
         label = charge.type,
         amountLabel = charge.amount,
-        outstandingLabel = null,
+        outstandingLabel = charge.outstandingAmount,
     )
 
     private fun mapPayment(payment: PaymentTransport) = PaymentCard(

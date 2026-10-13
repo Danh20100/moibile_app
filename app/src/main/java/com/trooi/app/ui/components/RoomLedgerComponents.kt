@@ -3,7 +3,6 @@ package com.trooi.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -12,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -23,7 +23,7 @@ enum class LedgerTone { Neutral, Success, Warning, Error, Clay }
 
 @Composable
 private fun ledgerToneColor(tone: LedgerTone): Color {
-    val dark = isSystemInDarkTheme()
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     return when (tone) {
         LedgerTone.Success -> if (dark) TroOiDarkSuccess else TroOiSuccess
         LedgerTone.Warning -> if (dark) TroOiDarkWarning else TroOiWarning
@@ -205,7 +205,7 @@ fun LedgerMediaPlaceholder(
     subtitle: String,
     modifier: Modifier = Modifier,
 ) {
-    val dark = isSystemInDarkTheme()
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val mediaColor = if (dark) TroOiDarkMedia else TroOiMedia
     val mediaText = if (dark) TroOiDarkInk else TroOiInk
     Surface(

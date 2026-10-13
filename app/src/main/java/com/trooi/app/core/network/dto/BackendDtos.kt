@@ -109,6 +109,7 @@ data class ChargeTransport(
     val billingCycleId: String,
     val type: String,
     val amount: String,
+    val outstandingAmount: String? = null,
 )
 
 data class BillingCycleTransport(

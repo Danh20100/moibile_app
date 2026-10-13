@@ -30,6 +30,7 @@ data class PublicListingCard(
     val visibility: ListingVisibility,
     val amenities: List<String> = emptyList(),
     val distanceMeters: Double? = null,
+    val rentalDetails: PublicRentalDetails? = null,
 )
 
 /** A discovery feed may render only published public Listing projections. */
@@ -62,25 +63,12 @@ data class TenancyCard(
     val roomLabel: String,
     val lifecycle: TenancyLifecycle,
     val termsVersionLabel: String?,
+    val primaryTenantName: String? = null,
 )
 
 /** Finance projections are separate read surfaces, not inferred from Room rent/debt. */
 data class ChargeCard(val chargeId: String, val label: String, val amountLabel: String, val outstandingLabel: String?)
 data class PaymentCard(val paymentId: String, val amountLabel: String, val confirmationLabel: String?)
-
-// ponytail: FIFO leftover vs unallocated payments; use allocations if that policy lands.
-fun chargesAfterPayments(charges: List<ChargeCard>, payments: List<PaymentCard>): List<ChargeCard> {
-    var credit = payments.sumOf { vndUnits(it.amountLabel) }
-    return charges.map { charge ->
-        val due = vndUnits(charge.amountLabel)
-        val take = minOf(due, credit.coerceAtLeast(0L))
-        credit -= take
-        charge.copy(outstandingLabel = "${due - take}.00")
-    }
-}
-
-internal fun vndUnits(amount: String): Long =
-    amount.trim().removeSuffix(".00").toLongOrNull()?.takeIf { it >= 0 } ?: 0L
 data class PaymentAllocationCard(val allocationId: String, val paymentId: String, val chargeId: String, val amountLabel: String)
 data class DepositCard(
     val tenancyId: String,

@@ -230,6 +230,63 @@ test('deposit settlement appends refunded and retained provenance events', async
   );
 });
 
+test('outstanding follows active allocations and ignores unallocated or voided payments', async () => {
+  const { finance, transactions } = services();
+  const cycle = await finance.createCycle({
+    tenancyId: 'tenancy-a',
+    tenancyTermsId: 'terms-a',
+    periodStart: '2026-09-01',
+    periodEnd: '2026-09-30',
+    charges: [{ type: 'RENT', amount: '5000.00' }],
+  });
+  const chargeId = cycle.charges[0]!.id;
+  assert.equal(cycle.charges[0]?.outstandingAmount, '5000.00');
+  await finance.recordPayment({
+    tenancyId: 'tenancy-a',
+    amount: '5000.00',
+    source: 'MANUAL_TRANSFER',
+    confirmedAt: '2026-09-02T00:00:00.000Z',
+  });
+  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '5000.00');
+  const partial = await finance.recordPayment({
+    tenancyId: 'tenancy-a',
+    amount: '2000.00',
+    source: 'MANUAL_CASH',
+    confirmedAt: '2026-09-03T00:00:00.000Z',
+  });
+  await finance.allocatePayment(partial.id, chargeId, '2000.00');
+  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '3000.00');
+  const stored = await transactions.run(({ repositories }) => repositories.finance.findPayment(partial.id));
+  assert.ok(stored);
+  await transactions.run(({ repositories }) =>
+    repositories.finance.updatePayment({ ...stored, voidedOrReversedAt: '2026-09-04T00:00:00.000Z' }),
+  );
+  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '5000.00');
+
+  const over = await finance.createCycle({
+    tenancyId: 'tenancy-a',
+    tenancyTermsId: 'terms-a',
+    periodStart: '2026-10-01',
+    periodEnd: '2026-10-31',
+    charges: [{ type: 'WATER', amount: '100.00' }],
+  });
+  const first = await finance.recordPayment({
+    tenancyId: 'tenancy-a',
+    amount: '80.00',
+    source: 'MANUAL_CASH',
+    confirmedAt: '2026-10-02T00:00:00.000Z',
+  });
+  const second = await finance.recordPayment({
+    tenancyId: 'tenancy-a',
+    amount: '40.00',
+    source: 'MANUAL_CASH',
+    confirmedAt: '2026-10-03T00:00:00.000Z',
+  });
+  await finance.allocatePayment(first.id, over.charges[0]!.id, '80.00');
+  await finance.allocatePayment(second.id, over.charges[0]!.id, '40.00');
+  assert.equal((await finance.findById(over.id)).charges[0]?.outstandingAmount, null);
+});
+
 test('manual service rejects parsed provider provenance before recording or correcting', async () => {
   const { finance } = services();
   const manual = { tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', confirmedAt: '2026-10-05T00:00:00.000Z' };

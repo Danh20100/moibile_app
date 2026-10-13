@@ -1,0 +1,66 @@
+{
+  "roles": {
+    "organization": "e0080000-0000-4000-8000-000000000004",
+    "property": "e0080000-0000-4000-8000-000000000005",
+    "room": "e0080000-0000-4000-8000-000000000006",
+    "tenancy": "e0080000-0000-4000-8000-000000000007",
+    "apartment": "fixture-room-an-nhien",
+    "previousRoom": "fixture-room-previous-lan",
+    "previousTenancy": "fixture-tenancy-previous-lan"
+  },
+  "organizationIds": [
+    "e0080000-0000-4000-8000-000000000004",
+    "fixture-organization-nam"
+  ],
+  "properties": [
+    {
+      "id": "e0080000-0000-4000-8000-000000000005",
+      "organizationId": "e0080000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "fixture-property-linh-trung",
+      "organizationId": "e0080000-0000-4000-8000-000000000004"
+    },
+    {
+      "id": "fixture-property-binh-thanh",
+      "organizationId": "fixture-organization-nam"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "e0080000-0000-4000-8000-000000000006",
+      "propertyId": "e0080000-0000-4000-8000-000000000005"
+    },
+    {
+      "id": "fixture-room-an-nhien",
+      "propertyId": "fixture-property-linh-trung"
+    },
+    {
+      "id": "fixture-room-window",
+      "propertyId": "fixture-property-binh-thanh"
+    },
+    {
+      "id": "fixture-room-previous-lan",
+      "propertyId": "fixture-property-binh-thanh"
+    }
+  ],
+  "tenancies": [
+    {
+      "id": "e0080000-0000-4000-8000-000000000007",
+      "roomId": "e0080000-0000-4000-8000-000000000006"
+    },
+    {
+      "id": "fixture-tenancy-previous-lan",
+      "roomId": "fixture-room-previous-lan"
+    }
+  ],
+  "externalUsers": [
+    {
+      "userId": "fixture-user-nam",
+      "displayName": "Hoàng Nam",
+      "operatedOrganizationIds": [
+        "fixture-organization-nam"
+      ]
+    }
+  ]
+}

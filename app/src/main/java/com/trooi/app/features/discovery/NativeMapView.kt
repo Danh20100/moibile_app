@@ -26,8 +26,8 @@ import com.trooi.app.BuildConfig
 import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.core.model.publicMapPoint
-import com.trooi.app.ui.components.V1Panel
-import com.trooi.app.ui.components.V1Pending
+import com.trooi.app.ui.components.TroOiCard
+import com.trooi.app.ui.components.TroOiFeedback
 
 @Composable
 fun NativeMapView(
@@ -39,8 +39,8 @@ fun NativeMapView(
     modifier: Modifier = Modifier,
 ) {
     if (BuildConfig.MAPS_API_KEY.isBlank()) {
-        V1Panel("Chưa cấu hình bản đồ", modifier = modifier.fillMaxWidth().testTag("native-map-unconfigured")) {
-            V1Pending("Thiếu trooiMapsApiKey / TROOI_MAPS_API_KEY. Các màn khác vẫn dùng được.")
+        TroOiCard("Chưa cấu hình bản đồ", modifier = modifier.fillMaxWidth().testTag("native-map-unconfigured")) {
+            TroOiFeedback("Thiếu trooiMapsApiKey / TROOI_MAPS_API_KEY. Các màn khác vẫn dùng được.")
         }
         return
     }
@@ -128,7 +128,7 @@ fun LocationPickerMap(
     onPick: (PublicGeoPoint) -> Unit,
     testTag: String,
 ) {
-    V1Pending(if (selectedPoint == null) "Chạm bản đồ để chọn $label." else "Đã chọn $label.")
+    TroOiFeedback(if (selectedPoint == null) "Chạm bản đồ để chọn $label." else "Đã chọn $label.")
     NativeMapView(
         publicMarkers = emptyList(),
         selectedPoint = selectedPoint,

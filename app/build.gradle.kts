@@ -1,3 +1,4 @@
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -30,6 +31,23 @@ val paymentPublicOrigin = providers.gradleProperty("trooiPaymentPublicOrigin")
     .orElse("")
     .get()
 val escapedPaymentPublicOrigin = paymentPublicOrigin.replace("\\", "\\\\").replace("\"", "\\\"")
+
+fun acceptedReleasePaymentOrigin(raw: String): String {
+    val trimmed = raw.trim().trimEnd('/')
+    val uri = runCatching { URI(trimmed) }.getOrNull() ?: return ""
+    val host = uri.host?.lowercase() ?: return ""
+    val blocked = host == "localhost" || host == "127.0.0.1" || host == "10.0.2.2" ||
+        host == "trycloudflare.com" || host.endsWith(".trycloudflare.com")
+    if (!uri.scheme.equals("https", ignoreCase = true) || uri.userInfo != null || blocked) return ""
+    if (uri.rawPath !in listOf(null, "", "/") || uri.rawQuery != null || uri.rawFragment != null) return ""
+    return trimmed
+}
+val releasePaymentPublicOrigin = providers.gradleProperty("trooiReleasePaymentPublicOrigin")
+    .orElse(providers.environmentVariable("TROOI_RELEASE_PAYMENT_PUBLIC_ORIGIN"))
+    .orElse("")
+    .get()
+val escapedReleasePaymentPublicOrigin = acceptedReleasePaymentOrigin(releasePaymentPublicOrigin)
+    .replace("\\", "\\\\").replace("\"", "\\\"")
 val mapsApiKey = providers.gradleProperty("trooiMapsApiKey")
     .orElse(providers.environmentVariable("TROOI_MAPS_API_KEY"))
     .orElse("")
@@ -67,13 +85,13 @@ android {
 
     buildTypes {
         getByName("debug") {
-            buildConfigField("boolean", "BACKEND_BACKED", "false")
+            // Source selection happens at runtime in debug; there is no third build type.
         }
         release {
-            buildConfigField("boolean", "BACKEND_BACKED", "true")
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            buildConfigField("String", "PAYMENT_PUBLIC_ORIGIN", "\"$escapedReleasePaymentPublicOrigin\"")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
             }
@@ -81,13 +99,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-        }
-        create("backendDebug") {
-            initWith(getByName("debug"))
-            matchingFallbacks += listOf("debug")
-            applicationIdSuffix = ".backenddev"
-            isDebuggable = true
-            buildConfigField("boolean", "BACKEND_BACKED", "true")
         }
     }
 
@@ -100,6 +111,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Android/Kotlin tests are hosted at repository root beside the TS/backend suite.
+    // Gradle still owns the compilation/runtime variants; no tests are disabled.
+    sourceSets.getByName("test").kotlin.directories.add("../tests/android/unit/java")
+    sourceSets.getByName("testDebug").kotlin.directories.add("../tests/android/unitDebug/java")
+    sourceSets.getByName("testDebug").resources.srcDir(rootProject.file("tests/android/unitDebug/resources"))
+    sourceSets.getByName("androidTest").kotlin.directories.add("../tests/android/instrumentation/java")
+    sourceSets.getByName("androidTestDebug").kotlin.directories.add("../tests/android/instrumentationDebug/java")
+    // Unit Debug test resources additionally require the built-in Debug fixture assets.
+    sourceSets.getByName("testDebug").resources.srcDir("src/debug/assets")
 
     testBuildType = providers.gradleProperty("trooiInstrumentationBuildType").orElse("debug").get()
 }
@@ -134,7 +155,6 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-    "backendDebugImplementation"("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")

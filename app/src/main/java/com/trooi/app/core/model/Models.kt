@@ -11,6 +11,9 @@ sealed interface AppPage {
     data object AuthForgotPassword : AppPage
     data object ContextSwitcher : AppPage
     data object Discovery : AppPage
+    data object Favorites : AppPage
+    data object CoreWorkspace : AppPage
+    data object Messages : AppPage
     data object GuestMap : AppPage
     data object GuestActivity : AppPage
     data class ListingDetail(val listingId: String) : AppPage
@@ -31,16 +34,21 @@ sealed interface AppPage {
 }
 
 data class TroOiUiState(
-    val page: AppPage = AppPage.Discovery,
+    val page: AppPage = AppPage.AuthWelcome,
+    val splashCompleted: Boolean = false,
     val activeContext: AppContext = AppContext.DISCOVERY,
     val selectedContext: SelectedContext = SelectedContext.Discovery,
     val isAuthenticated: Boolean = false,
     val displayName: String = "",
+    val pictureUrl: String? = null,
     val access: AccessCapabilities = AccessCapabilities(),
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),
     val demoPreview: Boolean = false,
     val authInProgress: Boolean = false,
     val runtimeLoading: Boolean = false,
+    val authorizedReadFailed: Boolean = false,
+    val messagesLoading: Boolean = false,
+    val messagesLoadFailed: Boolean = false,
     val submittingInquiry: Boolean = false,
     val inquiryCompletedListingId: String? = null,
     val inquiryError: String? = null,
@@ -50,6 +58,7 @@ data class TroOiUiState(
     val trustReportUnavailable: Boolean = false,
     val authReturnListingId: String? = null,
     val sharedCaller: AppPage? = null,
+    val settingsEntry: String = "settings",
     val snackbarMessage: String? = null,
     val sessionRestoring: Boolean = false,
     val restoreFailed: Boolean = false,
@@ -62,7 +71,8 @@ data class TroOiUiState(
 /** Only UI routing and relationship checks: the backend remains the authority for operations. */
 fun canOpenPage(page: AppPage, authenticated: Boolean, access: AccessCapabilities): Boolean =
     when (page) {
-        AppPage.ContextSwitcher, AppPage.Notifications, is AppPage.NotificationDetail -> authenticated
+        AppPage.Account, AppPage.ContextSwitcher, AppPage.Notifications, is AppPage.NotificationDetail -> authenticated
+        AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages -> authenticated
         AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance, AppPage.TenantIncidents ->
             authenticated && access.allows(ClientArea.TENANT_PORTAL)
         AppPage.OwnerDashboard, AppPage.OwnerFinance, AppPage.OwnerIncidents ->
@@ -96,4 +106,23 @@ data class TrustReportReceipt(
     val reason: String,
     val status: String,
     val createdAt: String,
+)
+
+/** The root shell is available only after authenticated session restoration. */
+fun rootNavigationVisible(state: TroOiUiState): Boolean =
+    state.isAuthenticated && state.splashCompleted && !state.sessionRestoring && !state.restoreFailed && (
+        state.page in setOf(AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages) || when (state.activeContext) {
+        AppContext.DISCOVERY -> state.page in setOf(
+            AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages,
+            AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
+        )
+        AppContext.TENANT -> state.page in setOf(
+            AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,
+            AppPage.TenantIncidents, AppPage.Account,
+        )
+        AppContext.OPERATIONS -> state.page in setOf(
+            AppPage.OwnerDashboard, AppPage.OwnerProperties, AppPage.OwnerFinance,
+            AppPage.OwnerIncidents, AppPage.Account,
+        )
+    }
 )

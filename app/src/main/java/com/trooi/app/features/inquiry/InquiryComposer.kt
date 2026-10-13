@@ -21,16 +21,16 @@ fun InquiryComposer(
     var message by remember(listingId) { mutableStateOf("") }
     val completed = state.inquiryCompletedListingId == listingId
     LaunchedEffect(completed) { if (completed) message = "" }
-    V1Panel("Liên hệ về tin đăng", modifier = Modifier.testTag("inquiry-composer")) {
+    TroOiCard("Liên hệ về tin đăng", modifier = Modifier.testTag("inquiry-composer")) {
         Text("Gửi yêu cầu liên hệ không đồng nghĩa với giữ phòng.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (!state.isAuthenticated) {
-            V1Pending("Đăng nhập Google trước khi gửi yêu cầu.")
-            V1Action("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
+            TroOiFeedback("Đăng nhập Google trước khi gửi yêu cầu.")
+            TroOiButton("Đăng nhập để liên hệ", onOpenLogin, modifier = Modifier.fillMaxWidth())
         } else if (completed) {
             Text("Đã gửi yêu cầu liên hệ.", modifier = Modifier.testTag("inquiry-success"))
-            V1Pending("Bạn có thể theo dõi phản hồi khi có cập nhật mới.")
+            TroOiFeedback("Bạn có thể theo dõi phản hồi khi có cập nhật mới.")
         } else {
-            OutlinedTextField(
+            TroOiFormField(
                 value = message,
                 onValueChange = { message = it.take(1000) },
                 label = { Text("Nội dung cần liên hệ") },
@@ -43,7 +43,7 @@ fun InquiryComposer(
                 Text(state.inquiryError, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("inquiry-error"))
             }
             if (state.submittingInquiry) CircularProgressIndicator(Modifier.testTag("inquiry-submitting"))
-            V1Action(
+            TroOiButton(
                 if (state.inquiryError != null) "Thử gửi lại" else "Gửi yêu cầu liên hệ",
                 { onSubmit(listingId, message.trim()) },
                 enabled = message.isNotBlank() && !state.submittingInquiry,

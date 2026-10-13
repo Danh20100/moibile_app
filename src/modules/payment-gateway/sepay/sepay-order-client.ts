@@ -65,27 +65,10 @@ function remoteOrderId(value: unknown, invoice: string): string | null {
   return value;
 }
 
-function paidFromCapturedList(
-  listed: Record<string, unknown>,
-  orderId: string,
-  invoice: string,
-): SepayReadResult {
+function listedWithoutDetail(listed: Record<string, unknown>): SepayReadResult {
   if (listed.order_status === 'AUTHENTICATION_NOT_NEEDED' || listed.order_status === 'CANCELLED')
     return pending;
-  if (listed.order_status !== SEPAY_PRODUCTION_PAID_STATUS) return uncertain;
-  const amount = wholeVnd(listed.order_amount);
-  const id = transactionId(listed.id);
-  if (!amount || listed.order_currency !== 'VND' || !id) return uncertain;
-  // ponytail: PAY* list rows 404 on /v1/order/detail; use transactions when that document exists.
-  return {
-    kind: 'paid',
-    remoteOrderId: orderId,
-    transactionId: id,
-    invoice,
-    amount,
-    currency: 'VND',
-    paymentMethod: 'BANK_TRANSFER',
-  };
+  return uncertain;
 }
 
 export function interpretSepayOrder(
@@ -109,8 +92,7 @@ export function interpretSepayOrder(
   if (!isRecord(listed) || listed.order_invoice_number !== invoice) return uncertain;
   const orderId = remoteOrderId(listed.order_id, invoice);
   if (!orderId) return uncertain;
-  if (!isRecord(detailBody) || !isRecord(detailBody.data))
-    return paidFromCapturedList(listed, orderId, invoice);
+  if (!isRecord(detailBody) || !isRecord(detailBody.data)) return listedWithoutDetail(listed);
   const data = detailBody.data;
   if (
     data.order_id !== orderId ||

@@ -9,11 +9,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.NotificationCard
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.ui.components.*
-import com.trooi.app.ui.theme.TroOiMuted
 
 @Composable
 fun V1NotificationCenterScreen(
@@ -27,12 +27,11 @@ fun V1NotificationCenterScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { V1PageTitle("Thông báo", "Các cập nhật mới nhất cho tài khoản của bạn") }
-        item { TextButton(onClick = onBack) { Text("← Quay lại") } }
+        item { TroOiPageHeader("Thông báo", "Các cập nhật mới nhất cho tài khoản của bạn", onBack) }
         if (state.runtimeLoading && state.read.notifications.isEmpty()) {
-            item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            item { TroOiStateMessage(TroOiStateKind.LOADING, "") }
         } else if (state.read.notifications.isEmpty()) {
-            item { V1Panel("Không có thông báo") { Text("Bạn chưa có thông báo nào.", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+            item { TroOiCard("Không có thông báo") { TroOiStateMessage(TroOiStateKind.EMPTY, "Bạn chưa có thông báo nào.") } }
         } else {
             items(state.read.notifications, key = { "notification-" + it.notificationId }) { notification ->
                 NotificationRow(notification, onOpen)
@@ -43,12 +42,12 @@ fun V1NotificationCenterScreen(
 
 @Composable
 private fun NotificationRow(notification: NotificationCard, onOpen: (String) -> Unit) {
-    V1Panel(
+    TroOiCard(
         notification.category,
         modifier = Modifier
             .fillMaxWidth()
             .testTag("notification-" + notification.notificationId)
-            .clickable { onOpen(notification.notificationId) },
+            .clickable(role = Role.Button) { onOpen(notification.notificationId) },
     ) {
         Text(notification.message)
         Text(notification.createdAtLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -71,25 +70,25 @@ fun V1NotificationDetailScreen(
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item { TextButton(onClick = onBack) { Text("← Quay lại") } }
+        item { TroOiPageHeader("Thông báo", onBack = onBack) }
         if (state.runtimeLoading && notification == null) {
-            item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+            item { TroOiStateMessage(TroOiStateKind.LOADING, "") }
         } else if (notification == null) {
-            item { V1Panel("Thông báo không khả dụng") { Text("Không tìm thấy thông báo này.") } }
+            item { TroOiCard("Thông báo không khả dụng") { TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Không tìm thấy thông báo này.") } }
         } else {
             item {
-                V1Panel(notification.category) {
+                TroOiCard(notification.category) {
                     Text(notification.message)
-                    V1Metric("Trạng thái gửi", notification.deliveryStatus)
-                    V1Metric("Tạo lúc", notification.createdAtLabel)
-                    V1Metric("Đọc lúc", notification.readAtLabel ?: "Chưa đọc")
+                    TroOiInformationRow("Trạng thái gửi", notification.deliveryStatus)
+                    TroOiInformationRow("Tạo lúc", notification.createdAtLabel)
+                    TroOiInformationRow("Đọc lúc", notification.readAtLabel ?: "Chưa đọc")
                     if (notification.readAtLabel == null) {
-                        V1Action("Đánh dấu đã đọc", { onMarkRead(notification.notificationId) })
+                        TroOiButton("Đánh dấu đã đọc", { onMarkRead(notification.notificationId) })
                     }
                     if (!notification.sourceType.isNullOrBlank() && !notification.sourceId.isNullOrBlank()) {
-                        V1Action("Xem nội dung liên quan", { onOpenSource(notification.notificationId) })
+                        TroOiButton("Xem nội dung liên quan", { onOpenSource(notification.notificationId) })
                     } else {
-                        V1Pending("Notification không có sourceId để mở bản ghi nguồn.")
+                        TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Notification không có sourceId để mở bản ghi nguồn.")
                     }
                 }
             }

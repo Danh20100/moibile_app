@@ -114,6 +114,9 @@ export class ChargeDto {
   @ApiProperty({ example: '3500000.00' })
   @IsString()
   amount!: string;
+
+  @ApiProperty({ example: '1500000.00', nullable: true })
+  outstandingAmount!: string | null;
 }
 
 export class BillingCycleDto {

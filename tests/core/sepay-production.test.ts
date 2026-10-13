@@ -306,7 +306,7 @@ test('sepay ipn acknowledges only a settled bank transfer', async () => {
       reads += 1;
       if (mode === 'pending') return { kind: 'pending' };
       if (mode === 'uncertain') return { kind: 'uncertain' };
-      if (mode === 'card') return { ...paid(invoice), paymentMethod: 'CARD' } as SepayReadResult;
+      if (mode === 'card') return { kind: 'uncertain' };
       return paid(invoice);
     },
   };
@@ -455,15 +455,16 @@ test('order detail parser refuses card, ambiguity, and invoice used as order id'
     meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
   };
   const fromList = interpretSepayOrder(capturedList, null, invoice, 'MERCHANT');
-  assert.equal(fromList.kind, 'paid');
-  if (fromList.kind === 'paid') {
-    assert.equal(fromList.remoteOrderId, 'PAY475TESTORDER0001');
-    assert.equal(fromList.transactionId, '90000000-0000-4000-8000-000000000091');
-    assert.equal(fromList.amount, '1000.00');
-  }
+  assert.equal(fromList.kind, 'uncertain');
+  const partial = structuredClone(detail);
+  partial.data.transactions[0].transaction_amount = '400';
+  assert.equal(interpretSepayOrder(list, partial, invoice, 'MERCHANT').kind, 'uncertain');
+  const awaiting = structuredClone(capturedList);
+  awaiting.data[0].order_status = 'AUTHENTICATION_NOT_NEEDED';
+  assert.equal(interpretSepayOrder(awaiting, null, invoice, 'MERCHANT').kind, 'pending');
 });
 
-test('http client reads detail by remote order id and settles a unique captured list when detail is missing', async () => {
+test('http client reads detail by remote order id and does not settle when detail is missing', async () => {
   const invoice = 'TROOI-SEPAY-00000000000040008000000000000001';
   const urls: string[] = [];
   const fetchImpl: typeof fetch = async (input) => {
@@ -488,10 +489,51 @@ test('http client reads detail by remote order id and settles a unique captured 
   };
   const client = new HttpSepayOrderClient(config, fetchImpl);
   const read = await client.readInvoice(invoice);
-  assert.equal(read.kind, 'paid');
-  if (read.kind === 'paid') assert.equal(read.remoteOrderId, 'PAY475TESTORDER0001');
+  assert.equal(read.kind, 'uncertain');
   assert.deepEqual(urls, [
     'https://pgapi.sepay.vn/v1/order',
     'https://pgapi.sepay.vn/v1/order/detail/PAY475TESTORDER0001',
   ]);
+});
+
+test('reconciliation does not confirm money without a settled transaction', async () => {
+  let fail = false;
+  const fetchImpl: typeof fetch = async (input) => {
+    if (fail) throw new Error('sepay down');
+    const url = new URL(String(input));
+    const invoice = url.searchParams.get('q') ?? '';
+    if (url.pathname === '/v1/order') {
+      return Response.json({
+        data: [
+          {
+            id: '90000000-0000-4000-8000-000000000091',
+            order_id: 'PAY475TESTORDER0001',
+            order_invoice_number: invoice,
+            order_status: 'CAPTURED',
+            order_amount: '1000.00',
+            order_currency: 'VND',
+          },
+        ],
+        meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+      });
+    }
+    return Response.json({ data: {} }, { status: 404 });
+  };
+  const { transactions, gateway } = await harness(new HttpSepayOrderClient(config, fetchImpl));
+  const created = await gateway.createCheckout(
+    { tenancyId, amount: '1000.00', provider: 'SEPAY' },
+    userId,
+    '90000000-0000-4000-8000-000000000095',
+  );
+  await assert.rejects(gateway.reconcileSepay(created.id, userId), /not uniquely paid/);
+  fail = true;
+  await assert.rejects(gateway.reconcileSepay(created.id, userId), /not uniquely paid/);
+  const row = await transactions.run(({ repositories }) =>
+    repositories.finance.findGatewayCheckout(created.id),
+  );
+  assert.notEqual(row?.status, 'SUCCEEDED');
+  assert.equal(
+    (await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length,
+    0,
+  );
 });

@@ -165,17 +165,15 @@ docker-compose.override.yml
 # ------------------------------------------------------------
 
 .worktrees/
-
+.agents/
+.codex/
+.kotlin/
 
 # ------------------------------------------------------------
 # Important project files that MUST remain tracked
 # ------------------------------------------------------------
 
 !.env.example
-
-# `dist/` is intentionally NOT ignored.
-# The landing-page branch versions its deployable static files
-# under `dist/`.
 
 # TroOi signing and local build configuration
 keystore.properties
@@ -184,4 +182,6 @@ keystore.properties
 *.keystore
 _trooi_backup_*/
 _trooi_backup_version_*/
-web/.vercel/
+
+# Archived historic Round 2-7 UI screenshot/log output; use a new reviewed location for current evidence.
+/docs/testing/artifacts/

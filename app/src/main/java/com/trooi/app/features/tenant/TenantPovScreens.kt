@@ -47,18 +47,17 @@ fun V1TenantHomeScreen(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Nhà của tôi", current?.roomLabel ?: "Không gian người thuê") }
+        item { TroOiPageHeader("Nhà của tôi", current?.roomLabel ?: "Không gian người thuê") }
         item {
-            V1SecondaryAction(
+            TroOiButton(
                 "Chuyển không gian",
                 onContextSwitcher,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
         }
         if (current == null) {
             item {
-                V1Panel("Chưa có lượt thuê") {
-                    V1Pending("Tài khoản chưa có lượt thuê nào.")
+                TroOiCard("Chưa có lượt thuê") {
+                    TroOiFeedback("Tài khoản chưa có lượt thuê nào.")
                 }
             }
         } else {
@@ -88,7 +87,7 @@ fun V1TenantHomeScreen(
                     },
                 )
                 Spacer(Modifier.height(10.dp))
-                V1SecondaryAction("Xem thanh toán", onFinance, modifier = Modifier.fillMaxWidth())
+                TroOiButton("Xem thanh toán", onFinance, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
             }
             if (incidents.isNotEmpty()) {
                 item {
@@ -109,7 +108,7 @@ fun V1TenantHomeScreen(
                             )
                         },
                     )
-                    V1SecondaryAction("Theo dõi sự cố", onIncidents, modifier = Modifier.fillMaxWidth())
+                    TroOiButton("Theo dõi sự cố", onIncidents, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
                 }
             }
             if (notices.isNotEmpty()) {
@@ -128,7 +127,7 @@ fun V1TenantHomeScreen(
                 Spacer(Modifier.height(8.dp))
                 val payment = finance?.payments?.firstOrNull()
                 if (payment == null) {
-                    V1Pending("Chưa có khoản thanh toán nào được ghi nhận.")
+                    TroOiFeedback("Chưa có khoản thanh toán nào được ghi nhận.")
                 } else {
                     LedgerAttentionRow(
                         title = payment.amountLabel,
@@ -141,7 +140,7 @@ fun V1TenantHomeScreen(
                 }
             }
             item {
-                V1Action("Mở hồ sơ Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
+                TroOiButton("Mở hồ sơ Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -160,13 +159,13 @@ fun V1TenantFinanceScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            V1PageTitle(
+            TroOiPageHeader(
                 "Thanh toán",
                 "Theo dõi khoản phải thu, tiền đã nhận, tiền cọc và biên nhận.",
             )
         }
         if (rentals.isEmpty()) {
-            item { V1Panel("Chưa có dữ liệu") { V1Pending("Tài khoản chưa có lượt thuê.") } }
+            item { TroOiCard("Chưa có dữ liệu") { TroOiFeedback("Tài khoản chưa có lượt thuê.") } }
         }
         items(rentals, key = { "tenant-finance-" + it.tenancyId }) { tenancy ->
             val finance = state.read.tenantFinanceByTenancy[tenancy.tenancyId]
@@ -191,7 +190,7 @@ fun V1TenantFinanceScreen(
             Spacer(Modifier.height(12.dp))
             LedgerSectionTitle("Các khoản trong kỳ")
             if (finance?.charges.isNullOrEmpty()) {
-                V1Pending("Chưa có khoản phải thu.")
+                TroOiFeedback("Chưa có khoản phải thu.")
             } else {
                 finance!!.charges.forEach { charge ->
                     LedgerAttentionRow(
@@ -208,7 +207,7 @@ fun V1TenantFinanceScreen(
             LedgerDivider()
             LedgerSectionTitle("Tiền đã nhận")
             if (finance?.payments.isNullOrEmpty()) {
-                V1Pending("Chưa có khoản thanh toán được xác nhận.")
+                TroOiFeedback("Chưa có khoản thanh toán được xác nhận.")
             } else {
                 finance!!.payments.forEach { payment ->
                     LedgerAttentionRow(
@@ -225,17 +224,17 @@ fun V1TenantFinanceScreen(
             LedgerSectionTitle("Tiền cọc")
             val deposit = finance?.deposits?.firstOrNull()
             if (deposit == null) {
-                V1Pending("Chưa có thông tin tiền cọc.")
+                TroOiFeedback("Chưa có thông tin tiền cọc.")
             } else {
-                V1Metric("Mức cọc yêu cầu", deposit.requiredLabel ?: "Chưa có")
-                V1Metric("Đã nộp", deposit.fundedLabel ?: "Chưa có")
-                V1Metric("Đang được giữ", deposit.heldLabel ?: "Chưa có")
+                TroOiInformationRow("Mức cọc yêu cầu", deposit.requiredLabel ?: "Chưa có")
+                TroOiInformationRow("Đã nộp", deposit.fundedLabel ?: "Chưa có")
+                TroOiInformationRow("Đang được giữ", deposit.heldLabel ?: "Chưa có")
                 LedgerStateLabel(deposit.state ?: "Chưa có trạng thái", LedgerTone.Neutral)
             }
             LedgerDivider()
             LedgerSectionTitle("Biên nhận")
             if (finance?.receipts.isNullOrEmpty()) {
-                V1Pending("Chưa có biên nhận.")
+                TroOiFeedback("Chưa có biên nhận.")
             } else {
                 finance!!.receipts.forEach { receipt ->
                     LedgerAttentionRow(
@@ -249,7 +248,7 @@ fun V1TenantFinanceScreen(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            V1SecondaryAction("Mở hồ sơ Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
+            TroOiButton("Mở hồ sơ Nhà tôi", onRental, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
         }
     }
 }
@@ -269,9 +268,9 @@ fun V1TenantIncidentsScreen(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Sự cố", "Theo dõi trạng thái và lịch sử xử lý") }
+        item { TroOiPageHeader("Sự cố", "Theo dõi trạng thái và lịch sử xử lý") }
         if (incidents.isEmpty()) {
-            item { V1Panel("Không có sự cố") { V1Pending("Chưa có sự cố trong phòng của bạn.") } }
+            item { TroOiCard("Không có sự cố") { TroOiFeedback("Chưa có sự cố trong phòng của bạn.") } }
         } else {
             items(incidents, key = { "tenant-incident-" + it.incidentId }) { incident ->
                 LedgerAttentionRow(
@@ -293,7 +292,7 @@ fun V1TenantIncidentsScreen(
                 )
                 Spacer(Modifier.height(8.dp))
                 if (incident.timeline.isEmpty()) {
-                    V1Pending("Chưa có cập nhật xử lý.")
+                    TroOiFeedback("Chưa có cập nhật xử lý.")
                 } else {
                     incident.timeline.forEach { event ->
                         LedgerHistoryEvent(
@@ -307,11 +306,11 @@ fun V1TenantIncidentsScreen(
             }
         }
         item {
-            V1Panel("Báo hoặc xem chi tiết") {
-                V1Pending(
+            TroOiCard("Báo hoặc xem chi tiết") {
+                TroOiFeedback(
                     "Mở Nhà tôi để xem chi tiết hoặc gửi cập nhật.",
                 )
-                V1Action("Mở Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
+                TroOiButton("Mở Nhà tôi", onRental, modifier = Modifier.fillMaxWidth())
             }
         }
     }

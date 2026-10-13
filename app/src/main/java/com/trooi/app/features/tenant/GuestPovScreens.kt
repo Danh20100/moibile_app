@@ -72,7 +72,7 @@ fun V1GuestMapScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            V1PageTitle("Bản đồ", "Xem các phòng đang được công khai theo khu vực.")
+            TroOiPageHeader("Bản đồ", "Xem các phòng đang được công khai theo khu vực.")
         }
         item {
             NativeMapView(
@@ -84,9 +84,9 @@ fun V1GuestMapScreen(
             )
         }
         item {
-            V1Panel("Tìm khu vực trên bản đồ") {
-                V1Pending(locationMessage ?: "Kéo bản đồ hoặc dùng vị trí gần đúng, rồi tìm theo bán kính và giá.")
-                V1Action(
+            TroOiCard("Tìm khu vực trên bản đồ") {
+                TroOiFeedback(locationMessage ?: "Kéo bản đồ hoặc dùng vị trí gần đúng, rồi tìm theo bán kính và giá.")
+                TroOiButton(
                     "Dùng vị trí hiện tại",
                     {
                         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
@@ -107,14 +107,14 @@ fun V1GuestMapScreen(
                         )
                     }
                 }
-                OutlinedTextField(
+                TroOiFormField(
                     value = minPrice,
                     onValueChange = { minPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá thấp nhất (VND)") },
                     modifier = Modifier.fillMaxWidth().testTag("map-filter-min-price"),
                     singleLine = true,
                 )
-                OutlinedTextField(
+                TroOiFormField(
                     value = maxPrice,
                     onValueChange = { maxPrice = it.filter(Char::isDigit).take(16) },
                     label = { Text("Giá cao nhất (VND)") },
@@ -125,10 +125,10 @@ fun V1GuestMapScreen(
                     Text(it, color = MaterialTheme.colorScheme.error)
                 }
                 if (onSearch != null) {
-                    V1Action(
+                    TroOiButton(
                         "Tìm khu vực này",
                         {
-                            val next = query ?: return@V1Action
+                            val next = query ?: return@TroOiButton
                             onSearch(next.latitude, next.longitude, next.radiusMeters, next.minPrice, next.maxPrice)
                         },
                         enabled = query != null && !state.runtimeLoading,
@@ -173,11 +173,11 @@ fun V1GuestActivityScreen(state: TroOiUiState) {
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { V1PageTitle("Hoạt động", "Các lần liên hệ với tin đăng công khai") }
+        item { TroOiPageHeader("Hoạt động", "Các lần liên hệ với tin đăng công khai") }
         items(activityDecisions(), key = { "activity-" + it.id }) { decision ->
-            V1Panel(decision.id) {
-                V1Action(decision.id, {}, enabled = decision.enabled, modifier = Modifier.testTag("activity-" + decision.id))
-                if (!decision.enabled) V1Pending(decision.reason)
+            TroOiCard(decision.id) {
+                TroOiButton(decision.id, {}, enabled = decision.enabled, modifier = Modifier.testTag("activity-" + decision.id))
+                if (!decision.enabled) TroOiFeedback(decision.reason)
             }
         }
         if (state.isAuthenticated && state.read.notifications.isNotEmpty()) {
