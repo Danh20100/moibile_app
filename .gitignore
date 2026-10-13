@@ -98,6 +98,7 @@ coverage/
 # ------------------------------------------------------------
 
 .gradle/
+/.gradle-messaging/
 **/build/
 
 local.properties
@@ -185,3 +186,4 @@ _trooi_backup_version_*/
 
 # Archived historic Round 2-7 UI screenshot/log output; use a new reviewed location for current evidence.
 /docs/testing/artifacts/
+.gradle-messaging/

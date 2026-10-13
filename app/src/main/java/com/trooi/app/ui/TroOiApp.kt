@@ -76,7 +76,14 @@ fun TroOiApp(
         if (state.isAuthenticated && !state.sessionRestoring) viewModel.onAppResume()
         onPauseOrDispose { }
     }
-    val rootNavigationVisible = rootNavigationVisible(state)
+    var messageDetailVisible by remember { mutableStateOf(false) }
+    val rootNavigationVisible = rootNavigationVisible(state) && !messageDetailVisible
+    LifecycleResumeEffect(state.page, state.backendUserId) {
+        val polling = if (state.page == AppPage.Messages && state.isAuthenticated) scope.launch {
+            while (true) { viewModel.openMessages(); kotlinx.coroutines.delay(8000) }
+        } else null
+        onPauseOrDispose { polling?.cancel() }
+    }
     var lastExitAt by remember { mutableLongStateOf(0L) }
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
@@ -229,7 +236,11 @@ fun TroOiApp(
                         onRetryRead = viewModel::retryAuthorizedRead,
                     )
                     AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
-                        viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage)
+                        viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage,
+                        onDetailVisibilityChanged = { messageDetailVisible = it },
+                        onOpenContext = viewModel::openMessageContext,
+                        onRead = viewModel::readMessageConversation,
+                        onAttachment = viewModel::loadMessageAttachment)
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,
                         onOpenListing = viewModel::openListing,

@@ -113,7 +113,13 @@ class BackendClient(
                         !response.isSuccessful -> TransportOutcome.Failure(ErrorKind.HTTP_ERROR, status)
                         else -> TransportOutcome.Success(
                             status,
-                            TransportDocument(response.body?.string().orEmpty(), response.header("Content-Type")),
+                            TransportDocument(response.body?.let { body ->
+                                val cap = if (path.startsWith("messaging/")) 3_000_000L else 8_000_000L
+                                if (body.contentLength() > cap) throw IOException("Response exceeds limit")
+                                val source = body.source()
+                                if (source.request(cap + 1) && source.buffer.size > cap) throw IOException("Response exceeds limit")
+                                source.readUtf8()
+                            }.orEmpty(), response.header("Content-Type")),
                         )
                     }
                 }

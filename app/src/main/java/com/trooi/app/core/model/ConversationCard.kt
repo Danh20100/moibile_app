@@ -7,7 +7,11 @@ data class ConversationMessage(
     val text: String,
     val createdAt: String,
     val localOnly: Boolean = false,
+    val imagePaths: List<String> = emptyList(),
+    val attachmentIds: List<String> = emptyList(),
 )
+
+data class LocalMessageImage(val jpegBytes: ByteArray)
 
 data class ConversationCard(
     val id: String,
@@ -18,4 +22,5 @@ data class ConversationCard(
     val photoResource: Int?,
     val messages: List<ConversationMessage>,
     val photoUri: String? = null,
+    val lastReadAt: String? = null,
 )

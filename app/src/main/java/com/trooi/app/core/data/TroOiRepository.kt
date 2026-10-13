@@ -20,6 +20,14 @@ data class UserSession(
 )
 
 interface TroOiRepository {
+    suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String,
+        images: List<com.trooi.app.core.model.LocalMessageImage>): Result<List<com.trooi.app.core.model.ConversationCard>> {
+        if (images.isNotEmpty()) return Result.failure(IllegalStateException("Ảnh không khả dụng trong chế độ demo."))
+        return saveLocalMessage(expectedUserId, conversationId, text).map { it.conversations }
+    }
+    suspend fun openConversation(contextType: String, contextId: String): Result<Unit> = Result.failure(IllegalStateException("Cần kết nối Backend."))
+    suspend fun readConversation(id: String): Result<Unit> = Result.success(Unit)
+    suspend fun messageAttachment(conversationId: String, attachmentId: String): Result<ByteArray> = Result.failure(IllegalStateException("Ảnh không khả dụng."))
     suspend fun loadLocalConversations(): Result<List<com.trooi.app.core.model.ConversationCard>> = Result.success(emptyList())
     suspend fun saveLocalMessage(expectedUserId: String, conversationId: String, text: String): Result<FrontendReadSnapshot> =
         Result.failure(IllegalStateException("Nhắn tin đang được phát triển."))

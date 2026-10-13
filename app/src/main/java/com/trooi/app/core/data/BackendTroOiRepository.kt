@@ -11,8 +11,49 @@ class BackendTroOiRepository @Inject constructor(
     private val api: BackendApi,
     private val tokens: AuthTokenProvider,
 ) : TroOiRepository {
+    private var messageCards: List<ConversationCard> = emptyList()
+    override suspend fun loadLocalConversations(): Result<List<ConversationCard>> = runCatching {
+        val credential = tokens.token()
+        val userId = api.getSessionContext().required("messaging identity").userId
+        api.messagingConversations().required("conversations").map { conversation ->
+            val others = conversation.participants.filter { it.userId != userId }
+            ConversationCard(id = conversation.id, counterpartUserId = others.first().userId,
+                counterpartName = others.joinToString { it.displayName }, rentalLabel = conversation.contextType,
+                contextId = conversation.contextId, photoResource = null, lastReadAt = conversation.lastReadAt,
+                messages = api.messagingMessages(conversation.id).required("messages").map { message ->
+                    check(message.delivery == "server" && message.conversationId == conversation.id)
+                    ConversationMessage(message.id, message.senderUserId, message.text, message.createdAt,
+                        attachmentIds = message.attachments.map { it.id })
+                })
+        }.also { check(tokens.token() == credential); messageCards = it }
+    }
+    override suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String,
+        images: List<LocalMessageImage>): Result<List<ConversationCard>> = runCatching {
+        val credential = tokens.token()
+        check(api.getSessionContext().required("messaging identity").userId == expectedUserId)
+        val sent = api.messagingSend(conversationId, text, images.map { it.jpegBytes }).required("send message")
+        check(sent.delivery == "server" && sent.senderUserId == expectedUserId)
+        check(tokens.token() == credential)
+        messageCards = messageCards.map { card -> if (card.id != conversationId) card else card.copy(
+            messages = card.messages + ConversationMessage(sent.id, sent.senderUserId, sent.text, sent.createdAt,
+                attachmentIds = sent.attachments.map { it.id })) }
+        messageCards
+    }
+    override suspend fun openConversation(contextType: String, contextId: String): Result<Unit> = runCatching {
+        require(contextType in listOf("inquiry", "tenancy"))
+        require(java.util.UUID.fromString(contextId).toString().equals(contextId, ignoreCase = true))
+        api.messagingOpen(contextType, contextId).required("open conversation"); Unit
+    }
+    override suspend fun readConversation(id: String): Result<Unit> = runCatching { api.messagingRead(id).required("read conversation") }
+    override suspend fun messageAttachment(conversationId: String, attachmentId: String): Result<ByteArray> = runCatching {
+        require(java.util.UUID.fromString(conversationId).toString().equals(conversationId, true))
+        require(java.util.UUID.fromString(attachmentId).toString().equals(attachmentId, true))
+        val image = api.messagingAttachment(conversationId, attachmentId).required("private image")
+        require(image.contentType == "image/jpeg" && image.base64.length <= 2_666_668)
+        android.util.Base64.decode(image.base64, android.util.Base64.NO_WRAP).also { require(it.size <= 2_000_000) }
+    }
     override fun initialSnapshot() = TroOiSnapshot()
-    override fun clearSession() = tokens.clear()
+    override fun clearSession() { messageCards = emptyList(); tokens.clear() }
 
     suspend fun probePublicTransport(): TransportOutcome = api.getPublicListingsRaw()
 

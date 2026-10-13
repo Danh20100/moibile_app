@@ -58,6 +58,10 @@ class TroOiRepositoryImpl private constructor(
     override suspend fun submitInquiry(listingId: String, message: String) =
         selected().submitInquiry(listingId, message)
     override suspend fun loadLocalConversations() = selected().loadLocalConversations()
+    override suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String, images: List<com.trooi.app.core.model.LocalMessageImage>) = selected().sendMessage(expectedUserId, conversationId, text, images)
+    override suspend fun openConversation(contextType: String, contextId: String) = selected().openConversation(contextType, contextId)
+    override suspend fun readConversation(id: String) = selected().readConversation(id)
+    override suspend fun messageAttachment(conversationId: String, attachmentId: String) = selected().messageAttachment(conversationId, attachmentId)
     override suspend fun saveLocalMessage(expectedUserId: String, conversationId: String, text: String) =
         selected().saveLocalMessage(expectedUserId, conversationId, text)
     override suspend fun createDemoCheckout(tenancyId: String, amount: String, key: String) =

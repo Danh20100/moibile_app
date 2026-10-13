@@ -174,6 +174,7 @@ class TroOiViewModel @Inject constructor(
     fun openMessages() {
         openContext(AppContext.DISCOVERY, AppPage.Messages)
         if (!_state.value.isAuthenticated) return
+        if (_state.value.messagesLoading) return
         val generation = sessionGeneration
         _state.update { it.copy(messagesLoading = true, messagesLoadFailed = false) }
         viewModelScope.launch {
@@ -652,9 +653,28 @@ class TroOiViewModel @Inject constructor(
 
     suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<Unit> =
         localManagementCommand { repository.saveLocalAsset(asset, activate, publish) }
-    suspend fun saveLocalMessage(conversationId: String, text: String): Result<Unit> {
+    suspend fun saveLocalMessage(conversationId: String, text: String, images: List<LocalMessageImage> = emptyList()): Result<Unit> {
         val userId = _state.value.backendUserId
-        return localManagementCommand { repository.saveLocalMessage(userId, conversationId, text) }
+        val generation = sessionGeneration
+        if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập."))
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.sendMessage(userId, conversationId, text, images) }
+        if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đã thay đổi."))
+        return result.map { conversations -> _state.update { it.copy(read = it.read.copy(conversations = conversations)) }; Unit }
+    }
+    fun openMessageContext(type: String, id: String) {
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            repository.openConversation(type, id).fold(
+                { if (generation == sessionGeneration) openMessages() },
+                { if (generation == sessionGeneration) showMessage("Không mở được cuộc trò chuyện: ${it.message}") },
+            )
+        }
+    }
+    suspend fun readMessageConversation(id: String) { repository.readConversation(id) }
+    suspend fun loadMessageAttachment(id: String, attachmentId: String): Result<ByteArray> {
+        val generation = sessionGeneration
+        val result = repository.messageAttachment(id, attachmentId)
+        return if (generation == sessionGeneration) result else Result.failure(IllegalStateException("Phiên đã thay đổi."))
     }
     suspend fun purchaseLocalCapacity(purchaseId: String): Result<Unit> =
         Result.failure(IllegalStateException(com.trooi.app.features.profile.REAUTH_UNAVAILABLE))
