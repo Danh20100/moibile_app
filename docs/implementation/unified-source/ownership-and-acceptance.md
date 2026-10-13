@@ -49,3 +49,25 @@ Verification results and final reconciliation will be appended after execution. 
 - Android `:app:testDebugUnitTest :app:assembleDebug`: PASS after final callback fixes; no device or live Google activation claim.
 - `git diff --check`: PASS. Protected source/main HEAD/status/diff snapshot comparisons: unchanged.
 - Missing upstream functionality remains explicit: Connections is an empty-state snackbar; personal/contact/security/preferences/support writes other than display name lack durable approved endpoints; onboarding submission requires unavailable reauthentication and stays fail-closed.
+
+### Phase 2 semantic decisions (working)
+
+- Reviewed actual diffs of 683bc65d660cd7ee0d9fdf49acaebfb27c075a1f, cacf1642e2117a970a072cf7ccaa572ad1c89662 and 5230a0489209b84ef0dcf69acb67f69fce0efac5.
+- Replaced the current inline obsolete checkout panel with one extracted GatewayPaymentPanel using TroOiCard/Button/FormField/InformationRow and retained Room Ledger state presentation. No second checkout flow, legacy V1 UI atom, backendDebug variant or legacy fixture was restored.
+- Retained amount bounds, server replay permission, resulting-Payment history reconciliation, pending/unknown/failed/synchronizing/confirmed states, reference visibility, two-line measured action minimum size, IME dismissal/padding, and notification source callbacks. Payment formatting preserves exact decimal values and Vietnamese date boundaries.
+- Preserved the existing reauthentication gates, session generation/state ownership, Idempotency-Key behavior, SePay transport, authorization, allocation/deposit/receipt invariants. Production Android create/replay is BLOCKED pending approved backend proof. This is not a live-provider readiness claim.
+- Existing CheckoutFlowTest requires confirmed same-amount requests to reuse the obligation/key. Historic source called this action “new transfer”; unified UI refreshes the confirmed record for the same amount and creates through the existing intent path for changed amounts or FAILED checkout. Migrated callback expectations follow that authoritative invariant.
+- The reported contradictory CheckoutTransportTest assertion is already corrected in e5e6c6d. Android explicitly sends provider=SEPAY; optional backend provider defaults to MOMO. Keep the explicit SEPAY assertion and existing bearer/idempotency checks; no production behavior changed to satisfy tests.
+- Source payment/notification unit presentation tests imported, four instrumentation cases migrated into current Debug layout. Deposit-application isolation test now reads the actual extracted panel; the obsolete MoMo substring check is removed.
+- Source reports/screenshots/video copied byte-for-byte into payment-source-evidence with a historical-only README. Original 111/13/13 claims are not unified acceptance.
+- Native audit: shared theme tokens and expanding 48dp-minimum actions, visible labels, read-only states, scroll/IME handling, and source-navigation ownership retained. Real dark/200%-font/keyboard/geometry validation awaits exclusive device execution. Architecture guard found a source generic TextButton in Profile; converted to the existing TroOi tertiary button without restoring a retired atom.
+
+### Phase 2 completed
+
+- `pnpm typecheck`, `pnpm lint`: PASS. Targeted Profile/finance/SePay/MoMo/authorization/fixture contracts: 112 PASS / 0 FAIL.
+- Full isolated persistence suite with PYTHON set to the installed interpreter and TEST_DATABASE_URL on dedicated loopback port 55433: 81 PASS / 0 FAIL / 0 SKIP. Initial 76/81 run used port 55439 and lacked the Python launcher expected by the catalog harness; all five environment failures were resolved without weakening tests or frozen migrations.
+- Final `:app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:lintDebug`: PASS. JVM 207 PASS / 0 FAIL / 0 SKIP; Release APK is unsigned. Release lint vital also PASS.
+- `:app:testReleaseUnitTest` does not exist in this project's current AGP task model. The initial combined invocation failed during task selection, before tests; no build variant was added to manufacture that gate.
+- APK fixture isolation: PASS, 7 Debug assets match source and 53 Debug sentinels absent from Release assets/DEX. Architecture guard and diff whitespace: PASS.
+- Source/main HEAD/status/diff snapshots unchanged. No Payment backend/authorization/receipt/repository or database/frozen specification changes against initial e5e6c6d.
+- Standards and requirements reviews found no remaining Phase 2 production defects. Device/instrumentation/manual checks and live provider E2E remain NOT VERIFIED; no exclusive emulator authorization was received.

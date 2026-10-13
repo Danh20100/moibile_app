@@ -357,7 +357,7 @@ class BackendTroOiRepository @Inject constructor(
     private fun mapPayment(payment: PaymentTransport) = PaymentCard(
         paymentId = payment.id,
         amountLabel = payment.amount,
-        confirmationLabel = "${payment.confirmedAt} · ${payment.verification}",
+        confirmationLabel = "${rentalDate(payment.confirmedAt, includeTime = true)} · ${paymentVerificationLabel(payment.verification)}",
     )
 
     private fun mapDeposit(deposit: DepositProjectionTransport) = DepositCard(

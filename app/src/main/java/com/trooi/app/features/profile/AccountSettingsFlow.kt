@@ -513,11 +513,7 @@ private fun PersonalDetailRow(label: String, value: String, action: String?,
             Text(value, style = MaterialTheme.typography.bodyLarge)
         }
         if (action != null && onClick != null) {
-            TextButton(onClick = onClick, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(action)
-                Spacer(Modifier.width(3.dp))
-                Icon(Icons.Rounded.Edit, null, Modifier.size(15.dp))
-            }
+            TroOiButton(action, onClick, style = TroOiButtonStyle.TERTIARY)
         }
     }
 }

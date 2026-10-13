@@ -382,7 +382,7 @@ fun V1TenantPortalScreen(state: TroOiUiState, onFindRooms: () -> Unit) {
                             TroOiInformationRow("Payment", it.amountLabel)
                             TroOiFeedback(it.confirmationLabel ?: "Chưa có trạng thái xác nhận")
                         }
-                        TroOiFeedback("MoMo là kênh tuỳ chọn. URI quay về không phải bằng chứng đã trả; người thuê không tự xác nhận tiền thủ công.")
+                        TroOiFeedback("Chuyển khoản ngân hàng được xác nhận từ hệ thống. Người thuê không tự ghi nhận tiền đã nhận.")
                     }
                     PortalArea.RECEIPTS -> {
                         val receipts = scopedFinance.flatMap { it.receipts }

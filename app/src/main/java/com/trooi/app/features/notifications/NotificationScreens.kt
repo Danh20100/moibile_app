@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.trooi.app.core.model.rentalDate
 import com.trooi.app.core.model.NotificationCard
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.ui.components.*
@@ -29,7 +30,7 @@ fun V1NotificationCenterScreen(
     ) {
         item { TroOiPageHeader("Thông báo", "Các cập nhật mới nhất cho tài khoản của bạn", onBack) }
         if (state.runtimeLoading && state.read.notifications.isEmpty()) {
-            item { TroOiStateMessage(TroOiStateKind.LOADING, "") }
+            item { TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải thông báo…") }
         } else if (state.read.notifications.isEmpty()) {
             item { TroOiCard("Không có thông báo") { TroOiStateMessage(TroOiStateKind.EMPTY, "Bạn chưa có thông báo nào.") } }
         } else {
@@ -43,14 +44,14 @@ fun V1NotificationCenterScreen(
 @Composable
 private fun NotificationRow(notification: NotificationCard, onOpen: (String) -> Unit) {
     TroOiCard(
-        notification.category,
+        notificationTitle(notification.category),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("notification-" + notification.notificationId)
             .clickable(role = Role.Button) { onOpen(notification.notificationId) },
     ) {
-        Text(notification.message)
-        Text(notification.createdAtLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(notificationMessage(notification), style = MaterialTheme.typography.bodyMedium)
+        Text(rentalDate(notification.createdAtLabel, includeTime = true), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (notification.readAtLabel == null) "Chưa đọc" else "Đã đọc", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -72,23 +73,22 @@ fun V1NotificationDetailScreen(
     ) {
         item { TroOiPageHeader("Thông báo", onBack = onBack) }
         if (state.runtimeLoading && notification == null) {
-            item { TroOiStateMessage(TroOiStateKind.LOADING, "") }
+            item { TroOiStateMessage(TroOiStateKind.LOADING, "Đang mở thông báo…") }
         } else if (notification == null) {
             item { TroOiCard("Thông báo không khả dụng") { TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Không tìm thấy thông báo này.") } }
         } else {
             item {
-                TroOiCard(notification.category) {
-                    Text(notification.message)
-                    TroOiInformationRow("Trạng thái gửi", notification.deliveryStatus)
-                    TroOiInformationRow("Tạo lúc", notification.createdAtLabel)
-                    TroOiInformationRow("Đọc lúc", notification.readAtLabel ?: "Chưa đọc")
+                TroOiCard(notificationTitle(notification.category)) {
+                    Text(notificationMessage(notification), style = MaterialTheme.typography.bodyMedium)
+                    TroOiInformationRow("Thời gian", rentalDate(notification.createdAtLabel, includeTime = true))
+                    TroOiInformationRow("Đã đọc", notification.readAtLabel?.let { rentalDate(it, includeTime = true) } ?: "Chưa đọc")
                     if (notification.readAtLabel == null) {
-                        TroOiButton("Đánh dấu đã đọc", { onMarkRead(notification.notificationId) })
+                        TroOiButton("Đánh dấu đã đọc", { onMarkRead(notification.notificationId) }, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
                     }
                     if (!notification.sourceType.isNullOrBlank() && !notification.sourceId.isNullOrBlank()) {
-                        TroOiButton("Xem nội dung liên quan", { onOpenSource(notification.notificationId) })
+                        TroOiButton(notificationSourceLabel(notification.sourceType), { onOpenSource(notification.notificationId) }, modifier = Modifier.fillMaxWidth())
                     } else {
-                        TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Notification không có sourceId để mở bản ghi nguồn.")
+                        TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Thông báo này không kèm nội dung để mở thêm.")
                     }
                 }
             }

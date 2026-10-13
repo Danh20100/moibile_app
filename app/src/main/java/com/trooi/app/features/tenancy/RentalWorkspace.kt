@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trooi.app.features.shared.*
+import com.trooi.app.core.model.*
 import com.trooi.app.ui.components.*
 
 /** Separate rental feature with dedicated route/state; backend is the sole business authority. */
@@ -64,7 +65,7 @@ fun V1RentalWorkspace(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag("v1-rental-workflow"),
+        modifier = Modifier.fillMaxSize().imePadding().testTag("v1-rental-workflow"),
         contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -78,7 +79,7 @@ fun V1RentalWorkspace(
                     is RentalRoute.Notices -> "Thông báo theo lượt thuê đang chọn"
                     is RentalRoute.Billing -> "Kỳ tính tiền"
                     is RentalRoute.BillingDetail -> "Chi tiết kỳ tính tiền"
-                    is RentalRoute.Payment -> "Khoản tiền đã nhận"
+                    is RentalRoute.Payment -> if (state.tenantMode) "Thanh toán" else "Khoản tiền đã nhận"
                     is RentalRoute.Deposit -> "Tiền cọc"
                     is RentalRoute.Receipts -> "Biên nhận"
                     is RentalRoute.ReceiptDetail -> "Chi tiết biên nhận"
@@ -288,24 +289,29 @@ fun V1RentalWorkspace(
                 }
             }
             is RentalRoute.Payment -> {
+                if (state.tenantMode) item {
+                    GatewayPaymentPanel(state, price, { price = it },
+                        onCreate = { model.beginCheckout(route.id, price) },
+                        onReplay = model::replayCheckout, onRefresh = model::refreshGatewayCheckout)
+                }
                 if (state.payments.isEmpty() && !state.busy) {
-                    item { TroOiCard("Payments") { TroOiFeedback("Chưa có Payment theo Tenancy.") } }
+                    item { TroOiCard("Lịch sử thanh toán") { TroOiFeedback("Chưa có khoản thanh toán nào được ghi nhận cho lượt thuê này.") } }
                 }
                 items(state.payments, key = { "payment-" + it.id }) { pay ->
                     TroOiListRow(
-                        "Payment · " + pay.id,
-                        "${pay.amount} · ${pay.verification}",
+                        rentalMoney(pay.amount),
+                        "${rentalDate(pay.confirmedAt, includeTime = true)} · ${paymentVerificationLabel(pay.verification)}",
                         action = "Mở →", modifier = Modifier.testTag("payment-" + pay.id),
                         onClick = { model.lookupPayment(pay.id) },
                     )
                 }
                 state.payment?.takeIf { it.tenancyId == route.id }?.let { pay ->
                     item {
-                        TroOiCard("Payment · " + pay.id) {
-                            TroOiInformationRow("Confirmed amount", pay.amount)
-                            TroOiInformationRow("Source", pay.source)
-                            TroOiInformationRow("Verification", pay.verification)
-                            TroOiInformationRow("Confirmed at", pay.confirmedAt)
+                        TroOiCard("Chi tiết thanh toán") {
+                            TroOiInformationRow("Số tiền đã nhận", rentalMoney(pay.amount))
+                            TroOiInformationRow("Hình thức", paymentSourceLabel(pay.source))
+                            TroOiInformationRow("Xác nhận", paymentVerificationLabel(pay.verification))
+                            TroOiInformationRow("Thời gian", rentalDate(pay.confirmedAt, includeTime = true))
                             if (!state.tenantMode) {
                                 TroOiFormField(extra, { extra = it }, label = { Text("Charge ID") }, modifier = Modifier.fillMaxWidth().testTag("allocation-charge-id"), singleLine = true)
                                 TroOiFormField(extra2, { extra2 = it }, label = { Text("Amount phân bổ") }, modifier = Modifier.fillMaxWidth().testTag("allocation-amount"), singleLine = true)
@@ -339,44 +345,6 @@ fun V1RentalWorkspace(
                         TroOiButton("Xác nhận đã nhận tiền", {
                             model.recordPayment(route.id, price, choice)
                         }, enabled = !state.busy && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && choice.isNotBlank())
-                    }
-                }
-                if (state.tenantMode) item {
-                    val tenancyStatus = state.linkedTenancyStatus ?: state.tenancy?.status
-                    val checkout = state.gatewayCheckout
-                    TroOiCard("Thanh toán MoMo (tuỳ chọn)") {
-                        TroOiFeedback("Chỉ mở HTTPS payUrl đã được Backend xác minh. Liên kết quay về không phải bằng chứng đã trả.")
-                        TroOiFormField(price, { price = it }, label = { Text("Amount VND (số nguyên .00)") }, modifier = Modifier.fillMaxWidth().testTag("gateway-checkout-amount"), singleLine = true)
-                        TroOiButton(
-                            "Tạo hoặc tiếp tục checkout",
-                            { model.beginCheckout(route.id, price) },
-                            enabled = !state.busy && validGatewayAmount(price.removeSuffix(".00") + ".00") &&
-                                (canCreateGatewayCheckout(tenancyStatus) || state.checkoutIntent != null),
-                        )
-                        checkout?.let { chk ->
-                            TroOiInformationRow("Checkout", chk.id)
-                            TroOiInformationRow("Status", chk.status)
-                            TroOiInformationRow(
-                                "Replay",
-                                if (chk.replayAllowed) "Được phép" else chk.replayBlockedReason ?: "Không được replay",
-                            )
-                            if (isConfirmedGatewayPayment(chk)) {
-                                if (state.payments.any { it.id == chk.resultingPaymentId }) {
-                                    TroOiFeedback("Payment ${chk.resultingPaymentId} đã có trong danh sách Backend.")
-                                } else {
-                                    TroOiFeedback("Checkout SUCCEEDED; Payment chỉ hiện khi Backend xác nhận trong danh sách.")
-                                }
-                            } else {
-                                TroOiFeedback("Checkout chưa phải Payment. Không dùng resultCode trên URI.")
-                            }
-                            if (chk.replayAllowed) {
-                                TroOiButton("Replay cùng Idempotency-Key", { model.replayCheckout() }, enabled = !state.busy)
-                            }
-                            TroOiButton("Làm mới từ Backend", { model.refreshGatewayCheckout() }, enabled = !state.busy)
-                        }
-                        if (manualCheckoutAvailable(checkout, state.checkoutCreateFailed)) {
-                            TroOiFeedback("Kênh MoMo không khả dụng. Liên hệ người quản lý để ghi nhận tiền thủ công.")
-                        }
                     }
                 }
             }

@@ -317,7 +317,7 @@ class RentalViewModel @Inject constructor(
         val normalized = amount.removeSuffix(".00") + ".00"
         if (!validGatewayAmount(normalized)) {
             _ui.update {
-                it.copy(error = "Amount phải là số nguyên VND từ 1.000 đến 50.000.000.", errorKind = "VALIDATION_OR_RESPONSE")
+                it.copy(error = "Nhập số tiền từ 1.000 đến 50.000.000 đồng, không có phần lẻ.", errorKind = "VALIDATION_OR_RESPONSE")
             }
             return
         }
@@ -371,7 +371,7 @@ class RentalViewModel @Inject constructor(
         if (checkout != null && !checkout.replayAllowed) {
             _ui.update {
                 it.copy(
-                    error = checkout.replayBlockedReason ?: "Checkout không còn được replay.",
+                    error = "Chưa thể mở lại giao dịch này. Hãy làm mới trạng thái trước khi thử lại.",
                     errorKind = "FORBIDDEN",
                 )
             }
