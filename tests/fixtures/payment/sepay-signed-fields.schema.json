@@ -1,0 +1,318 @@
+{
+  "type": "object",
+  "properties": {
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "sdkRevision": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "oracle": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "required": ["sdkRevision", "source", "oracle", "scope"],
+      "additionalProperties": false
+    },
+    "secret": {
+      "type": "string"
+    },
+    "ordered": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "merchant": {
+              "type": "string"
+            },
+            "operation": {
+              "type": "string"
+            },
+            "payment_method": {
+              "type": "string"
+            },
+            "order_amount": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "order_invoice_number": {
+              "type": "string"
+            },
+            "order_description": {
+              "type": "string"
+            },
+            "success_url": {
+              "type": "string"
+            },
+            "error_url": {
+              "type": "string"
+            },
+            "cancel_url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "merchant",
+            "operation",
+            "payment_method",
+            "order_amount",
+            "currency",
+            "order_invoice_number",
+            "order_description",
+            "success_url",
+            "error_url",
+            "cancel_url"
+          ],
+          "additionalProperties": false
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "canonical", "signature"],
+      "additionalProperties": false
+    },
+    "reversed": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "cancel_url": {
+              "type": "string"
+            },
+            "error_url": {
+              "type": "string"
+            },
+            "success_url": {
+              "type": "string"
+            },
+            "order_description": {
+              "type": "string"
+            },
+            "order_invoice_number": {
+              "type": "string"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "order_amount": {
+              "type": "string"
+            },
+            "payment_method": {
+              "type": "string"
+            },
+            "operation": {
+              "type": "string"
+            },
+            "merchant": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cancel_url",
+            "error_url",
+            "success_url",
+            "order_description",
+            "order_invoice_number",
+            "currency",
+            "order_amount",
+            "payment_method",
+            "operation",
+            "merchant"
+          ],
+          "additionalProperties": false
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "canonical", "signature"],
+      "additionalProperties": false
+    },
+    "rawUtf8": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "order_description": {
+              "type": "string"
+            },
+            "merchant": {
+              "type": "string"
+            },
+            "order_amount": {
+              "type": "integer"
+            }
+          },
+          "required": ["order_description", "merchant", "order_amount"],
+          "additionalProperties": false
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "canonical", "signature"],
+      "additionalProperties": false
+    },
+    "nullAndEmpty": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "merchant": {
+              "type": "string"
+            },
+            "env": {
+              "type": "null"
+            },
+            "order_description": {
+              "type": "string"
+            },
+            "order_amount": {
+              "type": "integer"
+            }
+          },
+          "required": ["merchant", "env", "order_description", "order_amount"],
+          "additionalProperties": false
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "canonical", "signature"],
+      "additionalProperties": false
+    },
+    "allowlist": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "merchant": {
+              "type": "string"
+            },
+            "env": {
+              "type": "string"
+            },
+            "operation": {
+              "type": "string"
+            },
+            "payment_method": {
+              "type": "string"
+            },
+            "order_amount": {
+              "type": "integer"
+            },
+            "currency": {
+              "type": "string"
+            },
+            "order_invoice_number": {
+              "type": "string"
+            },
+            "order_description": {
+              "type": "string"
+            },
+            "customer_id": {
+              "type": "string"
+            },
+            "agreement_id": {
+              "type": "string"
+            },
+            "agreement_name": {
+              "type": "string"
+            },
+            "agreement_type": {
+              "type": "string"
+            },
+            "agreement_payment_frequency": {
+              "type": "string"
+            },
+            "agreement_amount_per_payment": {
+              "type": "integer"
+            },
+            "success_url": {
+              "type": "string"
+            },
+            "error_url": {
+              "type": "string"
+            },
+            "cancel_url": {
+              "type": "string"
+            },
+            "order_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "merchant",
+            "env",
+            "operation",
+            "payment_method",
+            "order_amount",
+            "currency",
+            "order_invoice_number",
+            "order_description",
+            "customer_id",
+            "agreement_id",
+            "agreement_name",
+            "agreement_type",
+            "agreement_payment_frequency",
+            "agreement_amount_per_payment",
+            "success_url",
+            "error_url",
+            "cancel_url",
+            "order_id"
+          ],
+          "additionalProperties": false
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "canonical", "signature"],
+      "additionalProperties": false
+    },
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    }
+  },
+  "required": [
+    "provenance",
+    "secret",
+    "ordered",
+    "reversed",
+    "rawUtf8",
+    "nullAndEmpty",
+    "allowlist",
+    "version"
+  ],
+  "additionalProperties": false
+}

@@ -1,3 +1,4 @@
+import { coreReferencesFixture } from '../../support/core-reference-fixtures';
 import type { GatewayProvider } from '../../../src/persistence/ports/gateway-checkout.types';
 import { PersistenceUniqueViolation } from '../../../src/persistence/errors';
 import type { OrganizationRecord } from '../../../src/persistence/ports/organization.repository';
@@ -161,16 +162,7 @@ export function createCoreTestTransactionManager(
       findTenancy: async (id: string) =>
         structuredClone(
           tenancies.get(id) ??
-            (['tenancy-a', 'tenancy-b', 'ten_1', 'tenancy_reference'].includes(id)
-              ? {
-                  tenancyId: id,
-                  roomId: `room-${id}`,
-                  status: 'ACTIVE',
-                  startedAt: null,
-                  endedAt: null,
-                  endReason: null,
-                }
-              : undefined),
+            coreReferencesFixture.tenancies.find((value) => value.tenancyId === id),
         ),
       findTenanciesByRoom: async (roomId?: string) =>
         Array.from(tenancies.values())
@@ -220,29 +212,7 @@ export function createCoreTestTransactionManager(
       findTermsById: async (id: string) =>
         structuredClone(
           terms.get(id) ??
-            (/^(terms-(1|a|b|reference)|terms_1)$/.test(id)
-              ? {
-                  tenancyTermsId: id,
-                  tenancyId:
-                    id === 'terms-b'
-                      ? 'tenancy-b'
-                      : id === 'terms_1'
-                        ? 'ten_1'
-                        : id === 'terms-reference'
-                          ? 'tenancy_reference'
-                          : 'tenancy-a',
-                  version: 1,
-                  rentAmount: '1.00',
-                  agreedDepositRequirement: '1.00',
-                  termStart: '2026-01-01',
-                  termEnd: '2100-01-01',
-                  billingDayOrDueDateRule: {},
-                  electricityArrangement: {},
-                  waterArrangement: {},
-                  minimalRentalConditions: {},
-                  effectiveFromCycleBoundary: '2026-01-01',
-                }
-              : undefined),
+            coreReferencesFixture.terms.find((value) => value.tenancyTermsId === id),
         ),
       findTermsByTenancy: async (tenancyId: string) =>
         Array.from(terms.values())

@@ -1,3 +1,4 @@
+import { sepayRegressionFixture as S } from '../support/sepay-regression-fixtures';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import test from 'node:test';
@@ -9,7 +10,9 @@ import {
 import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
 
-import fixtures from './fixtures/sepay-signed-fields.json';
+import type fixturesType from '../fixtures/payment/sepay-signed-fields.json';
+import { loadFixture } from '../support/fixture-loader';
+const fixtures = loadFixture<typeof fixturesType>('payment/sepay-signed-fields');
 import { GatewayProviderRegistry } from '../../src/modules/payment-gateway/providers/gateway-provider.registry';
 import { MomoGatewayAdapter } from '../../src/modules/payment-gateway/providers/momo-gateway.adapter';
 import { SepayGatewayAdapter } from '../../src/modules/payment-gateway/providers/sepay-gateway.adapter';
@@ -41,54 +44,57 @@ import {
 import { TransformInterceptor } from '../../src/common/interceptors/transform.interceptor';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
-const now = new Date('2026-10-09T10:00:00.000Z');
-const userId = '10000000-0000-4000-8000-000000000001';
-const tenancyId = '60000000-0000-4000-8000-000000000001';
+const now = new Date(S.values.value);
+const userId = S.values.userId;
+const tenancyId = S.values.tenancyId;
 const config: SepayProductionConfig = {
-  environment: 'production',
-  merchantId: 'TASK0_NONSECRET_MERCHANT',
+  environment: S.values.environment,
+  merchantId: S.values.merchantId,
   secretKey: fixtures.secret,
-  ipnSecretKey: 'NONSECRET-EXPLICIT-IPN-KEY',
-  publicBaseUrl: 'https://merchant.example',
-  handoffSigningKey: 'NONSECRET-SEPARATE-HANDOFF-KEY',
-  financeDatabase: 'trooi_finance',
+  ipnSecretKey: S.values.ipnSecretKey,
+  publicBaseUrl: S.values.publicBaseUrl,
+  handoffSigningKey: S.values.handoffSigningKey,
+  financeDatabase: S.values.financeDatabase,
 };
 
 const productionEnv = {
-  SEPAY_ENABLED: 'true',
-  SEPAY_ENVIRONMENT: 'production',
-  NODE_ENV: 'production',
-  DATABASE_URL: 'postgresql://database.example/trooi_finance',
-  SEPAY_FINANCE_DATABASE: 'trooi_finance',
-  SEPAY_MERCHANT_ID: 'NONSECRET-MERCHANT',
-  SEPAY_SECRET_KEY: 'NONSECRET-FORM-KEY',
-  SEPAY_IPN_SECRET_KEY: 'NONSECRET-EXPLICIT-IPN-KEY',
-  SEPAY_HANDOFF_SIGNING_KEY: 'NONSECRET-SEPARATE-HANDOFF-KEY',
-  SEPAY_PUBLIC_BASE_URL: 'https://merchant.example',
+  SEPAY_ENABLED: S.values.SEPAYENABLED,
+  SEPAY_ENVIRONMENT: S.values.SEPAYENVIRONMENT,
+  NODE_ENV: S.values.NODEENV,
+  DATABASE_URL: S.values.DATABASEURL,
+  SEPAY_FINANCE_DATABASE: S.values.SEPAYFINANCEDATABASE,
+  SEPAY_MERCHANT_ID: S.values.SEPAYMERCHANTID,
+  SEPAY_SECRET_KEY: S.values.SEPAYSECRETKEY,
+  SEPAY_IPN_SECRET_KEY: S.values.SEPAYIPNSECRETKEY,
+  SEPAY_HANDOFF_SIGNING_KEY: S.values.SEPAYHANDOFFSIGNINGKEY,
+  SEPAY_PUBLIC_BASE_URL: S.values.SEPAYPUBLICBASEURL,
 };
 
 function momoAdapter() {
   return new MomoGatewayAdapter(
     new HttpMomoPaymentClient({
-      partnerCode: 'TEST',
-      accessKey: 'test',
-      secretKey: 'test',
-      endpoint: 'https://test-payment.momo.vn',
-      ipnUrl: 'https://merchant.example/ipn',
-      redirectUrl: 'trooi://payment/momo',
+      partnerCode: S.values.partnerCode,
+      accessKey: S.values.accessKey,
+      secretKey: S.values.secretKey,
+      endpoint: S.values.endpoint,
+      ipnUrl: S.values.ipnUrl,
+      redirectUrl: S.values.redirectUrl,
     }),
   );
 }
 
-function paid(invoice: string, amount = '1000.00'): Exclude<SepayReadResult, { kind: 'pending' | 'uncertain' }> {
+function paid(
+  invoice: string,
+  amount = S.values.amount,
+): Exclude<SepayReadResult, { kind: 'pending' | 'uncertain' }> {
   return {
-    kind: 'paid',
-    remoteOrderId: 'SEPAY-68BA83CE637C1',
-    transactionId: '91',
+    kind: S.values.kind,
+    remoteOrderId: S.values.remoteOrderId,
+    transactionId: S.values.transactionId,
     invoice,
     amount,
-    currency: 'VND',
-    paymentMethod: 'BANK_TRANSFER',
+    currency: S.values.currency,
+    paymentMethod: S.values.paymentMethod,
   };
 }
 
@@ -96,33 +102,33 @@ async function harness(reader: SepayOrderReader) {
   const transactions = createCoreTestTransactionManager();
   await transactions.run(async ({ repositories }) => {
     await repositories.organization.createOrganization({
-      organizationId: 'org-local',
+      organizationId: S.values.organizationId,
       primaryOwnerUserId: userId,
-      name: 'Local test',
+      name: S.values.name,
     });
     await repositories.property.createProperty({
-      propertyId: 'property-local',
-      organizationId: 'org-local',
-      name: 'Local test',
-      lifecycleStatus: 'ACTIVE',
-      operationalAddressText: 'Local',
-      operationalLocation: { longitude: 106, latitude: 10 },
-      publicLocationProjection: { longitude: 106, latitude: 10 },
+      propertyId: S.values.propertyId,
+      organizationId: S.values.organizationId2,
+      name: S.values.name2,
+      lifecycleStatus: S.values.lifecycleStatus,
+      operationalAddressText: S.values.operationalAddressText,
+      operationalLocation: { longitude: S.values.longitude, latitude: S.values.latitude },
+      publicLocationProjection: { longitude: S.values.longitude2, latitude: S.values.latitude2 },
     });
     await repositories.property.createRoom({
-      roomId: 'room-local',
-      propertyId: 'property-local',
-      nameOrLabel: 'Local',
-      operationalState: 'OCCUPIED',
-      recordLifecycle: 'ACTIVE',
+      roomId: S.values.roomId,
+      propertyId: S.values.propertyId2,
+      nameOrLabel: S.values.nameOrLabel,
+      operationalState: S.values.operationalState,
+      recordLifecycle: S.values.recordLifecycle,
     });
     await repositories.tenancy.createTenancy({
       tenancyId,
-      roomId: 'room-local',
-      status: 'ACTIVE',
-      startedAt: '2026-10-01T00:00:00.000Z',
-      endedAt: null,
-      endReason: null,
+      roomId: S.values.roomId2,
+      status: S.values.status,
+      startedAt: S.values.startedAt,
+      endedAt: S.values.endedAt,
+      endReason: S.values.endReason,
     });
   });
   const clock = () => now;
@@ -142,33 +148,48 @@ async function harness(reader: SepayOrderReader) {
 }
 
 test('production hosts and paid status stay distinct from sandbox', () => {
-  assert.equal(SEPAY_PRODUCTION_CHECKOUT_URL, 'https://pay.sepay.vn/v1/checkout/init');
-  assert.equal(SEPAY_PRODUCTION_API_ORIGIN, 'https://pgapi.sepay.vn');
-  assert.equal(SEPAY_PRODUCTION_PAID_STATUS, 'CAPTURED');
-  assert.equal(loadSepayConfig({ ...productionEnv, NODE_ENV: 'development', SEPAY_ENVIRONMENT: 'sandbox' }), null);
-  assert.equal(loadSepayProductionConfig({}), null);
+  assert.equal(SEPAY_PRODUCTION_CHECKOUT_URL, S.values.equalExpected);
+  assert.equal(SEPAY_PRODUCTION_API_ORIGIN, S.values.equalExpected2);
+  assert.equal(SEPAY_PRODUCTION_PAID_STATUS, S.values.equalExpected3);
+  assert.equal(
+    loadSepayConfig({
+      ...productionEnv,
+      NODE_ENV: S.values.NODEENV2,
+      SEPAY_ENVIRONMENT: S.values.SEPAYENVIRONMENT2,
+    }),
+    S.values.equalExpected4,
+  );
+  assert.equal(loadSepayProductionConfig({}), S.values.equalExpected5);
   assert.ok(loadSepayProductionConfig(productionEnv));
   for (const overrides of [
-    { SEPAY_ENVIRONMENT: 'sandbox' },
-    { SEPAY_ENABLED: 'false' },
-    { SEPAY_FINANCE_DATABASE: 'trooi_test' },
-    { SEPAY_FINANCE_DATABASE: 'trooi_dev' },
-    { SEPAY_FINANCE_DATABASE: 'trooi_sandbox' },
-    { DATABASE_URL: 'postgresql://database.example/trooi_dev' },
-    { DATABASE_URL: 'postgresql://database.example/trooi_test' },
-    { SEPAY_SECRET_KEY: '' },
-    { SEPAY_PUBLIC_BASE_URL: 'http://merchant.example' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://merchant.example/pay' },
+    { SEPAY_ENVIRONMENT: S.values.SEPAYENVIRONMENT3 },
+    { SEPAY_ENABLED: S.values.SEPAYENABLED2 },
+    { SEPAY_FINANCE_DATABASE: S.values.SEPAYFINANCEDATABASE2 },
+    { SEPAY_FINANCE_DATABASE: S.values.SEPAYFINANCEDATABASE3 },
+    { SEPAY_FINANCE_DATABASE: S.values.SEPAYFINANCEDATABASE4 },
+    { DATABASE_URL: S.values.DATABASEURL2 },
+    { DATABASE_URL: S.values.DATABASEURL3 },
+    { SEPAY_SECRET_KEY: S.values.SEPAYSECRETKEY2 },
+    { SEPAY_PUBLIC_BASE_URL: S.values.SEPAYPUBLICBASEURL2 },
+    { SEPAY_PUBLIC_BASE_URL: S.values.SEPAYPUBLICBASEURL3 },
     { SEPAY_HANDOFF_SIGNING_KEY: productionEnv.SEPAY_SECRET_KEY },
   ])
-    assert.equal(loadSepayProductionConfig({ ...productionEnv, ...overrides }), null);
-  assert.equal(new GatewayProviderRegistry(momoAdapter(), undefined, new SepayGatewayAdapter(null)).find('SEPAY'), null);
+    assert.equal(
+      loadSepayProductionConfig({ ...productionEnv, ...overrides }),
+      S.values.equalExpected6,
+    );
+  assert.equal(
+    new GatewayProviderRegistry(momoAdapter(), undefined, new SepayGatewayAdapter(null)).find(
+      S.values.findScenario,
+    ),
+    S.values.equalExpected7,
+  );
 });
 
 test('production form uses the pinned field order and does not treat the return page as payment', () => {
   const fields = sepayProductionFields({
     merchantId: String(fixtures.ordered.fields.merchant),
-    amountVnd: 1000,
+    amountVnd: S.values.amountVnd,
     invoice: String(fixtures.ordered.fields.order_invoice_number),
     description: String(fixtures.ordered.fields.order_description),
     successUrl: String(fixtures.ordered.fields.success_url),
@@ -177,10 +198,7 @@ test('production form uses the pinned field order and does not treat the return 
   });
   assert.equal(signSepayFields(fields, fixtures.secret), fixtures.ordered.signature);
   const independent = createHmac('sha256', fixtures.secret)
-    .update(
-      'merchant=TASK0_NONSECRET_MERCHANT,operation=PURCHASE,payment_method=BANK_TRANSFER,order_amount=1000,currency=VND,order_invoice_number=TROOI-SEPAY-00000000000040008000000000000001,order_description=Task0 fixture,success_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/success,error_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/error,cancel_url=https://merchant.example/api/v1/finance/checkouts/sepay/return/cancel',
-      'utf8',
-    )
+    .update(S.values.updateScenario, 'utf8')
     .digest('base64');
   assert.equal(independent, fixtures.ordered.signature);
   assert.match(sepayReturnHtml('success'), /không phải xác nhận đã thanh toán/);
@@ -197,85 +215,127 @@ test('readback settles only an exact captured bank transfer and ignores return u
     },
   };
   const { transactions, adapter, gateway, handoff } = await harness(reader);
-  const key = '90000000-0000-4000-8000-000000000091';
+  const key = S.values.key;
   const created = await gateway.createCheckout(
-    { tenancyId, amount: '1000.00', provider: 'SEPAY' },
+    { tenancyId, amount: S.values.amount, provider: S.values.provider },
     userId,
     key,
   );
-  assert.equal(created.provider, 'SEPAY');
-  assert.equal(created.status, 'CREATED');
-  assert.match(created.payUrl ?? '', /^https:\/\/merchant\.example\/api\/v1\/finance\/checkouts\/sepay\/handoff\?token=/);
+  assert.equal(created.provider, S.values.equalExpected8);
+  assert.equal(created.status, S.values.equalExpected9);
+  assert.match(
+    created.payUrl ?? S.values.payUrlInput,
+    /^https:\/\/merchant\.example\/api\/v1\/finance\/checkouts\/sepay\/handoff\?token=/,
+  );
   const stored = await transactions.run(({ repositories }) =>
     repositories.finance.findGatewayCheckout(created.id),
   );
-  assert.equal(stored?.dispatchLeaseOwner, null);
-  assert.equal(stored?.handoffAttempt, 0);
-  assert.equal(stored?.providerPartnerCode, 'production:TASK0_NONSECRET_MERCHANT');
-  assert.equal(stored?.requestSnapshot && 'endpoint' in stored.requestSnapshot ? stored.requestSnapshot.endpoint : '', SEPAY_PRODUCTION_CHECKOUT_URL);
-  assert.equal(JSON.stringify(stored?.requestSnapshot).includes(fixtures.secret), false);
-  const token = new URL(created.payUrl ?? '').searchParams.get('token') ?? '';
+  assert.equal(stored?.dispatchLeaseOwner, S.values.equalExpected10);
+  assert.equal(stored?.handoffAttempt, S.values.equalExpected11);
+  assert.equal(stored?.providerPartnerCode, S.values.equalExpected12);
+  assert.equal(
+    stored?.requestSnapshot && 'endpoint' in stored.requestSnapshot
+      ? stored.requestSnapshot.endpoint
+      : S.values.scenarioValue,
+    SEPAY_PRODUCTION_CHECKOUT_URL,
+  );
+  assert.equal(
+    JSON.stringify(stored?.requestSnapshot).includes(fixtures.secret),
+    S.values.equalExpected13,
+  );
+  const token =
+    new URL(created.payUrl ?? S.values.payUrlInput2).searchParams.get(S.values.getScenario) ??
+    S.values.gettokenInput;
   const beforeRead = structuredClone(stored);
   const ready = await handoff.read(token);
-  assert.equal(ready.kind, 'ready');
+  assert.equal(ready.kind, S.values.equalExpected14);
   assert.deepEqual(
-    await transactions.run(({ repositories }) => repositories.finance.findGatewayCheckout(created.id)),
+    await transactions.run(({ repositories }) =>
+      repositories.finance.findGatewayCheckout(created.id),
+    ),
     beforeRead,
   );
   const released = await handoff.release(token);
-  assert.equal(released.kind, 'form');
+  assert.equal(released.kind, S.values.equalExpected15);
   if (released.kind !== 'form') return;
   assert.equal(released.action, SEPAY_PRODUCTION_CHECKOUT_URL);
   assert.equal(released.fields.signature, signSepayFields(released.fields, fixtures.secret));
-  assert.equal(JSON.stringify(released.fields).includes(config.secretKey), false);
+  assert.equal(
+    JSON.stringify(released.fields).includes(config.secretKey),
+    S.values.equalExpected16,
+  );
   assert.match(sepayHandoffHtml(released, token), /name="signature"/);
   const again = await handoff.release(token);
-  assert.equal(again.kind, 'issued');
+  assert.equal(again.kind, S.values.equalExpected17);
   assert.doesNotMatch(sepayHandoffHtml(again, token), /name="signature"/);
   const settled = await gateway.reconcileSepay(created.id, userId);
-  assert.equal(settled.status, 'SUCCEEDED');
+  assert.equal(settled.status, S.values.equalExpected18);
   const repeated = await gateway.reconcileSepay(created.id, userId);
   assert.equal(repeated.resultingPaymentId, settled.resultingPaymentId);
-  assert.equal(seen.length, 1);
+  assert.equal(seen.length, S.values.equalExpected19);
   const payments = await transactions.run(({ repositories }) =>
     repositories.finance.findPaymentsForTenancy(tenancyId),
   );
-  assert.equal(payments.length, 1);
-  assert.equal(payments[0]?.source, 'GATEWAY');
-  assert.equal(payments[0]?.verification, 'PROVIDER_VERIFIED');
-  assert.equal(payments[0]?.amount, '1000.00');
-  const paymentId = payments[0]?.paymentId ?? '';
-  assert.equal((await transactions.run(({ repositories }) => repositories.finance.findPaymentAllocations(paymentId))).length, 0);
-  assert.equal((await transactions.run(({ repositories }) => repositories.finance.findReceiptsForPayment(paymentId))).length, 0);
+  assert.equal(payments.length, S.values.equalExpected20);
+  assert.equal(payments[0]?.source, S.values.equalExpected21);
+  assert.equal(payments[0]?.verification, S.values.equalExpected22);
+  assert.equal(payments[0]?.amount, S.values.equalExpected23);
+  const paymentId = payments[0]?.paymentId ?? S.values.paymentIdInput;
+  assert.equal(
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentAllocations(paymentId),
+      )
+    ).length,
+    S.values.equalExpected24,
+  );
+  assert.equal(
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findReceiptsForPayment(paymentId),
+      )
+    ).length,
+    S.values.equalExpected25,
+  );
   const bound = await transactions.run(({ repositories }) =>
     repositories.finance.findGatewayCheckout(created.id),
   );
-  assert.equal(bound?.providerRemoteOrderId, 'SEPAY-68BA83CE637C1');
-  assert.equal(bound?.providerTransId, '91');
-  assert.equal(bound?.providerResultCode, null);
+  assert.equal(bound?.providerRemoteOrderId, S.values.equalExpected26);
+  assert.equal(bound?.providerTransId, S.values.equalExpected27);
+  assert.equal(bound?.providerResultCode, S.values.equalExpected28);
   assert.throws(() => adapter.authenticateNotification(undefined), UnauthorizedException);
-  assert.throws(() => new SepayGatewayAdapter(null).authenticateNotification(config.ipnSecretKey), ServiceUnavailableException);
+  assert.throws(
+    () => new SepayGatewayAdapter(null).authenticateNotification(config.ipnSecretKey),
+    ServiceUnavailableException,
+  );
 });
 
 test('amount mismatch and an unavailable adapter do not create a payment', async () => {
   const reader: SepayOrderReader = {
     async readInvoice(invoice) {
-      return paid(invoice, '2000.00');
+      return paid(invoice, S.values.paidScenario);
     },
   };
   const { transactions, gateway } = await harness(reader);
   const created = await gateway.createCheckout(
-    { tenancyId, amount: '1000', provider: 'SEPAY' },
+    { tenancyId, amount: S.values.amount2, provider: S.values.provider2 },
     userId,
-    '90000000-0000-4000-8000-000000000092',
+    S.values.createCheckoutExpected,
   );
   await assert.rejects(gateway.reconcileSepay(created.id, userId), /not uniquely paid/);
   const row = await transactions.run(({ repositories }) =>
     repositories.finance.findGatewayCheckout(created.id),
   );
-  assert.notEqual(row?.status, 'SUCCEEDED');
-  assert.equal(row?.resultingPaymentId, null);
-  assert.equal((await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length, 0);
+  assert.notEqual(row?.status, S.values.notEqualScenario);
+  assert.equal(row?.resultingPaymentId, S.values.equalExpected29);
+  assert.equal(
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentsForTenancy(tenancyId),
+      )
+    ).length,
+    S.values.equalExpected30,
+  );
   const closed = new PaymentGatewayService(
     new TenancyService(transactions),
     transactions,
@@ -283,114 +343,133 @@ test('amount mismatch and an unavailable adapter do not create a payment', async
     new GatewaySettlementService(transactions),
   );
   await assert.rejects(
-    closed.createCheckout({ tenancyId, amount: '1000', provider: 'SEPAY' }, userId, '90000000-0000-4000-8000-000000000093'),
+    closed.createCheckout(
+      { tenancyId, amount: S.values.amount3, provider: S.values.provider3 },
+      userId,
+      S.values.createCheckoutExpected2,
+    ),
     /SEPAY checkout is unavailable/,
   );
-  assert.equal((await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length, 0);
+  assert.equal(
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentsForTenancy(tenancyId),
+      )
+    ).length,
+    S.values.equalExpected31,
+  );
 });
 
 function ipnContext(url: string): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({ originalUrl: url, url }),
-      getResponse: () => ({ statusCode: 200 }),
+      getResponse: () => ({ statusCode: S.values.statusCode }),
     }),
   } as ExecutionContext;
 }
 
 test('sepay ipn acknowledges only a settled bank transfer', async () => {
-  let mode: 'pending' | 'uncertain' | 'card' | 'paid' = 'paid';
+  let mode: 'pending' | 'uncertain' | 'card' | 'paid' = S.values.mode;
   let reads = 0;
   const reader: SepayOrderReader = {
     async readInvoice(invoice) {
       reads += 1;
-      if (mode === 'pending') return { kind: 'pending' };
-      if (mode === 'uncertain') return { kind: 'uncertain' };
-      if (mode === 'card') return { kind: 'uncertain' };
+      if (mode === S.values.modeInput) return { kind: S.values.kind2 };
+      if (mode === S.values.modeInput2) return { kind: S.values.kind3 };
+      if (mode === S.values.modeInput3) return { kind: S.values.kind3 };
       return paid(invoice);
     },
   };
   const { transactions, gateway } = await harness(reader);
   const created = await gateway.createCheckout(
-    { tenancyId, amount: '1000.00', provider: 'SEPAY' },
+    { tenancyId, amount: S.values.amount4, provider: S.values.provider4 },
     userId,
-    '90000000-0000-4000-8000-000000000094',
+    S.values.createCheckoutExpected3,
   );
   const stored = await transactions.run(({ repositories }) =>
     repositories.finance.findGatewayCheckout(created.id),
   );
-  const invoice = stored?.providerOrderId ?? '';
+  const invoice = stored?.providerOrderId ?? S.values.providerOrderIdInput;
   const paidBody = {
-    notification_type: 'ORDER_PAID',
+    notification_type: S.values.notificationtype,
     order: { order_invoice_number: invoice },
-    transaction: { payment_method: 'BANK_TRANSFER' },
+    transaction: { payment_method: S.values.paymentmethod },
   };
   await assert.rejects(
-    gateway.handleSepayIpn('wrong-secret', paidBody),
+    gateway.handleSepayIpn(S.values.handleSepayIpnScenario, paidBody),
     (error: unknown) => error instanceof UnauthorizedException,
   );
-  assert.equal(reads, 0);
+  assert.equal(reads, S.values.equalExpected32);
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, {
-      notification_type: 'TRANSACTION_VOID',
+      notification_type: S.values.notificationtype2,
       order: { order_invoice_number: invoice },
     }),
     (error: unknown) => error instanceof BadRequestException,
   );
   await assert.rejects(
-    gateway.handleSepayIpn(config.ipnSecretKey, { notification_type: 'ORDER_PAID' }),
+    gateway.handleSepayIpn(config.ipnSecretKey, { notification_type: S.values.notificationtype3 }),
     (error: unknown) => error instanceof BadRequestException,
   );
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, {
-      notification_type: 'ORDER_PAID',
-      order: { order_invoice_number: 'TROOI-SEPAY-missing' },
+      notification_type: S.values.notificationtype4,
+      order: { order_invoice_number: S.values.orderinvoicenumber },
     }),
     (error: unknown) => error instanceof ServiceUnavailableException,
   );
-  assert.equal(reads, 0);
-  mode = 'pending';
+  assert.equal(reads, S.values.equalExpected33);
+  mode = S.values.modeInput4;
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, paidBody),
     (error: unknown) => error instanceof ServiceUnavailableException,
   );
-  mode = 'uncertain';
+  mode = S.values.modeInput5;
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, paidBody),
     (error: unknown) => error instanceof ServiceUnavailableException,
   );
-  mode = 'card';
+  mode = S.values.modeInput6;
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, {
       ...paidBody,
-      transaction: { payment_method: 'CARD' },
+      transaction: { payment_method: S.values.paymentmethod2 },
     }),
     (error: unknown) => error instanceof ServiceUnavailableException,
   );
   assert.equal(
-    (await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length,
-    0,
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentsForTenancy(tenancyId),
+      )
+    ).length,
+    S.values.equalExpected34,
   );
-  mode = 'paid';
+  mode = S.values.modeInput7;
   const acknowledged = await gateway.handleSepayIpn(config.ipnSecretKey, paidBody);
-  assert.deepEqual(acknowledged, { success: true });
+  assert.deepEqual(acknowledged, { success: S.values.success });
   const repeated = await gateway.handleSepayIpn(config.ipnSecretKey, paidBody);
-  assert.deepEqual(repeated, { success: true });
+  assert.deepEqual(repeated, { success: S.values.success2 });
   const payments = await transactions.run(({ repositories }) =>
     repositories.finance.findPaymentsForTenancy(tenancyId),
   );
-  assert.equal(payments.length, 1);
-  assert.equal(payments[0]?.verification, 'PROVIDER_VERIFIED');
+  assert.equal(payments.length, S.values.equalExpected35);
+  assert.equal(payments[0]?.verification, S.values.equalExpected36);
   await assert.rejects(
     gateway.handleSepayIpn(config.ipnSecretKey, {
-      notification_type: 'TRANSACTION_VOID',
+      notification_type: S.values.notificationtype5,
       order: { order_invoice_number: invoice },
     }),
     (error: unknown) => error instanceof BadRequestException,
   );
   assert.equal(
-    (await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length,
-    1,
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentsForTenancy(tenancyId),
+      )
+    ).length,
+    S.values.equalExpected37,
   );
   const interceptor = new TransformInterceptor();
   const raw = await lastValueFrom(
@@ -398,74 +477,128 @@ test('sepay ipn acknowledges only a settled bank transfer', async () => {
       handle: () => of(acknowledged),
     } as CallHandler),
   );
-  assert.deepEqual(raw, { success: true });
+  assert.deepEqual(raw, { success: S.values.success3 });
   const wrapped = await lastValueFrom(
     interceptor.intercept(ipnContext('/api/v1/health'), {
-      handle: () => of({ status: 'ok' }),
+      handle: () => of({ status: S.values.status2 }),
     } as CallHandler),
   );
-  assert.equal('data' in (wrapped as object), true);
+  assert.equal('data' in (wrapped as object), S.values.equalExpected38);
 });
 
 test('order detail parser refuses card, ambiguity, and invoice used as order id', () => {
-  const invoice = 'TROOI-SEPAY-00000000000040008000000000000001';
+  const invoice = S.values.invoice;
   const list = {
-    data: [{ order_id: 'SEPAY-68BA83CE637C1', order_invoice_number: invoice }],
-    meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+    data: [{ order_id: S.values.orderid, order_invoice_number: invoice }],
+    meta: {
+      total: S.values.total,
+      has_more: S.values.hasmore,
+      page_count: S.values.pagecount,
+      current_page: S.values.currentpage,
+    },
   };
   const detail = {
     data: {
-      order_id: 'SEPAY-68BA83CE637C1',
+      order_id: S.values.orderid2,
       order_invoice_number: invoice,
-      order_status: 'CAPTURED',
-      order_amount: '1000.00',
-      order_currency: 'VND',
+      order_status: S.values.orderstatus,
+      order_amount: S.values.orderamount,
+      order_currency: S.values.ordercurrency,
       transactions: [
         {
-          id: '91',
-          payment_method: 'BANK_TRANSFER',
-          transaction_type: 'PAYMENT',
-          transaction_status: 'APPROVED',
-          transaction_currency: 'VND',
-          transaction_amount: '1000',
+          id: S.values.id,
+          payment_method: S.values.paymentmethod3,
+          transaction_type: S.values.transactiontype,
+          transaction_status: S.values.transactionstatus,
+          transaction_currency: S.values.transactioncurrency,
+          transaction_amount: S.values.transactionamount,
         },
       ],
     },
   };
-  assert.equal(interpretSepayOrder(list, detail, invoice, 'MERCHANT').kind, 'paid');
+  assert.equal(
+    interpretSepayOrder(list, detail, invoice, S.values.interpretSepayOrderScenario).kind,
+    S.values.equalExpected39,
+  );
   const card = structuredClone(detail);
-  card.data.transactions[0].payment_method = 'CARD';
-  assert.equal(interpretSepayOrder(list, card, invoice, 'MERCHANT').kind, 'uncertain');
-  assert.equal(interpretSepayOrder({ ...list, meta: { ...list.meta, total: 2 } }, detail, invoice, 'MERCHANT').kind, 'uncertain');
-  assert.equal(interpretSepayOrder({ data: [], meta: { total: 0, has_more: false, page_count: 0, current_page: 1 } }, null, invoice, 'MERCHANT').kind, 'uncertain');
+  card.data.transactions[0].payment_method = S.values.paymentmethodInput;
+  assert.equal(
+    interpretSepayOrder(list, card, invoice, S.values.interpretSepayOrderScenario2).kind,
+    S.values.equalExpected40,
+  );
+  assert.equal(
+    interpretSepayOrder(
+      { ...list, meta: { ...list.meta, total: S.values.total2 } },
+      detail,
+      invoice,
+      S.values.interpretSepayOrderScenario3,
+    ).kind,
+    S.values.equalExpected41,
+  );
+  assert.equal(
+    interpretSepayOrder(
+      {
+        data: [],
+        meta: {
+          total: S.values.total3,
+          has_more: S.values.hasmore2,
+          page_count: S.values.pagecount2,
+          current_page: S.values.currentpage2,
+        },
+      },
+      null,
+      invoice,
+      S.values.interpretSepayOrderScenario4,
+    ).kind,
+    S.values.equalExpected42,
+  );
   const swapped = structuredClone(list);
   swapped.data[0].order_id = invoice;
-  assert.equal(interpretSepayOrder(swapped, detail, invoice, 'MERCHANT').kind, 'uncertain');
+  assert.equal(
+    interpretSepayOrder(swapped, detail, invoice, S.values.interpretSepayOrderScenario5).kind,
+    S.values.equalExpected43,
+  );
   const capturedList = {
     data: [
       {
-        id: '90000000-0000-4000-8000-000000000091',
-        order_id: 'PAY475TESTORDER0001',
+        id: S.values.id2,
+        order_id: S.values.orderid3,
         order_invoice_number: invoice,
-        order_status: 'CAPTURED',
-        order_amount: '1000.00',
-        order_currency: 'VND',
+        order_status: S.values.orderstatus2,
+        order_amount: S.values.orderamount2,
+        order_currency: S.values.ordercurrency2,
       },
     ],
-    meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+    meta: {
+      total: S.values.total4,
+      has_more: S.values.hasmore3,
+      page_count: S.values.pagecount3,
+      current_page: S.values.currentpage3,
+    },
   };
-  const fromList = interpretSepayOrder(capturedList, null, invoice, 'MERCHANT');
-  assert.equal(fromList.kind, 'uncertain');
+  const fromList = interpretSepayOrder(
+    capturedList,
+    null,
+    invoice,
+    S.values.interpretSepayOrderScenario6,
+  );
+  assert.equal(fromList.kind, S.values.equalExpected44);
   const partial = structuredClone(detail);
-  partial.data.transactions[0].transaction_amount = '400';
-  assert.equal(interpretSepayOrder(list, partial, invoice, 'MERCHANT').kind, 'uncertain');
+  partial.data.transactions[0].transaction_amount = S.values.partialTransactionAmount;
+  assert.equal(
+    interpretSepayOrder(list, partial, invoice, S.values.interpretSepayOrderScenario).kind,
+    S.values.unsettledExpected,
+  );
   const awaiting = structuredClone(capturedList);
-  awaiting.data[0].order_status = 'AUTHENTICATION_NOT_NEEDED';
-  assert.equal(interpretSepayOrder(awaiting, null, invoice, 'MERCHANT').kind, 'pending');
+  awaiting.data[0].order_status = S.values.awaitingOrderStatus;
+  assert.equal(
+    interpretSepayOrder(awaiting, null, invoice, S.values.interpretSepayOrderScenario6).kind,
+    S.values.awaitingExpected,
+  );
 });
 
 test('http client reads detail by remote order id and does not settle when detail is missing', async () => {
-  const invoice = 'TROOI-SEPAY-00000000000040008000000000000001';
+  const invoice = S.values.invoice2;
   const urls: string[] = [];
   const fetchImpl: typeof fetch = async (input) => {
     const url = new URL(String(input));
@@ -474,66 +607,83 @@ test('http client reads detail by remote order id and does not settle when detai
       return Response.json({
         data: [
           {
-            id: '90000000-0000-4000-8000-000000000091',
-            order_id: 'PAY475TESTORDER0001',
+            id: S.values.id3,
+            order_id: S.values.orderid4,
             order_invoice_number: invoice,
-            order_status: 'CAPTURED',
-            order_amount: '1000.00',
-            order_currency: 'VND',
+            order_status: S.values.orderstatus3,
+            order_amount: S.values.orderamount3,
+            order_currency: S.values.ordercurrency3,
           },
         ],
-        meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+        meta: {
+          total: S.values.total5,
+          has_more: S.values.hasmore4,
+          page_count: S.values.pagecount4,
+          current_page: S.values.currentpage4,
+        },
       });
     }
-    return Response.json({ data: {} }, { status: 404 });
+    return Response.json({ data: {} }, { status: S.values.status3 });
   };
   const client = new HttpSepayOrderClient(config, fetchImpl);
   const read = await client.readInvoice(invoice);
-  assert.equal(read.kind, 'uncertain');
-  assert.deepEqual(urls, [
-    'https://pgapi.sepay.vn/v1/order',
-    'https://pgapi.sepay.vn/v1/order/detail/PAY475TESTORDER0001',
-  ]);
+  assert.equal(read.kind, S.values.equalExpected48);
+  assert.deepEqual(urls, [S.values.value2, S.values.value3]);
 });
 
 test('reconciliation does not confirm money without a settled transaction', async () => {
   let fail = false;
   const fetchImpl: typeof fetch = async (input) => {
-    if (fail) throw new Error('sepay down');
+    if (fail) throw new Error(S.values.providerFailureMessage);
     const url = new URL(String(input));
-    const invoice = url.searchParams.get('q') ?? '';
+    const invoice = url.searchParams.get('q') ?? S.values.scenarioValue;
     if (url.pathname === '/v1/order') {
       return Response.json({
         data: [
           {
-            id: '90000000-0000-4000-8000-000000000091',
-            order_id: 'PAY475TESTORDER0001',
+            id: S.values.id3,
+            order_id: S.values.orderid4,
             order_invoice_number: invoice,
-            order_status: 'CAPTURED',
-            order_amount: '1000.00',
-            order_currency: 'VND',
+            order_status: S.values.orderstatus3,
+            order_amount: S.values.orderamount3,
+            order_currency: S.values.ordercurrency3,
           },
         ],
-        meta: { total: 1, has_more: false, page_count: 1, current_page: 1 },
+        meta: {
+          total: S.values.total5,
+          has_more: S.values.hasmore4,
+          page_count: S.values.pagecount4,
+          current_page: S.values.currentpage4,
+        },
       });
     }
-    return Response.json({ data: {} }, { status: 404 });
+    return Response.json({ data: {} }, { status: S.values.status3 });
   };
   const { transactions, gateway } = await harness(new HttpSepayOrderClient(config, fetchImpl));
   const created = await gateway.createCheckout(
-    { tenancyId, amount: '1000.00', provider: 'SEPAY' },
+    { tenancyId, amount: S.values.amount, provider: S.values.provider },
     userId,
-    '90000000-0000-4000-8000-000000000095',
+    S.values.reconciliationCheckoutKey,
   );
-  await assert.rejects(gateway.reconcileSepay(created.id, userId), /not uniquely paid/);
+  await assert.rejects(
+    gateway.reconcileSepay(created.id, userId),
+    new RegExp(S.values.reconciliationFailurePattern),
+  );
   fail = true;
-  await assert.rejects(gateway.reconcileSepay(created.id, userId), /not uniquely paid/);
+  await assert.rejects(
+    gateway.reconcileSepay(created.id, userId),
+    new RegExp(S.values.reconciliationFailurePattern),
+  );
   const row = await transactions.run(({ repositories }) =>
     repositories.finance.findGatewayCheckout(created.id),
   );
-  assert.notEqual(row?.status, 'SUCCEEDED');
+  assert.notEqual(row?.status, S.values.notEqualScenario);
   assert.equal(
-    (await transactions.run(({ repositories }) => repositories.finance.findPaymentsForTenancy(tenancyId))).length,
-    0,
+    (
+      await transactions.run(({ repositories }) =>
+        repositories.finance.findPaymentsForTenancy(tenancyId),
+      )
+    ).length,
+    S.values.paymentCountExpected,
   );
 });

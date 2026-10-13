@@ -1,0 +1,118 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "provenance", "tenancies", "terms"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "provenance": {
+      "type": "string"
+    },
+    "tenancies": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tenancyId", "roomId", "status", "startedAt", "endedAt", "endReason"],
+        "properties": {
+          "tenancyId": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ACTIVE"]
+          },
+          "startedAt": {
+            "type": "null"
+          },
+          "endedAt": {
+            "type": "null"
+          },
+          "endReason": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    "terms": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tenancyTermsId",
+          "tenancyId",
+          "version",
+          "rentAmount",
+          "agreedDepositRequirement",
+          "termStart",
+          "termEnd",
+          "billingDayOrDueDateRule",
+          "electricityArrangement",
+          "waterArrangement",
+          "minimalRentalConditions",
+          "effectiveFromCycleBoundary"
+        ],
+        "properties": {
+          "tenancyTermsId": {
+            "type": "string"
+          },
+          "tenancyId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "rentAmount": {
+            "type": "string"
+          },
+          "agreedDepositRequirement": {
+            "type": "string"
+          },
+          "termStart": {
+            "type": "string"
+          },
+          "termEnd": {
+            "type": "string"
+          },
+          "billingDayOrDueDateRule": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          },
+          "electricityArrangement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          },
+          "waterArrangement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          },
+          "minimalRentalConditions": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          },
+          "effectiveFromCycleBoundary": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,203 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["production"]
+        },
+        "merchantId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "secretKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ipnSecretKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publicBaseUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoffSigningKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "financeDatabase": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "environment",
+        "merchantId",
+        "secretKey",
+        "ipnSecretKey",
+        "publicBaseUrl",
+        "handoffSigningKey",
+        "financeDatabase"
+      ],
+      "additionalProperties": false
+    },
+    "clock": {
+      "type": "string",
+      "minLength": 1
+    },
+    "proof": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["paid"]
+        },
+        "remoteOrderId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transactionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "amount": {
+          "type": "string",
+          "minLength": 1
+        },
+        "currency": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["VND"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["BANK_TRANSFER"]
+        }
+      },
+      "required": ["kind", "remoteOrderId", "transactionId", "amount", "currency", "paymentMethod"],
+      "additionalProperties": false
+    },
+    "checkout": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "enum": ["SEPAY"]
+        }
+      },
+      "required": ["amount", "provider"],
+      "additionalProperties": false
+    },
+    "notification": {
+      "type": "object",
+      "properties": {
+        "notification_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transaction": {
+          "type": "object",
+          "properties": {
+            "payment_method": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["payment_method"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["notification_type", "transaction"],
+      "additionalProperties": false
+    },
+    "mismatchAmount": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "acknowledgement": {
+          "type": "object",
+          "properties": {
+            "success": {
+              "type": "boolean"
+            }
+          },
+          "required": ["success"],
+          "additionalProperties": false
+        },
+        "paid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created": {
+          "type": "string",
+          "minLength": 1
+        },
+        "onePayment": {
+          "type": "integer"
+        },
+        "noPayments": {
+          "type": "integer"
+        },
+        "oneNotification": {
+          "type": "integer"
+        },
+        "noAllocations": {
+          "type": "integer"
+        },
+        "noReceipts": {
+          "type": "integer"
+        },
+        "handedOff": {
+          "type": "string",
+          "enum": ["UNKNOWN"]
+        }
+      },
+      "required": [
+        "acknowledgement",
+        "paid",
+        "created",
+        "onePayment",
+        "noPayments",
+        "oneNotification",
+        "noAllocations",
+        "noReceipts",
+        "handedOff"
+      ],
+      "additionalProperties": false
+    },
+    "handoffTokenParameter": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "version",
+    "config",
+    "clock",
+    "proof",
+    "checkout",
+    "notification",
+    "mismatchAmount",
+    "expected",
+    "handoffTokenParameter"
+  ],
+  "additionalProperties": false
+}

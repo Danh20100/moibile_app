@@ -1,0 +1,948 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "tenancyId": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "merchantId": {
+          "type": "string"
+        },
+        "ipnSecretKey": {
+          "type": "string"
+        },
+        "publicBaseUrl": {
+          "type": "string"
+        },
+        "handoffSigningKey": {
+          "type": "string"
+        },
+        "financeDatabase": {
+          "type": "string"
+        },
+        "SEPAYENABLED": {
+          "type": "string"
+        },
+        "SEPAYENVIRONMENT": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "NODEENV": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "DATABASEURL": {
+          "type": "string"
+        },
+        "SEPAYFINANCEDATABASE": {
+          "type": "string"
+        },
+        "SEPAYMERCHANTID": {
+          "type": "string"
+        },
+        "SEPAYSECRETKEY": {
+          "type": "string"
+        },
+        "SEPAYIPNSECRETKEY": {
+          "type": "string"
+        },
+        "SEPAYHANDOFFSIGNINGKEY": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL": {
+          "type": "string"
+        },
+        "partnerCode": {
+          "type": "string"
+        },
+        "accessKey": {
+          "type": "string"
+        },
+        "secretKey": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "ipnUrl": {
+          "type": "string"
+        },
+        "redirectUrl": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "remoteOrderId": {
+          "type": "string"
+        },
+        "transactionId": {
+          "type": "string"
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["VND"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["BANK_TRANSFER"]
+        },
+        "organizationId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "propertyId": {
+          "type": "string"
+        },
+        "organizationId2": {
+          "type": "string"
+        },
+        "name2": {
+          "type": "string"
+        },
+        "lifecycleStatus": {
+          "type": "string"
+        },
+        "operationalAddressText": {
+          "type": "string"
+        },
+        "longitude": {
+          "type": "integer"
+        },
+        "latitude": {
+          "type": "integer"
+        },
+        "longitude2": {
+          "type": "integer"
+        },
+        "latitude2": {
+          "type": "integer"
+        },
+        "roomId": {
+          "type": "string"
+        },
+        "propertyId2": {
+          "type": "string"
+        },
+        "nameOrLabel": {
+          "type": "string"
+        },
+        "operationalState": {
+          "type": "string"
+        },
+        "recordLifecycle": {
+          "type": "string"
+        },
+        "roomId2": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "null"
+        },
+        "endReason": {
+          "type": "null"
+        },
+        "equalExpected": {
+          "type": "string"
+        },
+        "equalExpected2": {
+          "type": "string"
+        },
+        "equalExpected3": {
+          "type": "string"
+        },
+        "NODEENV2": {
+          "type": "string"
+        },
+        "SEPAYENVIRONMENT2": {
+          "type": "string",
+          "enum": ["sandbox"]
+        },
+        "equalExpected4": {
+          "type": "null"
+        },
+        "equalExpected5": {
+          "type": "null"
+        },
+        "SEPAYENVIRONMENT3": {
+          "type": "string",
+          "enum": ["sandbox"]
+        },
+        "SEPAYENABLED2": {
+          "type": "string"
+        },
+        "SEPAYFINANCEDATABASE2": {
+          "type": "string"
+        },
+        "SEPAYFINANCEDATABASE3": {
+          "type": "string"
+        },
+        "SEPAYFINANCEDATABASE4": {
+          "type": "string"
+        },
+        "DATABASEURL2": {
+          "type": "string"
+        },
+        "DATABASEURL3": {
+          "type": "string"
+        },
+        "SEPAYSECRETKEY2": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL2": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL3": {
+          "type": "string"
+        },
+        "equalExpected6": {
+          "type": "null"
+        },
+        "equalExpected7": {
+          "type": "null"
+        },
+        "amountVnd": {
+          "type": "integer"
+        },
+        "key": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "equalExpected8": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "equalExpected9": {
+          "type": "string"
+        },
+        "equalExpected10": {
+          "type": "null"
+        },
+        "equalExpected11": {
+          "type": "integer"
+        },
+        "equalExpected12": {
+          "type": "string"
+        },
+        "equalExpected13": {
+          "type": "boolean"
+        },
+        "equalExpected14": {
+          "type": "string"
+        },
+        "equalExpected15": {
+          "type": "string"
+        },
+        "equalExpected16": {
+          "type": "boolean"
+        },
+        "equalExpected17": {
+          "type": "string"
+        },
+        "equalExpected18": {
+          "type": "string"
+        },
+        "equalExpected19": {
+          "type": "integer"
+        },
+        "equalExpected20": {
+          "type": "integer"
+        },
+        "equalExpected21": {
+          "type": "string",
+          "enum": ["GATEWAY"]
+        },
+        "equalExpected22": {
+          "type": "string",
+          "enum": ["PROVIDER_VERIFIED"]
+        },
+        "equalExpected23": {
+          "type": "string"
+        },
+        "equalExpected24": {
+          "type": "integer"
+        },
+        "equalExpected25": {
+          "type": "integer"
+        },
+        "equalExpected26": {
+          "type": "string"
+        },
+        "equalExpected27": {
+          "type": "string"
+        },
+        "equalExpected28": {
+          "type": "null"
+        },
+        "amount2": {
+          "type": "string"
+        },
+        "provider2": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "createCheckoutExpected": {
+          "type": "string"
+        },
+        "equalExpected29": {
+          "type": "null"
+        },
+        "equalExpected30": {
+          "type": "integer"
+        },
+        "amount3": {
+          "type": "string"
+        },
+        "provider3": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "createCheckoutExpected2": {
+          "type": "string"
+        },
+        "equalExpected31": {
+          "type": "integer"
+        },
+        "statusCode": {
+          "type": "integer"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "kind2": {
+          "type": "string",
+          "enum": ["pending"]
+        },
+        "kind3": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "paymentMethod2": {
+          "type": "string"
+        },
+        "amount4": {
+          "type": "string"
+        },
+        "provider4": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "createCheckoutExpected3": {
+          "type": "string"
+        },
+        "notificationtype": {
+          "type": "string"
+        },
+        "paymentmethod": {
+          "type": "string",
+          "enum": ["BANK_TRANSFER"]
+        },
+        "equalExpected32": {
+          "type": "integer"
+        },
+        "notificationtype2": {
+          "type": "string"
+        },
+        "notificationtype3": {
+          "type": "string"
+        },
+        "notificationtype4": {
+          "type": "string"
+        },
+        "orderinvoicenumber": {
+          "type": "string"
+        },
+        "equalExpected33": {
+          "type": "integer"
+        },
+        "paymentmethod2": {
+          "type": "string"
+        },
+        "equalExpected34": {
+          "type": "integer"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "success2": {
+          "type": "boolean"
+        },
+        "equalExpected35": {
+          "type": "integer"
+        },
+        "equalExpected36": {
+          "type": "string",
+          "enum": ["PROVIDER_VERIFIED"]
+        },
+        "notificationtype5": {
+          "type": "string"
+        },
+        "equalExpected37": {
+          "type": "integer"
+        },
+        "success3": {
+          "type": "boolean"
+        },
+        "status2": {
+          "type": "string"
+        },
+        "equalExpected38": {
+          "type": "boolean"
+        },
+        "invoice": {
+          "type": "string"
+        },
+        "orderid": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "hasmore": {
+          "type": "boolean"
+        },
+        "pagecount": {
+          "type": "integer"
+        },
+        "currentpage": {
+          "type": "integer"
+        },
+        "orderid2": {
+          "type": "string"
+        },
+        "orderstatus": {
+          "type": "string"
+        },
+        "orderamount": {
+          "type": "string"
+        },
+        "ordercurrency": {
+          "type": "string",
+          "enum": ["VND"]
+        },
+        "id": {
+          "type": "string"
+        },
+        "paymentmethod3": {
+          "type": "string",
+          "enum": ["BANK_TRANSFER"]
+        },
+        "transactiontype": {
+          "type": "string"
+        },
+        "transactionstatus": {
+          "type": "string"
+        },
+        "transactioncurrency": {
+          "type": "string",
+          "enum": ["VND"]
+        },
+        "transactionamount": {
+          "type": "string"
+        },
+        "equalExpected39": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "equalExpected40": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "total2": {
+          "type": "integer"
+        },
+        "equalExpected41": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "total3": {
+          "type": "integer"
+        },
+        "hasmore2": {
+          "type": "boolean"
+        },
+        "pagecount2": {
+          "type": "integer"
+        },
+        "currentpage2": {
+          "type": "integer"
+        },
+        "equalExpected42": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "equalExpected43": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "id2": {
+          "type": "string"
+        },
+        "orderid3": {
+          "type": "string"
+        },
+        "orderstatus2": {
+          "type": "string"
+        },
+        "orderamount2": {
+          "type": "string"
+        },
+        "ordercurrency2": {
+          "type": "string",
+          "enum": ["VND"]
+        },
+        "total4": {
+          "type": "integer"
+        },
+        "hasmore3": {
+          "type": "boolean"
+        },
+        "pagecount3": {
+          "type": "integer"
+        },
+        "currentpage3": {
+          "type": "integer"
+        },
+        "equalExpected44": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "equalExpected45": {
+          "type": "string"
+        },
+        "equalExpected46": {
+          "type": "string"
+        },
+        "equalExpected47": {
+          "type": "string"
+        },
+        "invoice2": {
+          "type": "string"
+        },
+        "id3": {
+          "type": "string"
+        },
+        "orderid4": {
+          "type": "string"
+        },
+        "orderstatus3": {
+          "type": "string"
+        },
+        "orderamount3": {
+          "type": "string"
+        },
+        "ordercurrency3": {
+          "type": "string",
+          "enum": ["VND"]
+        },
+        "total5": {
+          "type": "integer"
+        },
+        "hasmore4": {
+          "type": "boolean"
+        },
+        "pagecount4": {
+          "type": "integer"
+        },
+        "currentpage4": {
+          "type": "integer"
+        },
+        "status3": {
+          "type": "integer"
+        },
+        "equalExpected48": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "equalExpected49": {
+          "type": "string"
+        },
+        "value2": {
+          "type": "string"
+        },
+        "value3": {
+          "type": "string"
+        },
+        "findScenario": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "updateScenario": {
+          "type": "string"
+        },
+        "payUrlInput": {
+          "type": "string"
+        },
+        "scenarioValue": {
+          "type": "string"
+        },
+        "payUrlInput2": {
+          "type": "string"
+        },
+        "getScenario": {
+          "type": "string"
+        },
+        "gettokenInput": {
+          "type": "string"
+        },
+        "paymentIdInput": {
+          "type": "string"
+        },
+        "paidScenario": {
+          "type": "string"
+        },
+        "notEqualScenario": {
+          "type": "string",
+          "enum": ["SUCCEEDED"]
+        },
+        "modeInput": {
+          "type": "string",
+          "enum": ["pending"]
+        },
+        "modeInput2": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "modeInput3": {
+          "type": "string",
+          "enum": ["card"]
+        },
+        "providerOrderIdInput": {
+          "type": "string"
+        },
+        "handleSepayIpnScenario": {
+          "type": "string"
+        },
+        "modeInput4": {
+          "type": "string",
+          "enum": ["pending"]
+        },
+        "modeInput5": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "modeInput6": {
+          "type": "string",
+          "enum": ["card"]
+        },
+        "modeInput7": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "interpretSepayOrderScenario": {
+          "type": "string"
+        },
+        "paymentmethodInput": {
+          "type": "string"
+        },
+        "interpretSepayOrderScenario2": {
+          "type": "string"
+        },
+        "interpretSepayOrderScenario3": {
+          "type": "string"
+        },
+        "interpretSepayOrderScenario4": {
+          "type": "string"
+        },
+        "interpretSepayOrderScenario5": {
+          "type": "string"
+        },
+        "interpretSepayOrderScenario6": {
+          "type": "string"
+        },
+        "kindInput": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "kindInput2": {
+          "type": "string",
+          "enum": ["paid"]
+        },
+        "partialTransactionAmount": {
+          "type": "string"
+        },
+        "awaitingOrderStatus": {
+          "type": "string"
+        },
+        "awaitingExpected": {
+          "type": "string",
+          "enum": ["pending"]
+        },
+        "reconciliationCheckoutKey": {
+          "type": "string"
+        },
+        "unsettledExpected": {
+          "type": "string",
+          "enum": ["uncertain"]
+        },
+        "reconciliationFailurePattern": {
+          "type": "string"
+        },
+        "providerFailureMessage": {
+          "type": "string"
+        },
+        "paymentCountExpected": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value",
+        "userId",
+        "tenancyId",
+        "environment",
+        "merchantId",
+        "ipnSecretKey",
+        "publicBaseUrl",
+        "handoffSigningKey",
+        "financeDatabase",
+        "SEPAYENABLED",
+        "SEPAYENVIRONMENT",
+        "NODEENV",
+        "DATABASEURL",
+        "SEPAYFINANCEDATABASE",
+        "SEPAYMERCHANTID",
+        "SEPAYSECRETKEY",
+        "SEPAYIPNSECRETKEY",
+        "SEPAYHANDOFFSIGNINGKEY",
+        "SEPAYPUBLICBASEURL",
+        "partnerCode",
+        "accessKey",
+        "secretKey",
+        "endpoint",
+        "ipnUrl",
+        "redirectUrl",
+        "kind",
+        "remoteOrderId",
+        "transactionId",
+        "currency",
+        "paymentMethod",
+        "organizationId",
+        "name",
+        "propertyId",
+        "organizationId2",
+        "name2",
+        "lifecycleStatus",
+        "operationalAddressText",
+        "longitude",
+        "latitude",
+        "longitude2",
+        "latitude2",
+        "roomId",
+        "propertyId2",
+        "nameOrLabel",
+        "operationalState",
+        "recordLifecycle",
+        "roomId2",
+        "status",
+        "startedAt",
+        "endedAt",
+        "endReason",
+        "equalExpected",
+        "equalExpected2",
+        "equalExpected3",
+        "NODEENV2",
+        "SEPAYENVIRONMENT2",
+        "equalExpected4",
+        "equalExpected5",
+        "SEPAYENVIRONMENT3",
+        "SEPAYENABLED2",
+        "SEPAYFINANCEDATABASE2",
+        "SEPAYFINANCEDATABASE3",
+        "SEPAYFINANCEDATABASE4",
+        "DATABASEURL2",
+        "DATABASEURL3",
+        "SEPAYSECRETKEY2",
+        "SEPAYPUBLICBASEURL2",
+        "SEPAYPUBLICBASEURL3",
+        "equalExpected6",
+        "equalExpected7",
+        "amountVnd",
+        "key",
+        "amount",
+        "provider",
+        "equalExpected8",
+        "equalExpected9",
+        "equalExpected10",
+        "equalExpected11",
+        "equalExpected12",
+        "equalExpected13",
+        "equalExpected14",
+        "equalExpected15",
+        "equalExpected16",
+        "equalExpected17",
+        "equalExpected18",
+        "equalExpected19",
+        "equalExpected20",
+        "equalExpected21",
+        "equalExpected22",
+        "equalExpected23",
+        "equalExpected24",
+        "equalExpected25",
+        "equalExpected26",
+        "equalExpected27",
+        "equalExpected28",
+        "amount2",
+        "provider2",
+        "createCheckoutExpected",
+        "equalExpected29",
+        "equalExpected30",
+        "amount3",
+        "provider3",
+        "createCheckoutExpected2",
+        "equalExpected31",
+        "statusCode",
+        "mode",
+        "kind2",
+        "kind3",
+        "paymentMethod2",
+        "amount4",
+        "provider4",
+        "createCheckoutExpected3",
+        "notificationtype",
+        "paymentmethod",
+        "equalExpected32",
+        "notificationtype2",
+        "notificationtype3",
+        "notificationtype4",
+        "orderinvoicenumber",
+        "equalExpected33",
+        "paymentmethod2",
+        "equalExpected34",
+        "success",
+        "success2",
+        "equalExpected35",
+        "equalExpected36",
+        "notificationtype5",
+        "equalExpected37",
+        "success3",
+        "status2",
+        "equalExpected38",
+        "invoice",
+        "orderid",
+        "total",
+        "hasmore",
+        "pagecount",
+        "currentpage",
+        "orderid2",
+        "orderstatus",
+        "orderamount",
+        "ordercurrency",
+        "id",
+        "paymentmethod3",
+        "transactiontype",
+        "transactionstatus",
+        "transactioncurrency",
+        "transactionamount",
+        "equalExpected39",
+        "equalExpected40",
+        "total2",
+        "equalExpected41",
+        "total3",
+        "hasmore2",
+        "pagecount2",
+        "currentpage2",
+        "equalExpected42",
+        "equalExpected43",
+        "id2",
+        "orderid3",
+        "orderstatus2",
+        "orderamount2",
+        "ordercurrency2",
+        "total4",
+        "hasmore3",
+        "pagecount3",
+        "currentpage3",
+        "equalExpected44",
+        "equalExpected45",
+        "equalExpected46",
+        "equalExpected47",
+        "invoice2",
+        "id3",
+        "orderid4",
+        "orderstatus3",
+        "orderamount3",
+        "ordercurrency3",
+        "total5",
+        "hasmore4",
+        "pagecount4",
+        "currentpage4",
+        "status3",
+        "equalExpected48",
+        "equalExpected49",
+        "value2",
+        "value3",
+        "findScenario",
+        "updateScenario",
+        "payUrlInput",
+        "scenarioValue",
+        "payUrlInput2",
+        "getScenario",
+        "gettokenInput",
+        "paymentIdInput",
+        "paidScenario",
+        "notEqualScenario",
+        "modeInput",
+        "modeInput2",
+        "modeInput3",
+        "providerOrderIdInput",
+        "handleSepayIpnScenario",
+        "modeInput4",
+        "modeInput5",
+        "modeInput6",
+        "modeInput7",
+        "interpretSepayOrderScenario",
+        "paymentmethodInput",
+        "interpretSepayOrderScenario2",
+        "interpretSepayOrderScenario3",
+        "interpretSepayOrderScenario4",
+        "interpretSepayOrderScenario5",
+        "interpretSepayOrderScenario6",
+        "kindInput",
+        "kindInput2",
+        "partialTransactionAmount",
+        "awaitingOrderStatus",
+        "awaitingExpected",
+        "reconciliationCheckoutKey",
+        "unsettledExpected",
+        "reconciliationFailurePattern",
+        "providerFailureMessage",
+        "paymentCountExpected"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "values"],
+  "additionalProperties": false
+}

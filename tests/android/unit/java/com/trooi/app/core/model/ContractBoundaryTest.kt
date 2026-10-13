@@ -1,12 +1,15 @@
 package com.trooi.app.core.model
 
+import com.trooi.app.support.JsonFixtures
 import org.junit.Assert.*
 import org.junit.Test
 
 class ContractBoundaryTest {
+    private val fixture = JsonFixtures.load("model/contract-boundary")
+    private fun value(key: String) = fixture.get(key).asString
     private val access = AccessCapabilities(
-        linkedTenancyIds = setOf("my-tenancy"),
-        operatedOrganizationIds = setOf("my-org"),
+        linkedTenancyIds = setOf(value("tenancyId")),
+        operatedOrganizationIds = setOf(value("organizationId")),
     )
 
     @Test fun unauthorizedContextsAreNotNavigationTargets() {
@@ -20,38 +23,38 @@ class ContractBoundaryTest {
 
     @Test fun scopedOwnerProjectionHidesOtherOrganizationsResources() {
         val source = FrontendReadSnapshot(
-            properties = listOf(PropertyCard("my-property", "my-org", "Mine"), PropertyCard("foreign-property", "foreign-org", "Other")),
+            properties = listOf(PropertyCard(value("propertyId"), value("organizationId"), value("ownName")), PropertyCard(value("foreignPropertyId"), value("foreignOrganizationId"), value("foreignName"))),
             operationalRooms = listOf(
-                OperationalRoomCard("my-room", "my-property", "A", RoomOperationalState.VACANT, RecordLifecycle.ACTIVE),
-                OperationalRoomCard("foreign-room", "foreign-property", "B", RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE),
+                OperationalRoomCard(value("roomId"), value("propertyId"), value("ownRoomLabel"), RoomOperationalState.VACANT, RecordLifecycle.ACTIVE),
+                OperationalRoomCard(value("foreignRoomId"), value("foreignPropertyId"), value("foreignRoomLabel"), RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE),
             ),
             operatorListings = listOf(
-                OperatorListingCard("my-listing", "my-room", "Mine", ListingVisibility.DRAFT),
-                OperatorListingCard("foreign-listing", "foreign-room", "Other", ListingVisibility.PUBLISHED),
+                OperatorListingCard(value("listingId"), value("roomId"), value("ownName"), ListingVisibility.DRAFT),
+                OperatorListingCard(value("foreignListingId"), value("foreignRoomId"), value("foreignName"), ListingVisibility.PUBLISHED),
             ),
             incidents = listOf(
-                IncidentCard("my-incident", "my-room", "A", IncidentLifecycle.REPORTED, emptyList()),
-                IncidentCard("foreign-incident", "foreign-room", "B", IncidentLifecycle.REPORTED, emptyList()),
+                IncidentCard(value("incidentId"), value("roomId"), value("ownRoomLabel"), IncidentLifecycle.REPORTED, emptyList()),
+                IncidentCard(value("foreignIncidentId"), value("foreignRoomId"), value("foreignRoomLabel"), IncidentLifecycle.REPORTED, emptyList()),
             ),
         )
-        assertEquals(listOf("my-property"), accessibleProperties(source, access).map { it.propertyId })
-        assertEquals(listOf("my-room"), accessibleRooms(source, access).map { it.roomId })
-        assertEquals(listOf("my-listing"), accessibleOperatorListings(source, access).map { it.listingId })
-        assertEquals(listOf("my-incident"), accessibleIncidents(source, access).map { it.incidentId })
+        assertEquals(listOf(value("propertyId")), accessibleProperties(source, access).map { it.propertyId })
+        assertEquals(listOf(value("roomId")), accessibleRooms(source, access).map { it.roomId })
+        assertEquals(listOf(value("listingId")), accessibleOperatorListings(source, access).map { it.listingId })
+        assertEquals(listOf(value("incidentId")), accessibleIncidents(source, access).map { it.incidentId })
     }
 
     @Test fun outstandingStaysOnTheChargeWhenPaymentsAreUnallocated() {
-        val charge = ChargeCard("c1", "RENT", "5000.00", "5000.00")
-        val payments = listOf(PaymentCard("p1", "2000.00", "ok"), PaymentCard("p2", "5000.00", "voided"))
-        assertEquals("5000.00", charge.outstandingLabel)
-        assertEquals("5000.00", charge.amountLabel)
-        assertEquals(2, payments.size)
-        assertNull(ChargeCard("c2", "WATER", "1000.00", null).outstandingLabel)
+        val charge = ChargeCard(value("chargeId"), value("chargeType"), value("chargeAmount"), value("chargeAmount"))
+        val payments = listOf(PaymentCard(value("partialPaymentId"), value("partialPaymentAmount"), value("activePaymentLabel")), PaymentCard(value("voidedPaymentId"), value("chargeAmount"), value("voidedPaymentLabel")))
+        assertEquals(value("chargeAmount"), charge.outstandingLabel)
+        assertEquals(value("chargeAmount"), charge.amountLabel)
+        assertEquals(fixture.get("paymentCount").asInt, payments.size)
+        assertNull(ChargeCard(value("unknownChargeId"), value("unknownChargeType"), value("unknownChargeAmount"), fixture.get("unknownOutstanding").takeUnless { it.isJsonNull }?.asString).outstandingLabel)
     }
 
     @Test fun financeAndDashboardAreScopedContainersNotCalculatedFromRooms() {
         val empty = FrontendReadSnapshot(
-            operationalRooms = listOf(OperationalRoomCard("my-room", "my-property", "Mine", RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE)),
+            operationalRooms = listOf(OperationalRoomCard(value("roomId"), value("propertyId"), value("ownName"), RoomOperationalState.OCCUPIED, RecordLifecycle.ACTIVE)),
         )
         assertTrue(empty.dashboardByOrganization.isEmpty())
         assertTrue(empty.operatorFinanceByOrganization.isEmpty())

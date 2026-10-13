@@ -1,3 +1,4 @@
+import { paymentData, createPaymentFixtureIds } from '../../support/payment-fixtures';
 import { Client } from 'pg';
 
 import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
@@ -9,15 +10,17 @@ import { createRepositorySet } from '../../../src/infrastructure/database/reposi
 import { momoIpnRaw, signMomoRaw } from '../../../src/modules/payment-gateway/momo/momo-hmac';
 import type { MomoIpnPayload } from '../../../src/modules/payment-gateway/momo/momo-client';
 import type { GatewayCheckoutRecord } from '../../../src/persistence/ports/finance.repository';
+import { resetPublicSchema } from './support/postgres-test-harness';
+import { paymentMigrationPrefix } from './support/payment-migration-prefix';
 import { rentalFixture } from './guards/rental-test-support';
 
 export const TEST_MOMO = {
-  partnerCode: 'TEST',
-  accessKey: 'test',
-  secretKey: 'test',
-  endpoint: 'https://test-payment.momo.vn',
-  ipnUrl: 'https://example.test/ipn',
-  redirectUrl: 'trooi://payment/momo',
+  partnerCode: paymentData.values.TEST,
+  accessKey: paymentData.values.test,
+  secretKey: paymentData.values.test,
+  endpoint: paymentData.values.https_test_payment_momo_vn,
+  ipnUrl: paymentData.values.https_example_test_ipn,
+  redirectUrl: paymentData.values.trooi_payment_momo,
 };
 
 export function createBarrier() {
@@ -51,19 +54,20 @@ export function signedCheckoutIpn(
   record: GatewayCheckoutRecord,
   overrides: Partial<MomoIpnPayload> = {},
 ): MomoIpnPayload {
-  if (record.provider !== 'MOMO') throw new Error('MoMo IPN fixture requires MOMO');
+  if (record.provider !== paymentData.values.MOMO)
+    throw new Error('MoMo IPN fixture requires MOMO');
   const payload: MomoIpnPayload = {
     partnerCode: record.providerPartnerCode ?? TEST_MOMO.partnerCode,
     orderId: record.providerOrderId,
     requestId: record.providerRequestId,
-    amount: Number(record.amount.split('.')[0]),
+    amount: Number(record.amount.split(paymentData.values.empty_2)[0]),
     orderInfo: record.referenceCode,
-    orderType: 'momo_wallet',
-    transId: 1,
-    resultCode: 0,
-    message: 'Successful.',
-    payType: 'qr',
-    responseTime: 1,
+    orderType: paymentData.values.momo_wallet,
+    transId: paymentData.numbers.ipnTransactionId,
+    resultCode: paymentData.numbers.ipnResultCode,
+    message: paymentData.values.Successful,
+    payType: paymentData.values.qr,
+    responseTime: paymentData.numbers.ipnResponseTime,
     extraData: record.requestSnapshot?.extraData ?? '',
     signature: '',
     ...overrides,
@@ -93,7 +97,8 @@ export async function assertCheckoutRowLockWaiter(url: string): Promise<void> {
   const client = new Client({ connectionString: url });
   await client.connect();
   try {
-    for (let n = 0; n < 400; n++) {
+    const deadline = performance.now() + paymentData.numbers.lockObservationTimeoutMs;
+    while (performance.now() < deadline) {
       const waiting = await client.query<{ waiting: boolean }>(`
         SELECT EXISTS (
           SELECT 1
@@ -105,7 +110,7 @@ export async function assertCheckoutRowLockWaiter(url: string): Promise<void> {
             AND rel.relname = 'gateway_checkouts'
         ) AS waiting`);
       if (waiting.rows[0]?.waiting) return;
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
     throw new Error('expected overlapping PostgreSQL lock wait on gateway.gateway_checkouts');
   } finally {
@@ -113,48 +118,88 @@ export async function assertCheckoutRowLockWaiter(url: string): Promise<void> {
   }
 }
 
-export async function gatewayFixture(url: string) {
-  const f = await rentalFixture(url);
+export async function gatewayFixture(url: string, migrationPrefix?: string) {
+  const f = await rentalFixture(
+    url,
+    migrationPrefix
+      ? {
+          initializeDatabase: async (databaseUrl) => {
+            await resetPublicSchema(databaseUrl);
+            await paymentMigrationPrefix(databaseUrl, migrationPrefix);
+          },
+        }
+      : undefined,
+  );
   try {
     const ids = {
       ...f.ids,
       creator: f.ids.user,
-      recipient: '10000000-0000-4000-8000-000000000002',
-      participant: '82000000-0000-4000-8000-000000000001',
-      terms: '83000000-0000-4000-8000-000000000001',
-      cycle: '90000000-0000-4000-8000-000000000001',
-      charge: '91000000-0000-4000-8000-000000000001',
+      recipient: paymentData.values.v_10000000_0000_4000_8000_000000000002,
+      participant: paymentData.values.v_82000000_0000_4000_8000_000000000001,
+      terms: paymentData.values.v_83000000_0000_4000_8000_000000000001,
+      cycle: paymentData.values.v_90000000_0000_4000_8000_000000000001,
+      charge: paymentData.values.v_91000000_0000_4000_8000_000000000001,
     };
-    const amount = '1000.00';
+    const amount = paymentData.values.v_1000_00;
     const identity = new PostgresIdentityRepository(f.db);
     const finance = new PostgresFinanceRepository(f.db);
     const notifications = new PostgresNotificationRepository(f.db);
     await identity.ensureUser(ids.recipient);
     await f.tenancies.createTenancy({
-      tenancyId: ids.tenancy, roomId: ids.room, status: 'ACTIVE',
-      startedAt: '2026-01-01T00:00:00.000Z', endedAt: null, endReason: null,
+      tenancyId: ids.tenancy,
+      roomId: ids.room,
+      status: paymentData.values.ACTIVE,
+      startedAt: paymentData.values.v_2026_01_01T00_00_00_000Z,
+      endedAt: paymentData.states.absent,
+      endReason: paymentData.states.absent,
     });
     await f.tenancies.insertParticipant({
-      tenancyParticipantId: ids.participant, tenancyId: ids.tenancy,
-      userId: ids.recipient, role: 'PRIMARY',
-      joinedAt: '2026-01-01T00:00:00.000Z', leftAt: null,
+      tenancyParticipantId: ids.participant,
+      tenancyId: ids.tenancy,
+      userId: ids.recipient,
+      role: paymentData.values.PRIMARY,
+      joinedAt: paymentData.values.v_2026_01_01T00_00_00_000Z,
+      leftAt: paymentData.states.absent,
     });
     await f.tenancies.insertTerms({
-      tenancyTermsId: ids.terms, tenancyId: ids.tenancy, version: 1,
-      rentAmount: amount, agreedDepositRequirement: amount,
-      termStart: '2026-01-01', termEnd: '2026-12-31',
-      billingDayOrDueDateRule: {}, electricityArrangement: {}, waterArrangement: {},
-      minimalRentalConditions: {}, effectiveFromCycleBoundary: '2026-01-01',
+      tenancyTermsId: ids.terms,
+      tenancyId: ids.tenancy,
+      version: paymentData.numbers.scenarioCount1,
+      rentAmount: amount,
+      agreedDepositRequirement: amount,
+      termStart: paymentData.values.v_2026_01_01,
+      termEnd: paymentData.values.v_2026_12_31,
+      billingDayOrDueDateRule: paymentData.states.emptyPayload,
+      electricityArrangement: paymentData.states.emptyPayload,
+      waterArrangement: paymentData.states.emptyPayload,
+      minimalRentalConditions: paymentData.states.emptyPayload,
+      effectiveFromCycleBoundary: paymentData.values.v_2026_01_01,
     });
     await finance.insertBillingCycle({
-      billingCycleId: ids.cycle, tenancyId: ids.tenancy, tenancyTermsId: ids.terms,
-      periodStart: '2026-01-01', periodEnd: '2026-01-31',
+      billingCycleId: ids.cycle,
+      tenancyId: ids.tenancy,
+      tenancyTermsId: ids.terms,
+      periodStart: paymentData.values.v_2026_01_01,
+      periodEnd: paymentData.values.v_2026_01_31,
     });
     await finance.insertCharge({
-      chargeId: ids.charge, billingCycleId: ids.cycle, chargeType: 'RENT', amount,
-      utilityConnectionId: null, startMeterReadingId: null, endMeterReadingId: null,
+      chargeId: ids.charge,
+      billingCycleId: ids.cycle,
+      chargeType: paymentData.values.RENT,
+      amount,
+      utilityConnectionId: null,
+      startMeterReadingId: null,
+      endMeterReadingId: null,
     });
-    return { ...f, ids, amount, identity, finance, notifications };
+    return {
+      ...f,
+      ids,
+      amount,
+      identity,
+      finance,
+      notifications,
+      nextId: createPaymentFixtureIds(),
+    };
   } catch (error) {
     await f.db.destroy();
     throw error;

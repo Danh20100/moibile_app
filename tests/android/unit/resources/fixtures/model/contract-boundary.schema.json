@@ -1,0 +1,125 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "tenancyId": {
+      "type": "string"
+    },
+    "organizationId": {
+      "type": "string"
+    },
+    "propertyId": {
+      "type": "string"
+    },
+    "foreignPropertyId": {
+      "type": "string"
+    },
+    "foreignOrganizationId": {
+      "type": "string"
+    },
+    "ownName": {
+      "type": "string"
+    },
+    "foreignName": {
+      "type": "string"
+    },
+    "roomId": {
+      "type": "string"
+    },
+    "foreignRoomId": {
+      "type": "string"
+    },
+    "ownRoomLabel": {
+      "type": "string"
+    },
+    "foreignRoomLabel": {
+      "type": "string"
+    },
+    "listingId": {
+      "type": "string"
+    },
+    "foreignListingId": {
+      "type": "string"
+    },
+    "incidentId": {
+      "type": "string"
+    },
+    "foreignIncidentId": {
+      "type": "string"
+    },
+    "chargeId": {
+      "type": "string"
+    },
+    "chargeType": {
+      "type": "string"
+    },
+    "chargeAmount": {
+      "type": "string"
+    },
+    "partialPaymentId": {
+      "type": "string"
+    },
+    "partialPaymentAmount": {
+      "type": "string"
+    },
+    "activePaymentLabel": {
+      "type": "string"
+    },
+    "voidedPaymentId": {
+      "type": "string"
+    },
+    "voidedPaymentLabel": {
+      "type": "string"
+    },
+    "unknownChargeId": {
+      "type": "string"
+    },
+    "unknownChargeType": {
+      "type": "string"
+    },
+    "unknownChargeAmount": {
+      "type": "string"
+    },
+    "unknownOutstanding": {
+      "type": "null"
+    },
+    "paymentCount": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "tenancyId",
+    "organizationId",
+    "propertyId",
+    "foreignPropertyId",
+    "foreignOrganizationId",
+    "ownName",
+    "foreignName",
+    "roomId",
+    "foreignRoomId",
+    "ownRoomLabel",
+    "foreignRoomLabel",
+    "listingId",
+    "foreignListingId",
+    "incidentId",
+    "foreignIncidentId",
+    "chargeId",
+    "chargeType",
+    "chargeAmount",
+    "partialPaymentId",
+    "partialPaymentAmount",
+    "activePaymentLabel",
+    "voidedPaymentId",
+    "voidedPaymentLabel",
+    "unknownChargeId",
+    "unknownChargeType",
+    "unknownChargeAmount",
+    "unknownOutstanding",
+    "paymentCount"
+  ],
+  "additionalProperties": false
+}

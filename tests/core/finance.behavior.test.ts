@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { financeFixture as F } from '../support/finance-fixtures';
 
 import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
@@ -12,10 +13,11 @@ import { createCoreTestTransactionManager } from './support/in-memory-transactio
 
 const tenancyLookup = {
   async findById(id: string) {
-    if (!['tenancy-a', 'tenancy-b'].includes(id)) {
+    const tenancy = F.tenancyLookup.find((value) => value.id === id);
+    if (!tenancy) {
       throw new Error(`missing tenancy ${id}`);
     }
-    return { id, roomId: `room-${id}`, status: 'active' as const };
+    return tenancy;
   },
 };
 
@@ -28,279 +30,171 @@ function services() {
 
 test('cycle owns terms provenance and current charge vocabulary only', async () => {
   const { finance } = services();
-  const cycle = await finance.createCycle({
-    tenancyId: 'tenancy-a',
-    tenancyTermsId: 'terms-1',
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    charges: [{ type: 'RENT', amount: '3500000.00' }],
-  });
+  const cycle = await finance.createCycle(F.values.scenario3);
 
-  assert.equal(cycle.tenancyTermsId, 'terms-1');
-  assert.equal(cycle.charges[0]?.type, 'RENT');
-  await assert.rejects(
-    () =>
-      finance.createCycle({
-        tenancyId: 'tenancy-a',
-        tenancyTermsId: 'terms-1',
-        periodStart: '2026-10-01',
-        periodEnd: '2026-10-31',
-        charges: [{ type: 'INTERNET' as never, amount: '1.00' }],
-      }),
-    BadRequestException,
-  );
+  assert.equal(cycle.tenancyTermsId, F.values.scenario4);
+  assert.equal(cycle.charges[0]?.type, F.values.scenario5);
+  await assert.rejects(() => finance.createCycle(F.values.scenario6), BadRequestException);
 });
 
 test('payment allocation cannot cross tenancy or exceed payment amount', async () => {
   const { finance } = services();
-  const a = await finance.createCycle({
-    tenancyId: 'tenancy-a',
-    tenancyTermsId: 'terms-a',
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    charges: [{ type: 'RENT', amount: '100.00' }],
-  });
-  const b = await finance.createCycle({
-    tenancyId: 'tenancy-b',
-    tenancyTermsId: 'terms-b',
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    charges: [{ type: 'RENT', amount: '100.00' }],
-  });
-  const payment = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '100.00',
-    source: 'MANUAL_TRANSFER',
-    confirmedAt: '2026-09-05T00:00:00.000Z',
-  });
+  const a = await finance.createCycle(F.values.scenario7);
+  const b = await finance.createCycle(F.values.scenario8);
+  const payment = await finance.recordPayment(F.values.scenario9);
 
   await assert.rejects(
-    () => finance.allocatePayment(payment.id, b.charges[0]!.id, '1.00'),
+    () => finance.allocatePayment(payment.id, b.charges[0]!.id, F.values.scenario10),
     /same Tenancy|cross Tenancy/i,
   );
-  await finance.allocatePayment(payment.id, a.charges[0]!.id, '80.00');
+  await finance.allocatePayment(payment.id, a.charges[0]!.id, F.values.scenario11);
   await assert.rejects(
-    () => finance.allocatePayment(payment.id, a.charges[0]!.id, '21.00'),
+    () => finance.allocatePayment(payment.id, a.charges[0]!.id, F.values.scenario12),
     /exceed|remaining/i,
   );
 });
 
 test('charge allocations and deposit applications share the payment amount cap', async () => {
   const { finance } = services();
-  const cycle = await finance.createCycle({
-    tenancyId: 'tenancy-a',
-    tenancyTermsId: 'terms-a',
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    charges: [{ type: 'RENT', amount: '100.00' }],
-  });
-  const deposit = await finance.createDeposit('tenancy-a');
-  const payment = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '100.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-09-05T00:00:00.000Z',
-  });
+  const cycle = await finance.createCycle(F.values.scenario13);
+  const deposit = await finance.createDeposit(F.values.scenario14);
+  const payment = await finance.recordPayment(F.values.scenario15);
 
-  await finance.allocatePayment(payment.id, cycle.charges[0]!.id, '60.00');
-  await finance.applyPaymentToDeposit(payment.id, deposit.id, '40.00');
+  await finance.allocatePayment(payment.id, cycle.charges[0]!.id, F.values.scenario16);
+  await finance.applyPaymentToDeposit(payment.id, deposit.id, F.values.scenario17);
   await assert.rejects(
-    () => finance.applyPaymentToDeposit(payment.id, deposit.id, '0.01'),
+    () => finance.applyPaymentToDeposit(payment.id, deposit.id, F.values.scenario18),
     /exceed|remaining/i,
   );
   assert.deepEqual(
     (await finance.listDepositEvents(deposit.id)).map((event) => event.eventType),
-    ['RECEIVED'],
+    F.values.scenario19,
   );
 });
 
 test('deposit projection blocks OPEN requirement-change semantics after partial funding', async () => {
   const { finance, transactions } = services();
   await transactions.run(async ({ repositories }) => {
-    await repositories.tenancy.insertTerms({
-      tenancyTermsId: 'terms-deposit-v1',
-      tenancyId: 'tenancy-a',
-      version: 1,
-      rentAmount: '100.00',
-      agreedDepositRequirement: '100.00',
-      termStart: '2026-01-01',
-      termEnd: '2026-12-31',
-      billingDayOrDueDateRule: {},
-      electricityArrangement: {},
-      waterArrangement: {},
-      minimalRentalConditions: {},
-      effectiveFromCycleBoundary: '2026-01-01',
-    });
+    await repositories.tenancy.insertTerms(F.values.scenario20);
   });
-  const deposit = await finance.createDeposit('tenancy-a');
-  const payment = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '40.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-02-01T00:00:00.000Z',
-  });
-  await finance.applyPaymentToDeposit(payment.id, deposit.id, '40.00');
+  const deposit = await finance.createDeposit(F.values.scenario21);
+  const payment = await finance.recordPayment(F.values.scenario22);
+  await finance.applyPaymentToDeposit(payment.id, deposit.id, F.values.scenario23);
 
-  const partial = await finance.findDepositProjectionForTenancy('tenancy-a');
-  assert.equal(partial.requirementAmount, '100.00');
-  assert.equal(partial.fundedAmount, '40.00');
-  assert.equal(partial.state, 'PARTIALLY_HELD');
-  assert.equal(partial.blockedByOpenPolicy, false);
+  const partial = await finance.findDepositProjectionForTenancy(F.values.scenario24);
+  assert.equal(partial.requirementAmount, F.values.scenario25);
+  assert.equal(partial.fundedAmount, F.values.scenario26);
+  assert.equal(partial.state, F.values.scenario27);
+  assert.equal(partial.blockedByOpenPolicy, F.values.scenario28);
 
   await transactions.run(async ({ repositories }) => {
-    await repositories.tenancy.insertTerms({
-      tenancyTermsId: 'terms-deposit-v2',
-      tenancyId: 'tenancy-a',
-      version: 2,
-      rentAmount: '100.00',
-      agreedDepositRequirement: '120.00',
-      termStart: '2026-01-01',
-      termEnd: '2026-12-31',
-      billingDayOrDueDateRule: {},
-      electricityArrangement: {},
-      waterArrangement: {},
-      minimalRentalConditions: {},
-      effectiveFromCycleBoundary: '2026-03-01',
-    });
+    await repositories.tenancy.insertTerms(F.values.scenario29);
   });
 
-  const blocked = await finance.findDepositProjectionForTenancy('tenancy-a');
-  assert.equal(blocked.requirementAmount, null);
-  assert.equal(blocked.state, null);
-  assert.equal(blocked.blockedByOpenPolicy, true);
-  assert.equal(blocked.fundedAmount, '40.00');
-  assert.equal(blocked.heldAmount, '40.00');
+  const blocked = await finance.findDepositProjectionForTenancy(F.values.scenario30);
+  assert.equal(blocked.requirementAmount, F.values.scenario31);
+  assert.equal(blocked.state, F.values.scenario32);
+  assert.equal(blocked.blockedByOpenPolicy, F.values.scenario33);
+  assert.equal(blocked.fundedAmount, F.values.scenario34);
+  assert.equal(blocked.heldAmount, F.values.scenario35);
 });
 
 test('confirmed payment correction voids old fact and requires a replacement payment', async () => {
   const { finance } = services();
-  const payment = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '100.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-09-05T00:00:00.000Z',
-  });
-  const replacement = await finance.correctPayment(payment.id, {
-    amount: '90.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-09-06T00:00:00.000Z',
-    correctionNote: 'Corrected counting error',
-  });
+  const payment = await finance.recordPayment(F.values.scenario36);
+  const replacement = await finance.correctPayment(payment.id, F.values.scenario37);
 
-  assert.equal(replacement.verification, 'USER_RECORDED');
+  assert.equal(replacement.verification, F.values.scenario38);
   assert.equal((await finance.findPaymentById(payment.id)).replacementPaymentId, replacement.id);
   assert.ok((await finance.findPaymentById(payment.id)).voidedOrReversedAt);
 });
 
 test('receipt is evidence for confirmed payment and keeps issued/voided history', async () => {
   const { finance, receipts } = services();
-  const payment = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '100.00',
-    source: 'MANUAL_TRANSFER',
-    confirmedAt: '2026-09-05T00:00:00.000Z',
-  });
+  const payment = await finance.recordPayment(F.values.scenario39);
   const issued = await receipts.issue(payment.id);
-  assert.equal(issued.status, 'ISSUED');
+  assert.equal(issued.status, F.values.scenario40);
   assert.equal(issued.paymentId, payment.id);
-  assert.equal('amount' in issued, false);
+  assert.equal('amount' in issued, F.values.scenario41);
 
   const voided = await receipts.void(issued.id);
-  assert.equal(voided.status, 'VOIDED');
+  assert.equal(voided.status, F.values.scenario42);
   const replacement = await receipts.issue(payment.id);
   assert.equal((await receipts.findById(issued.id)).replacementReceiptId, replacement.id);
 });
 
 test('deposit settlement appends refunded and retained provenance events', async () => {
   const { finance } = services();
-  const deposit = await finance.createDeposit('tenancy-a');
-  const payment = await finance.recordPayment({ tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', confirmedAt: '2026-09-29T00:00:00.000Z' });
-  await finance.applyPaymentToDeposit(payment.id, deposit.id, '100.00');
-  const settlement = await finance.settleDeposit(deposit.id, {
-    refundedAmount: '70.00',
-    retainedAmount: '30.00',
-    reasonOrNote: 'Final checkout settlement',
-    actedByUserId: 'user-1',
-    settledAt: '2026-09-30T00:00:00.000Z',
-  });
+  const deposit = await finance.createDeposit(F.values.scenario43);
+  const payment = await finance.recordPayment(F.values.scenario44);
+  await finance.applyPaymentToDeposit(payment.id, deposit.id, F.values.scenario45);
+  const settlement = await finance.settleDeposit(deposit.id, F.values.scenario46);
   assert.equal(settlement.depositId, deposit.id);
   assert.deepEqual(
     (await finance.listDepositEvents(deposit.id)).map((event) => event.eventType),
-    ['RECEIVED', 'REFUNDED', 'RETAINED'],
+    F.values.scenario47,
   );
 });
 
 test('outstanding follows active allocations and ignores unallocated or voided payments', async () => {
   const { finance, transactions } = services();
-  const cycle = await finance.createCycle({
-    tenancyId: 'tenancy-a',
-    tenancyTermsId: 'terms-a',
-    periodStart: '2026-09-01',
-    periodEnd: '2026-09-30',
-    charges: [{ type: 'RENT', amount: '5000.00' }],
-  });
+  const cycle = await finance.createCycle(F.values.scenario48);
   const chargeId = cycle.charges[0]!.id;
-  assert.equal(cycle.charges[0]?.outstandingAmount, '5000.00');
-  await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '5000.00',
-    source: 'MANUAL_TRANSFER',
-    confirmedAt: '2026-09-02T00:00:00.000Z',
-  });
-  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '5000.00');
-  const partial = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '2000.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-09-03T00:00:00.000Z',
-  });
-  await finance.allocatePayment(partial.id, chargeId, '2000.00');
-  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '3000.00');
-  const stored = await transactions.run(({ repositories }) => repositories.finance.findPayment(partial.id));
+  assert.equal(cycle.charges[0]?.outstandingAmount, F.values.scenario49);
+  await finance.recordPayment(F.values.scenario50);
+  assert.equal(
+    (await finance.findById(cycle.id)).charges[0]?.outstandingAmount,
+    F.values.scenario51,
+  );
+  const partial = await finance.recordPayment(F.values.scenario52);
+  await finance.allocatePayment(partial.id, chargeId, F.values.scenario53);
+  assert.equal(
+    (await finance.findById(cycle.id)).charges[0]?.outstandingAmount,
+    F.values.scenario54,
+  );
+  const stored = await transactions.run(({ repositories }) =>
+    repositories.finance.findPayment(partial.id),
+  );
   assert.ok(stored);
   await transactions.run(({ repositories }) =>
-    repositories.finance.updatePayment({ ...stored, voidedOrReversedAt: '2026-09-04T00:00:00.000Z' }),
+    repositories.finance.updatePayment({ ...stored, voidedOrReversedAt: F.values.scenario55 }),
   );
-  assert.equal((await finance.findById(cycle.id)).charges[0]?.outstandingAmount, '5000.00');
+  assert.equal(
+    (await finance.findById(cycle.id)).charges[0]?.outstandingAmount,
+    F.values.scenario56,
+  );
 
-  const over = await finance.createCycle({
-    tenancyId: 'tenancy-a',
-    tenancyTermsId: 'terms-a',
-    periodStart: '2026-10-01',
-    periodEnd: '2026-10-31',
-    charges: [{ type: 'WATER', amount: '100.00' }],
-  });
-  const first = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '80.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-10-02T00:00:00.000Z',
-  });
-  const second = await finance.recordPayment({
-    tenancyId: 'tenancy-a',
-    amount: '40.00',
-    source: 'MANUAL_CASH',
-    confirmedAt: '2026-10-03T00:00:00.000Z',
-  });
-  await finance.allocatePayment(first.id, over.charges[0]!.id, '80.00');
-  await finance.allocatePayment(second.id, over.charges[0]!.id, '40.00');
-  assert.equal((await finance.findById(over.id)).charges[0]?.outstandingAmount, null);
+  const over = await finance.createCycle(F.values.scenario57);
+  const first = await finance.recordPayment(F.values.scenario58);
+  const second = await finance.recordPayment(F.values.scenario59);
+  await finance.allocatePayment(first.id, over.charges[0]!.id, F.values.scenario60);
+  await finance.allocatePayment(second.id, over.charges[0]!.id, F.values.scenario61);
+  assert.equal(
+    (await finance.findById(over.id)).charges[0]?.outstandingAmount,
+    F.values.scenario62,
+  );
 });
 
 test('manual service rejects parsed provider provenance before recording or correcting', async () => {
   const { finance } = services();
-  const manual = { tenancyId: 'tenancy-a', amount: '100.00', source: 'MANUAL_CASH', confirmedAt: '2026-10-05T00:00:00.000Z' };
-  for (const provenance of [{ source: 'GATEWAY' }, { verification: 'PROVIDER_VERIFIED' }, { verification: 'USER_RECORDED' }]) {
+  const manual = F.values.scenario63;
+  for (const provenance of F.values.scenario64) {
     const input = plainToInstance(RecordPaymentDto, { ...manual, ...provenance });
     await assert.rejects(() => finance.recordPayment(input), BadRequestException);
-    assert.deepEqual(await finance.findPaymentsByTenancyId(manual.tenancyId), []);
+    assert.deepEqual(await finance.findPaymentsByTenancyId(manual.tenancyId), F.values.scenario65);
   }
   const original = await finance.recordPayment(plainToInstance(RecordPaymentDto, manual));
-  assert.equal(original.verification, 'USER_RECORDED');
-  for (const provenance of [{ source: 'GATEWAY' }, { verification: 'PROVIDER_VERIFIED' }, { verification: 'USER_RECORDED' }]) {
-    const input = Object.assign(plainToInstance(RecordPaymentDto, { ...manual, ...provenance }), { correctionNote: 'Correction' });
+  assert.equal(original.verification, F.values.scenario66);
+  for (const provenance of F.values.scenario67) {
+    const input = Object.assign(
+      plainToInstance(RecordPaymentDto, { ...manual, ...provenance }),
+      F.values.scenario68,
+    );
     await assert.rejects(() => finance.correctPayment(original.id, input), BadRequestException);
     assert.deepEqual(await finance.findPaymentById(original.id), original);
-    assert.equal((await finance.findPaymentsByTenancyId(manual.tenancyId)).length, 1);
+    assert.equal(
+      (await finance.findPaymentsByTenancyId(manual.tenancyId)).length,
+      F.values.scenario69,
+    );
   }
 });

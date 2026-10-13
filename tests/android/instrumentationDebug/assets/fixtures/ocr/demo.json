@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "text": "TROOI OCR DEMO\nLOCAL TEXT ONLY\nTest document",
+  "expectedWords": [
+    "TROOI",
+    "LOCAL",
+    "document"
+  ],
+  "width": 1200,
+  "height": 500,
+  "textSize": 64,
+  "textX": 40,
+  "firstBaseline": 100,
+  "lineHeight": 110
+}

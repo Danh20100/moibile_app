@@ -1,7 +1,10 @@
+import { data as D } from '../support/sepay-protocol-fixtures';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ServiceUnavailableException } from '@nestjs/common';
-import fixtures from './fixtures/sepay-signed-fields.json';
+import type fixturesType from '../fixtures/payment/sepay-signed-fields.json';
+import { loadFixture } from '../support/fixture-loader';
+const fixtures = loadFixture<typeof fixturesType>('payment/sepay-signed-fields');
 import {
   sepayFormRaw,
   signSepayFields,
@@ -19,27 +22,27 @@ import { TenancyService } from '../../src/modules/tenancy/services/tenancy.servi
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
 
 const structuralEnv = {
-  SEPAY_ENABLED: 'true',
-  SEPAY_ENVIRONMENT: 'sandbox',
-  NODE_ENV: 'development',
-  DATABASE_URL: 'postgresql://nonsecret:nonsecret@database.example/trooi_sandbox',
-  SEPAY_MERCHANT_ID: 'NONSECRET-MERCHANT',
-  SEPAY_SECRET_KEY: 'NONSECRET-FORM-KEY',
-  SEPAY_IPN_SECRET_KEY: 'NONSECRET-EXPLICIT-IPN-KEY',
-  SEPAY_HANDOFF_SIGNING_KEY: 'NONSECRET-SEPARATE-HANDOFF-KEY',
-  SEPAY_PUBLIC_BASE_URL: 'https://merchant.example',
+  SEPAY_ENABLED: D.values.SEPAYENABLED,
+  SEPAY_ENVIRONMENT: D.values.SEPAYENVIRONMENT,
+  NODE_ENV: D.values.NODEENV,
+  DATABASE_URL: D.values.DATABASEURL,
+  SEPAY_MERCHANT_ID: D.values.SEPAYMERCHANTID,
+  SEPAY_SECRET_KEY: D.values.SEPAYSECRETKEY,
+  SEPAY_IPN_SECRET_KEY: D.values.SEPAYIPNSECRETKEY,
+  SEPAY_HANDOFF_SIGNING_KEY: D.values.SEPAYHANDOFFSIGNINGKEY,
+  SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL,
 };
 
 function disabledRegistry() {
   return new GatewayProviderRegistry(
     new MomoGatewayAdapter(
       new HttpMomoPaymentClient({
-        partnerCode: '',
-        accessKey: '',
-        secretKey: '',
-        endpoint: 'https://test-payment.momo.vn',
-        ipnUrl: '',
-        redirectUrl: 'trooi://payment/momo',
+        partnerCode: D.values.partnerCode,
+        accessKey: D.values.accessKey,
+        secretKey: D.values.secretKey,
+        endpoint: D.values.endpoint,
+        ipnUrl: D.values.ipnUrl,
+        redirectUrl: D.values.redirectUrl,
       }),
     ),
   );
@@ -56,10 +59,10 @@ test('ordered_form_matches_independent_hmac', () => {
 test('custom_data_and_unknown_fields_are_unsigned_and_cannot_authenticate_correlation', () => {
   const fields = {
     ...fixtures.ordered.fields,
-    custom_data: 'untrusted-checkout-id',
-    signature: 'untrusted-signature',
-    providerSettlementId: 'untrusted-payment',
-    ignored_null: null,
+    custom_data: D.values.customdata,
+    signature: D.values.signature,
+    providerSettlementId: D.values.providerSettlementId,
+    ignored_null: D.values.ignorednull,
   };
   assert.equal(sepayFormRaw(fields), fixtures.ordered.canonical);
   assert.equal(signSepayFields(fields, fixtures.secret), fixtures.ordered.signature);
@@ -73,24 +76,31 @@ test('insertion_order_matters_and_wrong_secret_differs', () => {
   );
   assert.notEqual(fixtures.reversed.signature, fixtures.ordered.signature);
   assert.notEqual(
-    signSepayFields(fixtures.ordered.fields, 'OTHER_NONSECRET'),
+    signSepayFields(fixtures.ordered.fields, D.values.signSepayFieldsScenario),
     fixtures.ordered.signature,
   );
 });
 
 test('undefined_is_omitted_and_null_is_empty_only_for_signed_sdk_fields', () => {
-  const fields = { ...fixtures.nullAndEmpty.fields, success_url: undefined, custom_data: null };
+  const fields = {
+    ...fixtures.nullAndEmpty.fields,
+    success_url: undefined,
+    custom_data: D.values.customdata2,
+  };
   assert.equal(sepayFormRaw(fields), fixtures.nullAndEmpty.canonical);
   assert.equal(signSepayFields(fields, fixtures.secret), fixtures.nullAndEmpty.signature);
   assert.equal(
-    signSepayFields({ ...fields, env: '' }, fixtures.secret),
+    signSepayFields({ ...fields, env: D.values.env }, fixtures.secret),
     fixtures.nullAndEmpty.signature,
   );
   assert.notEqual(
     signSepayFields({ ...fields, env: undefined }, fixtures.secret),
     fixtures.nullAndEmpty.signature,
   );
-  assert.equal(sepayFormRaw({ custom_data: null, other: undefined }), '');
+  assert.equal(
+    sepayFormRaw({ custom_data: D.values.customdata3, other: undefined }),
+    D.values.equalScenario,
+  );
 });
 
 test('all_pinned_sdk_signed_fields_match_independent_literal_without_authorizing_agreements', () => {
@@ -110,54 +120,57 @@ test('unicode_delimiters_quotes_ampersand_are_local_utf8_only_transport_unverifi
 });
 
 test('config_is_lazy_and_missing_or_disabled_configuration_is_unavailable', () => {
-  assert.equal(loadSepayConfig({}), null);
-  assert.equal(loadSepayConfig({ SEPAY_ENABLED: 'false', DATABASE_URL: 'invalid' }), null);
-  assert.equal(loadSepayConfig({ SEPAY_ENABLED: 'true' }), null);
+  assert.equal(loadSepayConfig({}), D.values.equalScenario2);
+  assert.equal(
+    loadSepayConfig({ SEPAY_ENABLED: D.values.SEPAYENABLED2, DATABASE_URL: D.values.DATABASEURL2 }),
+    D.values.equalScenario3,
+  );
+  assert.equal(loadSepayConfig({ SEPAY_ENABLED: D.values.SEPAYENABLED3 }), D.values.equalScenario4);
 });
 
 test('config_checks_only_local_sandbox_database_and_origin_structure_without_connections', () => {
   const config = loadSepayConfig(structuralEnv);
   assert.ok(config);
-  assert.equal(config.publicBaseUrl, 'https://merchant.example');
-  assert.equal(SEPAY_SANDBOX_CHECKOUT_URL, 'https://pay-sandbox.sepay.vn/v1/checkout/init');
-  assert.equal(SEPAY_SANDBOX_API_ORIGIN, 'https://pgapi-sandbox.sepay.vn');
+  assert.equal(config.publicBaseUrl, D.values.equalScenario5);
+  assert.equal(SEPAY_SANDBOX_CHECKOUT_URL, D.values.equalScenario6);
+  assert.equal(SEPAY_SANDBOX_API_ORIGIN, D.values.equalScenario7);
   assert.ok(
     loadSepayConfig({
       ...structuralEnv,
-      DATABASE_URL: 'postgresql://database.example/%74rooi_sandbox',
+      DATABASE_URL: D.values.DATABASEURL3,
     }),
   );
   assert.ok(
     loadSepayConfig({
       ...structuralEnv,
-      NODE_ENV: 'test',
-      DATABASE_URL: 'postgresql://database.example/trooi_test',
+      NODE_ENV: D.values.NODEENV2,
+      DATABASE_URL: D.values.DATABASEURL4,
     }),
   );
   for (const overrides of [
-    { NODE_ENV: 'production' },
-    { SEPAY_ENVIRONMENT: 'production' },
-    { SEPAY_ENABLED: 'TRUE' },
-    { DATABASE_URL: 'postgresql://database.example/trooi_dev' },
-    { DATABASE_URL: 'postgresql://database.example/trooi_test' },
-    { DATABASE_URL: 'https://database.example/trooi_sandbox' },
-    { DATABASE_URL: 'postgresql://database.example/%ZZ' },
-    { DATABASE_URL: 'postgresql://database.example/trooi_sandbox%2Fother' },
-    { SEPAY_MERCHANT_ID: '' },
-    { SEPAY_SECRET_KEY: ' ' },
-    { SEPAY_IPN_SECRET_KEY: '' },
-    { SEPAY_HANDOFF_SIGNING_KEY: '' },
+    { NODE_ENV: D.values.NODEENV3 },
+    { SEPAY_ENVIRONMENT: D.values.SEPAYENVIRONMENT2 },
+    { SEPAY_ENABLED: D.values.SEPAYENABLED4 },
+    { DATABASE_URL: D.values.DATABASEURL5 },
+    { DATABASE_URL: D.values.DATABASEURL6 },
+    { DATABASE_URL: D.values.DATABASEURL7 },
+    { DATABASE_URL: D.values.DATABASEURL8 },
+    { DATABASE_URL: D.values.DATABASEURL9 },
+    { SEPAY_MERCHANT_ID: D.values.SEPAYMERCHANTID2 },
+    { SEPAY_SECRET_KEY: D.values.SEPAYSECRETKEY2 },
+    { SEPAY_IPN_SECRET_KEY: D.values.SEPAYIPNSECRETKEY2 },
+    { SEPAY_HANDOFF_SIGNING_KEY: D.values.SEPAYHANDOFFSIGNINGKEY2 },
     { SEPAY_HANDOFF_SIGNING_KEY: structuralEnv.SEPAY_SECRET_KEY },
     { SEPAY_HANDOFF_SIGNING_KEY: structuralEnv.SEPAY_IPN_SECRET_KEY },
-    { SEPAY_PUBLIC_BASE_URL: 'http://merchant.example' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://user:pass@merchant.example' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://merchant.example:8443' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://merchant.example/path' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://merchant.example?query=x' },
-    { SEPAY_PUBLIC_BASE_URL: 'https://merchant.example#fragment' },
-    { SEPAY_PUBLIC_BASE_URL: 'invalid' },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL2 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL3 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL4 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL5 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL6 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL7 },
+    { SEPAY_PUBLIC_BASE_URL: D.values.SEPAYPUBLICBASEURL8 },
   ])
-    assert.equal(loadSepayConfig({ ...structuralEnv, ...overrides }), null);
+    assert.equal(loadSepayConfig({ ...structuralEnv, ...overrides }), D.values.equalScenario8);
   // Presence of explicit IPN input is structural, not proof of its provider relationship.
   assert.ok(
     loadSepayConfig({ ...structuralEnv, SEPAY_IPN_SECRET_KEY: structuralEnv.SEPAY_SECRET_KEY }),
@@ -167,21 +180,21 @@ test('config_checks_only_local_sandbox_database_and_origin_structure_without_con
 test('valid_structural_config_never_enables_any_blocked_sepay_capability', () => {
   assert.ok(loadSepayConfig(structuralEnv));
   const registry = disabledRegistry();
-  assert.equal(registry.find('SEPAY'), null);
-  assert.ok(registry.find('MOMO'));
+  assert.equal(registry.find(D.values.findScenario), D.values.equalScenario9);
+  assert.ok(registry.find(D.values.findScenario2));
   // No adapter exists: every supported or future operation stops at the same registry gate.
   for (const operation of [
-    'prepareIntent',
-    'prepareHandoff',
-    'authenticateNotification',
-    'verifyNotification',
-    'readOrder',
-    'reconcile',
-    'resume',
-    'dispatch',
+    D.values.scenarioValue,
+    D.values.scenarioValue2,
+    D.values.scenarioValue3,
+    D.values.scenarioValue4,
+    D.values.scenarioValue5,
+    D.values.scenarioValue6,
+    D.values.scenarioValue7,
+    D.values.scenarioValue8,
   ]) {
     assert.throws(
-      () => registry.require('SEPAY'),
+      () => registry.require(D.values.requireScenario),
       (error: unknown) => error instanceof ServiceUnavailableException && error.getStatus() === 503,
       operation,
     );
@@ -196,15 +209,15 @@ test('local_forms_config_and_untrusted_callbacks_cannot_produce_verified_evidenc
     sepayFormRaw(fixtures.ordered.fields),
     signSepayFields(fixtures.ordered.fields, fixtures.secret),
     {
-      provider: 'SEPAY',
-      event: 'ORDER_PAID',
-      order_status: 'CAPTURED',
-      custom_data: 'untrusted-checkout',
-      providerSettlementId: 'untrusted-id',
+      provider: D.values.provider,
+      event: D.values.event,
+      order_status: D.values.orderstatus,
+      custom_data: D.values.customdata4,
+      providerSettlementId: D.values.providerSettlementId2,
     },
   ];
   for (const input of inputs) {
-    assert.equal(VerifiedGatewayEvidence.isVerified(input), false);
+    assert.equal(VerifiedGatewayEvidence.isVerified(input), D.values.equalScenario10);
     // @ts-expect-error External values cannot satisfy the nominal verified evidence boundary.
     await assert.rejects(settlement.settle(input), /Internally verified gateway evidence required/);
   }
@@ -212,53 +225,57 @@ test('local_forms_config_and_untrusted_callbacks_cannot_produce_verified_evidenc
 
 test('sepay_checkout_503_never_calls_settlement_or_writes_checkout_or_money', async (context) => {
   const transactions = createCoreTestTransactionManager();
-  const userId = '10000000-0000-4000-8000-000000000001';
-  const tenancyId = '60000000-0000-4000-8000-000000000001';
+  const userId = D.values.userId;
+  const tenancyId = D.values.tenancyId;
   await transactions.run(async ({ repositories }) => {
     await repositories.organization.createOrganization({
-      organizationId: 'org-local',
+      organizationId: D.values.organizationId,
       primaryOwnerUserId: userId,
-      name: 'Local test',
+      name: D.values.name,
     });
     await repositories.property.createProperty({
-      propertyId: 'property-local',
-      organizationId: 'org-local',
-      name: 'Local test',
-      lifecycleStatus: 'ACTIVE',
-      operationalAddressText: 'Local',
-      operationalLocation: { longitude: 106, latitude: 10 },
-      publicLocationProjection: { longitude: 106, latitude: 10 },
+      propertyId: D.values.propertyId,
+      organizationId: D.values.organizationId2,
+      name: D.values.name2,
+      lifecycleStatus: D.values.lifecycleStatus,
+      operationalAddressText: D.values.operationalAddressText,
+      operationalLocation: { longitude: D.values.longitude, latitude: D.values.latitude },
+      publicLocationProjection: { longitude: D.values.longitude2, latitude: D.values.latitude2 },
     });
     await repositories.property.createRoom({
-      roomId: 'room-local',
-      propertyId: 'property-local',
-      nameOrLabel: 'Local',
-      operationalState: 'OCCUPIED',
-      recordLifecycle: 'ACTIVE',
+      roomId: D.values.roomId,
+      propertyId: D.values.propertyId2,
+      nameOrLabel: D.values.nameOrLabel,
+      operationalState: D.values.operationalState,
+      recordLifecycle: D.values.recordLifecycle,
     });
     await repositories.tenancy.createTenancy({
       tenancyId,
-      roomId: 'room-local',
-      status: 'ACTIVE',
-      startedAt: '2026-10-01T00:00:00.000Z',
-      endedAt: null,
-      endReason: null,
+      roomId: D.values.roomId2,
+      status: D.values.status,
+      startedAt: D.values.startedAt,
+      endedAt: D.values.endedAt,
+      endReason: D.values.endReason,
     });
   });
   const settlement = new GatewaySettlementService(transactions);
-  const settlementSpy = context.mock.method(settlement, 'settle');
+  const settlementSpy = context.mock.method(settlement, D.values.methodScenario);
   const gateway = new PaymentGatewayService(
     new TenancyService(transactions),
     transactions,
     disabledRegistry(),
     settlement,
   );
-  const key = '90000000-0000-4000-8000-000000000001';
+  const key = D.values.key;
   await assert.rejects(
-    gateway.createCheckout({ tenancyId, amount: '1000', provider: 'SEPAY' }, userId, key),
+    gateway.createCheckout(
+      { tenancyId, amount: D.values.amount, provider: D.values.provider2 },
+      userId,
+      key,
+    ),
     (error: unknown) => error instanceof ServiceUnavailableException && error.getStatus() === 503,
   );
-  assert.equal(settlementSpy.mock.callCount(), 0);
+  assert.equal(settlementSpy.mock.callCount(), D.values.equalScenario11);
   await transactions.run(async ({ repositories }) => {
     assert.equal(await repositories.finance.findGatewayCheckoutByClientKey(userId, key), undefined);
     assert.deepEqual(await repositories.finance.findPaymentsForTenancy(tenancyId), []);

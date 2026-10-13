@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "ids": {
+    "user": "10000000-0000-4000-8000-000000000001",
+    "org": "20000000-0000-4000-8000-000000000001",
+    "property": "30000000-0000-4000-8000-000000000001",
+    "room": "40000000-0000-4000-8000-000000000001",
+    "listing": "50000000-0000-4000-8000-000000000001",
+    "tenancy": "80000000-0000-4000-8000-000000000001"
+  },
+  "organizationName": "Org",
+  "propertyName": "P",
+  "propertyLifecycle": "ACTIVE",
+  "address": "Private",
+  "longitude": 106,
+  "latitude": 10,
+  "roomName": "R",
+  "roomState": "VACANT",
+  "roomLifecycle": "ACTIVE",
+  "listingStatus": "DRAFT",
+  "listingTitle": "T",
+  "listingDescription": "D",
+  "listingPrice": "1.00"
+}

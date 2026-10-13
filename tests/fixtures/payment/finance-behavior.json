@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "provenance": "Synthetic finance component scenarios; in-memory algorithms do not establish persistence or concurrency acceptance.",
+  "values": {
+    "scenario3": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-1",
+      "periodStart": "2026-09-01",
+      "periodEnd": "2026-09-30",
+      "charges": [
+        {
+          "type": "RENT",
+          "amount": "3500000.00"
+        }
+      ]
+    },
+    "scenario4": "terms-1",
+    "scenario5": "RENT",
+    "scenario6": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-1",
+      "periodStart": "2026-10-01",
+      "periodEnd": "2026-10-31",
+      "charges": [
+        {
+          "type": "INTERNET",
+          "amount": "1.00"
+        }
+      ]
+    },
+    "scenario7": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-a",
+      "periodStart": "2026-09-01",
+      "periodEnd": "2026-09-30",
+      "charges": [
+        {
+          "type": "RENT",
+          "amount": "100.00"
+        }
+      ]
+    },
+    "scenario8": {
+      "tenancyId": "tenancy-b",
+      "tenancyTermsId": "terms-b",
+      "periodStart": "2026-09-01",
+      "periodEnd": "2026-09-30",
+      "charges": [
+        {
+          "type": "RENT",
+          "amount": "100.00"
+        }
+      ]
+    },
+    "scenario9": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_TRANSFER",
+      "confirmedAt": "2026-09-05T00:00:00.000Z"
+    },
+    "scenario10": "1.00",
+    "scenario11": "80.00",
+    "scenario12": "21.00",
+    "scenario13": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-a",
+      "periodStart": "2026-09-01",
+      "periodEnd": "2026-09-30",
+      "charges": [
+        {
+          "type": "RENT",
+          "amount": "100.00"
+        }
+      ]
+    },
+    "scenario14": "tenancy-a",
+    "scenario15": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-09-05T00:00:00.000Z"
+    },
+    "scenario16": "60.00",
+    "scenario17": "40.00",
+    "scenario18": "0.01",
+    "scenario19": ["RECEIVED"],
+    "scenario20": {
+      "tenancyTermsId": "terms-deposit-v1",
+      "tenancyId": "tenancy-a",
+      "version": 1,
+      "rentAmount": "100.00",
+      "agreedDepositRequirement": "100.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2026-12-31",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    "scenario21": "tenancy-a",
+    "scenario22": {
+      "tenancyId": "tenancy-a",
+      "amount": "40.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-02-01T00:00:00.000Z"
+    },
+    "scenario23": "40.00",
+    "scenario24": "tenancy-a",
+    "scenario25": "100.00",
+    "scenario26": "40.00",
+    "scenario27": "PARTIALLY_HELD",
+    "scenario28": false,
+    "scenario29": {
+      "tenancyTermsId": "terms-deposit-v2",
+      "tenancyId": "tenancy-a",
+      "version": 2,
+      "rentAmount": "100.00",
+      "agreedDepositRequirement": "120.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2026-12-31",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-03-01"
+    },
+    "scenario30": "tenancy-a",
+    "scenario31": null,
+    "scenario32": null,
+    "scenario33": true,
+    "scenario34": "40.00",
+    "scenario35": "40.00",
+    "scenario36": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-09-05T00:00:00.000Z"
+    },
+    "scenario37": {
+      "amount": "90.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-09-06T00:00:00.000Z",
+      "correctionNote": "Corrected counting error"
+    },
+    "scenario38": "USER_RECORDED",
+    "scenario39": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_TRANSFER",
+      "confirmedAt": "2026-09-05T00:00:00.000Z"
+    },
+    "scenario40": "ISSUED",
+    "scenario41": false,
+    "scenario42": "VOIDED",
+    "scenario43": "tenancy-a",
+    "scenario44": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-09-29T00:00:00.000Z"
+    },
+    "scenario45": "100.00",
+    "scenario46": {
+      "refundedAmount": "70.00",
+      "retainedAmount": "30.00",
+      "reasonOrNote": "Final checkout settlement",
+      "actedByUserId": "user-1",
+      "settledAt": "2026-09-30T00:00:00.000Z"
+    },
+    "scenario47": ["RECEIVED", "REFUNDED", "RETAINED"],
+    "scenario48": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-a",
+      "periodStart": "2026-09-01",
+      "periodEnd": "2026-09-30",
+      "charges": [
+        {
+          "type": "RENT",
+          "amount": "5000.00"
+        }
+      ]
+    },
+    "scenario49": "5000.00",
+    "scenario50": {
+      "tenancyId": "tenancy-a",
+      "amount": "5000.00",
+      "source": "MANUAL_TRANSFER",
+      "confirmedAt": "2026-09-02T00:00:00.000Z"
+    },
+    "scenario51": "5000.00",
+    "scenario52": {
+      "tenancyId": "tenancy-a",
+      "amount": "2000.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-09-03T00:00:00.000Z"
+    },
+    "scenario53": "2000.00",
+    "scenario54": "3000.00",
+    "scenario55": "2026-09-04T00:00:00.000Z",
+    "scenario56": "5000.00",
+    "scenario57": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-a",
+      "periodStart": "2026-10-01",
+      "periodEnd": "2026-10-31",
+      "charges": [
+        {
+          "type": "WATER",
+          "amount": "100.00"
+        }
+      ]
+    },
+    "scenario58": {
+      "tenancyId": "tenancy-a",
+      "amount": "80.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-10-02T00:00:00.000Z"
+    },
+    "scenario59": {
+      "tenancyId": "tenancy-a",
+      "amount": "40.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-10-03T00:00:00.000Z"
+    },
+    "scenario60": "80.00",
+    "scenario61": "40.00",
+    "scenario62": null,
+    "scenario63": {
+      "tenancyId": "tenancy-a",
+      "amount": "100.00",
+      "source": "MANUAL_CASH",
+      "confirmedAt": "2026-10-05T00:00:00.000Z"
+    },
+    "scenario64": [
+      {
+        "source": "GATEWAY"
+      },
+      {
+        "verification": "PROVIDER_VERIFIED"
+      },
+      {
+        "verification": "USER_RECORDED"
+      }
+    ],
+    "scenario65": [],
+    "scenario66": "USER_RECORDED",
+    "scenario67": [
+      {
+        "source": "GATEWAY"
+      },
+      {
+        "verification": "PROVIDER_VERIFIED"
+      },
+      {
+        "verification": "USER_RECORDED"
+      }
+    ],
+    "scenario68": {
+      "correctionNote": "Correction"
+    },
+    "scenario69": 1
+  },
+  "tenancyLookup": [
+    {
+      "id": "tenancy-a",
+      "roomId": "room-tenancy-a",
+      "status": "active"
+    },
+    {
+      "id": "tenancy-b",
+      "roomId": "room-tenancy-b",
+      "status": "active"
+    }
+  ]
+}

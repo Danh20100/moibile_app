@@ -1,0 +1,136 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "ids": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "string",
+          "minLength": 1
+        },
+        "org": {
+          "type": "string",
+          "minLength": 1
+        },
+        "property": {
+          "type": "string",
+          "minLength": 1
+        },
+        "room": {
+          "type": "string",
+          "minLength": 1
+        },
+        "listing": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tenancy": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "user",
+        "org",
+        "property",
+        "room",
+        "listing",
+        "tenancy"
+      ],
+      "additionalProperties": false
+    },
+    "organizationName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "propertyName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "propertyLifecycle": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "ACTIVE"
+      ]
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "longitude": {
+      "type": "integer",
+      "enum": [
+        106
+      ]
+    },
+    "latitude": {
+      "type": "integer",
+      "enum": [
+        10
+      ]
+    },
+    "roomName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "roomState": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "VACANT"
+      ]
+    },
+    "roomLifecycle": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "ACTIVE"
+      ]
+    },
+    "listingStatus": {
+      "type": "string",
+      "minLength": 1,
+      "enum": [
+        "DRAFT"
+      ]
+    },
+    "listingTitle": {
+      "type": "string",
+      "minLength": 1
+    },
+    "listingDescription": {
+      "type": "string",
+      "minLength": 1
+    },
+    "listingPrice": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "version",
+    "ids",
+    "organizationName",
+    "propertyName",
+    "propertyLifecycle",
+    "address",
+    "longitude",
+    "latitude",
+    "roomName",
+    "roomState",
+    "roomLifecycle",
+    "listingStatus",
+    "listingTitle",
+    "listingDescription",
+    "listingPrice"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

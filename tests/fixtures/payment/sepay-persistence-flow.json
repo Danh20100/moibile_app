@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "config": {
+    "environment": "production",
+    "merchantId": "TASK0_NONSECRET_MERCHANT",
+    "secretKey": "TASK0_NONSECRET_SECRET",
+    "ipnSecretKey": "NONSECRET-EXPLICIT-IPN-KEY",
+    "publicBaseUrl": "https://merchant.example",
+    "handoffSigningKey": "NONSECRET-SEPARATE-HANDOFF-KEY",
+    "financeDatabase": "trooi_finance"
+  },
+  "clock": "2026-10-09T10:00:00.000Z",
+  "proof": {
+    "kind": "paid",
+    "remoteOrderId": "SEPAY-68BA83CE637C1",
+    "transactionId": "91",
+    "amount": "1000.00",
+    "currency": "VND",
+    "paymentMethod": "BANK_TRANSFER"
+  },
+  "checkout": {
+    "amount": "1000",
+    "provider": "SEPAY"
+  },
+  "notification": {
+    "notification_type": "ORDER_PAID",
+    "transaction": {
+      "payment_method": "BANK_TRANSFER"
+    }
+  },
+  "mismatchAmount": "2000.00",
+  "expected": {
+    "acknowledgement": {
+      "success": true
+    },
+    "paid": "SUCCEEDED",
+    "created": "CREATED",
+    "onePayment": 1,
+    "noPayments": 0,
+    "oneNotification": 1,
+    "noAllocations": 0,
+    "noReceipts": 0,
+    "handedOff": "UNKNOWN"
+  },
+  "handoffTokenParameter": "token"
+}

@@ -1,0 +1,163 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "token": {
+      "type": "string"
+    },
+    "authorization": {
+      "type": "string"
+    },
+    "hijackedAuthorization": {
+      "type": "string"
+    },
+    "tenancyId": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "string"
+    },
+    "wholeAmount": {
+      "type": "string"
+    },
+    "createKey": {
+      "type": "string"
+    },
+    "headerKey": {
+      "type": "string"
+    },
+    "disconnectKey": {
+      "type": "string"
+    },
+    "unconfiguredKey": {
+      "type": "string"
+    },
+    "unconfiguredToken": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "demoProvider": {
+      "type": "string"
+    },
+    "createResponseCode": {
+      "type": "integer"
+    },
+    "singleRequestCount": {
+      "type": "integer"
+    },
+    "retryRequestCount": {
+      "type": "integer"
+    },
+    "checkout": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "tenancyId": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "referenceCode": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "replayAllowed": {
+          "type": "boolean"
+        },
+        "payUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tenancyId",
+        "amount",
+        "referenceCode",
+        "provider",
+        "status",
+        "createdAt",
+        "replayAllowed",
+        "payUrl"
+      ],
+      "additionalProperties": false
+    },
+    "payment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "tenancyId": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        },
+        "confirmedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "tenancyId", "amount", "source", "verification", "confirmedAt"],
+      "additionalProperties": false
+    },
+    "publicResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "data": {
+          "type": "array",
+          "maxItems": 0
+        }
+      },
+      "required": ["success", "data"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "token",
+    "authorization",
+    "hijackedAuthorization",
+    "tenancyId",
+    "amount",
+    "wholeAmount",
+    "createKey",
+    "headerKey",
+    "disconnectKey",
+    "unconfiguredKey",
+    "unconfiguredToken",
+    "provider",
+    "demoProvider",
+    "createResponseCode",
+    "singleRequestCount",
+    "retryRequestCount",
+    "checkout",
+    "payment",
+    "publicResponse"
+  ],
+  "additionalProperties": false
+}

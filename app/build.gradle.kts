@@ -115,10 +115,12 @@ android {
     // Android/Kotlin tests are hosted at repository root beside the TS/backend suite.
     // Gradle still owns the compilation/runtime variants; no tests are disabled.
     sourceSets.getByName("test").kotlin.directories.add("../tests/android/unit/java")
+    sourceSets.getByName("test").resources.srcDir(rootProject.file("tests/android/unit/resources"))
     sourceSets.getByName("testDebug").kotlin.directories.add("../tests/android/unitDebug/java")
     sourceSets.getByName("testDebug").resources.srcDir(rootProject.file("tests/android/unitDebug/resources"))
     sourceSets.getByName("androidTest").kotlin.directories.add("../tests/android/instrumentation/java")
     sourceSets.getByName("androidTestDebug").kotlin.directories.add("../tests/android/instrumentationDebug/java")
+    sourceSets.getByName("androidTestDebug").assets.srcDir(rootProject.file("tests/android/instrumentationDebug/assets"))
     // Unit Debug test resources additionally require the built-in Debug fixture assets.
     sourceSets.getByName("testDebug").resources.srcDir("src/debug/assets")
 
@@ -153,13 +155,15 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:20.0.0")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
 
+    debugImplementation("com.google.mlkit:text-recognition:16.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
 }

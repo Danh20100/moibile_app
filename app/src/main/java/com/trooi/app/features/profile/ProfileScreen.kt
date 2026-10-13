@@ -152,6 +152,7 @@ fun ProfileScreen(
             }
             item {
                 ActionRow(Icons.Rounded.Settings, "Cài đặt tài khoản", onSettings, Modifier.testTag("account-settings"))
+                LocalOcrEntry()
                 ActionRow(Icons.Rounded.PersonOutline, "Xem hồ sơ", { detail = "Xem hồ sơ" })
                 ActionRow(Icons.AutoMirrored.Rounded.HelpOutline, "Nhận trợ giúp", onHelp, Modifier.testTag("account-help"))
                 ActionRow(Icons.Rounded.Shield, "Quyền riêng tư", { if (onPrivacy != null) onPrivacy() else section = "privacy" })

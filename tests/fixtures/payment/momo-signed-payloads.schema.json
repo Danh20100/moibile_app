@@ -1,0 +1,1019 @@
+{
+  "type": "object",
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "accessed": {
+          "type": "string"
+        },
+        "derivation": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resultApplicability": {
+          "type": "string"
+        }
+      },
+      "required": ["accessed", "derivation", "contract", "sources", "resultApplicability"],
+      "additionalProperties": false
+    },
+    "secret": {
+      "type": "string"
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "accessKey": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "string"
+            },
+            "extraData": {
+              "type": "string"
+            },
+            "ipnUrl": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "orderInfo": {
+              "type": "string"
+            },
+            "partnerCode": {
+              "type": "string"
+            },
+            "redirectUrl": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "requestType": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "accessKey",
+            "amount",
+            "extraData",
+            "ipnUrl",
+            "orderId",
+            "orderInfo",
+            "partnerCode",
+            "redirectUrl",
+            "requestId",
+            "requestType"
+          ],
+          "additionalProperties": false
+        },
+        "raw": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "raw", "signature"],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "partnerCode": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "integer"
+            },
+            "responseTime": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "resultCode": {
+              "type": "integer"
+            },
+            "payUrl": {
+              "type": "string"
+            },
+            "deeplink": {
+              "type": "string"
+            },
+            "signature": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "partnerCode",
+            "orderId",
+            "requestId",
+            "amount",
+            "responseTime",
+            "message",
+            "resultCode",
+            "payUrl",
+            "deeplink",
+            "signature"
+          ],
+          "additionalProperties": false
+        },
+        "raw": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "raw", "signature"],
+      "additionalProperties": false
+    },
+    "ipn": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "properties": {
+            "partnerCode": {
+              "type": "string"
+            },
+            "orderId": {
+              "type": "string"
+            },
+            "requestId": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "integer"
+            },
+            "orderInfo": {
+              "type": "string"
+            },
+            "orderType": {
+              "type": "string"
+            },
+            "transId": {
+              "type": "integer"
+            },
+            "resultCode": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string"
+            },
+            "payType": {
+              "type": "string"
+            },
+            "responseTime": {
+              "type": "integer"
+            },
+            "extraData": {
+              "type": "string"
+            },
+            "signature": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "partnerCode",
+            "orderId",
+            "requestId",
+            "amount",
+            "orderInfo",
+            "orderType",
+            "transId",
+            "resultCode",
+            "message",
+            "payType",
+            "responseTime",
+            "extraData",
+            "signature"
+          ],
+          "additionalProperties": false
+        },
+        "raw": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": ["fields", "raw", "signature"],
+      "additionalProperties": false
+    },
+    "responseVariants": {
+      "type": "object",
+      "properties": {
+        "url0": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url1": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url2": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url3": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url4": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url5": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url6": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "url7": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "code98": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "code1000": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "code9000": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        },
+        "code2019": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "properties": {
+                "partnerCode": {
+                  "type": "string"
+                },
+                "orderId": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "amount": {
+                  "type": "integer"
+                },
+                "responseTime": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "integer"
+                },
+                "payUrl": {
+                  "type": "string"
+                },
+                "deeplink": {
+                  "type": "string"
+                },
+                "signature": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "partnerCode",
+                "orderId",
+                "requestId",
+                "amount",
+                "responseTime",
+                "message",
+                "resultCode",
+                "payUrl",
+                "deeplink",
+                "signature"
+              ],
+              "additionalProperties": false
+            },
+            "raw": {
+              "type": "string"
+            }
+          },
+          "required": ["fields", "raw"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "url0",
+        "url1",
+        "url2",
+        "url3",
+        "url4",
+        "url5",
+        "url6",
+        "url7",
+        "code98",
+        "code1000",
+        "code9000",
+        "code2019"
+      ],
+      "additionalProperties": false
+    },
+    "ipnZeroTransaction": {
+      "type": "object",
+      "properties": {
+        "partnerCode": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "integer"
+        },
+        "orderInfo": {
+          "type": "string"
+        },
+        "orderType": {
+          "type": "string"
+        },
+        "transId": {
+          "type": "integer"
+        },
+        "resultCode": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "payType": {
+          "type": "string"
+        },
+        "responseTime": {
+          "type": "integer"
+        },
+        "extraData": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "partnerCode",
+        "orderId",
+        "requestId",
+        "amount",
+        "orderInfo",
+        "orderType",
+        "transId",
+        "resultCode",
+        "message",
+        "payType",
+        "responseTime",
+        "extraData",
+        "signature"
+      ],
+      "additionalProperties": false
+    },
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    }
+  },
+  "required": [
+    "metadata",
+    "secret",
+    "request",
+    "response",
+    "ipn",
+    "responseVariants",
+    "ipnZeroTransaction",
+    "version"
+  ],
+  "additionalProperties": false
+}

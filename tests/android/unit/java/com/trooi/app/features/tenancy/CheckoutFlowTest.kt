@@ -1,5 +1,6 @@
 package com.trooi.app.features.tenancy
 
+import com.trooi.app.support.JsonFixtures
 import com.trooi.app.core.auth.PendingCheckoutHint
 import com.trooi.app.features.shared.GatewayCheckout
 import org.junit.Assert.assertEquals
@@ -10,53 +11,55 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CheckoutFlowTest {
-    private val intent = CheckoutIntent("t-1", "50000.00", "11111111-1111-4111-8111-111111111111")
+    private val fixture = JsonFixtures.load("tenancy/checkout-flow")
+    private fun value(key: String) = fixture.get(key).asString
+    private val intent = CheckoutIntent(value("tenancyId"), value("amount"), value("idempotencyKey"))
 
     @Test
     fun doubleTapReusesTheSameIdempotencyKey() {
-        val first = rememberCheckoutBeforePost("t-1", "50000.00", null) { "key-a" }
-        val second = rememberCheckoutBeforePost("t-1", "50000.00", first) { "key-b" }
-        assertEquals("key-a", first.idempotencyKey)
-        assertEquals("key-a", second.idempotencyKey)
+        val first = rememberCheckoutBeforePost(value("tenancyId"), value("amount"), null) { value("firstKey") }
+        val second = rememberCheckoutBeforePost(value("tenancyId"), value("amount"), first) { value("secondKey") }
+        assertEquals(value("firstKey"), first.idempotencyKey)
+        assertEquals(value("firstKey"), second.idempotencyKey)
         assertEquals(first.idempotencyKey, second.idempotencyKey)
     }
 
     @Test
     fun confirmedCheckoutReusesTheSameObligation() {
-        val paid = checkout("SUCCEEDED", resultingPaymentId = "pay-1")
-        val held = intent.copy(checkoutId = "chk-1")
-        val next = rememberCheckoutBeforePost("t-1", "50000.00", held, paid) { "key-new" }
+        val paid = checkout(value("succeededStatus"), resultingPaymentId = value("paymentId"))
+        val held = intent.copy(checkoutId = value("checkoutId"))
+        val next = rememberCheckoutBeforePost(value("tenancyId"), value("amount"), held, paid) { value("newKey") }
         assertEquals(held.idempotencyKey, next.idempotencyKey)
-        assertEquals("chk-1", next.checkoutId)
+        assertEquals(value("checkoutId"), next.checkoutId)
         assertFalse(shouldStartFreshCheckout(paid))
-        assertFalse(shouldStartFreshCheckout(checkout("CREATED")))
-        assertTrue(shouldStartFreshCheckout(checkout("FAILED")))
-        val retry = rememberCheckoutBeforePost("t-1", "50000.00", held, checkout("FAILED")) { "key-retry" }
-        assertEquals("key-retry", retry.idempotencyKey)
+        assertFalse(shouldStartFreshCheckout(checkout(value("createdStatus"))))
+        assertTrue(shouldStartFreshCheckout(checkout(value("failedStatus"))))
+        val retry = rememberCheckoutBeforePost(value("tenancyId"), value("amount"), held, checkout(value("failedStatus"))) { value("retryKey") }
+        assertEquals(value("retryKey"), retry.idempotencyKey)
         assertNull(retry.checkoutId)
     }
 
     @Test
     fun differentAmountAfterPaymentStartsANewCheckout() {
-        val paid = checkout("SUCCEEDED", resultingPaymentId = "pay-1")
-        val next = rememberCheckoutBeforePost("t-1", "40000.00", intent.copy(checkoutId = "chk-1"), paid) { "key-new" }
-        assertEquals("key-new", next.idempotencyKey)
+        val paid = checkout(value("succeededStatus"), resultingPaymentId = value("paymentId"))
+        val next = rememberCheckoutBeforePost(value("tenancyId"), value("changedAmount"), intent.copy(checkoutId = value("checkoutId")), paid) { value("newKey") }
+        assertEquals(value("newKey"), next.idempotencyKey)
         assertNull(next.checkoutId)
     }
 
     @Test
     fun lostCreateResponseReplaysTheSamePostKey() {
-        val remembered = rememberCheckoutBeforePost("t-1", "50000.00", intent) { "other" }
+        val remembered = rememberCheckoutBeforePost(value("tenancyId"), value("amount"), intent) { value("otherKey") }
         assertEquals(intent.idempotencyKey, remembered.idempotencyKey)
         assertNull(remembered.checkoutId)
     }
 
     @Test
     fun pendingCheckoutDoesNotCreatePayment() {
-        val created = checkout("CREATED", resultingPaymentId = null)
+        val created = checkout(value("createdStatus"), resultingPaymentId = null)
         assertFalse(isConfirmedGatewayPayment(created))
         val afterId = rememberCheckoutId(intent, created.id)
-        assertEquals("chk-1", afterId.checkoutId)
+        assertEquals(value("checkoutId"), afterId.checkoutId)
         assertFalse(isConfirmedGatewayPayment(created))
     }
 
@@ -65,99 +68,99 @@ class CheckoutFlowTest {
         assertTrue(manualCheckoutAvailable(null, createFailed = true))
         assertTrue(
             manualCheckoutAvailable(
-                checkout("FAILED", replayBlockedReason = "PROVIDER_DISABLED"),
+                checkout(value("failedStatus"), replayBlockedReason = value("providerDisabledReason")),
                 createFailed = false,
             ),
         )
-        assertFalse(manualCheckoutAvailable(checkout("CREATED"), createFailed = false))
+        assertFalse(manualCheckoutAvailable(checkout(value("createdStatus")), createFailed = false))
     }
 
     @Test
     fun forgedReturnResultCodeZeroDoesNotMarkPaid() {
         val action = interpretPaymentReturn(
-            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to "0", "orderId" to "forged")),
-            PendingCheckoutHint("t-1", "50000.00", intent.idempotencyKey, "chk-1"),
+            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to value("resultCode"), "orderId" to value("forgedId"))),
+            PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
         )
         assertTrue(action is PaymentReturnAction.RefreshCheckout)
-        assertFalse(isConfirmedGatewayPayment(checkout("CREATED", resultingPaymentId = null)))
+        assertFalse(isConfirmedGatewayPayment(checkout(value("createdStatus"), resultingPaymentId = null)))
         assertSame(PaymentReturnAction.SafeRecovery, interpretPaymentReturn(
-            PaymentReturnUri("https", "evil.example", "/", mapOf("resultCode" to "0")),
-            PendingCheckoutHint("t-1", "50000.00", intent.idempotencyKey, "chk-1"),
+            PaymentReturnUri("https", value("evilHost"), "/", mapOf("resultCode" to value("resultCode"))),
+            PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
         ))
     }
 
     @Test
     fun returnBeforeOrAfterIpnOnlyRefreshesAuthorizedCheckout() {
         val before = interpretPaymentReturn(
-            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to "0")),
-            PendingCheckoutHint("t-1", "50000.00", intent.idempotencyKey, "chk-1"),
+            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to value("resultCode"))),
+            PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
         )
-        val afterIpn = isConfirmedGatewayPayment(checkout("SUCCEEDED", resultingPaymentId = "pay-1"))
-        assertEquals(PaymentReturnAction.RefreshCheckout("chk-1"), before)
+        val afterIpn = isConfirmedGatewayPayment(checkout(value("succeededStatus"), resultingPaymentId = value("paymentId")))
+        assertEquals(PaymentReturnAction.RefreshCheckout(value("checkoutId")), before)
         assertTrue(afterIpn)
-        assertFalse(isConfirmedGatewayPayment(checkout("CREATED", resultingPaymentId = "pay-1")))
+        assertFalse(isConfirmedGatewayPayment(checkout(value("createdStatus"), resultingPaymentId = value("paymentId"))))
         assertEquals(
-            PaymentReturnAction.RefreshCheckout("chk-1"),
+            PaymentReturnAction.RefreshCheckout(value("checkoutId")),
             interpretPaymentReturn(
                 PaymentReturnUri("trooi", "payment", "/sepay"),
-                PendingCheckoutHint("t-1", "50000.00", intent.idempotencyKey, "chk-1"),
+                PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
             ),
         )
     }
 
     @Test
     fun logoutClearsLocalPendingButLeavesDurableIntent() {
-        val local = pendingHint(rememberCheckoutId(intent, "chk-1"))
+        val local = pendingHint(rememberCheckoutId(intent, value("checkoutId")))
         val cleared: PendingCheckoutHint? = null
         assertEquals(PaymentReturnAction.SafeRecovery, interpretPaymentReturn(
             PaymentReturnUri("trooi", "payment", "/momo", emptyMap()),
             cleared,
         ))
-        assertEquals("chk-1", local.checkoutId)
+        assertEquals(value("checkoutId"), local.checkoutId)
     }
 
     @Test
     fun onlySignedHttpsPayUrlIsLaunchable() {
         assertEquals(
-            "https://test-payment.momo.vn/pay",
-            launchableHttpsPayUrl("https://test-payment.momo.vn/pay"),
+            value("momoPayUrl"),
+            launchableHttpsPayUrl(value("momoPayUrl")),
         )
-        assertNull(launchableHttpsPayUrl("momo://app?token=abc"))
-        assertNull(launchableHttpsPayUrl("https://evil.example/pay"))
-        assertNull(launchableHttpsPayUrl("http://test-payment.momo.vn/pay"))
-        val handoff = "https://pay.example/api/v1/finance/checkouts/sepay/handoff?token=abc"
-        assertEquals(handoff, launchableHttpsPayUrl(handoff, paymentPublicOrigin = "https://pay.example"))
-        assertNull(launchableHttpsPayUrl("https://evil.example/pay", paymentPublicOrigin = "https://pay.example"))
-        val tunnel = "https://satisfy-hawaii-availability-wrist.trycloudflare.com"
-        assertEquals("", releasePaymentPublicOrigin(tunnel))
-        assertEquals("", releasePaymentPublicOrigin("http://10.0.2.2:3000"))
-        assertEquals("", releasePaymentPublicOrigin("https://localhost"))
-        assertEquals("https://pay.example", releasePaymentPublicOrigin("https://pay.example/"))
+        assertNull(launchableHttpsPayUrl(value("appPayUrl")))
+        assertNull(launchableHttpsPayUrl(value("evilPayUrl")))
+        assertNull(launchableHttpsPayUrl(value("httpPayUrl")))
+        val handoff = value("handoffUrl")
+        assertEquals(handoff, launchableHttpsPayUrl(handoff, paymentPublicOrigin = value("paymentOrigin")))
+        assertNull(launchableHttpsPayUrl(value("evilPayUrl"), paymentPublicOrigin = value("paymentOrigin")))
+        val tunnel = value("tunnelOrigin")
+        assertEquals(value("rejectedOrigin"), releasePaymentPublicOrigin(tunnel))
+        assertEquals(value("rejectedOrigin"), releasePaymentPublicOrigin(value("emulatorOrigin")))
+        assertEquals(value("rejectedOrigin"), releasePaymentPublicOrigin(value("localhostOrigin")))
+        assertEquals(value("paymentOrigin"), releasePaymentPublicOrigin(value("trailingSlashOrigin")))
         assertNull(launchableHttpsPayUrl(handoff, paymentPublicOrigin = releasePaymentPublicOrigin(tunnel)))
     }
 
     @Test fun localDemoHandoffAndReturnRequireExplicitOptInAndNeverTrustQuerySuccess() {
-        val url = "http://localhost:3001/api/v1/finance/checkouts/demo/pay/signed.capability"
+        val url = value("demoPayUrl")
         assertNull(launchableHttpsPayUrl(url))
         assertEquals(url, launchableHttpsPayUrl(url, allowLocalHttp = true))
-        listOf("http://localhost:3001/other", url + "?status=SUCCEEDED", url.replace("localhost", "evil.example"), url.replace("localhost", "user@localhost")).forEach {
+        fixture.getAsJsonArray("invalidDemoUrls").map { it.asString }.forEach {
             assertNull(it, launchableHttpsPayUrl(it, allowLocalHttp = true))
         }
-        val uri = PaymentReturnUri("trooi", "payment", "/demo", mapOf("status" to "SUCCEEDED", "checkoutId" to "forged"))
-        val local = PendingCheckoutHint("t-1", "50000", intent.idempotencyKey, "chk-1")
+        val uri = PaymentReturnUri("trooi", "payment", "/demo", mapOf("status" to value("succeededStatus"), "checkoutId" to value("forgedId")))
+        val local = PendingCheckoutHint(value("tenancyId"), value("wholeAmount"), intent.idempotencyKey, value("checkoutId"))
         assertSame(PaymentReturnAction.SafeRecovery, interpretPaymentReturn(uri, local))
-        assertEquals(PaymentReturnAction.RefreshCheckout("chk-1"), interpretPaymentReturn(uri, local, allowDemo = true))
-        assertFalse(isConfirmedGatewayPayment(checkout("CREATED")))
+        assertEquals(PaymentReturnAction.RefreshCheckout(value("checkoutId")), interpretPaymentReturn(uri, local, allowDemo = true))
+        assertFalse(isConfirmedGatewayPayment(checkout(value("createdStatus"))))
     }
 
     @Test
     fun formerTenancyCannotCreateCheckout() {
-        assertTrue(canCreateGatewayCheckout("active"))
-        assertTrue(canCreateGatewayCheckout("ENDING"))
-        assertFalse(canCreateGatewayCheckout("ended"))
-        assertFalse(canCreateGatewayCheckout("cancelled"))
-        assertFalse(validGatewayAmount("1000.50"))
-        assertTrue(validGatewayAmount("1000.00"))
+        assertTrue(canCreateGatewayCheckout(value("activeTenancyStatus")))
+        assertTrue(canCreateGatewayCheckout(value("endingTenancyStatus")))
+        assertFalse(canCreateGatewayCheckout(value("endedTenancyStatus")))
+        assertFalse(canCreateGatewayCheckout(value("cancelledTenancyStatus")))
+        assertFalse(validGatewayAmount(value("fractionalAmount")))
+        assertTrue(validGatewayAmount(value("minimumAmount")))
     }
 
     private fun checkout(
@@ -165,14 +168,14 @@ class CheckoutFlowTest {
         resultingPaymentId: String? = null,
         replayBlockedReason: String? = null,
     ) = GatewayCheckout(
-        id = "chk-1",
-        tenancyId = "t-1",
-        amount = "50000.00",
-        referenceCode = "ref-1",
-        provider = "MOMO",
+        id = value("checkoutId"),
+        tenancyId = value("tenancyId"),
+        amount = value("amount"),
+        referenceCode = value("referenceCode"),
+        provider = value("provider"),
         status = status,
-        createdAt = "2026-10-05T00:00:00Z",
-        replayAllowed = status == "CREATED" || status == "INITIATED" || status == "UNKNOWN",
+        createdAt = value("createdAt"),
+        replayAllowed = status == value("createdStatus") || status == value("initiatedStatus") || status == value("unknownStatus"),
         resultingPaymentId = resultingPaymentId,
         replayBlockedReason = replayBlockedReason,
     )

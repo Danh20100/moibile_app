@@ -1,2 +1,92 @@
-import assert from 'node:assert/strict';import test from 'node:test';import {RentalGuardViolation,RentalTransactionCoordinator} from '../../../../src/persistence/guards/rental-transaction-coordinator';import {PostgresIncidentRepository} from '../../../../src/infrastructure/database/repositories/incident.repository';import {rentalFixture} from './rental-test-support';
-test('rental guards enforce publish activation checkout and archive rules',async()=>{const url=process.env.TEST_DATABASE_URL;assert.ok(url);const f=await rentalFixture(url);const c=new RentalTransactionCoordinator(f.manager);try{await c.publishListing(f.ids.listing);assert.equal((await f.listings.findListing(f.ids.listing))?.status,'PUBLISHED');await c.createTenancy({tenancyId:f.ids.tenancy,roomId:f.ids.room,status:'DRAFT',startedAt:null,endedAt:null,endReason:null});await f.tenancies.insertParticipant({tenancyParticipantId:'82000000-0000-4000-8000-000000000001',tenancyId:f.ids.tenancy,userId:f.ids.user,role:'PRIMARY',joinedAt:'2026-01-01T00:00:00.000Z',leftAt:null});await c.activateTenancy(f.ids.tenancy);assert.equal((await f.p.findRoom(f.ids.room))?.operationalState,'OCCUPIED');assert.equal((await f.listings.findListing(f.ids.listing))?.status,'UNPUBLISHED');const t=await f.tenancies.findTenancy(f.ids.tenancy);assert.ok(t);t.status='ENDING';await f.tenancies.updateTenancy(t);await c.checkoutTenancy(f.ids.tenancy,'TERM_ENDED','2026-10-01T00:00:00.000Z');assert.equal((await f.p.findRoom(f.ids.room))?.operationalState,'VACANT');const room=await f.p.findRoom(f.ids.room);assert.ok(room);room.operationalState='INACTIVE';await f.p.updateRoom(room);const incidents=new PostgresIncidentRepository(f.db),incidentId='a0000000-0000-4000-8000-000000000001';await incidents.createIncident({incidentId,roomId:f.ids.room,reportedByUserId:f.ids.user,category:'OTHER',status:'REPORTED',closureReason:null,createdAt:'2026-10-02T00:00:00.000Z',closedAt:null});await assert.rejects(c.archiveRoom(f.ids.room),RentalGuardViolation);const incident=await incidents.findIncident(incidentId);assert.ok(incident);incident.status='CLOSED';incident.closureReason='ROOM_RETIRED';incident.closedAt='2026-10-03T00:00:00.000Z';await incidents.updateIncident(incident);await c.archiveRoom(f.ids.room);assert.equal((await f.p.findRoom(f.ids.room))?.recordLifecycle,'ARCHIVED');assert.equal((await f.listings.findListing(f.ids.listing))?.status,'ARCHIVED');await c.archiveProperty(f.ids.property);assert.equal((await f.p.findProperty(f.ids.property))?.lifecycleStatus,'ARCHIVED');}finally{await f.db.destroy();}});
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {
+  RentalGuardViolation,
+  RentalTransactionCoordinator,
+} from '../../../../src/persistence/guards/rental-transaction-coordinator';
+import { PostgresIncidentRepository } from '../../../../src/infrastructure/database/repositories/incident.repository';
+import { rentalPersistenceFixture as data } from '../../../support/rental-fixtures';
+import { rentalFixture } from './rental-test-support';
+
+test('rental guards enforce publish activation checkout and archive rules', async () => {
+  const url = process.env.TEST_DATABASE_URL;
+  assert.ok(url);
+  const f = await rentalFixture(url),
+    c = new RentalTransactionCoordinator(f.manager),
+    expected = data.expected;
+  try {
+    await c.publishListing(f.ids.listing);
+    assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.published);
+    await c.createTenancy({ ...data.tenancy });
+    await f.tenancies.insertParticipant({ ...data.participant });
+    await c.activateTenancy(f.ids.tenancy);
+    assert.equal((await f.p.findRoom(f.ids.room))?.operationalState, expected.occupied);
+    assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.unpublished);
+    const t = await f.tenancies.findTenancy(f.ids.tenancy);
+    assert.ok(t);
+    assert.equal(t.startedAt, data.tenancy.startedAt);
+    t.status = expected.ending;
+    await f.tenancies.updateTenancy(t);
+    await c.checkoutTenancy(f.ids.tenancy, data.checkout.endReason, data.checkout.endedAt);
+    const ended = await f.tenancies.findTenancy(f.ids.tenancy);
+    assert.ok(ended);
+    assert.equal(ended.status, expected.ended);
+    assert.equal(ended.startedAt, data.tenancy.startedAt);
+    assert.equal(ended.endedAt, data.checkout.endedAt);
+    assert.equal(ended.endReason, data.checkout.endReason);
+    assert.equal((await f.p.findRoom(f.ids.room))?.operationalState, expected.vacant);
+    const room = await f.p.findRoom(f.ids.room);
+    assert.ok(room);
+    room.operationalState = expected.inactive;
+    await f.p.updateRoom(room);
+    const incidents = new PostgresIncidentRepository(f.db);
+    await incidents.createIncident({ ...data.incident });
+    await assert.rejects(
+      c.archiveRoom(f.ids.room),
+      (error: unknown) =>
+        error instanceof RentalGuardViolation && error.guard === expected.archiveBlocker,
+    );
+    const incident = await incidents.findIncident(data.incident.incidentId);
+    assert.ok(incident);
+    await incidents.updateIncident({ ...incident, ...data.incidentClosure });
+    await c.archiveRoom(f.ids.room);
+    assert.equal((await f.p.findRoom(f.ids.room))?.recordLifecycle, expected.archived);
+    assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.archived);
+    await c.archiveProperty(f.ids.property);
+    assert.equal((await f.p.findProperty(f.ids.property))?.lifecycleStatus, expected.archived);
+  } finally {
+    await f.db.destroy();
+  }
+});
+
+test('checkout before tenancy start rolls back tenancy room and listing atomically', async () => {
+  const url = process.env.TEST_DATABASE_URL;
+  assert.ok(url);
+  const f = await rentalFixture(url),
+    c = new RentalTransactionCoordinator(f.manager);
+  try {
+    await c.publishListing(f.ids.listing);
+    await c.createTenancy({ ...data.tenancy });
+    await f.tenancies.insertParticipant({ ...data.participant });
+    await c.activateTenancy(f.ids.tenancy);
+    const t = await f.tenancies.findTenancy(f.ids.tenancy);
+    assert.ok(t);
+    await f.tenancies.updateTenancy({ ...t, status: data.expected.ending });
+    const snapshot = async () => ({
+      tenancy: await f.tenancies.findTenancy(f.ids.tenancy),
+      room: await f.p.findRoom(f.ids.room),
+      listing: await f.listings.findListing(f.ids.listing),
+    });
+    const before = await snapshot();
+    await assert.rejects(
+      c.checkoutTenancy(f.ids.tenancy, data.checkout.endReason, data.checkout.invalidEndedAt),
+      { name: data.expected.timeOrderError },
+    );
+    assert.deepEqual(await snapshot(), before);
+    assert.equal(before.tenancy?.status, data.expected.ending);
+    assert.equal(before.room?.operationalState, data.expected.occupied);
+    assert.equal(before.listing?.status, data.expected.unpublished);
+  } finally {
+    await f.db.destroy();
+  }
+});

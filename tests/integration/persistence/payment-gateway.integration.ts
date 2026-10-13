@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { paymentData } from '../../support/payment-fixtures';
 import test from 'node:test';
 
 import {
@@ -26,18 +26,20 @@ function protocol() {
 }
 
 function gatewayFor(manager: TransactionManager, momo: MomoPaymentClient, clock?: () => Date) {
-  return new PaymentGatewayService(new TenancyService(manager),
+  return new PaymentGatewayService(
+    new TenancyService(manager),
     manager,
     new GatewayProviderRegistry(new MomoGatewayAdapter(momo)),
     new GatewaySettlementService(manager, clock),
     undefined,
-    clock);
+    clock,
+  );
 }
 
 test('two managers elect one same-key intent and replay the same provider IDs after restart', async () => {
   const url = process.env.TEST_DATABASE_URL;
   assert.ok(url);
-  console.log('database=trooi_test');
+  console.log('database=' + paymentData.values.trooi_test);
   const f = await gatewayFixture(url);
   const poolB = openGatewayPool(url);
   const proto = protocol();
@@ -51,18 +53,13 @@ test('two managers elect one same-key intent and replay the same provider IDs af
       calls += 1;
       entered.signal();
       await hold.gate;
-      return {
-        resultCode: 0,
-        message: 'ok',
-        payUrl: 'https://test-payment.momo.vn/pay',
-        deeplink: null,
-      };
+      return { ...paymentData.flow.successfulReply };
     },
   };
   const a = gatewayFor(f.manager, momo);
   const b = gatewayFor(poolB.manager, momo);
-  const key = randomUUID();
-  const input = { tenancyId: f.ids.tenancy, amount: '1000' };
+  const key = f.nextId();
+  const input = { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount };
   try {
     const first = a.createCheckout(input, f.ids.creator, key);
     await entered.ready;
@@ -70,18 +67,21 @@ test('two managers elect one same-key intent and replay the same provider IDs af
     hold.release();
     const original = await first;
     assert.equal(second.id, original.id);
-    assert.equal(calls, 1);
+    assert.equal(calls, paymentData.numbers.expectedCount1);
     const stored = await f.finance.findGatewayCheckout(original.id);
     assert.ok(stored);
     await f.db.destroy();
     const replayed = await b.createCheckout(input, f.ids.creator, key);
     assert.equal(replayed.id, original.id);
-    assert.equal(replayed.status, 'CREATED');
+    assert.equal(replayed.status, paymentData.values.CREATED);
     const again = await poolB.finance.findGatewayCheckout(original.id);
     assert.equal(again?.providerRequestId, stored.providerRequestId);
     assert.equal(again?.providerOrderId, stored.providerOrderId);
-    assert.equal(calls, 1);
-    assert.equal((await poolB.finance.findPaymentsForTenancy(f.ids.tenancy)).length, 0);
+    assert.equal(calls, paymentData.numbers.expectedCount1);
+    assert.equal(
+      (await poolB.finance.findPaymentsForTenancy(f.ids.tenancy)).length,
+      paymentData.numbers.expectedCount0,
+    );
   } finally {
     hold.release();
     await poolB.close();
@@ -101,38 +101,38 @@ test('late create CAS cannot overwrite a verified IPN settlement', async () => {
     async createCaptureWallet() {
       entered.signal();
       await hold.gate;
-      return {
-        resultCode: 0,
-        message: 'ok',
-        payUrl: 'https://test-payment.momo.vn/pay',
-        deeplink: null,
-      };
+      return { ...paymentData.flow.successfulReply };
     },
   };
   const gateway = gatewayFor(f.manager, momo);
-  const key = randomUUID();
+  const key = f.nextId();
   try {
     const creating = gateway.createCheckout(
-      { tenancyId: f.ids.tenancy, amount: '1000' },
+      { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount },
       f.ids.creator,
       key,
     );
     await entered.ready;
     const intent = await f.finance.findGatewayCheckoutByClientKey(f.ids.creator, key);
     assert.ok(intent);
-    await gateway.handleMomoIpn(signedCheckoutIpn(intent, { transId: 91 }));
+    await gateway.handleMomoIpn(
+      signedCheckoutIpn(intent, { transId: paymentData.flow.lateTransactionId }),
+    );
     const settled = await f.finance.findGatewayCheckout(intent.checkoutId);
-    assert.equal(settled?.status, 'SUCCEEDED');
+    assert.equal(settled?.status, paymentData.values.SUCCEEDED);
     const paymentId = settled?.resultingPaymentId;
     hold.release();
     const created = await creating;
-    assert.equal(created.status, 'SUCCEEDED');
+    assert.equal(created.status, paymentData.values.SUCCEEDED);
     assert.equal(created.resultingPaymentId, paymentId);
     const after = await f.finance.findGatewayCheckout(intent.checkoutId);
-    assert.equal(after?.status, 'SUCCEEDED');
+    assert.equal(after?.status, paymentData.values.SUCCEEDED);
     assert.equal(after?.resultingPaymentId, paymentId);
-    assert.equal(after?.providerTransId, '91');
-    assert.equal((await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length, 1);
+    assert.equal(after?.providerTransId, paymentData.flow.lateTransactionText);
+    assert.equal(
+      (await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length,
+      paymentData.numbers.expectedCount1,
+    );
   } finally {
     hold.release();
     await f.db.destroy();

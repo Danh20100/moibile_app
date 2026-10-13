@@ -1,6 +1,8 @@
 package com.trooi.app.core.network
 
 import com.google.gson.JsonParser
+import com.google.gson.JsonObject
+import com.trooi.app.support.JsonFixtures
 import com.trooi.app.core.network.dto.ErrorKind
 import com.trooi.app.core.network.dto.TransportOutcome
 import com.trooi.app.features.shared.V1PaymentGateway
@@ -21,49 +23,68 @@ class CheckoutTransportTest {
 
     private fun client(server: MockWebServer) = BackendClient(
         localUrl(server),
-        InMemoryAuthTokenProvider().apply { setToken("verified-id-token") },
+        InMemoryAuthTokenProvider().apply { setToken(value("token")) },
         allowLocalHttp = true,
     )
 
-    private fun checkoutJson() = """
-        {"id":"chk-1","tenancyId":"t-1","amount":"50000.00","referenceCode":"ref-1",
-        "provider":"MOMO","status":"CREATED","createdAt":"2026-10-05T00:00:00Z",
-        "replayAllowed":true,"payUrl":"https://test-payment.momo.vn/v2/gateway/pay"}
-    """.trimIndent()
+    private val fixture = JsonFixtures.load("network/checkout-transport")
+    private fun value(key: String) = fixture.get(key).asString
+    private fun number(key: String) = fixture.get(key).asInt
+    private val fixtureCheckout get() = fixture.getAsJsonObject("checkout")
+    private val payment get() = fixture.getAsJsonObject("payment")
+    private fun checkoutJson() = fixtureCheckout.toString()
+
+    @Test fun fixtureRejectsMissingWrongTypeUnknownFieldsAndVersion() {
+        val schema = JsonFixtures.resource("network/checkout-transport.schema.json")
+        val invalid = listOf(
+            fixture.deepCopy().apply { remove("amount") },
+            fixture.deepCopy().apply { addProperty("amount", 1) },
+            fixture.deepCopy().apply { addProperty("unexpected", true) },
+            fixture.deepCopy().apply { addProperty("version", 2) },
+        )
+        invalid.forEach { assertTrue(runCatching { JsonFixtures.validate(it, schema) }.isFailure) }
+        val flowSchema = JsonFixtures.resource("tenancy/checkout-flow.schema.json")
+        val flow = JsonFixtures.load("tenancy/checkout-flow")
+        flow.getAsJsonArray("invalidDemoUrls").add(true)
+        assertTrue(runCatching { JsonFixtures.validate(flow, flowSchema) }.isFailure)
+        val contractSchema = JsonFixtures.resource("model/contract-boundary.schema.json")
+        val contract = JsonFixtures.load("model/contract-boundary")
+        contract.addProperty("unknownOutstanding", "unexpected")
+        assertTrue(runCatching { JsonFixtures.validate(contract, contractSchema) }.isFailure)
+    }
 
     @Test
     fun createSendsIdempotencyKeyAndDoesNotOverrideAuthorization() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setResponseCode(201).setBody(checkoutJson()))
+            server.enqueue(MockResponse().setResponseCode(number("createResponseCode")).setBody(checkoutJson()))
             server.start(InetAddress.getLoopbackAddress(), 0)
             val created = V1PaymentGateway(client(server)).create(
-                "t-1",
-                "50000.00",
-                "22222222-2222-4222-8222-222222222222",
+                value("tenancyId"),
+                value("amount"),
+                value("createKey"),
             )
-            assertEquals("chk-1", created.id)
+            assertEquals(fixtureCheckout.get("id").asString, created.id)
             assertFalse(created.resultingPaymentId != null)
             val request = server.takeRequest()
             assertEquals("/api/v1/finance/checkouts", request.path)
             assertEquals("POST", request.method)
-            assertEquals("22222222-2222-4222-8222-222222222222", request.getHeader("Idempotency-Key"))
-            assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
+            assertEquals(value("createKey"), request.getHeader("Idempotency-Key"))
+            assertEquals(value("authorization"), request.getHeader("Authorization"))
             val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
-            assertEquals("SEPAY", body.get("provider").asString)
-            assertEquals("t-1", body.get("tenancyId").asString)
-            assertEquals("50000.00", body.get("amount").asString)
-            assertFalse(body.has("provider"))
+            assertEquals(value("provider"), body.get("provider").asString)
+            assertEquals(value("tenancyId"), body.get("tenancyId").asString)
+            assertEquals(value("amount"), body.get("amount").asString)
         }
     }
 
     @Test fun demoProviderIsExplicitAndNeverConfirmsPaymentOnCreation() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setResponseCode(201).setBody(checkoutJson().replace("MOMO", "DEMO")))
+            server.enqueue(MockResponse().setResponseCode(number("createResponseCode")).setBody(fixtureCheckout.deepCopy().apply { addProperty("provider", value("demoProvider")) }.toString()))
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val checkout = V1PaymentGateway(client(server)).create("t-1", "50000", "22222222-2222-4222-8222-222222222222", "DEMO")
+            val checkout = V1PaymentGateway(client(server)).create(value("tenancyId"), value("wholeAmount"), value("createKey"), value("demoProvider"))
             val body = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("DEMO", body.get("provider").asString)
-            assertEquals("CREATED", checkout.status)
+            assertEquals(value("demoProvider"), body.get("provider").asString)
+            assertEquals(fixtureCheckout.get("status").asString, checkout.status)
             assertFalse(com.trooi.app.features.tenancy.isConfirmedGatewayPayment(checkout))
         }
     }
@@ -71,21 +92,21 @@ class CheckoutTransportTest {
     @Test
     fun extraAuthorizationHeaderCannotOverrideBearer() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setResponseCode(201).setBody(checkoutJson()))
+            server.enqueue(MockResponse().setResponseCode(number("createResponseCode")).setBody(checkoutJson()))
             server.start(InetAddress.getLoopbackAddress(), 0)
             val outcome = client(server).postJson(
                 "finance/checkouts",
-                """{"tenancyId":"t-1","amount":"50000.00"}""",
+                JsonObject().apply { addProperty("tenancyId", value("tenancyId")); addProperty("amount", value("amount")) }.toString(),
                 authenticated = true,
                 headers = mapOf(
-                    "Idempotency-Key" to "33333333-3333-4333-8333-333333333333",
-                    "Authorization" to "Bearer hijacked",
+                    "Idempotency-Key" to value("headerKey"),
+                    "Authorization" to value("hijackedAuthorization"),
                 ),
             )
             assertTrue(outcome is TransportOutcome.Success)
             val request = server.takeRequest()
-            assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
-            assertEquals("33333333-3333-4333-8333-333333333333", request.getHeader("Idempotency-Key"))
+            assertEquals(value("authorization"), request.getHeader("Authorization"))
+            assertEquals(value("headerKey"), request.getHeader("Idempotency-Key"))
         }
     }
 
@@ -94,19 +115,19 @@ class CheckoutTransportTest {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(checkoutJson()))
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val checkout = V1PaymentGateway(client(server)).get("chk-1")
-            assertEquals("CREATED", checkout.status)
+            val checkout = V1PaymentGateway(client(server)).get(fixtureCheckout.get("id").asString)
+            assertEquals(fixtureCheckout.get("status").asString, checkout.status)
             val get = server.takeRequest()
             assertEquals("GET", get.method)
-            assertEquals("/api/v1/finance/checkouts/chk-1", get.path)
-            assertEquals(1, server.requestCount)
+            assertEquals("/api/v1/finance/checkouts/${fixtureCheckout.get("id").asString}", get.path)
+            assertEquals(number("singleRequestCount"), server.requestCount)
         }
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
-            server.enqueue(MockResponse().setBody("{\"success\":true,\"data\":[]}"))
+            server.enqueue(MockResponse().setBody(fixture.get("publicResponse").toString()))
             server.start(InetAddress.getLoopbackAddress(), 0)
             assertTrue(client(server).get("listings/public") is TransportOutcome.Success)
-            assertEquals(2, server.requestCount)
+            assertEquals(number("retryRequestCount"), server.requestCount)
         }
     }
 
@@ -115,11 +136,11 @@ class CheckoutTransportTest {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(checkoutJson()))
             server.start(InetAddress.getLoopbackAddress(), 0)
-            V1PaymentGateway(client(server)).reconcile("chk-1")
+            V1PaymentGateway(client(server)).reconcile(fixtureCheckout.get("id").asString)
             val request = server.takeRequest()
             assertEquals("POST", request.method)
-            assertEquals("/api/v1/finance/checkouts/chk-1/reconcile", request.path)
-            assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
+            assertEquals("/api/v1/finance/checkouts/${fixtureCheckout.get("id").asString}/reconcile", request.path)
+            assertEquals(value("authorization"), request.getHeader("Authorization"))
         }
     }
 
@@ -129,10 +150,10 @@ class CheckoutTransportTest {
             server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
             server.start(InetAddress.getLoopbackAddress(), 0)
             val result = runCatching {
-                V1PaymentGateway(client(server)).create("t-1", "50000.00", "44444444-4444-4444-8444-444444444444")
+                V1PaymentGateway(client(server)).create(value("tenancyId"), value("amount"), value("disconnectKey"))
             }
             assertTrue(result.isFailure)
-            assertEquals(1, server.requestCount)
+            assertEquals(number("singleRequestCount"), server.requestCount)
         }
     }
 
@@ -140,30 +161,29 @@ class CheckoutTransportTest {
     fun manualPaymentBodyOmitsVerification() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(
-                MockResponse().setResponseCode(201).setBody(
-                    """{"id":"pay-1","tenancyId":"t-1","amount":"5000.00","source":"MANUAL_CASH",
-                    "verification":"USER_RECORDED","confirmedAt":"2026-10-02T01:00:00Z"}""",
+                MockResponse().setResponseCode(number("createResponseCode")).setBody(
+                    payment.toString(),
                 ),
             )
             server.start(InetAddress.getLoopbackAddress(), 0)
-            V1RentalGateway(client(server)).recordPayment("t-1", "5000.00", "MANUAL_CASH", "2026-10-02T01:00:00Z")
+            V1RentalGateway(client(server)).recordPayment(value("tenancyId"), payment.get("amount").asString, payment.get("source").asString, payment.get("confirmedAt").asString)
             val sent = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
-            assertEquals("MANUAL_CASH", sent.get("source").asString)
-            assertEquals("5000.00", sent.get("amount").asString)
-            assertEquals("t-1", sent.get("tenancyId").asString)
-            assertEquals("2026-10-02T01:00:00Z", sent.get("confirmedAt").asString)
+            assertEquals(payment.get("source").asString, sent.get("source").asString)
+            assertEquals(payment.get("amount").asString, sent.get("amount").asString)
+            assertEquals(value("tenancyId"), sent.get("tenancyId").asString)
+            assertEquals(payment.get("confirmedAt").asString, sent.get("confirmedAt").asString)
             assertFalse(sent.has("verification"))
         }
     }
 
     @Test
     fun unconfiguredPostDoesNotHitNetwork() = runBlocking {
-        val tokens = InMemoryAuthTokenProvider().apply { setToken("token") }
+        val tokens = InMemoryAuthTokenProvider().apply { setToken(value("unconfiguredToken")) }
         val outcome = BackendClient("", tokens).postJson(
             "finance/checkouts",
             "{}",
             true,
-            mapOf("Idempotency-Key" to "55555555-5555-4555-8555-555555555555"),
+            mapOf("Idempotency-Key" to value("unconfiguredKey")),
         )
         assertEquals(TransportOutcome.Failure(ErrorKind.UNCONFIGURED), outcome)
     }

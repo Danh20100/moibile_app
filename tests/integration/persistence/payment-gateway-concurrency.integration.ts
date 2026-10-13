@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { paymentData } from '../../support/payment-fixtures';
 import test from 'node:test';
 import { Client } from 'pg';
 
@@ -36,21 +36,18 @@ function testMomo(): MomoPaymentClient {
     snapshot: (id) => proto.snapshot(id),
     verifyIpn: proto.verifyIpn.bind(proto),
     async createCaptureWallet() {
-      return {
-        resultCode: 0,
-        message: 'ok',
-        payUrl: 'https://test-payment.momo.vn/pay',
-        deeplink: null,
-      };
+      return { ...paymentData.flow.successfulReply };
     },
   };
 }
 
 function gatewayFor(manager: TransactionManager) {
-  return new PaymentGatewayService(new TenancyService(manager),
+  return new PaymentGatewayService(
+    new TenancyService(manager),
     manager,
     new GatewayProviderRegistry(new MomoGatewayAdapter(testMomo())),
-    new GatewaySettlementService(manager));
+    new GatewaySettlementService(manager),
+  );
 }
 
 async function downstreamCounts(url: string, paymentId: string | null) {
@@ -78,7 +75,7 @@ async function downstreamCounts(url: string, paymentId: string | null) {
 test('callback waits on held checkout lock; concurrent success IPNs write one Payment', async () => {
   const url = process.env.TEST_DATABASE_URL;
   assert.ok(url);
-  console.log('database=trooi_test');
+  console.log('database=' + paymentData.values.trooi_test);
   const f = await gatewayFixture(url);
   const poolB = openGatewayPool(url);
   const a = gatewayFor(f.manager);
@@ -86,9 +83,9 @@ test('callback waits on held checkout lock; concurrent success IPNs write one Pa
   const releaseLock = createBarrier();
   try {
     const created = await a.createCheckout(
-      { tenancyId: f.ids.tenancy, amount: '1000' },
+      { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount },
       f.ids.creator,
-      randomUUID(),
+      f.nextId(),
     );
     const record = await f.finance.findGatewayCheckout(created.id);
     assert.ok(record);
@@ -99,23 +96,27 @@ test('callback waits on held checkout lock; concurrent success IPNs write one Pa
       await releaseLock.gate;
     });
     await held.ready;
-    const ipnOne = b.handleMomoIpn(signedCheckoutIpn(record, { transId: 11 }));
-    const ipnTwo = a.handleMomoIpn(signedCheckoutIpn(record, { transId: 11 }));
+    const ipnOne = b.handleMomoIpn(
+      signedCheckoutIpn(record, { transId: paymentData.flow.concurrentTransactionId }),
+    );
+    const ipnTwo = a.handleMomoIpn(
+      signedCheckoutIpn(record, { transId: paymentData.flow.concurrentTransactionId }),
+    );
     await assertCheckoutRowLockWaiter(url);
     releaseLock.release();
     await holder;
     await Promise.all([ipnOne, ipnTwo]);
     const first = await f.finance.findGatewayCheckout(created.id);
-    assert.equal(first?.status, 'SUCCEEDED');
+    assert.equal(first?.status, paymentData.values.SUCCEEDED);
     const payments = await f.finance.findPaymentsForTenancy(f.ids.tenancy);
-    assert.equal(payments.length, 1);
+    assert.equal(payments.length, paymentData.numbers.expectedCount1);
     assert.equal(first?.resultingPaymentId, payments[0]?.paymentId);
     const notes = await f.notifications.findNotificationsByRecipient(f.ids.creator);
-    assert.equal(notes.length, 1);
+    assert.equal(notes.length, paymentData.numbers.expectedCount1);
     const counts = await downstreamCounts(url, payments[0]!.paymentId);
-    assert.equal(counts.allocations, 0);
-    assert.equal(counts.receipts, 0);
-    assert.equal(counts.deposits, 0);
+    assert.equal(counts.allocations, paymentData.numbers.expectedCount0);
+    assert.equal(counts.receipts, paymentData.numbers.expectedCount0);
+    assert.equal(counts.deposits, paymentData.numbers.expectedCount0);
   } finally {
     releaseLock.release();
     await poolB.close();
@@ -131,10 +132,12 @@ test('payment insert rollback leaves zero money side effects; retry settles; dup
   const manager: TransactionManager = {
     async run(work) {
       return f.manager.run(async (context) => {
-        const insert = context.repositories.finance.insertPayment.bind(context.repositories.finance);
+        const insert = context.repositories.finance.insertPayment.bind(
+          context.repositories.finance,
+        );
         context.repositories.finance.insertPayment = async (payment) => {
           await insert(payment);
-          if (failAfterPayment) throw new Error('injected payment rollback');
+          if (failAfterPayment) throw new Error(paymentData.flow.rollbackError);
         };
         return work(context);
       });
@@ -144,36 +147,60 @@ test('payment insert rollback leaves zero money side effects; retry settles; dup
   const other = gatewayFor(f.manager);
   try {
     const first = await gateway.createCheckout(
-      { tenancyId: f.ids.tenancy, amount: '1000' },
+      { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount },
       f.ids.creator,
-      randomUUID(),
+      f.nextId(),
     );
     const record = await f.finance.findGatewayCheckout(first.id);
     assert.ok(record);
     await assert.rejects(
-      gateway.handleMomoIpn(signedCheckoutIpn(record, { transId: 21 })),
-      /injected payment rollback/,
+      gateway.handleMomoIpn(
+        signedCheckoutIpn(record, { transId: paymentData.flow.rollbackTransactionId }),
+      ),
+      new RegExp(paymentData.flow.rollbackError),
     );
-    assert.equal((await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length, 0);
-    assert.equal((await f.finance.findGatewayCheckout(first.id))?.status, 'CREATED');
-    assert.equal((await f.notifications.findNotificationsByRecipient(f.ids.creator)).length, 0);
+    assert.equal(
+      (await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length,
+      paymentData.numbers.expectedCount0,
+    );
+    assert.equal(
+      (await f.finance.findGatewayCheckout(first.id))?.status,
+      paymentData.values.CREATED,
+    );
+    assert.equal(
+      (await f.notifications.findNotificationsByRecipient(f.ids.creator)).length,
+      paymentData.numbers.expectedCount0,
+    );
     failAfterPayment = false;
-    await gateway.handleMomoIpn(signedCheckoutIpn(record, { transId: 21 }));
-    assert.equal((await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length, 1);
+    await gateway.handleMomoIpn(
+      signedCheckoutIpn(record, { transId: paymentData.flow.rollbackTransactionId }),
+    );
+    assert.equal(
+      (await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length,
+      paymentData.numbers.expectedCount1,
+    );
     const second = await other.createCheckout(
-      { tenancyId: f.ids.tenancy, amount: '1000' },
+      { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount },
       f.ids.creator,
-      randomUUID(),
+      f.nextId(),
     );
     const otherRecord = await f.finance.findGatewayCheckout(second.id);
     assert.ok(otherRecord);
     await assert.rejects(
-      other.handleMomoIpn(signedCheckoutIpn(otherRecord, { transId: 21 })),
+      other.handleMomoIpn(
+        signedCheckoutIpn(otherRecord, { transId: paymentData.flow.rollbackTransactionId }),
+      ),
       (error: unknown) =>
         error instanceof ConflictException || error instanceof PersistenceUniqueViolation,
     );
-    assert.equal((await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length, 1);
-    assert.equal((await f.finance.findGatewayCheckout(second.id))?.status, 'CREATED');
+    assert.equal(
+      (await f.finance.findPaymentsForTenancy(f.ids.tenancy)).length,
+      paymentData.numbers.expectedCount1,
+    );
+    assert.equal(
+      (await f.finance.findGatewayCheckout(second.id))?.status,
+      paymentData.values.CREATED,
+    );
   } finally {
     await f.db.destroy();
   }
@@ -188,27 +215,46 @@ test('final-failure and success IPNs serialize; contradictory loser cannot creat
   const b = gatewayFor(poolB.manager);
   try {
     const created = await a.createCheckout(
-      { tenancyId: f.ids.tenancy, amount: '1000' },
+      { tenancyId: f.ids.tenancy, amount: paymentData.flow.checkoutAmount },
       f.ids.creator,
-      randomUUID(),
+      f.nextId(),
     );
     const record = await f.finance.findGatewayCheckout(created.id);
     assert.ok(record);
     const results = await Promise.allSettled([
-      a.handleMomoIpn(signedCheckoutIpn(record, { transId: 31, resultCode: 1006 })),
-      b.handleMomoIpn(signedCheckoutIpn(record, { transId: 32, resultCode: 0 })),
+      a.handleMomoIpn(
+        signedCheckoutIpn(record, {
+          transId: paymentData.flow.failureTransactionId,
+          resultCode: paymentData.flow.failureCode,
+        }),
+      ),
+      b.handleMomoIpn(
+        signedCheckoutIpn(record, {
+          transId: paymentData.flow.successTransactionId,
+          resultCode: paymentData.flow.successfulReply.resultCode,
+        }),
+      ),
     ]);
-    assert.equal(results.filter((item) => item.status === 'fulfilled').length, 1);
-    assert.equal(results.filter((item) => item.status === 'rejected').length, 1);
+    assert.equal(
+      results.filter((item) => item.status === 'fulfilled').length,
+      paymentData.numbers.expectedCount1,
+    );
+    assert.equal(
+      results.filter((item) => item.status === 'rejected').length,
+      paymentData.numbers.expectedCount1,
+    );
     const stored = await f.finance.findGatewayCheckout(created.id);
     const payments = await f.finance.findPaymentsForTenancy(f.ids.tenancy);
-    if (stored?.status === 'SUCCEEDED') {
-      assert.equal(payments.length, 1);
-      assert.equal(stored.providerTransId, '32');
+    if (stored?.status === paymentData.values.SUCCEEDED) {
+      assert.equal(payments.length, paymentData.numbers.expectedCount1);
+      assert.equal(stored.providerTransId, paymentData.flow.successTransactionText);
     } else {
-      assert.equal(stored?.status, 'FAILED');
-      assert.equal(payments.length, 0);
-      assert.equal(stored?.terminalEvidence?.includes('1006'), true);
+      assert.equal(stored?.status, paymentData.values.FAILED);
+      assert.equal(payments.length, paymentData.numbers.expectedCount0);
+      assert.equal(
+        stored?.terminalEvidence?.includes(paymentData.flow.failureEvidence),
+        paymentData.states.userExists,
+      );
     }
   } finally {
     await poolB.close();

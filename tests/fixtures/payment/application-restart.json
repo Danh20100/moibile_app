@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "expected": {
+    "initialOutstanding": "3500000.00",
+    "remainingOutstanding": "2500000.00"
+  },
+  "provenance": "Synthetic application restart scenarios for isolated PostgreSQL; outstanding amounts follow active allocations.",
+  "values": {
+    "ownerId": "10000000-0000-4000-8000-000000000099",
+    "organizationName": "Restart Workspace",
+    "propertyName": "Restart Property",
+    "operationalAddress": "Private address",
+    "operationalLocation": {
+      "longitude": 106.7,
+      "latitude": 10.7
+    },
+    "propertyPublicLocation": {
+      "longitude": 106.701,
+      "latitude": 10.701
+    },
+    "roomLabel": "A-01",
+    "listingTitle": "Restart Listing",
+    "listingDescription": "Persisted public content",
+    "listingPrice": "3500000.00",
+    "listingPublicLocation": {
+      "longitude": 106.701,
+      "latitude": 10.701
+    },
+    "inquiryMessage": "Interested",
+    "inquiryStatus": "NEW",
+    "participantRole": "PRIMARY",
+    "joinedAt": "2026-09-29T00:00:00.000Z",
+    "termsVersion": 1,
+    "rentAmount": "3500000.00",
+    "depositRequirement": "3500000.00",
+    "termStart": "2026-10-01",
+    "termEnd": "2027-09-30",
+    "billingDayRule": {
+      "day": 1
+    },
+    "electricityArrangement": {
+      "mode": "metered"
+    },
+    "waterArrangement": {
+      "mode": "metered"
+    },
+    "rentalConditions": {
+      "occupants": 1
+    },
+    "effectiveBoundary": "2026-10-01",
+    "acknowledgedAt": "2026-09-29T00:01:00.000Z",
+    "noticeType": "GENERAL",
+    "noticeContent": "Persisted notice",
+    "noticeIssuedAt": "2026-09-29T00:02:00.000Z",
+    "cycleStart": "2026-10-01",
+    "cycleEnd": "2026-10-31",
+    "charges": [
+      {
+        "type": "RENT",
+        "amount": "3500000.00"
+      }
+    ],
+    "paymentAmount": "3500000.00",
+    "paymentSource": "MANUAL_TRANSFER",
+    "paymentConfirmedAt": "2026-10-01T00:00:00.000Z",
+    "billingAllocationAmount": "1000000.00",
+    "depositApplicationAmount": "2500000.00",
+    "incidentCategory": "PLUMBING",
+    "acknowledgedIncidentStatus": "ACKNOWLEDGED",
+    "unauthorizedIncidentUpdate": {
+      "status": "IN_PROGRESS",
+      "actorUserId": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    },
+    "expectedIncidentStatusBeforeRestart": "ACKNOWLEDGED",
+    "publishedListingStatus": "published",
+    "publishReason": "PUBLISH",
+    "publishActorType": "USER",
+    "publishTrigger": "TEST",
+    "trustReportReason": "INCORRECT_INFORMATION",
+    "expectedDepositEvents": ["RECEIVED"],
+    "expectedIncidentStatusAfterRestart": "ACKNOWLEDGED",
+    "expectedIncidentEvents": ["REPORTED", "ACKNOWLEDGED"],
+    "expectedTrustReportCount": 1
+  }
+}
