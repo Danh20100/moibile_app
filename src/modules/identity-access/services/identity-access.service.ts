@@ -41,7 +41,7 @@ export class IdentityAccessService {
   }
 
   private async claimSeededPaymentRoom(userId: string): Promise<void> {
-    if (userId === SEEDED_PAYMENT_ROOM.userId || process.env.NODE_ENV === 'production') return;
+    if (process.env.NODE_ENV !== 'development' || process.env.TROOI_DEMO_CLAIM_USER_ID !== userId || userId === SEEDED_PAYMENT_ROOM.userId) return;
     await this.transactions.run(async ({ repositories }) => {
       const organization = repositories.organization;
       const tenancy = repositories.tenancy;
