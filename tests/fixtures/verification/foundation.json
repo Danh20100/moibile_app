@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "provenance": "Synthetic component-only inputs; no identity photographs, provider acceptance or runtime authorization evidence.",
+  "face": {
+    "enabled": {
+      "enabled": true,
+      "origin": "http://127.0.0.1:18180",
+      "apiKey": "private-test-token",
+      "timeoutMs": 1000
+    },
+    "disabled": {
+      "enabled": false
+    },
+    "jpeg": [255, 216, 255, 224, 1, 2, 255, 217],
+    "invalidJpegs": [
+      [],
+      [1, 2, 3, 4, 5],
+      [255, 216, 255, 224, 0, 1],
+      [255, 216, 255, 224, 0, 1, 255, 0]
+    ],
+    "success": {
+      "result": [
+        {
+          "face_matches": [
+            {
+              "similarity": 0.91
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "similarity": 0.91,
+      "faceCount": 1,
+      "matches": 1
+    },
+    "invalidResponses": {
+      "noFaces": {
+        "result": []
+      },
+      "noMatches": {
+        "result": [
+          {
+            "face_matches": []
+          }
+        ]
+      },
+      "multiMatch": {
+        "result": [
+          {
+            "face_matches": [
+              {
+                "similarity": 0.8
+              },
+              {
+                "similarity": 0.9
+              }
+            ]
+          }
+        ]
+      },
+      "scoreHigh": {
+        "result": [
+          {
+            "face_matches": [
+              {
+                "similarity": 1.3
+              }
+            ]
+          }
+        ]
+      },
+      "scoreString": {
+        "result": [
+          {
+            "face_matches": [
+              {
+                "similarity": "0.8"
+              }
+            ]
+          }
+        ]
+      },
+      "multiFace": {
+        "result": [
+          {
+            "face_matches": [
+              {
+                "similarity": 0.8
+              }
+            ]
+          },
+          {
+            "face_matches": [
+              {
+                "similarity": 0.7
+              }
+            ]
+          }
+        ]
+      },
+      "nullDocument": null,
+      "arrayDocument": [],
+      "nullFace": {
+        "result": [null]
+      },
+      "nullMatch": {
+        "result": [
+          {
+            "face_matches": [null]
+          }
+        ]
+      }
+    },
+    "invalidJson": "not json",
+    "httpError": "SECRET KEY ERROR",
+    "httpErrorStatus": 400,
+    "upstreamError": "secret=private-test-token raw-jpeg",
+    "invalidInputError": "Malformed input reached remote service",
+    "nonfinite": ["NaN", "Infinity", "-Infinity"],
+    "configCases": {
+      "remoteHttp": {
+        "COMPREFACE_ENABLED": "true",
+        "COMPREFACE_ORIGIN": "http://example.com",
+        "COMPREFACE_API_KEY": "key"
+      },
+      "timeoutZero": {
+        "COMPREFACE_ENABLED": "true",
+        "COMPREFACE_ORIGIN": "https://x.example/",
+        "COMPREFACE_API_KEY": "key",
+        "COMPREFACE_TIMEOUT_MS": "0"
+      },
+      "missingKey": {
+        "COMPREFACE_ENABLED": "true",
+        "COMPREFACE_ORIGIN": "https://face.example/"
+      },
+      "valid": {
+        "COMPREFACE_ENABLED": "true",
+        "COMPREFACE_ORIGIN": "https://face.example/",
+        "COMPREFACE_API_KEY": "secret"
+      }
+    },
+    "loaded": {
+      "enabled": true,
+      "origin": "https://face.example",
+      "apiKey": "secret",
+      "timeoutMs": 15000
+    }
+  },
+  "storage": {
+    "config": {
+      "enabled": true,
+      "endpoint": "http://127.0.0.1:9000",
+      "region": "us-east-1",
+      "bucket": "private-documents",
+      "accessKey": "local-user",
+      "secretKey": "local-private",
+      "forcePathStyle": true
+    },
+    "disabled": {
+      "enabled": false
+    },
+    "bytes": [1, 3, 5],
+    "emptyBytes": [],
+    "keys": {
+      "disabled": "private/123",
+      "put": "kyc/attempt-id/front",
+      "get": "p/a",
+      "invalidPayload": "x/y"
+    },
+    "mime": "image/jpeg",
+    "badMime": "image/jpeg\r\nX-Test: x",
+    "invalidKeys": ["/private", "x/../y", "x//y", "x\\secret", "x?token", ""],
+    "missing": {
+      "name": "NoSuchKey",
+      "sensitive": "secret"
+    },
+    "error": "secret=local-private path=private-id",
+    "invalidEndpoints": [
+      "http://storage.example",
+      "ftp://127.0.0.1",
+      "not-a-url",
+      "https://user:pass@storage.example",
+      "https://storage.example/path",
+      "https://storage.example?token=x",
+      "https://storage.example#fragment"
+    ],
+    "validEndpoints": [
+      "https://storage.example",
+      "http://localhost:9000",
+      "http://127.0.0.1:9000",
+      "http://[::1]:9000"
+    ]
+  },
+  "manual": {
+    "draft": {
+      "attemptId": "attempt-1",
+      "subjectUserId": "user-123",
+      "state": "DRAFT",
+      "revision": 0
+    },
+    "evidence": {
+      "provider": "compreface",
+      "similarity": 0.91,
+      "comparedAt": "2026-10-13T09:00:00Z"
+    },
+    "reviewer": "reviewer-1",
+    "unauthorized": ["user-123", "stranger", ""],
+    "deny": false,
+    "truthy": "approved",
+    "authorizationError": "admin auth unavailable",
+    "decidedAt": "2026-10-13T09:01:00Z",
+    "repeatedAt": "2026-10-13T09:02:00Z",
+    "badDate": "bad-date",
+    "badScore": 1.01,
+    "nan": "NaN",
+    "states": {
+      "pending": "PENDING_REVIEW",
+      "reviewing": "IN_REVIEW",
+      "verified": "VERIFIED",
+      "rejected": "REJECTED"
+    },
+    "revisions": {
+      "draft": 0,
+      "pending": 1,
+      "reviewing": 2,
+      "decided": 3
+    }
+  }
+}
