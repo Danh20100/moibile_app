@@ -70,10 +70,10 @@ class NativeMessagingStatesTest {
                         CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
                             TroOiScreenScaffold(contentWindowInsets = WindowInsets.safeDrawing) { insets ->
                                 Box(Modifier.width(320.dp).fillMaxHeight().padding(insets).consumeWindowInsets(insets).semantics { testTagsAsResourceId = true }) {
-                                    MessagesScreen(TroOiUiState(read = FrontendReadSnapshot(conversations = listOf(conversation))), {}, {}) { id, draft ->
+                                    MessagesScreen(TroOiUiState(read = FrontendReadSnapshot(conversations = listOf(conversation))), {}, {}, onSave = { id, draft, _ ->
                                         attempted = id to draft
                                         Result.failure(IllegalStateException("Native test rejection"))
-                                    }
+                                    })
                                 }
                             }
                         }
@@ -131,7 +131,7 @@ class NativeMessagingStatesTest {
                                             TroOiUiState(read = FrontendReadSnapshot(notifications = listOf(notification))), notification.notificationId,
                                             {}, { marked = it }, { source = it })
                                         else -> MessagesScreen(TroOiUiState(messagesLoading = case == "messages-loading",
-                                            messagesLoadFailed = case == "messages-error"), { explores++ }, { retries++ }) { _, _ -> Result.success(Unit) }
+                                            messagesLoadFailed = case == "messages-error"), { explores++ }, { retries++ }, onSave = { _, _, _ -> Result.success(Unit) })
                                     }
                                 }
                             }
