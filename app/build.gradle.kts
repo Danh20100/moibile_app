@@ -155,7 +155,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:20.0.0")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
 
-    debugImplementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 

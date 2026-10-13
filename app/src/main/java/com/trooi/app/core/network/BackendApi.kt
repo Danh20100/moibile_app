@@ -16,6 +16,7 @@ interface BackendApi {
 
     suspend fun authenticateGoogle(idToken: String): ApiOutcome<VerifiedPrincipalTransport>
     suspend fun getSessionContext(): ApiOutcome<SessionContextTransport>
+    suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getOrganizations(): ApiOutcome<List<OrganizationTransport>>
     suspend fun getDashboard(organizationId: String): ApiOutcome<DashboardTransport>
     suspend fun getProperties(organizationId: String): ApiOutcome<List<PropertyTransport>>
@@ -114,6 +115,14 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun getSessionContext() =
         client.get("identity-access/me", authenticated = true).decode(BackendJsonCodec::sessionContext)
+
+    override suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> {
+        val payload = com.google.gson.JsonObject().apply { addProperty("displayName", displayName) }
+        return when (val result = client.patchJson("identity-access/profile", payload.toString(), authenticated = true)) {
+            is TransportOutcome.Success -> getSessionContext()
+            is TransportOutcome.Failure -> ApiOutcome.Failure(result.kind, result.httpStatus)
+        }
+    }
 
     override suspend fun getOrganizations() =
         client.get("organizations", authenticated = true).decode(BackendJsonCodec::organizations)

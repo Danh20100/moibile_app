@@ -40,6 +40,7 @@ data class TroOiUiState(
     val selectedContext: SelectedContext = SelectedContext.Discovery,
     val isAuthenticated: Boolean = false,
     val displayName: String = "",
+    val email: String? = null,
     val pictureUrl: String? = null,
     val access: AccessCapabilities = AccessCapabilities(),
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),

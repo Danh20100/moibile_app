@@ -21,6 +21,22 @@ class BackendTroOiRepository @Inject constructor(
         Result.success(UserSession(
             userId = session.userId,
             displayName = session.name ?: session.email ?: session.userId,
+            email = session.email,
+            pictureUrl = session.pictureUrl,
+            access = AccessCapabilities(
+                linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+            ),
+        ))
+    } catch (error: RuntimeException) { Result.failure(error) }
+
+    override suspend fun updateDisplayName(displayName: String): Result<UserSession> = try {
+        require(displayName.isNotBlank() && displayName.length <= 80) { "Tên hiển thị không hợp lệ" }
+        val session = api.updateOwnDisplayName(displayName.trim()).required("update display name")
+        Result.success(UserSession(
+            userId = session.userId,
+            displayName = session.name ?: displayName.trim(),
+            email = session.email,
             pictureUrl = session.pictureUrl,
             access = AccessCapabilities(
                 linkedTenancyIds = session.linkedTenancyIds.toSet(),
@@ -64,6 +80,7 @@ class BackendTroOiRepository @Inject constructor(
                 UserSession(
                     userId = session.userId,
                     displayName = displayName,
+                    email = session.email ?: principal.email,
                     pictureUrl = session.pictureUrl ?: principal.pictureUrl,
                     access = AccessCapabilities(
                         linkedTenancyIds = session.linkedTenancyIds.toSet(),

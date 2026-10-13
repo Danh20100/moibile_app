@@ -150,9 +150,14 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
         val account = currentSession() ?: error("Vui lòng đăng nhập lại.")
         check(account.access.operatedOrganizationIds.isEmpty()) { "Tài khoản đã có quyền quản lý." }
         require(application.valid()) { "Hoàn tất thông tin trước khi tiếp tục." }
-        require(DemoData.accounts.none { other -> management(other.userId).assets.any { it.id == application.firstAsset.id || it.propertyId == application.firstAsset.propertyId } }) { "Tài sản đã được liên kết." }
+        application.firstAsset?.let { asset ->
+            require(DemoData.accounts.none { other ->
+                management(other.userId).assets.any { it.id == asset.id || it.propertyId == asset.propertyId }
+            }) { "Tài sản đã được liên kết." }
+        }
         val organization = "local-organization-${account.userId}"
-        val catalog = LocalManagement().save(application.firstAsset, true, application.publish)
+        val catalog = application.firstAsset?.let { LocalManagement().save(it, true, application.publish) }
+            ?: LocalManagement()
         validateCatalog(account.userId, catalog)
         check(prefs == null || prefs.edit().putString("organization:${account.userId}", organization)
             .putString("management:${account.userId}", gson.toJson(catalog)).commit()) { "Chưa lưu được thông tin." }

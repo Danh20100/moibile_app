@@ -209,6 +209,8 @@ class TroOiViewModel @Inject constructor(
     fun openNotifications() = open(AppPage.Notifications)
     fun openOperations() = openContext(AppContext.OPERATIONS, AppPage.OwnerDashboard)
     fun openOwnerProperties() = openContext(AppContext.OPERATIONS, AppPage.OwnerProperties)
+    /** Operator Workspace may create the first Organization; access is still enforced on Backend. */
+    fun openOperatorWorkspaceFromAccount() = open(AppPage.OwnerProperties)
     fun openOwnerFinance() = openContext(AppContext.OPERATIONS, AppPage.OwnerFinance)
     fun openOwnerIncidents() = openContext(AppContext.OPERATIONS, AppPage.OwnerIncidents)
 
@@ -745,6 +747,32 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
+    /** Save presentation only; preserve User ownership and authenticated session generation. */
+    suspend fun updateDisplayName(displayName: String): Result<Unit> {
+        val original = _state.value
+        if (!original.isAuthenticated || original.backendUserId.isBlank()) {
+            return Result.failure(IllegalStateException("Bạn cần đăng nhập để chỉnh sửa hồ sơ."))
+        }
+        val generation = sessionGeneration
+        return repository.updateDisplayName(displayName).fold(
+            onSuccess = { session ->
+                if (generation != sessionGeneration || session.userId != original.backendUserId) {
+                    Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+                } else {
+                    _state.update { current ->
+                        if (current.backendUserId == session.userId) current.copy(
+                            displayName = session.displayName,
+                            email = session.email,
+                            pictureUrl = session.pictureUrl,
+                        ) else current
+                    }
+                    Result.success(Unit)
+                }
+            },
+            onFailure = { Result.failure(it) },
+        )
+    }
+
     fun refreshSessionContext() {
         if (!_state.value.isAuthenticated) return
         val generation = sessionGeneration
@@ -754,7 +782,7 @@ class TroOiViewModel @Inject constructor(
                     if (generation == sessionGeneration) {
                         sessionGeneration++
                         _state.update { current ->
-                            applyReconciledAccess(current, session.displayName, session.access).copy(pictureUrl = session.pictureUrl)
+                            applyReconciledAccess(current, session.displayName, session.access).copy(pictureUrl = session.pictureUrl, email = session.email)
                         }
                         refreshAuthorizedRead(session.access)
                     }
@@ -780,6 +808,7 @@ class TroOiViewModel @Inject constructor(
             current.copy(
                 isAuthenticated = false,
                 displayName = "",
+                email = null,
                 pictureUrl = null,
                 backendUserId = "",
                 access = AccessCapabilities(),
@@ -880,6 +909,7 @@ class TroOiViewModel @Inject constructor(
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
+            email = session.email,
             pictureUrl = session.pictureUrl,
             backendUserId = session.userId,
             access = session.access,

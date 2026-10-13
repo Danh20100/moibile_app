@@ -9,13 +9,15 @@ data class LocalLandlordApplication(
     val identityPhotosAccepted: Boolean,
     val contactConfirmed: Boolean,
     val termsAccepted: Boolean,
-    val firstAsset: LocalRentalAsset,
+    val firstAsset: LocalRentalAsset?,
     val publish: Boolean,
 ) {
     fun valid(): Boolean = fullName.trim().length >= 2 &&
         runCatching { java.time.LocalDate.parse(birthDate).isBefore(java.time.LocalDate.now()) }.getOrDefault(false) &&
         phone.replace(" ", "").matches(Regex("(0|\\+84)\\d{9,10}")) && email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) &&
-        identityPhotosAccepted && contactConfirmed && termsAccepted && firstAsset.valid() &&
-        !firstAsset.occupied && (firstAsset.photoUris.isNotEmpty() || firstAsset.photoResources.isNotEmpty()) &&
-        (!publish || firstAsset.readyToPublish())
+        identityPhotosAccepted && contactConfirmed && termsAccepted &&
+        (firstAsset == null && !publish || firstAsset != null &&
+            firstAsset.valid() && !firstAsset.occupied &&
+            (firstAsset.photoUris.isNotEmpty() || firstAsset.photoResources.isNotEmpty()) &&
+            (!publish || firstAsset.readyToPublish()))
 }

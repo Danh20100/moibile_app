@@ -7,11 +7,21 @@ import type { VerifiedPrincipal } from '../../src/modules/identity-access/contra
 import { IdentityAccessController } from '../../src/modules/identity-access/controllers/identity-access.controller';
 import { IdentityAccessService } from '../../src/modules/identity-access/services/identity-access.service';
 
+const identityFoundation = {
+  initializeProfileIfAbsent: async (input: { userId: string; displayName: string | null; now: string }) => ({
+    userId: input.userId,
+    displayName: input.displayName,
+    createdAt: input.now,
+    updatedAt: input.now,
+  }),
+};
+
 test('session-context: user with no relationships receives empty arrays', async () => {
   const transactions = {
     run: async <T>(work: (ctx: never) => Promise<T>) =>
       work({
         repositories: {
+          identityFoundation,
           organization: {
             findByPrimaryOwnerUserId: async () => [],
           },
@@ -46,6 +56,7 @@ test('session-context: user who is both primary owner and linked participant rec
     run: async <T>(work: (ctx: never) => Promise<T>) =>
       work({
         repositories: {
+          identityFoundation,
           organization: {
             findByPrimaryOwnerUserId: async (uid: string) => {
               if (uid === 'dual-user') {
@@ -107,6 +118,7 @@ test('session-context: controller extracts verified user and delegates to servic
     run: async <T>(work: (ctx: never) => Promise<T>) =>
       work({
         repositories: {
+          identityFoundation,
           organization: {
             findByPrimaryOwnerUserId: async (uid: string) => {
               queriedUserId = uid;

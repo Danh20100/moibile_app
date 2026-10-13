@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
 
 export class VerifyGoogleTokenDto {
   @ApiProperty({
@@ -127,4 +127,12 @@ export class SessionContextDto {
   @IsOptional()
   @IsString()
   pictureUrl?: string;
+}
+
+/** Editable personal presentation, not a legal identity assertion. */
+export class UpdateDisplayNameDto {
+  @ApiProperty({ description: 'Editable public-facing display name; not the legal name', example: 'Nguyễn Văn A' })
+  @IsString()
+  @Length(1, 80)
+  displayName!: string;
 }

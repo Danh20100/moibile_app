@@ -2,8 +2,8 @@ package com.trooi.app.features.profile
 
 import com.trooi.app.core.model.TroOiUiState
 
-const val PROFILE_UNSUPPORTED_MESSAGE = "Tính năng đang được phát triển."
-const val PROFILE_CONNECTIONS_MESSAGE = "Kết nối cần nguồn liên hệ và quyền xem hồ sơ từ backend. Chưa có danh sách liên hệ; không công khai số điện thoại hoặc địa chỉ cá nhân."
+const val PROFILE_UNSUPPORTED_MESSAGE = "Không thể hoàn tất thao tác lúc này. Vui lòng thử lại sau."
+const val PROFILE_CONNECTIONS_MESSAGE = "Chưa có liên hệ nào để hiển thị."
 
 enum class LandlordEntry { ONBOARDING, REAL_OPERATIONS }
 
@@ -20,10 +20,15 @@ data class ProfilePresentation(
     val landlordTitle: String get() = if (hasOperator) "Quản lý tài sản cho thuê" else "Trở thành chủ trọ"
 }
 
-fun profileContextLabel(state: TroOiUiState): String = when {
-    state.access.operatedOrganizationIds.isNotEmpty() -> "Chủ trọ"
-    state.access.linkedTenancyIds.isNotEmpty() -> "Người thuê"
-    else -> "Thành viên TrọƠi"
+fun profileContextLabel(state: TroOiUiState): String {
+    val operates = state.access.operatedOrganizationIds.isNotEmpty()
+    val rents = state.access.linkedTenancyIds.isNotEmpty()
+    return when {
+        operates && rents -> "Chủ trọ · Người thuê"
+        operates -> "Chủ trọ"
+        rents -> "Người thuê"
+        else -> "Thành viên TrọƠi"
+    }
 }
 
 fun profilePresentation(state: TroOiUiState): ProfilePresentation {

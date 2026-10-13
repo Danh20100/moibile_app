@@ -16,6 +16,7 @@ data class UserSession(
     /** Relationships/capabilities are issued by the authorized Backend, not selected at login. */
     val access: AccessCapabilities,
     val pictureUrl: String? = null,
+    val email: String? = null,
 )
 
 interface TroOiRepository {
@@ -37,6 +38,8 @@ interface TroOiRepository {
     fun initialSnapshot(): TroOiSnapshot
     fun clearSession()
 
+    suspend fun updateDisplayName(displayName: String): Result<UserSession> =
+        Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
     suspend fun refreshSessionContext(): Result<UserSession>
     suspend fun refreshPublicListings(): Result<List<PublicListingCard>>
     suspend fun searchPublicListings(

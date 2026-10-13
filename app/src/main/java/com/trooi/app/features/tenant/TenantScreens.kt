@@ -426,6 +426,7 @@ fun V1AccountScreen(
     onSettings: () -> Unit,
     onHelp: () -> Unit,
     onLogout: () -> Unit,
+    onSaveDisplayName: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng.")) },
     onCompleteLandlord: suspend (com.trooi.app.core.model.LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
     onOpenWorkspace: () -> Unit = {},
     onPrivacy: (() -> Unit)? = null,
@@ -442,6 +443,7 @@ fun V1AccountScreen(
         onHelp = onHelp,
         onPrivacy = onPrivacy,
         onLogout = onLogout,
+        onSaveDisplayName = onSaveDisplayName,
         onCompleteLandlord = onCompleteLandlord,
         onOpenWorkspace = onOpenWorkspace,
     )

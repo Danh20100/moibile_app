@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 
 import {
   GOOGLE_ID_TOKEN_VERIFIER,
@@ -8,6 +8,7 @@ import {
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
 import { VerifyGoogleTokenDto } from '../dto';
+import type { ProfileRecord } from '../../../persistence/ports/identity-foundation.repository';
 
 const SEEDED_PAYMENT_ROOM = {
   userId: '00000000-0000-4000-8000-000000000001',
@@ -75,7 +76,42 @@ export class IdentityAccessService {
     return { userId };
   }
 
+  /** Compatibility slice: only a verified User can initialize and edit their own display name.
+   * Google-principal mapping, OTP, PIN, credential and audit activation are separate gates.
+   */
+  async getOwnProfile(principal: VerifiedPrincipal): Promise<ProfileRecord> {
+    return this.transactions.run(({ repositories }) =>
+      repositories.identityFoundation.initializeProfileIfAbsent({
+        userId: principal.userId,
+        displayName: principal.name?.trim() || null,
+        now: new Date().toISOString(),
+      }),
+    );
+  }
+
+  async updateOwnDisplayName(principal: VerifiedPrincipal, requested: string): Promise<ProfileRecord> {
+    const displayName = requested?.trim();
+    if (!displayName || Array.from(displayName).length > 80 ||
+        Array.from(displayName).some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) {
+      throw new BadRequestException('Tên hiển thị phải dài 1–80 ký tự hợp lệ');
+    }
+    const now = new Date().toISOString();
+    return this.transactions.run(async ({ repositories }) => {
+      await repositories.identityFoundation.initializeProfileIfAbsent({
+        userId: principal.userId,
+        displayName: principal.name?.trim() || null,
+        now,
+      });
+      return repositories.identityFoundation.updateOwnDisplayName({
+        userId: principal.userId,
+        displayName,
+        now,
+      });
+    });
+  }
+
   async getSessionContext(principal: VerifiedPrincipal): Promise<SessionContext> {
+    const ownProfile = await this.getOwnProfile(principal);
     const [organizations, participants] = await this.transactions.run(async ({ repositories }) => {
       const orgs = await repositories.organization.findByPrimaryOwnerUserId(principal.userId);
       const parts = await repositories.tenancy.findParticipantsByUser(principal.userId);
@@ -95,7 +131,7 @@ export class IdentityAccessService {
       operatedOrganizationIds,
       linkedTenancyIds,
       ...(principal.email !== undefined ? { email: principal.email } : {}),
-      ...(principal.name !== undefined ? { name: principal.name } : {}),
+      ...(ownProfile.displayName !== null ? { name: ownProfile.displayName } : {}),
       ...(principal.pictureUrl !== undefined ? { pictureUrl: principal.pictureUrl } : {}),
     };
   }

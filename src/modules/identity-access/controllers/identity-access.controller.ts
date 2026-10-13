@@ -1,13 +1,15 @@
-import { Body, Controller, Get, Inject, Param, Post, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public } from '../../../common';
 import type { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
+import type { ProfileRecord } from '../../../persistence/ports/identity-foundation.repository';
 import {
   SessionContextDto,
   UserReferenceDto,
   VerifiedPrincipalDto,
   VerifyGoogleTokenDto,
+  UpdateDisplayNameDto,
 } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
 
@@ -41,6 +43,23 @@ export class IdentityAccessController {
       throw new UnauthorizedException('Yêu cầu xác thực người dùng');
     }
     return this.identityAccessService.getSessionContext(user);
+  }
+
+  @Get('profile')
+  @ApiOperation({ summary: 'Read own persisted display-name Profile (authenticated)' })
+  async getOwnProfile(@CurrentUser() user?: VerifiedPrincipal): Promise<ProfileRecord> {
+    if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
+    return this.identityAccessService.getOwnProfile(user);
+  }
+
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update only the authenticated User display name' })
+  async updateOwnProfile(
+    @CurrentUser() user: VerifiedPrincipal | undefined,
+    @Body() dto: UpdateDisplayNameDto,
+  ): Promise<ProfileRecord> {
+    if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
+    return this.identityAccessService.updateOwnDisplayName(user, dto.displayName);
   }
 
   @Get('users/:id')

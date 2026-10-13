@@ -23,7 +23,7 @@ import java.net.URL
 import java.io.ByteArrayOutputStream
 
 @Composable
-internal fun ProfileAvatar(pictureUrl: String?, initial: String) {
+internal fun ProfileAvatar(pictureUrl: String?, initial: String, size: androidx.compose.ui.unit.Dp = 80.dp) {
     val bitmap by produceState<ImageBitmap?>(null, pictureUrl) {
         value = null
         if (pictureUrl?.startsWith("https://") == true) {
@@ -55,7 +55,7 @@ internal fun ProfileAvatar(pictureUrl: String?, initial: String) {
             }
         }
     }
-    Box(Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer).testTag("profile-avatar"), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer).testTag("profile-avatar"), contentAlignment = Alignment.Center) {
         if (bitmap != null) Image(bitmap!!, "Ảnh hồ sơ", Modifier.matchParentSize(), contentScale = ContentScale.Crop)
         else Text(initial, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }

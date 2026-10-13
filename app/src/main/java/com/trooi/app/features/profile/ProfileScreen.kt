@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
@@ -50,6 +51,7 @@ fun ProfileScreen(
     onHelp: () -> Unit = {},
     onPrivacy: (() -> Unit)? = null,
     onLogout: () -> Unit = {},
+    onSaveDisplayName: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
     onCompleteLandlord: suspend (LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
     onOpenWorkspace: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -63,7 +65,11 @@ fun ProfileScreen(
     section?.let { initial ->
         Dialog(onDismissRequest = { section = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             TroOiPage(Modifier.fillMaxSize().safeDrawingPadding()) {
-                AccountSettingsFlow(state, { section = null }, initial)
+                AccountSettingsFlow(state, { section = null }, initial, onSaveDisplayName = onSaveDisplayName,
+                    onOpenOperatorWorkspace = onOpenWorkspace, onStartLandlordOnboarding = {
+                        section = null
+                        onboarding = true
+                    })
             }
         }
     }
@@ -114,71 +120,177 @@ fun ProfileScreen(
         }
     } }
     TroOiScreenScaffold(snackbarHost = { SnackbarHost(snackbar) }) { insets ->
-        LazyColumn(modifier.fillMaxSize().padding(insets).testTag("profile-scroll"),
-            contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            item {
-                TroOiPageHeader("Hồ sơ", actions = {
-                    IconButton(onNotifications, Modifier.testTag("profile-notification-bell")) { Icon(Icons.Rounded.NotificationsNone, "Thông báo") }
-                })
-            }
-            item {
-                Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ProfileAvatar(state.pictureUrl, presentation.name.take(1))
-                        Text(presentation.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                        Text(profileContextLabel(state), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ProfileShortcut("Lịch sử thuê", Icons.Rounded.Luggage, { detail = "Lịch sử thuê" }, Modifier.weight(1f).testTag("profile-history"))
-                    ProfileShortcut("Kết nối", Icons.Rounded.Build,
-                        { scope.launch { snackbar.showSnackbar(PROFILE_CONNECTIONS_MESSAGE) } }, Modifier.weight(1f).testTag("profile-connections"))
-                }
-            }
-            item {
-                Surface(onClick = landlordAction, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.fillMaxWidth().testTag("profile-landlord-cta")) {
-                    Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Icon(Icons.Rounded.HomeWork, null, Modifier.size(30.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(presentation.landlordTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(if (presentation.operatorDefault) "Xem tài sản đang quản lý" else "Bắt đầu với tài sản đầu tiên của bạn", style = MaterialTheme.typography.bodySmall)
+        Box(Modifier.fillMaxSize().padding(insets), contentAlignment = Alignment.TopCenter) {
+            LazyColumn(
+                modifier.widthIn(max = 720.dp).fillMaxSize().testTag("profile-scroll"),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    TroOiPageHeader("Hồ sơ", subtitle = "Thông tin và cài đặt của bạn", actions = {
+                        IconButton(onNotifications, Modifier.testTag("profile-notification-bell")) {
+                            Icon(Icons.Rounded.NotificationsNone, "Thông báo")
                         }
-                        Icon(Icons.Rounded.ChevronRight, null)
+                    })
+                }
+                item {
+                    Surface(
+                        onClick = { section = "personal" },
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth().testTag("profile-hero-edit"),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            ProfileAvatar(state.pictureUrl, presentation.name.take(1), 64.dp)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("TÀI KHOẢN CỦA TÔI", style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.80f))
+                                Text(presentation.name, style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary,
+                                    maxLines = 2)
+                                Text(profileContextLabel(state), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f))
+                            }
+                            Icon(Icons.Rounded.ChevronRight, "Quản lý hồ sơ",
+                                tint = MaterialTheme.colorScheme.onPrimary)
+                        }
                     }
                 }
-            }
-            item {
-                ActionRow(Icons.Rounded.Settings, "Cài đặt tài khoản", onSettings, Modifier.testTag("account-settings"))
-                LocalOcrEntry()
-                ActionRow(Icons.Rounded.PersonOutline, "Xem hồ sơ", { detail = "Xem hồ sơ" })
-                ActionRow(Icons.AutoMirrored.Rounded.HelpOutline, "Nhận trợ giúp", onHelp, Modifier.testTag("account-help"))
-                ActionRow(Icons.Rounded.Shield, "Quyền riêng tư", { if (onPrivacy != null) onPrivacy() else section = "privacy" })
-                ActionRow(Icons.Rounded.Description, "Pháp lý", { section = "legal" })
-                ActionRow(Icons.Rounded.HomeWork, "Giới thiệu chủ nhà", { section = "host" })
-                if (state.isAuthenticated) ActionRow(Icons.AutoMirrored.Rounded.Logout, "Đăng xuất", { logoutConfirmation = true }, Modifier.testTag("account-logout"), true)
+                item { ProfileSectionLabel("Tài khoản", "Danh tính, bảo mật và thiết lập") }
+                item {
+                    ProfileMenuGroup {
+                        ActionRow(Icons.Rounded.PersonOutline, "Xem hồ sơ", { section = "personal" },
+                            Modifier.testTag("profile-personal"), subtitle = "Thông tin cá nhân và xác minh")
+                        ProfileRowDivider()
+                        ActionRow(Icons.Rounded.Settings, "Cài đặt tài khoản", onSettings,
+                            Modifier.testTag("account-settings"), subtitle = "Bảo mật, thông báo và thanh toán")
+                    }
+                }
+                item { ProfileSectionLabel("Hoạt động của bạn", "Liên kết với tài khoản đang đăng nhập") }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ProfileShortcut("Lịch sử thuê", Icons.Rounded.Luggage,
+                            { detail = "Lịch sử thuê" }, Modifier.weight(1f).testTag("profile-history"))
+                        ProfileShortcut("Kết nối", Icons.Rounded.Groups,
+                            { scope.launch { snackbar.showSnackbar(PROFILE_CONNECTIONS_MESSAGE) } },
+                            Modifier.weight(1f).testTag("profile-connections"), "Danh sách liên hệ")
+                    }
+                }
+                item {
+                    Surface(
+                        onClick = landlordAction, shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth().testTag("profile-landlord-cta"),
+                    ) {
+                        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
+                                Icon(Icons.Rounded.HomeWork, null, Modifier.padding(12.dp).size(26.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(presentation.landlordTitle, style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold)
+                                Text(if (presentation.operatorDefault) "Mở không gian và tài sản đang quản lý"
+                                    else "Tạo không gian vận hành tài sản đầu tiên",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Mở", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                item { ProfileSectionLabel("Thông tin & hỗ trợ") }
+                item {
+                    ProfileMenuGroup {
+                        ActionRow(Icons.Rounded.Shield, "Quyền riêng tư & Pháp lý",
+                            { section = "privacy-legal" }, Modifier.testTag("privacy-legal"),
+                            subtitle = "Quyền dữ liệu và điều khoản sử dụng")
+                        ProfileRowDivider()
+                        ActionRow(Icons.Rounded.HomeWork, "Giới thiệu chủ nhà",
+                            { section = "host" }, Modifier.testTag("profile-host"),
+                            subtitle = "Tìm hiểu quản lý cho thuê")
+                        ProfileRowDivider()
+                        ActionRow(Icons.AutoMirrored.Rounded.HelpOutline, "Nhận trợ giúp",
+                            onHelp, Modifier.testTag("account-help"), subtitle = "Hướng dẫn và liên hệ hỗ trợ")
+                    }
+                }
+                item {
+                    ProfileMenuGroup {
+                        if (state.isAuthenticated) ActionRow(Icons.AutoMirrored.Rounded.Logout, "Đăng xuất",
+                            { logoutConfirmation = true }, Modifier.testTag("account-logout"),
+                            subtitle = "Kết thúc phiên trên thiết bị", isDestructive = true)
+                    }
+                }
+                item {
+                    Text("TrọƠi · Sổ vận hành thuê trọ", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ProfileShortcut(title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier) {
-    Surface(onClick = onClick, modifier = modifier.height(112.dp), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, Modifier.size(28.dp))
-            Text(title, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center)
+private fun ProfileSectionLabel(title: String, subtitle: String = "") {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun ProfileShortcut(title: String, icon: ImageVector, onClick: () -> Unit,
+    modifier: Modifier, hint: String = "Xem chi tiết") {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 92.dp),
+        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Icon(icon, null, Modifier.size(23.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(hint, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit, modifier: Modifier = Modifier, isDestructive: Boolean = false) {
-    TroOiListRow(title, onClick = onClick, modifier = modifier, destructive = isDestructive,
-        leading = { Icon(icon, null, Modifier.size(22.dp), tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) })
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+private fun ProfileMenuGroup(content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface) {
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun ProfileRowDivider() {
+    HorizontalDivider(Modifier.padding(start = 52.dp, end = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+private fun ActionRow(icon: ImageVector, title: String, onClick: () -> Unit,
+    modifier: Modifier = Modifier, subtitle: String = "", isDestructive: Boolean = false) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), color = colors.surface) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Icon(icon, null, Modifier.size(22.dp),
+                tint = if (isDestructive) colors.error else colors.primary)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall,
+                    color = if (isDestructive) colors.error else colors.onSurface)
+                if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant)
+            }
+            if (!isDestructive) Icon(Icons.Rounded.ChevronRight, null, Modifier.size(19.dp),
+                tint = colors.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable

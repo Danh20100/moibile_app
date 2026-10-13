@@ -22,5 +22,5 @@ const val REAUTH_UNAVAILABLE = "Chưa thể xác thực bảo mật cho thao tá
 internal fun requireBackendReauthentication() { throw IllegalStateException(REAUTH_UNAVAILABLE) }
 
 internal fun requiresEditReauthentication(page: String): Boolean =
-    (page.startsWith("edit:") && page != "edit:Tên pháp lý") || page == "password" ||
+    (page.startsWith("edit:") && page != "edit:Tên pháp lý" && page != "edit:Tên hiển thị") || page == "password" ||
         page == "visibility" || page.startsWith("channel:")

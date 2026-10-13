@@ -302,11 +302,15 @@ fun TroOiApp(
                         onHelp = viewModel::openHelp,
                         onPrivacy = viewModel::openPrivacy,
                         onLogout = viewModel::logout,
+                        onSaveDisplayName = viewModel::updateDisplayName,
                         onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
-                        onOpenWorkspace = viewModel::openCoreWorkspace,
+                        onOpenWorkspace = viewModel::openOperatorWorkspaceFromAccount,
                     )
                     AppPage.Settings -> accountDrafts.SaveableStateProvider(accountDraftKey) {
-                        SettingsScreen(state = state, onBack = viewModel::goBack)
+                        SettingsScreen(state = state, onBack = viewModel::goBack,
+                            onSaveDisplayName = viewModel::updateDisplayName,
+                            onOpenWorkspace = viewModel::openOperatorWorkspaceFromAccount,
+                            onCompleteLandlord = viewModel::completeLocalLandlordOnboarding)
                     }
                     AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack)
                     AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
