@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: messaging_test
       POSTGRES_PASSWORD: local-messaging-test-only
     ports: ["127.0.0.1:55447:5432"]
-    tmpfs: [/var/lib/postgresql/data]
+    volumes: [messaging_db_data:/var/lib/postgresql/data]
   minio:
     image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     profiles: [messaging]
@@ -16,4 +16,8 @@ services:
       MINIO_ROOT_USER: messaging-local
       MINIO_ROOT_PASSWORD: local-messaging-test-only
     ports: ["127.0.0.1:9047:9000", "127.0.0.1:9048:9001"]
-    tmpfs: [/data]
+    volumes: [messaging_media_data:/data]
+
+volumes:
+  messaging_db_data:
+  messaging_media_data:

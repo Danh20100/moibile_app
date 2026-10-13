@@ -670,7 +670,14 @@ class TroOiViewModel @Inject constructor(
             )
         }
     }
-    suspend fun readMessageConversation(id: String) { repository.readConversation(id) }
+    suspend fun readMessageConversation(id: String) {
+        val generation = sessionGeneration
+        repository.readConversation(id).fold(
+            { if (generation == sessionGeneration) _state.update { current -> current.copy(read = current.read.copy(
+                conversations = current.read.conversations.map { card -> if (card.id != id) card else card.copy(lastReadAt = card.messages.lastOrNull()?.createdAt) })) } },
+            { if (generation == sessionGeneration) showMessage("Chưa cập nhật được trạng thái đã đọc. Hãy làm mới để thử lại.") },
+        )
+    }
     suspend fun loadMessageAttachment(id: String, attachmentId: String): Result<ByteArray> {
         val generation = sessionGeneration
         val result = repository.messageAttachment(id, attachmentId)

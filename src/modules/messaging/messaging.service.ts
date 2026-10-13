@@ -96,7 +96,6 @@ export class MessagingService {
       .where('conversation_id', '=', id)
       .orderBy('created_at', 'desc')
       .orderBy('message_id', 'desc')
-      .limit(200)
       .execute();
     return Promise.all(
       rows.reverse().map(async (row) => {

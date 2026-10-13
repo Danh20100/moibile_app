@@ -14,13 +14,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-private class BearerCall
+private class BearerCall(val token: String)
 
 class BearerTokenInterceptor(private val tokens: AuthTokenProvider) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
         val request = chain.request()
-        val protected = request.tag(BearerCall::class.java) != null
-        val token = if (protected) tokens.token()?.takeIf(String::isNotBlank) else null
+        val token = request.tag(BearerCall::class.java)?.token
         val next = request.newBuilder().removeHeader("Authorization").apply {
             if (token != null) header("Authorization", "Bearer $token")
         }.build()
@@ -50,7 +49,8 @@ class BackendClient(
         json: String,
         authenticated: Boolean = false,
         headers: Map<String, String> = emptyMap(),
-    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
+        expectedToken: String? = null,
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
         headers.forEach { (name, value) ->
             if (name.equals("Idempotency-Key", ignoreCase = true) && value.isNotBlank()) {
                 builder.header("Idempotency-Key", value)
@@ -77,6 +77,7 @@ class BackendClient(
         authenticated: Boolean,
         query: Map<String, String>,
         retryOnIOException: Boolean,
+        expectedToken: String? = null,
         configure: (Request.Builder) -> Request.Builder,
     ): TransportOutcome = withContext(Dispatchers.IO) {
         val base = try {
@@ -88,6 +89,9 @@ class BackendClient(
             return@withContext TransportOutcome.Failure(ErrorKind.UNCONFIGURED)
         }
         val requestToken = if (authenticated) tokens.token() else null
+        if (expectedToken != null && requestToken != expectedToken) {
+            return@withContext TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED)
+        }
         if (authenticated && requestToken.isNullOrBlank()) {
             return@withContext TransportOutcome.Failure(ErrorKind.AUTH_EXPIRED)
         }
@@ -97,7 +101,7 @@ class BackendClient(
             query.forEach { (name, value) -> addQueryParameter(name, value) }
         }.build()
         var builder = Request.Builder().url(target)
-        if (authenticated) builder = builder.tag(BearerCall::class.java, BearerCall())
+        if (authenticated) builder = builder.tag(BearerCall::class.java, BearerCall(requestToken!!))
         val request = configure(builder).build()
         val attempts = if (retryOnIOException) 2 else 1
         repeat(attempts) { attempt ->
@@ -114,11 +118,13 @@ class BackendClient(
                         else -> TransportOutcome.Success(
                             status,
                             TransportDocument(response.body?.let { body ->
-                                val cap = if (path.startsWith("messaging/")) 3_000_000L else 8_000_000L
-                                if (body.contentLength() > cap) throw IOException("Response exceeds limit")
-                                val source = body.source()
-                                if (source.request(cap + 1) && source.buffer.size > cap) throw IOException("Response exceeds limit")
-                                source.readUtf8()
+                                if (path.startsWith("messaging/")) {
+                                    val cap = 3_000_000L
+                                    if (body.contentLength() > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)
+                                    val source = body.source()
+                                    if (source.request(cap + 1) && source.buffer.size > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)
+                                    source.readUtf8()
+                                } else body.string()
                             }.orEmpty(), response.header("Content-Type")),
                         )
                     }

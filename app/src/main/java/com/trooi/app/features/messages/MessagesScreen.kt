@@ -69,7 +69,9 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
     DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
     BackHandler(selected != null) { selectedId = null }
     if (selected != null) {
-        LaunchedEffect(selected.id, selected.messages.lastOrNull()?.id) { onRead(selected.id) }
+        LaunchedEffect(selected.id, selected.messages.lastOrNull()?.id, state.messagesLoading) {
+            if (!state.messagesLoading) onRead(selected.id)
+        }
         ConversationScreen(selected, state.backendUserId, { selectedId = null }, onSave, onAttachment,
             state.messagesLoadFailed, onReload)
         return
@@ -131,7 +133,7 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
                             }
                             Text(conversation.messages.lastOrNull()?.let { message ->
                                 (if (message.senderUserId == state.backendUserId) "Bạn: " else "") +
-                                    (message.text.takeIf { it.isNotBlank() } ?: if (message.imagePaths.orEmpty().isNotEmpty()) "Hình ảnh" else "")
+                                    (message.text.takeIf { it.isNotBlank() } ?: if (message.imagePaths.orEmpty().isNotEmpty() || message.attachmentIds.isNotEmpty()) "Hình ảnh" else "")
                             }.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(if (conversation.messages.lastOrNull()?.localOnly == true) "Lưu trên thiết bị · Chưa gửi" else "",

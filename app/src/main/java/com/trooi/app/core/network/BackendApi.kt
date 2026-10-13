@@ -7,7 +7,7 @@ interface BackendApi {
     suspend fun messagingConversations(): ApiOutcome<List<MessagingConversation>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingMessages(id: String): ApiOutcome<List<MessagingMessage>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingOpen(type: String, id: String): ApiOutcome<MessagingOpen> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
-    suspend fun messagingSend(id: String, text: String, images: List<ByteArray>): ApiOutcome<MessagingMessage> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun messagingSend(id: String, text: String, images: List<ByteArray>, expectedToken: String? = null): ApiOutcome<MessagingMessage> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingRead(id: String): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingAttachment(id: String, attachmentId: String): ApiOutcome<MessagingImageBytes> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getPublicListingsRaw(): TransportOutcome
@@ -98,16 +98,16 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
         val payload = com.google.gson.JsonObject().apply { addProperty("contextType", type); addProperty("contextId", id) }
         return client.postJson("messaging/conversations", payload.toString(), true).decode { messagingGson.fromJson(it, MessagingOpen::class.java) }
     }
-    override suspend fun messagingSend(id: String, text: String, images: List<ByteArray>): ApiOutcome<MessagingMessage> {
+    override suspend fun messagingSend(id: String, text: String, images: List<ByteArray>, expectedToken: String?): ApiOutcome<MessagingMessage> {
         require(images.size <= 5 && images.all { it.size <= 2_000_000 } && text.length <= 4000)
         val payload = com.google.gson.JsonObject().apply {
             addProperty("text", text)
             add("images", com.google.gson.JsonArray().apply { images.forEach { bytes ->
                 add(com.google.gson.JsonObject().apply { addProperty("contentType", "image/jpeg")
-                    addProperty("base64", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) })
+                    addProperty("base64", java.util.Base64.getEncoder().encodeToString(bytes)) })
             } })
         }
-        return client.postJson("messaging/conversations/$id/messages", payload.toString(), true).decode { messagingGson.fromJson(it, MessagingMessage::class.java) }
+        return client.postJson("messaging/conversations/$id/messages", payload.toString(), true, expectedToken = expectedToken).decode { messagingGson.fromJson(it, MessagingMessage::class.java) }
     }
     override suspend fun messagingRead(id: String) = client.postEmpty("messaging/conversations/$id/read", true).decode { Unit }
     override suspend fun messagingAttachment(id: String, attachmentId: String) =

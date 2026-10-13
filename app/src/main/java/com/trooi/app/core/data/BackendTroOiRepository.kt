@@ -13,7 +13,7 @@ class BackendTroOiRepository @Inject constructor(
 ) : TroOiRepository {
     private var messageCards: List<ConversationCard> = emptyList()
     override suspend fun loadLocalConversations(): Result<List<ConversationCard>> = runCatching {
-        val credential = tokens.token()
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         val userId = api.getSessionContext().required("messaging identity").userId
         api.messagingConversations().required("conversations").map { conversation ->
             val others = conversation.participants.filter { it.userId != userId }
@@ -29,9 +29,9 @@ class BackendTroOiRepository @Inject constructor(
     }
     override suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String,
         images: List<LocalMessageImage>): Result<List<ConversationCard>> = runCatching {
-        val credential = tokens.token()
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         check(api.getSessionContext().required("messaging identity").userId == expectedUserId)
-        val sent = api.messagingSend(conversationId, text, images.map { it.jpegBytes }).required("send message")
+        val sent = api.messagingSend(conversationId, text, images.map { it.jpegBytes }, credential).required("send message")
         check(sent.delivery == "server" && sent.senderUserId == expectedUserId)
         check(tokens.token() == credential)
         messageCards = messageCards.map { card -> if (card.id != conversationId) card else card.copy(
@@ -50,7 +50,7 @@ class BackendTroOiRepository @Inject constructor(
         require(java.util.UUID.fromString(attachmentId).toString().equals(attachmentId, true))
         val image = api.messagingAttachment(conversationId, attachmentId).required("private image")
         require(image.contentType == "image/jpeg" && image.base64.length <= 2_666_668)
-        android.util.Base64.decode(image.base64, android.util.Base64.NO_WRAP).also { require(it.size <= 2_000_000) }
+        java.util.Base64.getDecoder().decode(image.base64).also { require(it.size <= 2_000_000) }
     }
     override fun initialSnapshot() = TroOiSnapshot()
     override fun clearSession() { messageCards = emptyList(); tokens.clear() }
