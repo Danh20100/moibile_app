@@ -13,6 +13,10 @@ declare const geographyBrand: unique symbol;
 export type Geography = { readonly [geographyBrand]: 'geography' };
 
 export interface Database {
+  messaging_conversations: { conversation_id: string; inquiry_id: string | null; tenancy_id: string | null; created_at: string };
+  messaging_participants: { conversation_id: string; user_id: string; last_read_at: string | null };
+  messaging_messages: { message_id: string; conversation_id: string; sender_user_id: string; text: string; created_at: string };
+  messaging_attachments: { attachment_id: string; message_id: string; object_key: string; byte_size: number; content_type: string };
   users: UsersTable;
   auth_identities: AuthIdentitiesTable;
   user_emails: UserEmailsTable;

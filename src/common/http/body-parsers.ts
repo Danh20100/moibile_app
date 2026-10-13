@@ -10,5 +10,6 @@ export function applyHttpBodyParsers(app: INestApplication): void {
     use: (...args: unknown[]) => void;
   };
   instance.use(`/${API_PREFIX}/audit-trust/reports`, express.json({ limit: TRUST_REPORT_JSON_LIMIT_BYTES }));
+  instance.use(`/${API_PREFIX}/messaging/conversations`, express.json({ limit: 13400000 }));
   instance.use(express.json());
 }

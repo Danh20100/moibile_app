@@ -5,6 +5,7 @@
  * Implementations must not expose a successful write until storage confirms it.
  */
 export interface ObjectStoragePort {
+  deleteObject?(key: string): Promise<void>;
   putObject(input: {
     key: string;
     bytes: Uint8Array;

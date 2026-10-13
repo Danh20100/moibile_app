@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { AuthGuard, ResourceAuthorizationModule } from './common/index';
 import { HealthController } from './health.controller';
+import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuditTrustModule } from './modules/audit-trust';
 import { BillingModule } from './modules/billing';
 import { DashboardModule } from './modules/dashboard';
@@ -21,6 +22,7 @@ import { PaymentGatewayModule } from './modules/payment-gateway';
 
 @Module({
   imports: [
+    MessagingModule,
     ResourceAuthorizationModule,
     OrganizationModule,
     PropertyModule,

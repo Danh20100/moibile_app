@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { ObjectStoragePort } from '../../persistence/ports/object-storage.port';
 import type { ObjectStorageConfig } from './object-storage.config';
 import { UnavailableObjectStorageAdapter } from './unavailable-object-storage.adapter';
@@ -27,6 +27,11 @@ function assertOpaqueKey(key: string): void {
   }
 }
 export class PrivateS3ObjectStorageAdapter implements ObjectStoragePort {
+  async deleteObject(key: string): Promise<void> {
+    assertOpaqueKey(key);
+    try { await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key })); }
+    catch { throw new PrivateObjectStorageError(); }
+  }
   private readonly client: S3Client;
   constructor(
     private readonly config: EnabledConfig,
