@@ -36,6 +36,7 @@
     "test:ledger:lifecycle-restart": "tsx --test tests/integration/persistence/application-wiring.integration.ts",
     "test:ledger:media-faults": "tsx --test tests/integration/listing-asset-media.persistence.integration.ts",
     "test:messaging:integration": "tsx --test tests/integration/messaging.integration.ts",
+    "test:discovery:postgis-search": "tsx --test tests/integration/persistence/postgis-search.integration.ts",
     "test:core-foundation": "tsx --test tests/core/organization.behavior.test.ts tests/core/property.behavior.test.ts tests/core/room.behavior.test.ts tests/conformance/database-v1/identity.contract.test.ts tests/conformance/database-v1/organization.contract.test.ts tests/conformance/database-v1/property-room.lifecycle.test.ts tests/conformance/database-v1/future-open-boundary.static.test.ts tests/core/dto-boundary.validation.test.ts",
     "test:domain-contract:junit": "node --import tsx --test --test-reporter=junit --test-reporter-destination=domain-contract.junit.xml \"tests/conformance/database-v1/*.test.ts\"",
     "test:full:junit": "nest build && node --import tsx --test --test-reporter=junit --test-reporter-destination=full-test.junit.xml \"src/**/*.spec.ts\" \"tests/**/*.test.ts\"",

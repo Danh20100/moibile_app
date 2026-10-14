@@ -128,8 +128,7 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 ## P1 continuation — public amenity projection
 
-- [x] `DIS-P1-01`: expose stable, allowlisted amenity IDs only for published Listings in public feed and spatial search; Android maps them through the existing owner `AmenityCatalog` and renders detail without reading demo fixture facts.
-- [ ] `BLOCKED` acceptance: PostgreSQL/PostGIS HTTP query tests are authored but require the unavailable local PostgreSQL. Android emulator detail UI component test passes `2/2`; service behavior tests `5/5`, backend typecheck/lint/build, and Android JVM `241/241` pass. This is `PASS_ANDROID` component evidence only; do not claim `PASS_BACKEND`/`PASS_FULLSTACK`.
+- [x] `DIS-P1-01` `PASS_BACKEND` + `PASS_ANDROID` (component): stable allowlisted amenity IDs flow through published feed/spatial search and Android uses the owner `AmenityCatalog` for Listing detail. `pnpm test:discovery:postgis-search` verifies PostGIS projection/filter/index behavior twice; Android emulator detail component evidence is `2/2`. Authenticated Owner→Tenant and `PASS_FULLSTACK` remain `BLOCKED`.
 
 ## P1 continuation — Asset photo deletion recovery
 
