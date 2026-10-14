@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
+import { sql } from 'kysely';
 
 import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
 import { PostgresTransactionManager } from '../../../src/infrastructure/database/postgres-transaction-manager';
@@ -45,6 +47,40 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     assert.deepEqual(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
       accessTokenSha256: 'a'.repeat(64), now,
     })), { sessionId, userId, authenticatedAt: now });
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: 'a'.repeat(64), now: '2026-10-15T00:15:00.000Z',
+    })), null, 'expired access tokens are rejected');
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: 'a'.repeat(64), now: '2026-11-14T00:00:00.000Z',
+    })), null, 'idle-expired sessions are rejected');
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: 'a'.repeat(64), now: '2027-01-13T00:00:00.000Z',
+    })), null, 'absolute-expired sessions are rejected');
+
+    await sql`CREATE FUNCTION test_fail_session_created_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.event_code = 'SESSION_CREATED' AND NEW.session_id = 'a6000000-0000-4000-8000-000000000004'::uuid THEN
+          RAISE EXCEPTION 'injected audit insert failure';
+        END IF;
+        RETURN NEW;
+      END
+    $$`.execute(database);
+    await sql`CREATE TRIGGER test_fail_session_created_audit BEFORE INSERT ON identity_security_events
+      FOR EACH ROW EXECUTE FUNCTION test_fail_session_created_audit()`.execute(database);
+    try {
+      await assert.rejects(transactions.run(({ repositories }) => repositories.identitySessions.createSession({
+        sessionId: 'a6000000-0000-4000-8000-000000000004', familyId: 'a6000000-0000-4000-8000-000000000004',
+        userId, accessTokenSha256: '2'.repeat(64), accessExpiresAt: '2026-10-15T00:15:00.000Z',
+        refreshTokenSha256: '3'.repeat(64), createdAt: now, idleExpiresAt: '2026-11-14T00:00:00.000Z',
+        absoluteExpiresAt: '2027-01-13T00:00:00.000Z', authenticatedAt: now,
+      })), /injected audit insert failure/);
+      assert.equal(await database.selectFrom('auth_sessions').select('session_id')
+        .where('session_id', '=', 'a6000000-0000-4000-8000-000000000004').executeTakeFirst(), undefined,
+      'session insert rolls back when its audit event cannot be written');
+    } finally {
+      await sql`DROP TRIGGER test_fail_session_created_audit ON identity_security_events`.execute(database);
+      await sql`DROP FUNCTION test_fail_session_created_audit()`.execute(database);
+    }
 
     const attempts = await Promise.all(['d', 'e'].map((suffix) => transactions.run(({ repositories }) =>
       repositories.identitySessions.rotateRefreshToken({
@@ -118,6 +154,21 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     ), UnauthorizedException, 'stale Google authentication cannot mint an Organization proof');
     await assert.rejects(identity.authenticateGoogle(loginRequest), UnauthorizedException,
       'the Google nonce cannot create a second session after replay');
+    assert.deepEqual(await identity.logout(loggedIn.accessToken), { revoked: true });
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: createHash('sha256').update(loggedIn.accessToken).digest('hex'), now: new Date().toISOString(),
+    })), null, 'logout revokes access on the next request');
+    const secondLoginChallenge = await identity.issueChallenge('LOGIN');
+    claims = { ...claims, nonce: secondLoginChallenge.nonce, authTime: Math.floor(Date.now() / 1000) };
+    const secondSession = await identity.authenticateGoogle({ idToken: 'test-only-google-proof', nonce: secondLoginChallenge.nonce });
+    assert.equal((await identity.revokeAll(registeredUserId)).revokedSessionCount, 2,
+      'revoke-all revokes remaining active sessions');
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: createHash('sha256').update(secondSession.accessToken).digest('hex'), now: new Date().toISOString(),
+    })), null, 'revoke-all removes access for every active session');
+    assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
+      accessTokenSha256: createHash('sha256').update(registered.accessToken).digest('hex'), now: new Date().toISOString(),
+    })), null, 'revoke-all also removes the registration session');
 
     const unverifiedChallenge = await identity.issueChallenge('REGISTER');
     claims = { ...claims, subject: 'google-email-unverified', email: 'unverified@example.test',
