@@ -12,7 +12,7 @@ Messages accept text (up to 4,000 characters), or up to five JPEG images, or bot
 
 Android provides conversation search, detail, drafts, gallery selection, camera thumbnails, local previews, read indicators, refresh errors and retained drafts after failed sends. Backend images are authenticated byte downloads decoded in memory; they are not written to public storage or loaded from URLs. The send credential is pinned to the account whose identity was checked. Messages refresh approximately every eight seconds while the screen is resumed, and on resume. The detail hides root navigation without changing Profile/Payment navigation.
 
-Use **Messages → Yêu cầu / Hợp đồng → ID → Mở cuộc trò chuyện** with a real accessible context UUID. Both accounts must have authenticated once so their verified identities exist. Demo mode remains local-only and cannot upload images; it never simulates cross-account delivery.
+Use **Nhắn tin** from an acknowledged Inquiry, Operator Inquiry detail, or Tenant/Operator Tenancy detail. Debug retains manual context UUID entry as a diagnostic fallback. Both participants must already have durable `auth_identities` bindings. Current Google authentication does not yet create these bindings: approved identity-resolver activation remains a production gate. The isolated HTTP test explicitly seeds bindings; authenticating once is insufficient. Demo mode remains local-only and cannot upload images; it never simulates cross-account delivery.
 
 ## Isolated local setup (PowerShell)
 

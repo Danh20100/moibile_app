@@ -79,3 +79,14 @@ Standards review: one Profile navigation issue, resolved; no remaining material 
 **integration_partial_with_explicit_gates**. Review the three local commits and ownership/test inventory. Keep unsupported production actions fail-closed. No push, PR, main merge or branch deletion was performed or recommended as an automatic next action.
 
 Detailed evidence: ownership-and-acceptance.md, regression-recovery.md and payment-source-evidence/README.md. Fresh raw logs/XML/APKs are local ignored outputs under test-results/unified-source/ and app/build/; historical source images/video are tracked with their provenance.
+
+
+## Phase 4 addendum — Messaging (2026-10-14)
+
+The original Phase 1–3 report above remains historical evidence for its recorded state. This addendum records a new execution from `8606a27db87adaeb13ecc5f69db9ab66692a1aae`, selectively incorporating the four Messaging commits through local source `c3929adc74f223c58d12d2dc0194155964f22506` with `-x` provenance.
+
+See [Phase 4 integration and fresh acceptance](phase4-messaging-integration.md) for the ownership matrix, source-to-target commit mapping, complete command/count matrix, conflict/risk log, isolated MinIO setup, production identity activation gate and contextual navigation limits. Fresh unified validation covers 464 Backend tests, 81 persistence tests, real PostgreSQL/MinIO Messaging HTTP assertions and 216 Android JVM tests, plus Debug/unsigned Release/instrumentation builds, lint and architecture/APK isolation. Historical source results are not substituted for these runs.
+
+Messaging's private full-stack implementation and contextual Inquiry/Tenancy entry are integrated. Frozen Identity Foundation, Profile/Operator design/gates and authoritative Payment behavior remain intact. Current Google login does not create the durable bindings required to open new conversations; approved resolver activation remains fail-closed. Live Google/SePay and exclusive-device instrumentation/UI acceptance are unverified.
+
+Phase 4 recommendation: **unified_partial_with_explicit_gates**. No push, PR, main merge or protected-source mutation.

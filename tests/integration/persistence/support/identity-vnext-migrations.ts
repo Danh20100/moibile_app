@@ -5,15 +5,22 @@ import { runner } from 'node-pg-migrate';
 import { resetPublicSchema } from './postgres-test-harness';
 
 export function prepareIdentityMigrationChain(): { dir: string; names: string[] } {
-  const dir = resolve('database/migrations');
-  const names = readdirSync(dir)
+  const sourceDir = resolve('database/migrations');
+  const names = readdirSync(sourceDir)
     .filter((file) => /^\d{6}_.*\.ts$/.test(file))
-    .sort();
+    .sort()
+    .slice(0, 8);
   assert.deepEqual(
     names.map((file) => file.slice(0, 6)),
     Array.from({ length: 8 }, (_, index) => String(index + 1).padStart(6, '0')),
     'Identity release tests require the actual checked-out combined 000001-000008 chain',
   );
+  // Freeze tests exercise exactly 000008; later additive migrations have their own full-chain gate.
+  const dir = resolve('test-results/phase4-messaging/identity-prefix-000008');
+  mkdirSync(join(dir, 'sql'), { recursive: true });
+  for (const file of names) copyFileSync(join(sourceDir, file), join(dir, file));
+  for (const file of readdirSync(join(sourceDir, 'sql')).filter((file) => /^00000[1-8]_.*\.(?:up|down)\.sql$/.test(file)))
+    copyFileSync(join(sourceDir, 'sql', file), join(dir, 'sql', file));
   return { dir, names: names.map((file) => basename(file, '.ts')) };
 }
 export async function initializeIdentityTestDatabase(url: string, count?: number): Promise<void> {
