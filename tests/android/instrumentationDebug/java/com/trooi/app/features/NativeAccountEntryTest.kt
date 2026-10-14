@@ -54,17 +54,13 @@ class NativeAccountEntryTest {
         }
         error("Missing native input")
     }
-    private fun noForm() {
-        assertFalse(nodes(automation.rootInActiveWindow).any { it.viewIdResourceName == "verification-contact-input" })
-        assertNull(matching("Lưu thay đổi"))
-    }
-    private fun host(mock: Boolean, userId: String, dark: Boolean = false, page: String = "personal",
+    private fun host(mock: Boolean, userId: String, dark: Boolean = false, page: String = "personal", fontScale: Float = 1.3f,
         test: () -> Unit) {
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             scenario.onActivity { activity -> activity.setContent {
                 TroOiTheme(darkTheme = dark) {
                     val density = LocalDensity.current
-                    CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
+                    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                         Box(Modifier.width(320.dp).fillMaxHeight()) {
                             AccountSettingsFlow(TroOiUiState(isAuthenticated = true, demoPreview = mock,
                                 backendUserId = userId), {}, page)
@@ -72,32 +68,44 @@ class NativeAccountEntryTest {
                     }
                 }
             } }
-            waitFor("Thông tin cá nhân").let { test() }
+            waitFor(when {
+                page == "login-email" -> "Email đăng nhập"
+                page == "security" -> "Đăng nhập và bảo mật"
+                page.startsWith("edit:") -> page.removePrefix("edit:")
+                else -> "Thông tin cá nhân"
+            }).let { test() }
         }
     }
-    @Test fun backendBlocksEditBeforeOpeningFormInBothThemes() {
-        listOf(false, true).forEach { dark -> host(false, "fixture-user-ha", dark) {
-            noForm(); click("Thay đổi Email"); waitFor("Hiện chưa khả dụng")
-            assertNull(matching("Xác thực bảo mật")); noForm(); click("Đã hiểu"); noForm()
+    @Test fun backendEmailChangeRemainsUnavailableInBothThemes() {
+        listOf(false, true).forEach { dark -> host(false, "fixture-user-ha", dark, page = "login-email") {
+            click("Thay đổi email"); waitFor("Email đăng nhập hiện chưa thể hoàn tất yêu cầu này. Vui lòng thử lại sau; thông tin của bạn chưa được thay đổi.")
+            assertNull(matching("Xác thực bảo mật")); assertNull(matching("verification-contact-input")); click("Đã hiểu")
         } }
     }
-    @Test fun wrongPasswordAndCancelKeepFormClosedThenCorrectMockOpensDraft() {
-        host(true, "fixture-user-lan") {
-            click("Thay đổi Email"); waitFor("Xác thực bảo mật"); noForm()
-            input("wrong"); click("Tiếp tục"); waitFor("Mật khẩu hiện tại không đúng."); noForm()
-            click("Hủy"); waitFor("Thông tin cá nhân"); noForm()
-            click("Thay đổi Email"); input("TroOi2026!"); click("Tiếp tục"); waitFor("Lưu thay đổi")
+    @Test fun backendAccountGateRemainsReachableAt200PercentInBothThemes() {
+        listOf(false, true).forEach { dark -> host(false, "fixture-user-ha", dark, page = "login-email", fontScale = 2f) {
+            click("Thay đổi email"); waitFor("Email đăng nhập hiện chưa thể hoàn tất yêu cầu này. Vui lòng thử lại sau; thông tin của bạn chưa được thay đổi.")
+            assertNull(matching("Xác thực bảo mật")); assertNull(matching("verification-contact-input"))
+            click("Đã hiểu"); waitFor("Email đăng nhập")
+        } }
+    }
+    @Test fun wrongPasswordAndCancelKeepProtectedEditClosedThenCorrectPasswordOpensDraft() {
+        host(true, "fixture-user-lan", page = "edit:Địa chỉ cư trú") {
+            click("Xác thực để chỉnh sửa"); waitFor("Xác thực bảo mật")
+            assertFalse(nodes(automation.rootInActiveWindow).any { it.viewIdResourceName == "verification-contact-input" })
+            input("wrong"); click("Tiếp tục"); waitFor("Mật khẩu hiện tại không đúng.")
+            click("Hủy"); waitFor("Xác thực để chỉnh sửa")
+            click("Xác thực để chỉnh sửa"); input("TroOi2026!"); click("Tiếp tục"); waitFor("Lưu thay đổi")
             assertNull(matching("Xác thực bảo mật"))
         }
     }
     @Test fun configuredPinNeverOffersPasswordFallbackAndCancelKeepsFormClosed() {
-        host(true, "fixture-user-ha", true) {
-            click("Thay đổi Email"); waitFor("Xác thực bảo mật"); noForm()
-            waitFor("Mã PIN bảo mật"); assertNull(matching("Mật khẩu hiện tại"))
-            input("000000"); click("Tiếp tục"); waitFor("Mã PIN không đúng."); noForm()
+        host(true, "fixture-user-ha", true, page = "security") {
+            click("Mã PIN bảo mật"); waitFor("Quên mã PIN")
+            assertNull(matching("Mật khẩu hiện tại"))
             click("Quên mã PIN"); waitFor("Khôi phục quyền truy cập"); assertNull(matching("Mật khẩu hiện tại"))
-            click("Đã hiểu"); noForm()
-            click("Thay đổi Email"); input("482795"); click("Tiếp tục"); waitFor("Lưu thay đổi")
+            click("Đã hiểu"); waitFor("Quên mã PIN")
+            assertNull(matching("Mật khẩu hiện tại"))
         }
     }
 }
