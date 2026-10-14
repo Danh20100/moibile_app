@@ -28,6 +28,7 @@ interface BackendApi {
     suspend fun getProperties(organizationId: String, expectedToken: String? = null): ApiOutcome<List<PropertyTransport>>
     suspend fun createProperty(id: String, organizationId: String, name: String, address: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<PropertyTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun updateProperty(id: String, name: String, address: String, expectedToken: String? = null): ApiOutcome<PropertyTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun updatePropertyLocation(id: String, name: String, address: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<PropertyTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getRooms(propertyId: String, expectedToken: String? = null): ApiOutcome<List<RoomTransport>>
     suspend fun createRoom(id: String, propertyId: String, name: String, expectedToken: String? = null): ApiOutcome<RoomTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun updateRoom(id: String, name: String, expectedToken: String? = null): ApiOutcome<RoomTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -35,6 +36,8 @@ interface BackendApi {
     suspend fun transitionRoomOperationalState(id: String, operationalState: String, expectedToken: String? = null): ApiOutcome<RoomTransport>
 
     suspend fun getCurrentListing(roomId: String, expectedToken: String? = null): ApiOutcome<ListingTransport>
+    suspend fun getListingAssetDetails(id: String, expectedToken: String? = null): ApiOutcome<ListingAssetDetailsTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun saveListingAssetDetails(id: String, details: ListingAssetDetailsTransport, expectedToken: String? = null): ApiOutcome<ListingAssetDetailsTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun createListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<ListingTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun updateListing(id: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<ListingTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun publishListing(id: String, expectedToken: String? = null): ApiOutcome<ListingTransport>
@@ -179,6 +182,13 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     override suspend fun updateProperty(id: String, name: String, address: String, expectedToken: String?) =
         client.patchJson("properties/$id", com.google.gson.JsonObject().apply { addProperty("name", name); addProperty("operationalAddressText", address) }.toString(), true, expectedToken).decode(BackendJsonCodec::property)
 
+    override suspend fun updatePropertyLocation(id: String, name: String, address: String, latitude: Double, longitude: Double, expectedToken: String?) =
+        client.patchJson("properties/$id", com.google.gson.JsonObject().apply {
+            addProperty("name", name); addProperty("operationalAddressText", address)
+            add("operationalLocation", com.google.gson.JsonObject().apply { addProperty("latitude", latitude); addProperty("longitude", longitude) })
+            add("publicLocationProjection", com.google.gson.JsonObject().apply { addProperty("latitude", kotlin.math.round(latitude * 100) / 100); addProperty("longitude", kotlin.math.round(longitude * 100) / 100) })
+        }.toString(), true, expectedToken).decode(BackendJsonCodec::property)
+
     override suspend fun getRooms(propertyId: String, expectedToken: String?) =
         client.get("rooms", true, mapOf("propertyId" to propertyId), expectedToken).decode(BackendJsonCodec::rooms)
 
@@ -199,6 +209,12 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun getCurrentListing(roomId: String, expectedToken: String?) =
         client.get("listings", true, mapOf("roomId" to roomId), expectedToken).decode(BackendJsonCodec::listing)
+
+    override suspend fun getListingAssetDetails(id: String, expectedToken: String?) =
+        client.get("listings/$id/asset-details", true, expectedToken = expectedToken).decode(BackendJsonCodec::listingAssetDetails)
+
+    override suspend fun saveListingAssetDetails(id: String, details: ListingAssetDetailsTransport, expectedToken: String?) =
+        client.putJson("listings/$id/asset-details", BackendJsonCodec.encodeListingAssetDetails(details), true, expectedToken).decode(BackendJsonCodec::listingAssetDetails)
 
     override suspend fun createListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String?) =
         client.postJson("listings", BackendJsonCodec.encodeListing(id, roomId, title, description, price, latitude, longitude), true, expectedToken = expectedToken).decode(BackendJsonCodec::listing)

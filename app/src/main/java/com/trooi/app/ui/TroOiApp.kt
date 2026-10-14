@@ -233,6 +233,7 @@ fun TroOiApp(
                         onSaveAsset = viewModel::saveLocalAsset,
                         onPurchaseCapacity = viewModel::purchaseLocalCapacity,
                         onArchiveAsset = viewModel::archiveLocalAsset,
+                        onMessageContext = viewModel::openMessageContext,
                         onRetryRead = viewModel::retryAuthorizedRead,
                     )
                     AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,

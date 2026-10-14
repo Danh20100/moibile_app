@@ -28,6 +28,7 @@ fun LedgerScreen(
     onSaveAsset: suspend (LocalRentalAsset, Boolean, Boolean) -> Result<Unit> = { _, _, _ -> Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
     onPurchaseCapacity: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
     onArchiveAsset: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
+    onMessageContext: (String, String) -> Unit = { _, _ -> },
     onRetryRead: () -> Unit = {},
 ) {
     if ((state.runtimeLoading || state.authorizedReadFailed) && state.read.tenancies.isEmpty() && state.read.localManagement == null &&
@@ -56,6 +57,15 @@ fun LedgerScreen(
         if (state.authorizedReadFailed) item {
             Text("Chưa cập nhật được Sổ. Thông tin bên dưới là lần tải gần nhất.", style = MaterialTheme.typography.bodyMedium)
             TroOiButton("Thử lại", onRetryRead, enabled = !state.runtimeLoading, style = TroOiButtonStyle.SECONDARY)
+        }
+        if (state.read.recoverableReadErrors.isNotEmpty()) item {
+            Text(
+                "Một số dữ liệu tài chính chưa tải được. Các khoản tiền có thể chưa đầy đủ; hãy thử tải lại.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag("ledger-finance-partial-error"),
+            )
+            TroOiButton("Tải lại dữ liệu", onRetryRead, enabled = !state.runtimeLoading, style = TroOiButtonStyle.SECONDARY)
         }
         if (!owner && selected == null) item {
             TroOiStateMessage(TroOiStateKind.EMPTY,
@@ -124,6 +134,8 @@ fun LedgerScreen(
                 val notices = state.read.noticesByTenancy[selected.tenancyId].orEmpty().filter { it.tenancyId == selected.tenancyId }
                 if (notices.isEmpty()) Text("Chưa có lịch sử thuê được tải.")
                 notices.forEach { TroOiInformationRow(it.content, it.issuedAtLabel) }
+                TroOiButton("Nhắn chủ trọ", { onMessageContext("tenancy", selected.tenancyId) },
+                    modifier = Modifier.testTag("ledger-tenant-message"), style = TroOiButtonStyle.SECONDARY)
             }
         }
         if (owner) {
@@ -211,7 +223,7 @@ fun LedgerScreen(
     if (owner && wizardOpen && catalog != null) AssetWizard(editAsset, catalog, state.displayName, { wizardOpen = false }, onSaveAsset, onPurchaseCapacity)
     if (owner && detailId != null && catalog != null) {
         catalog.assets.firstOrNull { it.id == detailId }?.let { asset ->
-            OwnerAssetDetail(state, asset, { detailId = null }, { editAsset = asset; detailId = null; wizardOpen = true }, onArchiveAsset)
+            OwnerAssetDetail(state, asset, { detailId = null }, { editAsset = asset; detailId = null; wizardOpen = true }, onArchiveAsset, onMessageContext)
         }
     }
 }

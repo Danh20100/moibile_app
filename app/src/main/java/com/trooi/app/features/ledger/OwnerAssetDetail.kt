@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OwnerAssetDetail(state: TroOiUiState, asset: LocalRentalAsset, onClose: () -> Unit, onEdit: () -> Unit, onArchive: suspend (String) -> Result<Unit>) {
+fun OwnerAssetDetail(state: TroOiUiState, asset: LocalRentalAsset, onClose: () -> Unit, onEdit: () -> Unit, onArchive: suspend (String) -> Result<Unit>, onMessageContext: (String, String) -> Unit = { _, _ -> }) {
     val tenancies = state.read.tenancies.filter { it.roomId == asset.id }
     val tenancy = tenancies.firstOrNull { it.lifecycle.isCurrentRental() }
     val finance = state.read.operatorFinanceByRoom[asset.id]
@@ -37,6 +37,8 @@ fun OwnerAssetDetail(state: TroOiUiState, asset: LocalRentalAsset, onClose: () -
             topBar = { TroOiPageTopAppBar(title = { Text(asset.name) }, navigationIcon = { IconButton(onClose, Modifier.testTag("owner-detail-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } }) },
             bottomBar = { Surface(shadowElevation = 3.dp) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (tenancy != null) TroOiButton("Nhắn người thuê", { onMessageContext("tenancy", tenancy.tenancyId) },
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("owner-message-tenant"), style = TroOiButtonStyle.SECONDARY)
                     TroOiButton(if (asset.status == ManagedAssetStatus.DRAFT) "Hoàn tất tài sản" else "Chỉnh sửa tài sản", onEdit,
                         Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("owner-asset-edit"))
                     if (asset.status != ManagedAssetStatus.ARCHIVED) TroOiButton("Ngừng quản lý", { confirmArchive = true },

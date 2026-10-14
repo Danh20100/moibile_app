@@ -25,6 +25,15 @@ data class ListingTransport(
     val publicLocation: PublicLocationTransport,
 )
 
+data class ListingAssetDetailsTransport(
+    val listingId: String, val managementStatus: String, val assetType: String?,
+    val publicAreaLabel: String?, val areaSquareMeters: String?, val advertisedDeposit: String?,
+    val bedrooms: Int?, val bathrooms: Int?, val furnishing: String?, val amenityIds: List<String>,
+    val rules: List<String>, val electricityOffer: String?, val waterOffer: String?, val serviceOffer: String?,
+    val minimumTermMonths: Int?, val availableFrom: String?, val bathroomArrangement: String?,
+    val maxOccupants: Int?, val floorLabel: String?,
+)
+
 data class PublicListingSearchResultTransport(
     val listingId: String,
     val roomId: String,

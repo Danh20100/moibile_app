@@ -17,7 +17,7 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
-    @Test fun backendAssetSaveFailsBeforeWritingWhenWizardFieldsHaveNoDurableContract() = runBlocking {
+    @Test fun backendAssetSaveFailsBeforeWritingWhenLocalPhotosCannotBePersisted() = runBlocking {
         MockWebServer().use { server ->
             server.start(InetAddress.getLoopbackAddress(), 0)
             val tokens = InMemoryAuthTokenProvider().apply { setToken("account-a-token") }
@@ -26,12 +26,12 @@ class BackendRuntimeContractTest {
                 id = "room-a", propertyId = "property-a", type = "Phòng trọ", name = "Room A",
                 operationalAddress = "Private address", publicArea = "District 1", area = "24",
                 monthlyRent = "3500000", advertisedDeposit = "3500000", operationalLatitude = "10.77",
-                operationalLongitude = "106.69", description = "Room description",
+                operationalLongitude = "106.69", description = "Room description", photoUris = listOf("content://private/photo"),
             )
 
             val result = repository.saveLocalAsset(asset, activate = false, publish = false)
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("chưa được lưu đầy đủ"))
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("Ảnh Ledger chưa thể lưu an toàn"))
             assertEquals(0, server.requestCount)
         }
     }
@@ -103,6 +103,29 @@ class BackendRuntimeContractTest {
         assertEquals(10.7777, body.getAsJsonObject("operationalLocation").get("latitude").asDouble, 0.00001)
         assertEquals(10.78, body.getAsJsonObject("publicLocationProjection").get("latitude").asDouble, 0.00001)
         assertEquals(106.69, body.getAsJsonObject("publicLocationProjection").get("longitude").asDouble, 0.00001)
+    }
+
+    @Test fun assetDetailsUseAuthenticatedPutAndPreserveTypedWizardFields() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"success":true,"data":{"listingId":"listing-1","managementStatus":"DRAFT","assetType":"Phòng trọ","publicAreaLabel":"Quận 3","areaSquareMeters":"24.50","advertisedDeposit":"3000000.00","bedrooms":1,"bathrooms":1,"furnishing":"Đầy đủ","amenityIds":["wifi"],"rules":["Không hút thuốc"],"electricityOffer":"4000/kWh","waterOffer":null,"serviceOffer":null,"minimumTermMonths":6,"availableFrom":"2026-11-01","bathroomArrangement":"PRIVATE","maxOccupants":2,"floorLabel":"2"}}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("owner-token") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            val result = api.saveListingAssetDetails("listing-1", ListingAssetDetailsTransport(
+                listingId = "listing-1", managementStatus = "DRAFT", assetType = "Phòng trọ",
+                publicAreaLabel = "Quận 3", areaSquareMeters = "24.50", advertisedDeposit = "3000000.00",
+                bedrooms = 1, bathrooms = 1, furnishing = "Đầy đủ", amenityIds = listOf("wifi"),
+                rules = listOf("Không hút thuốc"), electricityOffer = "4000/kWh", waterOffer = null,
+                serviceOffer = null, minimumTermMonths = 6, availableFrom = "2026-11-01",
+                bathroomArrangement = "PRIVATE", maxOccupants = 2, floorLabel = "2",
+            ))
+            assertEquals("24.50", result.requireData().areaSquareMeters)
+            val request = server.takeRequest()
+            assertEquals("PUT", request.method)
+            assertEquals("/api/v1/listings/listing-1/asset-details", request.path)
+            assertEquals("Bearer owner-token", request.getHeader("Authorization"))
+            assertTrue(request.body.readUtf8().contains("\"amenityIds\":[\"wifi\"]"))
+        }
     }
 
     @Test fun failedSessionContextClearsGoogleCredential() = runBlocking {
@@ -240,10 +263,23 @@ class BackendRuntimeContractTest {
         assertTrue(read.operationalRooms.none { it.roomId == "room-foreign" })
     }
 
+    @Test fun financeFailuresRetainRoomAndTenancyReadbackWithVisibleRetryState() = runBlocking {
+        val api = FakeRuntimeApi(financeFails = true)
+        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider())
+        val read = repository.refreshAuthorizedRead(AccessCapabilities(
+            linkedTenancyIds = setOf("tenancy-1"), operatedOrganizationIds = setOf("org-1"),
+        )).getOrThrow()
+        assertEquals(setOf("room-1"), read.operationalRooms.map { it.roomId }.toSet())
+        assertEquals(setOf("tenancy-1"), read.tenancies.map { it.tenancyId }.toSet())
+        assertTrue(read.recoverableReadErrors.isNotEmpty())
+        assertTrue(read.tenantFinanceByTenancy.containsKey("tenancy-1"))
+    }
+
     private class FakeRuntimeApi(
         private val currentListing: ListingTransport? = null,
         private val incidentRows: List<IncidentTransport> = emptyList(),
         private val incidentEventRows: Map<String, List<IncidentEventTransport>> = emptyMap(),
+        private val financeFails: Boolean = false,
     ) : BackendApi {
         private fun <T> unsupported(): ApiOutcome<T> = throw UnsupportedOperationException()
 
@@ -269,6 +305,8 @@ class BackendRuntimeContractTest {
         override suspend fun getCurrentListing(roomId: String, expectedToken: String?): ApiOutcome<ListingTransport> =
             currentListing?.takeIf { it.roomId == roomId }?.let { ApiOutcome.Data(it) }
                 ?: ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
+        override suspend fun getListingAssetDetails(id: String, expectedToken: String?) =
+            ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
         override suspend fun publishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
         override suspend fun unpublishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
         override suspend fun archiveListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
@@ -289,7 +327,7 @@ class BackendRuntimeContractTest {
         ) = unsupported<TenancyNoticeTransport>()
         override suspend fun acknowledgeNotice(tenancyId: String, noticeId: String, occurredAt: String) =
             unsupported<TenancyNoticeTransport>()
-        override suspend fun getPayments(tenancyId: String) = ApiOutcome.Data(
+        override suspend fun getPayments(tenancyId: String) = if (financeFails) ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 503) else ApiOutcome.Data(
             listOf(
                 PaymentTransport(
                     "payment-1",
@@ -302,7 +340,7 @@ class BackendRuntimeContractTest {
             ),
         )
         override suspend fun createDeposit(tenancyId: String) = unsupported<DepositProjectionTransport>()
-        override suspend fun getDeposit(tenancyId: String) = ApiOutcome.Data(
+        override suspend fun getDeposit(tenancyId: String) = if (financeFails) ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 503) else ApiOutcome.Data(
             DepositProjectionTransport(
                 id = "deposit-1",
                 tenancyId = tenancyId,
@@ -372,11 +410,11 @@ class BackendRuntimeContractTest {
                 ),
             ),
         )
-        override suspend fun getBillingCycles(tenancyId: String) = ApiOutcome.Data(emptyList<BillingCycleTransport>())
+        override suspend fun getBillingCycles(tenancyId: String) = if (financeFails) ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 503) else ApiOutcome.Data(emptyList<BillingCycleTransport>())
         override suspend fun getPayment(id: String) = ApiOutcome.Data(
             PaymentTransport(id, "tenancy-1", "3500000.00", "MANUAL_TRANSFER", "USER_RECORDED", "2026-09-30T00:00:00.000Z"),
         )
-        override suspend fun getReceipts() = ApiOutcome.Data(
+        override suspend fun getReceipts() = if (financeFails) ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 503) else ApiOutcome.Data(
             listOf(ReceiptTransport("receipt-1", "payment-1", "ISSUED", "2026-09-30T01:00:00.000Z", null, null)),
         )
         override suspend fun getIncidents(roomId: String) = ApiOutcome.Data(

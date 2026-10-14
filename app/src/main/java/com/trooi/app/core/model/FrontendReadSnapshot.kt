@@ -68,6 +68,7 @@ data class FrontendReadSnapshot(
     val incidents: List<IncidentCard> = emptyList(),
     val dashboardByOrganization: Map<String, DashboardReadModel> = emptyMap(),
     val notifications: List<NotificationCard> = emptyList(),
+    val recoverableReadErrors: List<String> = emptyList(),
 )
 
 /** Enforce relationship boundaries in client projections as defense-in-depth. */

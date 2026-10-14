@@ -69,6 +69,15 @@ class BackendClient(
         builder.patch(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 
+    suspend fun putJson(
+        path: String,
+        json: String,
+        authenticated: Boolean = true,
+        expectedToken: String? = null,
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
+        builder.put(json.toRequestBody(JSON_MEDIA_TYPE))
+    }
+
     suspend fun postEmpty(path: String, authenticated: Boolean = true, expectedToken: String? = null): TransportOutcome =
         execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
             builder.post(ByteArray(0).toRequestBody(null))

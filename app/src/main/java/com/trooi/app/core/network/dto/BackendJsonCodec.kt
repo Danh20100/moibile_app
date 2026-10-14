@@ -55,6 +55,19 @@ object BackendJsonCodec {
         add("publicLocationProjection", geoPoint(kotlin.math.round(latitude * 100) / 100, kotlin.math.round(longitude * 100) / 100))
     }.toString()
 
+    fun encodeListingAssetDetails(value: ListingAssetDetailsTransport): String = JsonObject().apply {
+        addProperty("managementStatus", value.managementStatus)
+        addProperty("assetType", value.assetType); addProperty("publicAreaLabel", value.publicAreaLabel)
+        addProperty("areaSquareMeters", value.areaSquareMeters); addProperty("advertisedDeposit", value.advertisedDeposit)
+        addNullableInt("bedrooms", value.bedrooms); addNullableInt("bathrooms", value.bathrooms)
+        addProperty("furnishing", value.furnishing); add("amenityIds", JsonArray().apply { value.amenityIds.forEach(::add) })
+        add("rules", JsonArray().apply { value.rules.forEach(::add) })
+        addProperty("electricityOffer", value.electricityOffer); addProperty("waterOffer", value.waterOffer)
+        addProperty("serviceOffer", value.serviceOffer); addNullableInt("minimumTermMonths", value.minimumTermMonths)
+        addProperty("availableFrom", value.availableFrom); addProperty("bathroomArrangement", value.bathroomArrangement)
+        addNullableInt("maxOccupants", value.maxOccupants); addProperty("floorLabel", value.floorLabel)
+    }.toString()
+
     fun encodeTenancyActivation(occurredAt: String): String = JsonObject().apply {
         addProperty("occurredAt", occurredAt)
     }.toString()
@@ -107,6 +120,7 @@ object BackendJsonCodec {
         }
 
     fun listing(json: String): ListingTransport = listing(JsonParser.parseString(json).asJsonObject)
+    fun listingAssetDetails(json: String): ListingAssetDetailsTransport = listingAssetDetails(JsonParser.parseString(json).asJsonObject)
 
     fun publicSearchResults(json: String): List<PublicListingSearchResultTransport> =
         array(json, ::publicSearchResult)
@@ -207,6 +221,19 @@ object BackendJsonCodec {
             publicLocation = location.publicLocation(),
         )
     }
+
+    private fun listingAssetDetails(obj: JsonObject) = ListingAssetDetailsTransport(
+        listingId = obj.requiredString("listingId"), managementStatus = obj.requiredString("managementStatus"),
+        assetType = obj.optionalString("assetType"), publicAreaLabel = obj.optionalString("publicAreaLabel"),
+        areaSquareMeters = obj.optionalString("areaSquareMeters"), advertisedDeposit = obj.optionalString("advertisedDeposit"),
+        bedrooms = obj.optionalInt("bedrooms"), bathrooms = obj.optionalInt("bathrooms"),
+        furnishing = obj.optionalString("furnishing"), amenityIds = obj.optionalStringList("amenityIds"),
+        rules = obj.optionalStringList("rules"), electricityOffer = obj.optionalString("electricityOffer"),
+        waterOffer = obj.optionalString("waterOffer"), serviceOffer = obj.optionalString("serviceOffer"),
+        minimumTermMonths = obj.optionalInt("minimumTermMonths"), availableFrom = obj.optionalString("availableFrom"),
+        bathroomArrangement = obj.optionalString("bathroomArrangement"), maxOccupants = obj.optionalInt("maxOccupants"),
+        floorLabel = obj.optionalString("floorLabel"),
+    )
 
     private fun publicSearchResult(obj: JsonObject): PublicListingSearchResultTransport {
         val location = obj.requiredObject("publicLocation")
@@ -462,11 +489,18 @@ object BackendJsonCodec {
     private fun JsonObject.requiredString(name: String): String = required(name).asString
     private fun JsonObject.requiredDouble(name: String): Double = required(name).asDouble
     private fun JsonObject.requiredInt(name: String): Int = required(name).asInt
+    private fun JsonObject.optionalInt(name: String): Int? = optionalJson(name)?.asInt
     private fun JsonObject.requiredBoolean(name: String): Boolean = required(name).asBoolean
     private fun JsonObject.requiredObject(name: String): JsonObject = required(name).asJsonObject
     private fun JsonObject.requiredArray(name: String): JsonArray = required(name).asJsonArray
     private fun JsonObject.requiredStringList(name: String): List<String> =
         requiredArray(name).map { it.asString }
+    private fun JsonObject.optionalStringList(name: String): List<String> =
+        optionalJson(name)?.asJsonArray?.map { it.asString } ?: emptyList()
+
+    private fun JsonObject.addNullableInt(name: String, value: Int?) {
+        if (value == null) add(name, com.google.gson.JsonNull.INSTANCE) else addProperty(name, value)
+    }
 
     private fun JsonObject.requiredEnumString(name: String, allowed: Set<String>): String {
         val value = requiredString(name)

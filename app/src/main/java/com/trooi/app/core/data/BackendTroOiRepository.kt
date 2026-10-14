@@ -6,7 +6,7 @@ import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.*
 import javax.inject.Inject
 
-/** Backend-backed repository. All authority remains server-side; mapping is read-only. */
+/** Backend-backed repository. All authorization and canonical writes remain server-side. */
 class BackendTroOiRepository @Inject constructor(
     private val api: BackendApi,
     private val tokens: AuthTokenProvider,
@@ -172,8 +172,77 @@ class BackendTroOiRepository @Inject constructor(
         Result.failure(error)
     }
 
-    override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> =
-        Result.failure(IllegalStateException("Lưu bản nháp Ledger hiện chưa khả dụng: các trường AssetWizard chưa được lưu đầy đủ vào Backend. Dữ liệu đang nhập vẫn được giữ lại."))
+    override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> = runCatching {
+        require(asset.photoUris.isEmpty() && asset.photoResources.isEmpty()) {
+            "Ảnh Ledger chưa thể lưu an toàn vào Backend. Bản nháp và nội dung đã nhập vẫn được giữ lại."
+        }
+        require(!publish) { "Đăng tin chưa khả dụng cho đến khi ảnh được tải lên và đọc lại từ kho riêng. Nội dung đã nhập vẫn được giữ lại." }
+        require(asset.id.isNotBlank() && asset.propertyId.isNotBlank()) { "Thiếu ID ổn định của tài sản." }
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        val session = api.getSessionContext(credential).required("session context")
+        val ownedProperties = session.operatedOrganizationIds.flatMap { orgId ->
+            api.getProperties(orgId, credential).required("properties")
+        }
+        val existingProperty = ownedProperties.singleOrNull { it.id == asset.propertyId }
+        val latitude = asset.operationalLatitude.toDoubleOrNull() ?: existingProperty?.operationalLocation?.latitude
+            ?: error("Cần tọa độ vận hành hợp lệ để lưu Property.")
+        val longitude = asset.operationalLongitude.toDoubleOrNull() ?: existingProperty?.operationalLocation?.longitude
+            ?: error("Cần tọa độ vận hành hợp lệ để lưu Property.")
+        val property = if (existingProperty != null) {
+            api.updatePropertyLocation(asset.propertyId, asset.name, asset.operationalAddress, latitude, longitude, credential)
+                .required("update Property")
+        } else {
+            val organizationId = session.operatedOrganizationIds.singleOrNull()
+                ?: error("Không thể chọn Organization an toàn. Cần đúng một Organization đang được phép quản lý.")
+            api.createProperty(asset.propertyId, organizationId, asset.name, asset.operationalAddress, latitude, longitude, credential)
+                .required("create Property")
+        }
+        val existingRoom = api.getRooms(property.id, credential).required("rooms")
+            .singleOrNull { it.id == asset.id }
+        if (existingRoom != null) {
+            require(existingRoom.propertyId == property.id) { "Room ID thuộc Property khác." }
+            api.updateRoom(asset.id, asset.name, credential).required("update Room")
+        } else {
+            api.createRoom(asset.id, property.id, asset.name, credential).required("create Room")
+        }
+
+        val currentListing = api.getCurrentListing(asset.id, credential).optionalNotFound("current listing")
+        val listingId = currentListing?.id ?: asset.publicListingId ?: java.util.UUID.nameUUIDFromBytes(
+            "trooi-listing:${asset.propertyId}:${asset.id}".toByteArray(Charsets.UTF_8),
+        ).toString()
+        if (currentListing?.status == "published") api.unpublishListing(listingId, credential).required("unpublish Listing before edit")
+        val listingLatitude = property.publicLocationProjection?.latitude ?: kotlin.math.round(latitude * 100) / 100
+        val listingLongitude = property.publicLocationProjection?.longitude ?: kotlin.math.round(longitude * 100) / 100
+        if (currentListing == null) {
+            api.createListing(listingId, asset.id, asset.name, asset.description, asset.monthlyRent, listingLatitude, listingLongitude, credential)
+                .required("create Listing")
+        } else {
+            api.updateListing(listingId, asset.name, asset.description, asset.monthlyRent, listingLatitude, listingLongitude, credential)
+                .required("update Listing")
+        }
+        val details = ListingAssetDetailsTransport(
+            listingId = listingId,
+            managementStatus = if (activate) "ACTIVE" else "DRAFT",
+            assetType = asset.type.ifBlank { null }, publicAreaLabel = asset.publicArea.ifBlank { null },
+            areaSquareMeters = asset.area.ifBlank { null }, advertisedDeposit = asset.advertisedDeposit.ifBlank { null },
+            bedrooms = asset.bedrooms.toOptionalInt("số phòng ngủ"), bathrooms = asset.bathrooms.toOptionalInt("số phòng tắm"),
+            furnishing = asset.furnishing.ifBlank { null }, amenityIds = asset.amenities, rules = asset.rules,
+            electricityOffer = asset.electricityOffer.ifBlank { null }, waterOffer = asset.waterOffer.ifBlank { null },
+            serviceOffer = asset.serviceOffer.ifBlank { null }, minimumTermMonths = asset.minimumTermMonths.toOptionalInt("thời hạn thuê tối thiểu"),
+            availableFrom = asset.availableFrom.ifBlank { null }, bathroomArrangement = asset.bathroomArrangement?.name,
+            maxOccupants = asset.maxOccupants, floorLabel = asset.floorLabel?.ifBlank { null },
+        )
+        val saved = api.saveListingAssetDetails(listingId, details, credential).required("save Asset details")
+        check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi; dữ liệu đã lưu dưới tài khoản ban đầu, hãy tải lại trước khi tiếp tục." }
+        refreshAuthorizedRead(AccessCapabilities(
+            linkedTenancyIds = session.linkedTenancyIds.toSet(), operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+        )).getOrThrow().also { snapshot ->
+            check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi; không thể áp dụng kết quả cũ cho tài khoản mới." }
+            check(snapshot.localManagement?.assets.orEmpty().any { it.id == asset.id && it.publicListingId == saved.listingId }) {
+                "Backend chưa trả lại tài sản đã lưu. Hãy tải lại Ledger trước khi tiếp tục."
+            }
+        }
+    }
 
     override suspend fun archiveLocalAsset(assetId: String): Result<FrontendReadSnapshot> = runCatching {
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
@@ -219,6 +288,7 @@ class BackendTroOiRepository @Inject constructor(
         val operatorDeposits = mutableMapOf<String, MutableList<DepositCard>>()
         val operatorTenancyToOrganization = mutableMapOf<String, String>()
         val operatorReceipts = mutableMapOf<String, MutableList<ReceiptCard>>()
+        val financeReadErrors = mutableListOf<String>()
 
         for (organization in organizationRows) {
             dashboardByOrganization[organization.id] = mapDashboard(
@@ -238,23 +308,39 @@ class BackendTroOiRepository @Inject constructor(
                     val currentListing = api.getCurrentListing(room.id).optionalNotFound("current listing")
                         ?.takeIf { it.roomId == room.id }
                     currentListing?.let { operatorListings += mapOperatorListing(it) }
+                    val assetDetails = currentListing?.let { api.getListingAssetDetails(it.id).optionalNotFound("Asset details") }
                     val point = property.operationalLocation
                     managedAssets += LocalRentalAsset(
                         id = room.id,
                         propertyId = property.id,
-                        type = "",
+                        type = assetDetails?.assetType.orEmpty(),
                         name = room.nameOrLabel,
                         operationalAddress = property.operationalAddressText.orEmpty(),
-                        publicArea = "",
-                        area = "",
+                        publicArea = assetDetails?.publicAreaLabel.orEmpty(),
+                        area = assetDetails?.areaSquareMeters.orEmpty(),
                         monthlyRent = currentListing?.publicPriceProjection.orEmpty(),
-                        advertisedDeposit = "",
+                        advertisedDeposit = assetDetails?.advertisedDeposit.orEmpty(),
                         description = currentListing?.publicDescription.orEmpty(),
-                        status = if (room.recordLifecycle == "archived" || property.lifecycleStatus == "archived") ManagedAssetStatus.ARCHIVED else ManagedAssetStatus.ACTIVE,
+                        bedrooms = assetDetails?.bedrooms?.toString().orEmpty(),
+                        bathrooms = assetDetails?.bathrooms?.toString().orEmpty(),
+                        furnishing = assetDetails?.furnishing.orEmpty(),
+                        amenities = assetDetails?.amenityIds.orEmpty(),
+                        rules = assetDetails?.rules.orEmpty(),
+                        status = if (room.recordLifecycle == "archived" || property.lifecycleStatus == "archived") ManagedAssetStatus.ARCHIVED
+                            else if (assetDetails?.managementStatus == "ACTIVE" || currentListing?.status == "published") ManagedAssetStatus.ACTIVE
+                            else ManagedAssetStatus.DRAFT,
                         listingStatus = currentListing?.status?.let(::listingVisibility) ?: ListingVisibility.DRAFT,
                         occupied = room.operationalState == "occupied",
+                        electricityOffer = assetDetails?.electricityOffer.orEmpty(),
+                        waterOffer = assetDetails?.waterOffer.orEmpty(),
+                        serviceOffer = assetDetails?.serviceOffer.orEmpty(),
+                        minimumTermMonths = assetDetails?.minimumTermMonths?.toString().orEmpty(),
+                        availableFrom = assetDetails?.availableFrom.orEmpty(),
                         operationalLatitude = point?.latitude?.toString().orEmpty(),
                         operationalLongitude = point?.longitude?.toString().orEmpty(),
+                        bathroomArrangement = assetDetails?.bathroomArrangement?.let { runCatching { BathroomArrangement.valueOf(it) }.getOrNull() },
+                        maxOccupants = assetDetails?.maxOccupants,
+                        floorLabel = assetDetails?.floorLabel,
                         publicListingId = currentListing?.id,
                     )
 
@@ -270,19 +356,19 @@ class BackendTroOiRepository @Inject constructor(
                         if (tenancy.roomId != room.id) continue
                         tenancies[tenancy.id] = tenancy
                         operatorTenancyToOrganization[tenancy.id] = organization.id
-                        api.getBillingCycles(tenancy.id).required("billing cycles")
-                            .filter { it.tenancyId == tenancy.id }
-                            .flatMap { it.charges }
-                            .mapTo(chargeBucket, ::mapCharge)
-
-                        val payments = api.getPayments(tenancy.id).required("operator payments")
-                            .filter { it.tenancyId == tenancy.id }
-                        payments.forEach { paymentsById[it.id] = it }
-                        payments.mapTo(paymentBucket, ::mapPayment)
-
-                        api.getDeposit(tenancy.id).optionalNotFound("operator deposit")
-                            ?.takeIf { it.tenancyId == tenancy.id }
-                            ?.let { depositBucket += mapDeposit(it) }
+                        try {
+                            api.getBillingCycles(tenancy.id).required("billing cycles")
+                                .filter { it.tenancyId == tenancy.id }.flatMap { it.charges }.mapTo(chargeBucket, ::mapCharge)
+                        } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được khoản thu của ${room.nameOrLabel}." }
+                        try {
+                            val payments = api.getPayments(tenancy.id).required("operator payments").filter { it.tenancyId == tenancy.id }
+                            payments.forEach { paymentsById[it.id] = it }
+                            payments.mapTo(paymentBucket, ::mapPayment)
+                        } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được thanh toán của ${room.nameOrLabel}." }
+                        try {
+                            api.getDeposit(tenancy.id).optionalNotFound("operator deposit")
+                                ?.takeIf { it.tenancyId == tenancy.id }?.let { depositBucket += mapDeposit(it) }
+                        } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được tiền cọc của ${room.nameOrLabel}." }
                     }
                 }
             }
@@ -308,18 +394,17 @@ class BackendTroOiRepository @Inject constructor(
             noticesByTenancy[tenancyId] = api.getNotices(tenancyId).required("tenancy notices")
                 .filter { it.tenancyId == tenancyId }
                 .map(::mapNotice)
-            val charges = api.getBillingCycles(tenancyId).required("tenant billing cycles")
-                .filter { it.tenancyId == tenancyId }
-                .flatMap { it.charges }
-                .map(::mapCharge)
-                .distinctBy { it.chargeId }
-            val payments = api.getPayments(tenancyId).required("tenant payments")
-                .filter { it.tenancyId == tenancyId }
+            val charges = try {
+                api.getBillingCycles(tenancyId).required("tenant billing cycles").filter { it.tenancyId == tenancyId }
+                    .flatMap { it.charges }.map(::mapCharge).distinctBy { it.chargeId }
+            } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được các khoản cần thanh toán."; emptyList() }
+            val payments = try { api.getPayments(tenancyId).required("tenant payments").filter { it.tenancyId == tenancyId } }
+                catch (_: RuntimeException) { financeReadErrors += "Chưa tải được thanh toán."; emptyList() }
             payments.forEach { paymentsById[it.id] = it }
             val paymentCards = payments.map(::mapPayment).distinctBy { it.paymentId }
-            val deposit = api.getDeposit(tenancyId).optionalNotFound("tenant deposit")
-                ?.takeIf { it.tenancyId == tenancyId }
-                ?.let(::mapDeposit)
+            val deposit = try {
+                api.getDeposit(tenancyId).optionalNotFound("tenant deposit")?.takeIf { it.tenancyId == tenancyId }?.let(::mapDeposit)
+            } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được tiền cọc."; null }
             tenantFinance[tenancyId] = TenantFinanceProjection(
                 tenancyId = tenancyId,
                 charges = charges,
@@ -328,7 +413,9 @@ class BackendTroOiRepository @Inject constructor(
             )
         }
 
-        for (receipt in api.getReceipts().required("receipts")) {
+        val receipts = try { api.getReceipts().required("receipts") }
+            catch (_: RuntimeException) { financeReadErrors += "Chưa tải được biên nhận."; emptyList() }
+        for (receipt in receipts) {
             val payment = paymentsById[receipt.paymentId] ?: continue
             val receiptCard = ReceiptCard(
                 receiptId = receipt.id,
@@ -383,6 +470,7 @@ class BackendTroOiRepository @Inject constructor(
             },
             dashboardByOrganization = dashboardByOrganization,
             notifications = notifications,
+            recoverableReadErrors = financeReadErrors.distinct(),
         )
     }
 
@@ -519,6 +607,11 @@ class BackendTroOiRepository @Inject constructor(
     private fun recordLifecycle(value: String) = enumValue<RecordLifecycle>(value)
     private fun tenancyLifecycle(value: String) = enumValue<TenancyLifecycle>(value)
     private fun incidentLifecycle(value: String) = enumValue<IncidentLifecycle>(value)
+
+    private fun String.toOptionalInt(field: String): Int? {
+        if (isBlank()) return null
+        return toIntOrNull() ?: error("Giá trị $field không hợp lệ; dữ liệu đã nhập được giữ lại.")
+    }
 
     private inline fun <reified T : Enum<T>> enumValue(value: String): T = try {
         enumValueOf<T>(value.uppercase())
