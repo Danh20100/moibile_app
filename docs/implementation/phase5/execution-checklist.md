@@ -82,6 +82,23 @@ P5.2B verification (2026-10-14): `pnpm typecheck`, `pnpm lint`, `pnpm build`, fu
 - [ ] Reconcile unresolved risks in review; selective integration into unified only after passing gates.
 - [ ] PR and user-approved merge to `main`; deployment readiness requires separately verified live providers.
 
+## P5.2 Rental Operations continuation — `feature/ledger-rental-ops`
+
+The P5.2B evidence above is the original handoff snapshot. The continuation below supersedes its earlier Asset media limitation; the full Android acceptance gate remains open.
+
+- [x] Continue from clean source HEAD `d5bc63e` in the requested isolated `feature/ledger-rental-ops` worktree; do not modify the prior candidate or Discovery worktree.
+- [x] Add additive `000011_listing_asset_media`; keep `000001`–`000010` and frozen `000008` unchanged. Rollback refuses destructive data loss.
+- [x] Add owner-authorized private Listing media upload/list/content/reorder/remove using shared S3-compatible storage, strict JPEG/PNG and size/dimension validation, idempotent media IDs, durable position/metadata and owner denial.
+- [x] Connect AssetWizard picker, cover/reorder/remove actions, app-private upload staging and authenticated Backend readback. Local URI/cache is never canonical server media.
+- [x] Add versioned Terms editing and multi-charge Billing entry to the existing Ledger Android route; keep advertised Listing offers separate from agreed Terms and Finance records.
+- [x] Preserve manual `USER_RECORDED` payment provenance, server ownership checks, Payment/Deposit/Receipt conservation and existing rental lifecycle/atomic archive authority.
+- [x] Add versioned JSON media scenario and standalone JPEG/PNG test images. Do not claim the existing full monthly-operation journey is executable; J04 is still `spec_only`.
+- [ ] Complete Android UI → API → PostgreSQL/MinIO save/reopen for an authorized operator and tenant, including payment, incident, checkout and historical readback.
+- [ ] Approve the Identity/session/audit cutover and Owner onboarding contract before ordinary Google users can create/claim Organizations. The runtime Identity gate remains disabled.
+- [ ] Run complete monthly rental operations from a single executable fixture; no live provider or real money is required for manual-payment acceptance.
+
+Current acceptance, detailed API/migration mapping, test evidence, emulator blocker and manual payment instructions: [ledger-rental-ops-acceptance.md](ledger-rental-ops-acceptance.md). Recommendation: **partial_with_gates** until Android full-stack and ordinary-account authorization evidence are available.
+
 ## First-run evidence (2026-10-14)
 
 - `pnpm exec tsx --test tests/core/profile-display-name-mvp.test.ts tests/core/identity-persistence-alignment.test.ts tests/verification/identity-foundation-freeze.test.ts`: **14 passed**, 0 failed.
