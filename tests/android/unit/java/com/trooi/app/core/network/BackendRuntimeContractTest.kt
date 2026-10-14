@@ -7,7 +7,9 @@ import com.trooi.app.core.model.ListingVisibility
 import com.trooi.app.core.model.LocalRentalAsset
 import com.trooi.app.core.network.dto.*
 import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
+import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.*
@@ -16,6 +18,24 @@ import org.junit.Test
 class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
+
+    @Test fun publicListingTimeoutRetriesOnceThenReturnsNetworkUnavailable() = runBlocking {
+        MockWebServer().use { server ->
+            repeat(2) { server.enqueue(MockResponse().setHeadersDelay(250, TimeUnit.MILLISECONDS).setBody("{}")) }
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val client = OkHttpClient.Builder()
+                .readTimeout(50, TimeUnit.MILLISECONDS)
+                .retryOnConnectionFailure(false)
+                .build()
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), InMemoryAuthTokenProvider(), true, client))
+
+            val outcome = api.getPublicListingsRaw()
+
+            assertTrue(outcome is TransportOutcome.Failure)
+            assertEquals(ErrorKind.NETWORK_UNAVAILABLE, (outcome as TransportOutcome.Failure).kind)
+            assertEquals(2, server.requestCount)
+        }
+    }
 
     @Test fun assetPhotoTransportUsesAuthenticatedUploadReadOrderAndRemoveRoutes() = runBlocking {
         MockWebServer().use { server ->

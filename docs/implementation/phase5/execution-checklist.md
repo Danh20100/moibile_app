@@ -157,7 +157,7 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] Public Discovery exposes inline backend load/search errors and a retry action; retry repeats the latest spatial query or reloads the public feed. Empty state is suppressed while an error is active, and backend mode still has no demo fallback.
 - [x] Latest-request generation guards prevent a stale search response from overwriting a newer reset/feed request.
-- [x] Evidence: `PublicDiscoveryFiltersTest` passes; isolated PostgreSQL/PostGIS `pnpm test:discovery:postgis-search` passes `1/1`; emulator `NativeDiscoveryStatesTest.publicDiscoveryFailureHasInlineRetryWithoutFixtureFallback` and `searchPreservesLocalThenRemoteArgumentsAndResetAndClose` pass `1/1` each (`PASS_ANDROID` for component behavior). Live API timeout/fault injection has not run, so `DIS-P1-05` remains `BLOCKED`; no `PASS_FULLSTACK` claim.
+- [x] Evidence: `PublicDiscoveryFiltersTest` passes; isolated PostgreSQL/PostGIS `pnpm test:discovery:postgis-search` passes `1/1`; emulator `NativeDiscoveryStatesTest.publicDiscoveryFailureHasInlineRetryWithoutFixtureFallback` and `searchPreservesLocalThenRemoteArgumentsAndResetAndClose` pass `1/1` each (`PASS_ANDROID` for component behavior). MockWebServer delayed headers verify the public listing HTTP client returns `NETWORK_UNAVAILABLE` after one retry. Integrated API→ViewModel→UI timeout readback has not run, so `DIS-P1-05` remains `BLOCKED`; no `PASS_FULLSTACK` claim.
 
 ## P1 continuation — Discovery map configuration
 
