@@ -83,6 +83,18 @@ class AccountSecurityUiTest {
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
     }
 
+    @Test fun backendNotificationPreferencesAreNotPresentedAsSavedOrEditable() {
+        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "notifications") } }
+        compose.onNodeWithText("Tùy chọn thông báo chưa được tải từ tài khoản.").assertExists()
+        compose.onAllNodesWithText("Chưa tải tùy chọn", substring = true).assertCountEquals(5)
+        compose.onNodeWithText("Ưu đãi").performClick()
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
+        compose.onNodeWithText("Đã hiểu").performClick()
+        compose.onNodeWithText("Trong ứng dụng", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Nhận thông báo qua email").assertDoesNotExist()
+        compose.onNodeWithText("Lưu lựa chọn").assertDoesNotExist()
+    }
+
     @Test fun backendLoginEmailGateCanBeActivatedByKeyboard() {
         compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") } }
         val action = compose.onNodeWithText("Thay đổi email")
