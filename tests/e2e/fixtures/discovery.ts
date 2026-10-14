@@ -13,5 +13,6 @@ export const DISCOVERY_FIXTURE = {
     publicDescription: 'Deterministic listing fixture for full-stack E2E verification.',
     publicPriceProjection: '3500000.00',
     publishedAt: '2026-10-02T00:00:00.000Z',
+    publishReason: 'PUBLISH',
   },
 } as const;

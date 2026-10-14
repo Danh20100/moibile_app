@@ -23,6 +23,9 @@ The first fixture covers public discovery:
 
 It creates one synthetic Organization, Property, VACANT Room, and PUBLISHED Listing
 with stable UUIDs. Re-running the seed is idempotent for those fixture IDs.
+The seed now publishes a DRAFT through `RentalLifecycleCoordinator`, and the API
+assertion verifies the resulting USER status event. The synthetic fixture principal
+does not represent Google authentication or an authenticated Owner UI publish flow.
 
 ## Run locally
 

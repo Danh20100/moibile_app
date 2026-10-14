@@ -54,12 +54,14 @@ async function assertDiscovery(): Promise<void> {
 
     const statusEvents = await db
       .selectFrom('listing_status_events')
-      .select(['listing_status_event_id', 'to_status'])
+      .select(['to_status', 'actor_type', 'actor_user_id', 'reason_code'])
       .where('listing_id', '=', fixture.ids.listingId)
       .execute();
     assert.equal(statusEvents.length, 1, 'deterministic seed must create one Listing status event');
-    assert.equal(statusEvents[0]?.listing_status_event_id, fixture.ids.listingPublishedEventId);
     assert.equal(statusEvents[0]?.to_status, 'PUBLISHED');
+    assert.equal(statusEvents[0]?.actor_type, 'USER');
+    assert.equal(statusEvents[0]?.actor_user_id, fixture.ids.operatorUserId);
+    assert.equal(statusEvents[0]?.reason_code, fixture.listing.publishReason);
 
     const inquiries = await db
       .selectFrom('inquiries')
