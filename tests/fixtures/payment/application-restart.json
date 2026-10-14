@@ -7,10 +7,16 @@
     "tenancyStatusAfterActivation": "active",
     "listingStatusAfterActivation": "unpublished"
   },
+  "actors": {
+    "ownerToken": "j04-owner",
+    "ownerSubject": "j04-owner-subject",
+    "tenantToken": "j04-tenant",
+    "tenantSubject": "j04-tenant-subject",
+    "outsiderToken": "j04-outsider",
+    "outsiderSubject": "j04-outsider-subject"
+  },
   "provenance": "Synthetic application restart scenarios for isolated PostgreSQL; outstanding amounts follow active allocations.",
   "values": {
-    "ownerId": "10000000-0000-4000-8000-000000000099",
-    "tenantId": "10000000-0000-4000-8000-000000000098",
     "propertyId": "10000000-0000-4000-8000-000000000091",
     "roomId": "10000000-0000-4000-8000-000000000092",
     "listingId": "10000000-0000-4000-8000-000000000093",

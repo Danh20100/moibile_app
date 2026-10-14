@@ -19,9 +19,15 @@ interface ApplicationRestartFixture {
     tenancyStatusAfterActivation: 'active';
     listingStatusAfterActivation: 'unpublished';
   };
+  actors: {
+    ownerToken: string;
+    ownerSubject: string;
+    tenantToken: string;
+    tenantSubject: string;
+    outsiderToken: string;
+    outsiderSubject: string;
+  };
   values: {
-    ownerId: string;
-    tenantId: string;
     propertyId: string;
     roomId: string;
     listingId: string;

@@ -1,11 +1,14 @@
 id: J04
 name: active-tenancy-monthly-operations
-status: spec_only
-backend_partial:
+status: backend_pass_only
+backend:
   command: pnpm test:ledger:lifecycle-restart
   fixture: tests/fixtures/payment/application-restart.json
-  covers: [postgres-restart-readback, rental-lifecycle, manual-payment-provenance, billing-allocation, deposit, receipt, incident-timeline, notice]
-  missing: [http-api-authorization, private-photo-upload-readback, tenant-linked-read-authorization, authenticated-android-flow]
+  photo_fixture: tests/fixtures/rental/asset-media-flow.json
+  required_env: [TEST_DATABASE_URL, LEDGER_J04_S3_ENDPOINT, LEDGER_J04_S3_ACCESS_KEY, LEDGER_J04_S3_SECRET_KEY]
+  database_scope: local trooi_test only
+  covers: [postgres-restart-readback, api-restart-readback, rental-lifecycle, public-photo-projection, private-photo-minio-readback, outsider-denial, tenant-linked-read, manual-payment-provenance, billing-allocation, deposit, receipt, incident-timeline, notice]
+  missing: [live-google-authentication, authenticated-android-flow]
 flow_chain:
   - PORTAL-01
   - BILL-01
@@ -20,5 +23,7 @@ flow_chain:
 end_assertions:
   - billing-payment-and-receipt-provenance-consistent
   - tenant-reads-only-linked-tenancy
+  - outsider-cannot-read-private-asset-or-tenancy
+  - approved-photo-hidden-after-listing-unpublish
   - incident-timeline-preserved
   - notice-history-preserved
