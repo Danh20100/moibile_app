@@ -200,6 +200,31 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     await assert.rejects(sessionGuard.canActivate(protectedRequest(secondSession.accessToken).context), UnauthorizedException,
       'AuthGuard rejects sessions revoked by revoke-all');
 
+    const auditFailureChallenge = await identity.issueChallenge('LOGIN');
+    claims = { ...claims, nonce: auditFailureChallenge.nonce, authTime: Math.floor(Date.now() / 1000) };
+    const auditFailureSession = await identity.authenticateGoogle({
+      idToken: 'test-only-google-proof', nonce: auditFailureChallenge.nonce,
+    });
+    await sql`CREATE FUNCTION test_fail_session_revocation_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.event_code IN ('SESSION_LOGOUT', 'SESSION_REVOKED') THEN
+          RAISE EXCEPTION 'injected revocation audit insert failure';
+        END IF;
+        RETURN NEW;
+      END
+    $$`.execute(database);
+    await sql`CREATE TRIGGER test_fail_session_revocation_audit BEFORE INSERT ON identity_security_events
+      FOR EACH ROW EXECUTE FUNCTION test_fail_session_revocation_audit()`.execute(database);
+    try {
+      await assert.rejects(identity.logout(auditFailureSession.accessToken), /injected revocation audit insert failure/);
+      await sessionGuard.canActivate(protectedRequest(auditFailureSession.accessToken).context);
+      await assert.rejects(identity.revokeAll(registeredUserId), /injected revocation audit insert failure/);
+      await sessionGuard.canActivate(protectedRequest(auditFailureSession.accessToken).context);
+    } finally {
+      await sql`DROP TRIGGER test_fail_session_revocation_audit ON identity_security_events`.execute(database);
+      await sql`DROP FUNCTION test_fail_session_revocation_audit()`.execute(database);
+    }
+
     const unverifiedChallenge = await identity.issueChallenge('REGISTER');
     claims = { ...claims, subject: 'google-email-unverified', email: 'unverified@example.test',
       emailVerified: false, nonce: unverifiedChallenge.nonce };
