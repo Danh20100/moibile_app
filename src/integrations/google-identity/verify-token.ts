@@ -14,6 +14,9 @@ export interface VerifiedPrincipalPayload {
   subject: string;
   email?: string;
   emailVerified?: boolean;
+  nonce?: string;
+  authTime?: number;
+  issuedAt?: number;
   name?: string;
   pictureUrl?: string;
 }
@@ -41,6 +44,9 @@ export async function verifyGoogleIdToken(
       subject: identity.subject,
       ...(identity.email !== undefined ? { email: identity.email } : {}),
       ...(identity.emailVerified !== undefined ? { emailVerified: identity.emailVerified } : {}),
+      ...(identity.nonce !== undefined ? { nonce: identity.nonce } : {}),
+      ...(identity.authTime !== undefined ? { authTime: identity.authTime } : {}),
+      ...(identity.issuedAt !== undefined ? { issuedAt: identity.issuedAt } : {}),
       ...(identity.name !== undefined ? { name: identity.name } : {}),
       ...(identity.pictureUrl !== undefined ? { pictureUrl: identity.pictureUrl } : {}),
     };

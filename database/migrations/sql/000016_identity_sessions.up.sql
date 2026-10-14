@@ -62,7 +62,8 @@ CREATE TABLE identity_security_events (
   session_id uuid,
   event_code text NOT NULL CHECK (event_code IN (
     'CHALLENGE_ISSUED', 'CHALLENGE_REJECTED', 'REGISTRATION_SUCCEEDED', 'REGISTRATION_REJECTED',
-    'SESSION_CREATED', 'SESSION_REFRESHED', 'SESSION_REFRESH_REUSE', 'SESSION_LOGOUT',
+    'SESSION_CREATED', 'SESSION_REFRESHED', 'SESSION_REFRESH_REUSE', 'SESSION_REFRESH_REJECTED', 'SESSION_LOGOUT',
+    'AUTHENTICATION_REJECTED',
     'SESSION_REVOKED', 'IDENTITY_COLLISION', 'REAUTH_ISSUED', 'REAUTH_REJECTED'
   )),
   outcome text NOT NULL CHECK (outcome IN ('SUCCESS', 'REJECTED')),
@@ -81,26 +82,27 @@ CREATE FUNCTION identity_sessions_write_guard() RETURNS trigger LANGUAGE plpgsql
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'Identity session/security history cannot be deleted' USING ERRCODE = '23514';
-  END IF;
-  IF TG_TABLE_NAME = 'identity_security_events' THEN
+  ELSIF TG_TABLE_NAME = 'identity_security_events' THEN
     RAISE EXCEPTION 'Identity security events are append-only' USING ERRCODE = '23514';
-  END IF;
-  IF TG_TABLE_NAME = 'auth_sessions' AND (NEW.session_id IS DISTINCT FROM OLD.session_id OR
-      NEW.family_id IS DISTINCT FROM OLD.family_id OR NEW.user_id IS DISTINCT FROM OLD.user_id OR
-      NEW.created_at IS DISTINCT FROM OLD.created_at OR NEW.authenticated_at IS DISTINCT FROM OLD.authenticated_at) THEN
-    RAISE EXCEPTION 'Identity session ownership and creation facts are immutable' USING ERRCODE = '23514';
-  END IF;
-  IF TG_TABLE_NAME = 'auth_session_refresh_history' AND
-     (NEW.refresh_token_sha256 IS DISTINCT FROM OLD.refresh_token_sha256 OR NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.rotated_at IS DISTINCT FROM OLD.rotated_at) THEN
-    RAISE EXCEPTION 'Rotated refresh history is immutable' USING ERRCODE = '23514';
-  END IF;
-  IF TG_TABLE_NAME = 'identity_auth_challenges' AND
-     (NEW.challenge_id IS DISTINCT FROM OLD.challenge_id OR NEW.purpose IS DISTINCT FROM OLD.purpose OR
-      NEW.nonce_sha256 IS DISTINCT FROM OLD.nonce_sha256 OR NEW.user_id IS DISTINCT FROM OLD.user_id OR
-      NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.created_at IS DISTINCT FROM OLD.created_at OR
-      NEW.expires_at IS DISTINCT FROM OLD.expires_at OR
-      (OLD.consumed_at IS NOT NULL AND NEW.consumed_at IS DISTINCT FROM OLD.consumed_at)) THEN
-    RAISE EXCEPTION 'Identity auth challenges are immutable except one-time consumption' USING ERRCODE = '23514';
+  ELSIF TG_TABLE_NAME = 'auth_sessions' THEN
+    IF NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.family_id IS DISTINCT FROM OLD.family_id OR
+       NEW.user_id IS DISTINCT FROM OLD.user_id OR NEW.created_at IS DISTINCT FROM OLD.created_at OR
+       NEW.authenticated_at IS DISTINCT FROM OLD.authenticated_at THEN
+      RAISE EXCEPTION 'Identity session ownership and creation facts are immutable' USING ERRCODE = '23514';
+    END IF;
+  ELSIF TG_TABLE_NAME = 'auth_session_refresh_history' THEN
+    IF NEW.refresh_token_sha256 IS DISTINCT FROM OLD.refresh_token_sha256 OR
+       NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.rotated_at IS DISTINCT FROM OLD.rotated_at THEN
+      RAISE EXCEPTION 'Rotated refresh history is immutable' USING ERRCODE = '23514';
+    END IF;
+  ELSIF TG_TABLE_NAME = 'identity_auth_challenges' THEN
+    IF NEW.challenge_id IS DISTINCT FROM OLD.challenge_id OR NEW.purpose IS DISTINCT FROM OLD.purpose OR
+       NEW.nonce_sha256 IS DISTINCT FROM OLD.nonce_sha256 OR NEW.user_id IS DISTINCT FROM OLD.user_id OR
+       NEW.session_id IS DISTINCT FROM OLD.session_id OR NEW.created_at IS DISTINCT FROM OLD.created_at OR
+       NEW.expires_at IS DISTINCT FROM OLD.expires_at OR
+       (OLD.consumed_at IS NOT NULL AND NEW.consumed_at IS DISTINCT FROM OLD.consumed_at) THEN
+      RAISE EXCEPTION 'Identity auth challenges are immutable except one-time consumption' USING ERRCODE = '23514';
+    END IF;
   END IF;
   RETURN NEW;
 END $$;

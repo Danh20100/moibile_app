@@ -49,7 +49,7 @@ const testVerifier = {
     {
       provide: GooglePrincipalResolver,
       inject: [TRANSACTION_MANAGER],
-      useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, testVerifier, true),
+      useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, testVerifier, true, true),
     },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],

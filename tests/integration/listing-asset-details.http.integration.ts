@@ -30,7 +30,7 @@ const testVerifier = { async verify(token: string) {
 @Module({
   imports: [ListingModule, ResourceAuthorizationModule, DatabaseModule],
   providers: [
-    { provide: GooglePrincipalResolver, inject: [TRANSACTION_MANAGER], useFactory: (tx: TransactionManager) => new GooglePrincipalResolver(tx, testVerifier, true) },
+    { provide: GooglePrincipalResolver, inject: [TRANSACTION_MANAGER], useFactory: (tx: TransactionManager) => new GooglePrincipalResolver(tx, testVerifier, true, true) },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })

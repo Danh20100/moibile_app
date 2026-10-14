@@ -254,8 +254,9 @@ export interface AuthSessionRefreshHistoryTable {
 export interface IdentitySecurityEventsTable {
   event_id: string; user_id: string | null; session_id: string | null;
   event_code: 'CHALLENGE_ISSUED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_SUCCEEDED' | 'REGISTRATION_REJECTED'
-    | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_LOGOUT'
-    | 'SESSION_REVOKED' | 'IDENTITY_COLLISION' | 'REAUTH_ISSUED' | 'REAUTH_REJECTED';
+    | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_REFRESH_REJECTED'
+    | 'AUTHENTICATION_REJECTED' | 'SESSION_LOGOUT' | 'SESSION_REVOKED' | 'IDENTITY_COLLISION'
+    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED';
   outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
 }
 export interface PasswordCredentialsTable { user_id: string; password_hash: string; credential_revision: string; created_at: TimestampString; password_changed_at: TimestampString }

@@ -45,7 +45,7 @@ function createJ04HttpModule(verifier: GoogleIdTokenVerifier) {
       {
         provide: GooglePrincipalResolver,
         inject: [TRANSACTION_MANAGER],
-        useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, verifier, true),
+        useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, verifier, true, true),
       },
       { provide: APP_GUARD, useClass: AuthGuard },
     ],

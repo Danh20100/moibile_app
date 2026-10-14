@@ -87,7 +87,7 @@ test('concurrent Google authentication preserves User references and never links
         emailVerified: L.emailVerified,
       }),
     };
-    const resolver = new GooglePrincipalResolver(fixture.manager, verifier, true);
+    const resolver = new GooglePrincipalResolver(fixture.manager, verifier, true, true);
     const service = new IdentityAccessService(fixture.manager, resolver);
     const principals = await Promise.all(
       Array.from({ length: F.configuration.registrationConcurrency }, () =>
@@ -143,7 +143,7 @@ test('concurrent Google authentication preserves User references and never links
       verify: async () => {
         throw new Error(L.providerFailure);
       },
-    }, true));
+    }, true, true));
     const usersBefore = await fixture.db
       .selectFrom('users')
       .selectAll()

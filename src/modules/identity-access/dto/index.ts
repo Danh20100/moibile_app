@@ -1,6 +1,45 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 
+export class AuthChallengeRequestDto {
+  @ApiProperty({ enum: ['LOGIN', 'REGISTER'] })
+  @IsIn(['LOGIN', 'REGISTER'])
+  purpose!: 'LOGIN' | 'REGISTER';
+}
+
+export class GoogleSessionRequestDto {
+  @ApiProperty({ description: 'Google ID token with the issued request nonce' })
+  @IsString() @IsNotEmpty()
+  idToken!: string;
+
+  @ApiProperty({ description: 'One-time nonce returned by identity-access/auth/challenge' })
+  @IsString() @IsNotEmpty()
+  nonce!: string;
+}
+
+export class RefreshSessionRequestDto {
+  @ApiProperty({ description: 'Opaque one-time refresh credential' })
+  @IsString() @IsNotEmpty()
+  refreshToken!: string;
+}
+
+export class IdentityChallengeDto {
+  @ApiProperty({ enum: ['LOGIN', 'REGISTER'] })
+  purpose!: 'LOGIN' | 'REGISTER';
+  @ApiProperty() nonce!: string;
+  @ApiProperty() expiresAt!: string;
+}
+
+export class IdentitySessionDto {
+  @ApiProperty() userId!: string;
+  @ApiProperty() sessionId!: string;
+  @ApiProperty() accessToken!: string;
+  @ApiProperty() refreshToken!: string;
+  @ApiProperty({ example: 'Bearer' }) tokenType!: 'Bearer';
+  @ApiProperty({ example: 900 }) expiresInSeconds!: 900;
+  @ApiProperty() refreshExpiresAt!: string;
+}
+
 export class VerifyGoogleTokenDto {
   @ApiProperty({
     description: 'Google ID Token nhận từ Android Credential Manager',

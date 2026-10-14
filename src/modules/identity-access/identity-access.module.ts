@@ -12,6 +12,7 @@ import { IdentityAccessController } from './controllers/identity-access.controll
 import { IdentityAccessService } from './services/identity-access.service';
 import { GooglePrincipalResolver } from './services/google-principal-resolver';
 import { ProfileAvatarService } from './services/profile-avatar.service';
+import { IdentitySessionService } from './services/identity-session.service';
 
 const googleIdTokenVerifierProvider = {
   provide: GOOGLE_ID_TOKEN_VERIFIER,
@@ -34,7 +35,7 @@ const googlePrincipalResolverProvider = {
 @Module({
   imports: [DatabaseModule, ObjectStorageModule],
   controllers: [IdentityAccessController],
-  providers: [IdentityAccessService, ProfileAvatarService, googleIdTokenVerifierProvider, googlePrincipalResolverProvider],
-  exports: [IdentityAccessService, GooglePrincipalResolver, GOOGLE_ID_TOKEN_VERIFIER],
+  providers: [IdentityAccessService, IdentitySessionService, ProfileAvatarService, googleIdTokenVerifierProvider, googlePrincipalResolverProvider],
+  exports: [IdentityAccessService, IdentitySessionService, GooglePrincipalResolver, GOOGLE_ID_TOKEN_VERIFIER],
 })
 export class IdentityAccessModule {}

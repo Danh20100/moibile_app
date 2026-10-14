@@ -31,7 +31,7 @@ function clientWithPayload(
       assert.equal(options.idToken, expectedToken);
       assert.equal(options.audience, expectedAudience);
       return {
-        getPayload: () => payload ? { iss: 'https://accounts.google.com', ...payload } : undefined,
+        getPayload: () => payload ? { iss: 'https://accounts.google.com', iat: 1_797_000_000, ...payload } : undefined,
       };
     },
   };
@@ -57,6 +57,7 @@ describe('GoogleAuthIdTokenVerifier', () => {
       subject: 'google-subject',
       email: 'user@example.com',
       emailVerified: true,
+      issuedAt: 1_797_000_000,
       name: 'TrọƠi User',
       pictureUrl: 'https://example.com/avatar.png',
     });
@@ -71,6 +72,7 @@ describe('GoogleAuthIdTokenVerifier', () => {
     assert.deepEqual(await verifier.verify('valid-token'), {
       issuer: 'https://accounts.google.com',
       subject: 'google-subject',
+      issuedAt: 1_797_000_000,
     });
   });
 
@@ -87,7 +89,25 @@ describe('GoogleAuthIdTokenVerifier', () => {
       issuer: 'https://accounts.google.com',
       subject: 'google-subject',
       emailVerified: false,
+      issuedAt: 1_797_000_000,
     });
+  });
+
+  it('preserves nonce, authentication time, and issuance time from verified claims', async () => {
+    const verifier = new GoogleAuthIdTokenVerifier('google-client-id', clientWithPayload({
+      sub: 'google-subject', nonce: 'one-time-challenge', auth_time: 1_797_000_000, iat: 1_797_000_030,
+    }));
+    assert.deepEqual(await verifier.verify('valid-token'), {
+      issuer: 'https://accounts.google.com', subject: 'google-subject', nonce: 'one-time-challenge',
+      authTime: 1_797_000_000, issuedAt: 1_797_000_030,
+    });
+  });
+
+  it('rejects an unsupported verified issuer', async () => {
+    const verifier = new GoogleAuthIdTokenVerifier('google-client-id', clientWithPayload({
+      iss: 'https://attacker.example', sub: 'google-subject',
+    }));
+    await assert.rejects(() => verifier.verify('valid-token'), expectIntegrationError('INVALID_PAYLOAD'));
   });
 
   it('rejects an empty or whitespace-only token before calling Google', async () => {

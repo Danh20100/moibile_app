@@ -8,6 +8,9 @@ export interface GoogleTokenPayload {
   sub?: string;
   email?: string;
   email_verified?: boolean;
+  nonce?: string;
+  auth_time?: number;
+  iat?: number;
   name?: string;
   picture?: string;
 }
@@ -84,12 +87,24 @@ export class GoogleAuthIdTokenVerifier implements GoogleIdTokenVerifier {
         'Verified Google token does not contain a valid subject.',
       );
     }
+    if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+      throw new GoogleIdentityVerificationError('INVALID_PAYLOAD', 'Verified Google token issuer is not supported.');
+    }
+    if (payload.auth_time !== undefined && (!Number.isSafeInteger(payload.auth_time) || payload.auth_time <= 0)) {
+      throw new GoogleIdentityVerificationError('INVALID_PAYLOAD', 'Verified Google token auth_time is invalid.');
+    }
+    if (!Number.isSafeInteger(payload.iat) || !payload.iat || payload.iat <= 0) {
+      throw new GoogleIdentityVerificationError('INVALID_PAYLOAD', 'Verified Google token iat is invalid.');
+    }
 
     return {
       issuer: payload.iss,
       subject: payload.sub,
       ...(payload.email !== undefined ? { email: payload.email } : {}),
       ...(payload.email_verified !== undefined ? { emailVerified: payload.email_verified } : {}),
+      ...(payload.nonce !== undefined ? { nonce: payload.nonce } : {}),
+      ...(payload.auth_time !== undefined ? { authTime: payload.auth_time } : {}),
+      issuedAt: payload.iat,
       ...(payload.name !== undefined ? { name: payload.name } : {}),
       ...(payload.picture !== undefined ? { pictureUrl: payload.picture } : {}),
     };

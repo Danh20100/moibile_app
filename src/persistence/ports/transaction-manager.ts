@@ -8,10 +8,12 @@ import type { OrganizationRepository } from './organization.repository';
 import type { PropertyRepository } from './property.repository';
 import type { TenancyRepository } from './tenancy.repository';
 import type { TrustRepository } from './trust.repository';
+import type { IdentitySessionsRepository } from './identity-sessions.repository';
 
 export interface PersistenceRepositories {
   identity: IdentityRepository;
   identityFoundation: IdentityFoundationRepository;
+  identitySessions: IdentitySessionsRepository;
   organization: OrganizationRepository;
   property: PropertyRepository;
   listing: ListingRepository;

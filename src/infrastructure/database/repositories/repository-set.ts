@@ -1,4 +1,5 @@
 import { PostgresIdentityFoundationRepository } from './identity-foundation.repository';
+import { PostgresIdentitySessionsRepository } from './identity-sessions.repository';
 import type { Transaction } from 'kysely';
 
 import type { PersistenceRepositories } from '../../../persistence/ports/transaction-manager';
@@ -19,6 +20,7 @@ export interface RepositorySetFactory {
 
 export const createRepositorySet: RepositorySetFactory = (executor) => ({
   identityFoundation: new PostgresIdentityFoundationRepository(executor),
+  identitySessions: new PostgresIdentitySessionsRepository(executor),
   identity: new PostgresIdentityRepository(executor), organization: new PostgresOrganizationRepository(executor),
   property: new PostgresPropertyRepository(executor), listing: new PostgresListingRepository(executor),
   tenancy: new PostgresTenancyRepository(executor), finance: new PostgresFinanceRepository(executor),

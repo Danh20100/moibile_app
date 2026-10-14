@@ -152,7 +152,7 @@ async function startHttpHarness(
         : []),
       {
         provide: GooglePrincipalResolver,
-        useFactory: () => new GooglePrincipalResolver(testIdentityTransactions as never, dependencies.verifier, true),
+        useFactory: () => new GooglePrincipalResolver(testIdentityTransactions as never, dependencies.verifier, true, true),
       },
       { provide: APP_GUARD, useClass: AuthGuard },
     ],

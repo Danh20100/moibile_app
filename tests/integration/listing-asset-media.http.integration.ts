@@ -25,7 +25,7 @@ const subjects = [randomUUID(), randomUUID()];
 const users = subjects.map((subject) => googlePrincipalUserId(issuer, subject));
 const verifier = { async verify(token: string) { const subject = subjects[Number(token.slice(-1))]; if (!subject) throw new Error('Invalid test credential'); return { issuer, subject, emailVerified: true }; } };
 @Module({ imports: [ListingModule, ResourceAuthorizationModule, DatabaseModule], providers: [
-  { provide: GooglePrincipalResolver, inject: [TRANSACTION_MANAGER], useFactory: (tx: TransactionManager) => new GooglePrincipalResolver(tx, verifier, true) },
+  { provide: GooglePrincipalResolver, inject: [TRANSACTION_MANAGER], useFactory: (tx: TransactionManager) => new GooglePrincipalResolver(tx, verifier, true, true) },
   { provide: APP_GUARD, useClass: AuthGuard },
 ] })
 class ListingAssetMediaTestModule {}

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Inject, Optional, Param, Patch, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Inject, Optional, Param, Patch, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public } from '../../../common';
@@ -8,12 +8,17 @@ import {
   SessionContextDto,
   UserReferenceDto,
   VerifiedPrincipalDto,
-  VerifyGoogleTokenDto,
   UpdateDisplayNameDto,
   UploadProfileAvatarDto,
+  AuthChallengeRequestDto,
+  GoogleSessionRequestDto,
+  RefreshSessionRequestDto,
+  IdentityChallengeDto,
+  IdentitySessionDto,
 } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
+import { IdentitySessionService } from '../services/identity-session.service';
 
 @ApiTags('Identity & Access')
 @Controller('identity-access')
@@ -23,7 +28,16 @@ export class IdentityAccessController {
     private readonly identityAccessService: IdentityAccessService,
     @Optional() @Inject(ProfileAvatarService)
     private readonly profileAvatarService?: ProfileAvatarService,
+    @Optional() @Inject(IdentitySessionService)
+    private readonly identitySessionService?: IdentitySessionService,
   ) {}
+
+  @Public()
+  @Post('auth/challenge')
+  async issueAuthChallenge(@Body() dto: AuthChallengeRequestDto): Promise<IdentityChallengeDto> {
+    if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
+    return this.identitySessionService.issueChallenge(dto.purpose);
+  }
 
   @Public()
   @Post('auth/google')
@@ -34,8 +48,36 @@ export class IdentityAccessController {
     type: VerifiedPrincipalDto,
   })
   @ApiResponse({ status: 401, description: 'Token không hợp lệ hoặc đã hết hạn' })
-  async authenticateWithGoogle(@Body() dto: VerifyGoogleTokenDto): Promise<VerifiedPrincipal> {
-    return this.identityAccessService.authenticateWithGoogle(dto);
+  async authenticateWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
+    if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
+    return this.identitySessionService.authenticateGoogle(dto);
+  }
+
+  @Public()
+  @Post('register/google')
+  async registerWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
+    if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
+    return this.identitySessionService.registerGoogle(dto);
+  }
+
+  @Public()
+  @Post('auth/refresh')
+  async refreshSession(@Body() dto: RefreshSessionRequestDto): Promise<IdentitySessionDto> {
+    if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
+    return this.identitySessionService.refresh(dto.refreshToken);
+  }
+
+  @Post('auth/logout')
+  async logout(@Headers('authorization') authorization?: string) {
+    if (!authorization?.startsWith('Bearer ') || !this.identitySessionService)
+      throw new UnauthorizedException('Yêu cầu phiên đăng nhập');
+    return this.identitySessionService.logout(authorization.substring(7).trim());
+  }
+
+  @Post('auth/revoke-all')
+  async revokeAllSessions(@CurrentUser() user?: VerifiedPrincipal) {
+    if (!user || !this.identitySessionService) throw new UnauthorizedException('Yêu cầu phiên đăng nhập');
+    return this.identitySessionService.revokeAll(user.userId);
   }
 
   @Get('me')

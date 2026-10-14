@@ -10,6 +10,8 @@ export interface VerifiedPrincipal extends UserReference {
   emailVerified?: boolean;
   name?: string;
   pictureUrl?: string;
+  sessionId?: string;
+  authenticatedAt?: string;
 }
 
 export interface SessionContext {
