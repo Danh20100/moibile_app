@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
+import { encode } from 'jpeg-js';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { Module, ValidationPipe } from '@nestjs/common';
@@ -164,10 +165,7 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
       400,
     );
     assert.equal((await request(0, '/invalid/messages')).status, 400);
-    const jpeg = Buffer.from(
-      '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAX/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q==',
-      'base64',
-    );
+    const jpeg = encode({width: 1, height: 1, data: Buffer.from([255, 0, 0, 255])}, 80).data;
     const sent = await request(0, `/${conversation}/messages`, {
       text: 'A to B',
       images: [{ contentType: 'image/jpeg', base64: jpeg.toString('base64') }],

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { decode } from 'jpeg-js';
 import { randomUUID } from 'node:crypto';
 import {
   OBJECT_STORAGE_PORT,
@@ -36,6 +37,12 @@ export function decodeMessageImages(dto: PostMessageDto): Buffer[] {
       bytes.at(-1) !== 217
     ) {
       throw new BadRequestException('Invalid JPEG signature or size');
+    }
+    try {
+      // Bound decoded allocations as well as compressed bytes; Android prepares at most 1280px.
+      decode(bytes, { tolerantDecoding: false, maxResolutionInMP: 16, maxMemoryUsageInMB: 128 });
+    } catch {
+      throw new BadRequestException('Invalid or excessive JPEG content');
     }
     return bytes;
   });

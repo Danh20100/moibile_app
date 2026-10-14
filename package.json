@@ -49,6 +49,7 @@
     "class-validator": "^0.15.1",
     "express": "5.2.1",
     "google-auth-library": "^11.1.0",
+    "jpeg-js": "0.4.4",
     "kysely": "^0.29.6",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0",
