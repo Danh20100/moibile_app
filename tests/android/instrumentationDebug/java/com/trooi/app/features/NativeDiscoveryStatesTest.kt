@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.features.discovery.ListingDetailScreen
+import com.trooi.app.features.discovery.DiscoveryExperience
 import com.trooi.app.features.discovery.SearchExperienceScreen
 import com.trooi.app.features.discovery.NativeMapView
 import com.trooi.app.BuildConfig
@@ -63,6 +64,27 @@ class NativeDiscoveryStatesTest {
             bitmap.recycle()
         }
         error("Unreachable $text; nodes=" + visible().joinToString { "${it.className}:${it.text?.toString()?.take(80)}:${it.contentDescription}:scroll=${it.isScrollable}:visible=${it.isVisibleToUser}" })
+    }
+
+    @Test fun publicDiscoveryFailureHasInlineRetryWithoutFixtureFallback() {
+        var retries = 0
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity -> activity.setContent {
+                TroOiTheme {
+                    DiscoveryExperience(
+                        state = TroOiUiState(publicDiscoveryError = "Không tìm được tin đăng quanh vị trí công khai."),
+                        onOpenListing = {}, onOpenMap = {}, onRetrySearch = { retries++ },
+                        allowDemoFallback = false,
+                    )
+                }
+            } }
+            waitFor("Không tìm được tin đăng quanh vị trí công khai.")
+            assertTrue(visible().any { it.text?.toString() == "Không tìm được tin đăng quanh vị trí công khai." && it.isVisibleToUser })
+            assertFalse(visible().any { it.text?.toString() == "Chưa có tin đăng phù hợp. Hãy thử mở rộng khu vực hoặc khoảng giá." })
+            assertFalse(visible().any { node -> DemoData.read.publicListings.any { it.title == node.text?.toString() } })
+            click("Thử lại")
+            assertEquals(1, retries)
+        }
     }
 
     @Test fun missingMapConfigurationRendersWithoutEspressoInBothThemes() {

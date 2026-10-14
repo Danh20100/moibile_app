@@ -47,6 +47,8 @@ data class TroOiUiState(
     val demoPreview: Boolean = false,
     val authInProgress: Boolean = false,
     val runtimeLoading: Boolean = false,
+    val publicDiscoveryLoading: Boolean = false,
+    val publicDiscoveryError: String? = null,
     val authorizedReadFailed: Boolean = false,
     val messagesLoading: Boolean = false,
     val messagesLoadFailed: Boolean = false,

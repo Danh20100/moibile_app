@@ -221,6 +221,7 @@ fun TroOiApp(
                             onOpenMap = viewModel::openGuestMap,
                             onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                             onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,
+                            onRetrySearch = if (RuntimeDataSource.isBackendBacked()) viewModel::retryPublicDiscovery else null,
                             allowDemoFallback = !RuntimeDataSource.isBackendBacked(),
                         )
                     }

@@ -72,6 +72,8 @@ class TroOiViewModel @Inject constructor(
     private var authenticationJob: Job? = null
     private var restoreStarted = false
     private var expiredAuthRetried = false
+    private var lastPublicSearch: MapSearchQuery? = null
+    private var publicListingsRequestGeneration = 0L
     private val trustSubmitGate = AtomicBoolean(false)
 
     init {
@@ -585,23 +587,25 @@ class TroOiViewModel @Inject constructor(
     }
 
     private fun refreshPublicListings() {
-        if (_state.value.runtimeLoading) return
         val generation = sessionGeneration
-        _state.update { it.copy(runtimeLoading = true) }
+        val requestGeneration = ++publicListingsRequestGeneration
+        _state.update { it.copy(publicDiscoveryLoading = true, publicDiscoveryError = null) }
         viewModelScope.launch {
             repository.refreshPublicListings().fold(
                 onSuccess = { listings ->
-                    if (generation == sessionGeneration) _state.update { current ->
+                    if (generation == sessionGeneration && requestGeneration == publicListingsRequestGeneration) _state.update { current ->
                         current.copy(
-                            runtimeLoading = false,
+                            publicDiscoveryLoading = false,
                             read = current.read.copy(publicListings = publicDiscoveryFeed(listings)),
                         )
                     }
                 },
                 onFailure = { error ->
-                    if (generation == sessionGeneration) {
-                        _state.update { it.copy(runtimeLoading = false) }
-                        showMessage(error.message ?: "Không tải được tin đăng công khai.")
+                    if (generation == sessionGeneration && requestGeneration == publicListingsRequestGeneration) {
+                        _state.update { it.copy(
+                            publicDiscoveryLoading = false,
+                            publicDiscoveryError = error.message ?: "Không tải được tin đăng công khai.",
+                        ) }
                     }
                 },
             )
@@ -618,27 +622,41 @@ class TroOiViewModel @Inject constructor(
         minPrice: String?,
         maxPrice: String?,
     ) {
-        if (!RuntimeDataSource.isBackendBacked() || _state.value.runtimeLoading) return
-        _state.update { it.copy(runtimeLoading = true) }
+        if (!RuntimeDataSource.isBackendBacked()) return
+        val query = MapSearchQuery(latitude, longitude, radiusMeters, minPrice, maxPrice)
+        lastPublicSearch = query
+        val requestGeneration = ++publicListingsRequestGeneration
+        _state.update { it.copy(publicDiscoveryLoading = true, publicDiscoveryError = null) }
         viewModelScope.launch {
-            repository.searchPublicListings(latitude, longitude, radiusMeters, minPrice, maxPrice).fold(
+            repository.searchPublicListings(query.latitude, query.longitude, query.radiusMeters, query.minPrice, query.maxPrice).fold(
                 onSuccess = { listings ->
-                    _state.update { current ->
+                    if (requestGeneration == publicListingsRequestGeneration) _state.update { current ->
                         current.copy(
-                            runtimeLoading = false,
+                            publicDiscoveryLoading = false,
                             read = current.read.copy(publicListings = publicDiscoveryFeed(listings)),
                         )
                     }
                 },
                 onFailure = { error ->
-                    _state.update { it.copy(runtimeLoading = false) }
-                    showMessage(error.message ?: "Không tìm được tin đăng quanh vị trí công khai.")
+                    if (requestGeneration == publicListingsRequestGeneration) _state.update { it.copy(
+                        publicDiscoveryLoading = false,
+                        publicDiscoveryError = error.message ?: "Không tìm được tin đăng quanh vị trí công khai.",
+                    ) }
                 },
             )
         }
     }
 
-    fun reloadPublicListings() = refreshPublicListings()
+    fun retryPublicDiscovery() {
+        val query = lastPublicSearch
+        if (query == null) refreshPublicListings()
+        else searchPublicListings(query)
+    }
+
+    fun reloadPublicListings() {
+        lastPublicSearch = null
+        refreshPublicListings()
+    }
     fun retryAuthorizedRead() {
         if (_state.value.isAuthenticated) refreshAuthorizedRead(_state.value.access)
     }

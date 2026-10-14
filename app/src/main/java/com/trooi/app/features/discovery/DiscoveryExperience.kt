@@ -64,6 +64,7 @@ fun DiscoveryExperience(
     onOpenMap: () -> Unit,
     onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
     onResetSearch: (() -> Unit)? = null,
+    onRetrySearch: (() -> Unit)? = null,
     allowDemoFallback: Boolean = true,
 ) {
     var showSearch by rememberSaveable { mutableStateOf(false) }
@@ -205,13 +206,23 @@ fun DiscoveryExperience(
                     }
                 }
             }
-            if (state.runtimeLoading) {
+            if (state.publicDiscoveryLoading) {
                 item { LinearProgressIndicator(Modifier.fillMaxWidth().testTag("discovery-loading")) }
+            }
+            if (state.publicDiscoveryError != null && !state.publicDiscoveryLoading) {
+                item {
+                    Column(Modifier.padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TroOiStateMessage(TroOiStateKind.ERROR, state.publicDiscoveryError, title = "Không tải được tin đăng")
+                        onRetrySearch?.let { retry ->
+                            TroOiButton("Thử lại", retry, modifier = Modifier.testTag("discovery-retry"))
+                        }
+                    }
+                }
             }
             if (invalidPrice != null) {
                 item { Text(invalidPrice, Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.error) }
             }
-            if (results.isEmpty() && !state.runtimeLoading) {
+            if (results.isEmpty() && !state.publicDiscoveryLoading && state.publicDiscoveryError == null) {
                 item {
                     Column(Modifier.padding(horizontal = 18.dp)) {
                         TroOiStateMessage(TroOiStateKind.EMPTY,
