@@ -167,7 +167,10 @@ class RentalViewModel @Inject constructor(
                         it.copy(terms = api.terms(route.id), participants = api.participants(route.id))
                     }
                     is RentalRoute.Notices -> publish(current) { it.copy(notices = api.notices(route.id)) }
-                    is RentalRoute.Billing -> publish(current) { it.copy(billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id }) }
+                    is RentalRoute.Billing -> publish(current) { it.copy(
+                        billing = api.billingCycles(route.id).filter { b -> b.tenancyId == route.id },
+                        terms = api.terms(route.id).filter { terms -> terms.tenancyId == route.id },
+                    ) }
                     is RentalRoute.BillingDetail -> publish(current) {
                         val cycle = if (route.cycleId.isNotBlank()) {
                             api.billingCycle(route.cycleId).also { require(it.tenancyId == route.tenancyId) }
@@ -284,6 +287,15 @@ class RentalViewModel @Inject constructor(
         api.acknowledgeTerms(tenancyId, termsId, participantId)
     }
 
+    fun createTerms(tenancyId: String, rent: String, deposit: String, from: String, to: String, effectiveFrom: String,
+        electricity: String, water: String, obligations: String) = write {
+        require(!_ui.value.tenantMode) { "Người thuê không thể phát hành phiên bản Terms." }
+        val version = (_ui.value.terms.maxOfOrNull { it.version } ?: 0) + 1
+        val created = api.createTerms(tenancyId, version, rent, deposit, from, to, effectiveFrom, electricity, water, obligations)
+        require(created.tenancyId == tenancyId && created.version == version) { "Backend trả Terms không khớp yêu cầu." }
+        _ui.update { it.copy(terms = api.terms(tenancyId)) }
+    }
+
     fun issueNotice(tenancyId: String, type: String, content: String) = write {
         require(!_ui.value.tenantMode) { "Tenant không phát hành Notice." }
         require(type.isNotBlank() && content.isNotBlank()) { "Notice cần type và nội dung." }
@@ -296,13 +308,16 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(notices = api.notices(tenancyId)) }
     }
 
-    fun createBilling(id: String, termsId: String, from: String, to: String, type: String, amount: String) = write(requiresReauthentication = true) {
+    fun createBilling(id: String, termsId: String, from: String, to: String, charges: List<Pair<String, String>>) = write {
         require(!_ui.value.tenantMode) { "Người thuê chỉ có quyền xem khoản phải thu." }
-        api.createBilling(id, termsId, from, to, listOf(type to amount))
+        val selectedTerms = _ui.value.terms.singleOrNull { it.id == termsId && it.tenancyId == id }
+            ?: error("Chọn phiên bản Terms đã lưu cho lượt thuê.")
+        require(charges.isNotEmpty()) { "Nhập ít nhất một Charge đã thống nhất." }
+        api.createBilling(id, selectedTerms.id, from, to, charges)
         _ui.update { it.copy(billing = api.billingCycles(id)) }
     }
 
-    fun recordPayment(id: String, amount: String, source: String) = write(requiresReauthentication = true) {
+    fun recordPayment(id: String, amount: String, source: String) = write {
         require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể ghi nhận tiền đã nhận." }
         val recorded = api.recordPayment(id, amount, source)
         _ui.update {
@@ -406,7 +421,7 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(checkoutLaunchUrl = null) }
     }
 
-    fun createDeposit(tenancyId: String) = write(requiresReauthentication = true) {
+    fun createDeposit(tenancyId: String) = write {
         require(!_ui.value.tenantMode) { "Chỉ người quản lý mới có thể tạo thông tin tiền cọc." }
         val created = api.createDeposit(tenancyId)
         require(created.tenancyId == tenancyId) { "Backend trả Deposit sai Tenancy." }
@@ -415,7 +430,7 @@ class RentalViewModel @Inject constructor(
         }
     }
 
-    fun settleDeposit(tenancyId: String, refunded: String, retained: String, reason: String) = write(requiresReauthentication = true) {
+    fun settleDeposit(tenancyId: String, refunded: String, retained: String, reason: String) = write {
         require(!_ui.value.tenantMode) { "Tenant không thực hiện Deposit settlement." }
         val deposit = _ui.value.deposit ?: error("Chưa có Deposit từ Backend.")
         require(deposit.tenancyId == tenancyId && !deposit.blockedByOpenPolicy) {
@@ -434,13 +449,13 @@ class RentalViewModel @Inject constructor(
         _ui.update { it.copy(payment = pay) }
     }
 
-    fun allocate(paymentId: String, chargeId: String, amount: String) = write(requiresReauthentication = true) {
+    fun allocate(paymentId: String, chargeId: String, amount: String) = write {
         require(!_ui.value.tenantMode && _ui.value.payment?.id == paymentId) { "Payment chưa được Backend xác minh." }
         api.allocate(paymentId, chargeId, amount)
         _ui.update { it.copy(payment = api.payment(paymentId)) }
     }
 
-    fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String) = write(requiresReauthentication = true) {
+    fun applyPaymentToDeposit(paymentId: String, depositId: String, amount: String) = write {
         val pay = _ui.value.payment?.takeIf { it.id == paymentId }
             ?: throw IllegalArgumentException("Payment chưa được Backend xác minh.")
         val deposit = _ui.value.deposit?.takeIf { it.id == depositId }
@@ -460,13 +475,13 @@ class RentalViewModel @Inject constructor(
         }
     }
 
-    fun issueReceipt(paymentId: String) = write(requiresReauthentication = true) {
+    fun issueReceipt(paymentId: String) = write {
         require(!_ui.value.tenantMode && _ui.value.payment?.id == paymentId) { "Cần Payment đã xác minh." }
         api.issueReceipt(paymentId)
         _ui.update { it.copy(receipts = api.receipts(paymentId)) }
     }
 
-    fun voidReceipt(id: String) = write(requiresReauthentication = true) {
+    fun voidReceipt(id: String) = write {
         require(!_ui.value.tenantMode) { "Tenant không thể void Receipt." }
         api.voidReceipt(id)
         _ui.update { it.copy(receipts = api.receipts()) }

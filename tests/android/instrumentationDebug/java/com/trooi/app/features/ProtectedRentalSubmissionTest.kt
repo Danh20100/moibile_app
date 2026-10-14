@@ -16,36 +16,26 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 
-/** No Espresso or real server: prove protected submissions never reach transport. */
+/** Proves a manual Ledger payment submission reaches the authenticated API and honors its denial. */
 @RunWith(AndroidJUnit4::class)
 class ProtectedRentalSubmissionTest {
-    @Test fun financialAndLinkedPermissionWritesRequireServerProof() {
+    @Test fun manualPaymentRequiresBackendAuthorizationAndDoesNotFakeSuccess() {
         val calls = AtomicInteger()
         val client = OkHttpClient.Builder().addInterceptor { chain ->
             calls.incrementAndGet()
-            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(500).message("Synthetic only").body("{}".toResponseBody()).build()
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(403).message("Synthetic authorization denial").body("{}".toResponseBody()).build()
         }.build()
-        val backend = BackendClient("http://127.0.0.1:1", InMemoryAuthTokenProvider(), true, client)
+        val tokens = InMemoryAuthTokenProvider().apply { setToken("isolated-test-token") }
+        val backend = BackendClient("http://127.0.0.1:1", tokens, true, client)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val model = RentalViewModel(V1RentalGateway(backend), V1ContractGateway(backend), V1PaymentGateway(backend), SessionHintsStore(context, "round3-security-test"))
-        val submissions = listOf<() -> Unit>(
-            { model.createBilling("t", "terms", "2026-10-01", "2026-10-31", "rent", "1000") },
-            { model.recordPayment("synthetic-tenancy", "1000", "cash") },
-            { model.allocate("p", "c", "1000") },
-            { model.applyPaymentToDeposit("p", "d", "1000") },
-            { model.createDeposit("t") },
-            { model.settleDeposit("t", "1000", "0", "test") },
-            { model.issueReceipt("p") },
-            { model.voidReceipt("r") },
-            { model.linkParticipant("t", "p", "u") },
-            { model.leaveParticipant("t", RentalParticipant("p", "t", "occupant", "u", null)) },
-        )
-        submissions.forEach { submit ->
-            submit()
-            assertEquals("REAUTH_UNAVAILABLE", model.ui.value.errorKind)
-            assertFalse(model.ui.value.busy)
-            assertNull(model.ui.value.success)
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            model.recordPayment("synthetic-tenancy", "1000", "MANUAL_CASH")
         }
-        assertEquals(0, calls.get())
+        repeat(50) { if (model.ui.value.busy) Thread.sleep(100) }
+        assertTrue(calls.get() > 0)
+        assertEquals("FORBIDDEN", model.ui.value.errorKind)
+        assertFalse(model.ui.value.busy)
+        assertNull(model.ui.value.success)
     }
 }

@@ -55,6 +55,17 @@ fun V1RentalWorkspace(
     var extra2 by remember(state.route) { mutableStateOf("") }
     var choice by remember(state.route) { mutableStateOf("") }
     var selected by remember(state.route) { mutableStateOf("") }
+    var termsRent by remember(state.route) { mutableStateOf("") }
+    var termsDeposit by remember(state.route) { mutableStateOf("") }
+    var termsStart by remember(state.route) { mutableStateOf("") }
+    var termsEnd by remember(state.route) { mutableStateOf("") }
+    var termsEffective by remember(state.route) { mutableStateOf("") }
+    var termsElectricity by remember(state.route) { mutableStateOf("") }
+    var termsWater by remember(state.route) { mutableStateOf("") }
+    var termsObligations by remember(state.route) { mutableStateOf("") }
+    var chargeRent by remember(state.route) { mutableStateOf("") }
+    var chargeElectricity by remember(state.route) { mutableStateOf("") }
+    var chargeWater by remember(state.route) { mutableStateOf("") }
     var price by remember(state.route) {
         mutableStateOf(
             if (state.route is RentalRoute.Payment) state.checkoutIntent?.amount.orEmpty() else "",
@@ -191,6 +202,9 @@ fun V1RentalWorkspace(
                         TroOiInformationRow("Mức cọc yêu cầu", terms.depositRequirement)
                         TroOiInformationRow("Hiệu lực", terms.effectiveFrom)
                         Text("Từ ${terms.termStart} đến ${terms.termEnd}")
+                        TroOiInformationRow("Điện theo thỏa thuận", terms.electricityArrangement)
+                        TroOiInformationRow("Nước theo thỏa thuận", terms.waterArrangement)
+                        TroOiInformationRow("Nghĩa vụ", terms.obligations)
                         val activeParticipants = state.participants.filter { it.leftAt == null }
                         if (tenantReadOnly) {
                             TroOiFeedback("Lượt thuê đã kết thúc: điều khoản chỉ có thể xem lại.")
@@ -212,8 +226,20 @@ fun V1RentalWorkspace(
                     }
                 }
                 item {
-                    TroOiCard("Chỉnh sửa điều khoản") {
-                        TroOiFeedback("Tạo điều khoản mới chưa khả dụng ở phiên bản này.")
+                    if (!state.tenantMode && !tenantReadOnly) TroOiCard("Ghi nhận điều khoản đã thống nhất") {
+                        TroOiFormField(termsRent, { termsRent = it }, label = { Text("Tiền thuê mỗi tháng") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-rent"))
+                        TroOiFormField(termsDeposit, { termsDeposit = it }, label = { Text("Tiền cọc theo thỏa thuận") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-deposit"))
+                        TroOiFormField(termsStart, { termsStart = it }, label = { Text("Ngày bắt đầu · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-start"))
+                        TroOiFormField(termsEnd, { termsEnd = it }, label = { Text("Ngày kết thúc · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-end"))
+                        TroOiFormField(termsEffective, { termsEffective = it }, label = { Text("Kỳ hiệu lực đầu · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-effective"))
+                        TroOiFormField(termsElectricity, { termsElectricity = it }, label = { Text("Điện · cách tính hai bên thống nhất") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-electricity"))
+                        TroOiFormField(termsWater, { termsWater = it }, label = { Text("Nước · cách tính hai bên thống nhất") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-water"))
+                        TroOiFormField(termsObligations, { termsObligations = it }, label = { Text("Nghĩa vụ đã thống nhất") }, modifier = Modifier.fillMaxWidth().testTag("terms-obligations"))
+                        TroOiFeedback("Phiên bản Terms chỉ lưu thông tin hai bên đã thống nhất; giá Listing không được tự chép thành hợp đồng.")
+                        TroOiButton("Tạo phiên bản điều khoản", { model.createTerms(route.id, termsRent, termsDeposit, termsStart, termsEnd, termsEffective, termsElectricity, termsWater, termsObligations) },
+                            enabled = !state.busy && termsRent.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && termsDeposit.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) &&
+                                termsStart.isNotBlank() && termsEnd.isNotBlank() && termsEffective.isNotBlank() && termsElectricity.isNotBlank() && termsWater.isNotBlank() && termsObligations.isNotBlank(),
+                            modifier = Modifier.testTag("terms-create"))
                     }
                 }
             }
@@ -275,17 +301,20 @@ fun V1RentalWorkspace(
                 }
                 if (!state.tenantMode) item {
                     TroOiCard("Tạo Billing Cycle") {
-                        TroOiFormField(name, { name = it }, label = { Text("Terms ID") }, modifier = Modifier.fillMaxWidth().testTag("billing-terms-id"), singleLine = true)
+                        RentalChoice(state.terms.map { it.id }, name, { name = it }, "Phiên bản Terms đã thống nhất")
                         TroOiFormField(extra, { extra = it }, label = { Text("Kỳ bắt đầu (ISO)") }, modifier = Modifier.fillMaxWidth().testTag("billing-from"), singleLine = true)
                         TroOiFormField(extra2, { extra2 = it }, label = { Text("Kỳ kết thúc (ISO)") }, modifier = Modifier.fillMaxWidth().testTag("billing-to"), singleLine = true)
-                        RentalChoice(V1RentalGateway.CHARGE_TYPES.toList(), choice, { choice = it }, "Loại Charge")
-                        TroOiFormField(price, { price = it }, label = { Text("Amount") }, modifier = Modifier.fillMaxWidth().testTag("billing-amount"), singleLine = true)
+                        TroOiFormField(chargeRent, { chargeRent = it }, label = { Text("Tiền thuê · nếu áp dụng") }, modifier = Modifier.fillMaxWidth().testTag("billing-rent"), singleLine = true)
+                        TroOiFormField(chargeElectricity, { chargeElectricity = it }, label = { Text("Tiền điện · theo số đã thống nhất") }, modifier = Modifier.fillMaxWidth().testTag("billing-electricity"), singleLine = true)
+                        TroOiFormField(chargeWater, { chargeWater = it }, label = { Text("Tiền nước · theo số đã thống nhất") }, modifier = Modifier.fillMaxWidth().testTag("billing-water"), singleLine = true)
                         TroOiButton("Tạo Billing Cycle", {
                             val tenancyId = (route as? RentalRoute.Billing)?.id
                                 ?: (route as? RentalRoute.BillingDetail)?.tenancyId.orEmpty()
-                            model.createBilling(tenancyId, name, extra, extra2, choice, price)
-                        }, enabled = !state.busy && name.isNotBlank() && extra.isNotBlank() && extra2.isNotBlank() &&
-                            choice.isNotBlank() && price.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")))
+                            val charges = listOf("RENT" to chargeRent, "ELECTRICITY" to chargeElectricity, "WATER" to chargeWater)
+                                .filter { it.second.isNotBlank() }
+                            model.createBilling(tenancyId, name, extra, extra2, charges)
+                        }, enabled = !state.busy && state.terms.any { it.id == name } && extra.isNotBlank() && extra2.isNotBlank() &&
+                            listOf(chargeRent, chargeElectricity, chargeWater).any { it.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) })
                         TroOiFeedback("Backend duy trì nghĩa vụ phải thu; UI không tự tính aggregate/outstanding.")
                     }
                 }
