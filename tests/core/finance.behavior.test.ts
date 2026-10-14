@@ -37,6 +37,22 @@ test('cycle owns terms provenance and current charge vocabulary only', async () 
   await assert.rejects(() => finance.createCycle(F.values.scenario6), BadRequestException);
 });
 
+test('BillingCycle due date clamps from its start month and unknown historical Terms stay null', async () => {
+  const { finance, transactions } = services();
+  await transactions.run(({ repositories }) => repositories.tenancy.insertTerms({
+    tenancyTermsId: 'terms-due-day', tenancyId: 'tenancy-a', version: 2, rentAmount: '100.00',
+    agreedDepositRequirement: '0.00', termStart: '2026-01-01', termEnd: '2100-01-01',
+    billingDayOrDueDateRule: { day: 31 }, electricityArrangement: {}, waterArrangement: {},
+    minimalRentalConditions: {}, effectiveFromCycleBoundary: '2026-01-01',
+  }));
+  const cycle = await finance.createCycle({ tenancyId: 'tenancy-a', tenancyTermsId: 'terms-due-day',
+    periodStart: '2026-02-01', periodEnd: '2026-02-28', charges: [{ type: 'RENT', amount: '100.00' }] });
+  assert.equal(cycle.dueDate, '2026-02-28');
+  const legacy = await finance.createCycle({ ...F.values.scenario3, periodStart: '2026-03-01', periodEnd: '2026-03-31' });
+  assert.equal(legacy.dueDate, null, 'unknown stored billing-day JSON does not infer a date');
+  assert.deepEqual(await finance.findPaymentsByTenancyId('tenancy-a'), [], 'due-date projection creates no Payment');
+});
+
 test('payment allocation cannot cross tenancy or exceed payment amount', async () => {
   const { finance } = services();
   const a = await finance.createCycle(F.values.scenario7);

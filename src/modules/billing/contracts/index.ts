@@ -7,7 +7,7 @@ export type DepositEventType = 'RECEIVED' | 'REFUNDED' | 'RETAINED';
 export type DepositState = 'EXPECTED' | 'PARTIALLY_HELD' | 'HELD' | 'PENDING_SETTLEMENT' | 'SETTLED';
 
 export interface Charge { id: string; billingCycleId: string; type: ChargeType; amount: DecimalString; outstandingAmount: string | null; }
-export interface BillingCycle { id: string; tenancyId: string; tenancyTermsId: string; periodStart: string; periodEnd: string; charges: Charge[]; }
+export interface BillingCycle { id: string; tenancyId: string; tenancyTermsId: string; periodStart: string; periodEnd: string; dueDate: string | null; charges: Charge[]; }
 export interface Payment { id: string; tenancyId: string; amount: DecimalString; source: PaymentSource; verification: PaymentVerification; confirmedAt: string; voidedOrReversedAt?: string; correctionNote?: string; replacementPaymentId?: string; }
 export interface PaymentAllocation { id: string; paymentId: string; chargeId: string; allocatedAmount: DecimalString; }
 export interface Deposit { id: string; tenancyId: string; }

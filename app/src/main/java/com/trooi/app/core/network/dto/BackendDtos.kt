@@ -146,6 +146,7 @@ data class BillingCycleTransport(
     val tenancyTermsId: String,
     val periodStart: String,
     val periodEnd: String,
+    val dueDate: String? = null,
     val charges: List<ChargeTransport>,
 )
 

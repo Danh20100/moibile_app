@@ -140,6 +140,9 @@ export class BillingCycleDto {
   @IsString()
   periodEnd!: string;
 
+  @ApiProperty({ nullable: true, example: '2026-10-31', description: 'Date-only due date from the applicable Terms and cycle start month; null for historical/unknown rules' })
+  dueDate!: string | null;
+
   @ApiProperty({ type: [ChargeDto] })
   charges!: ChargeDto[];
 }

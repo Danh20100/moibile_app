@@ -6,6 +6,7 @@ import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persisten
 import { BillingTransactionCoordinator } from '../../../persistence/guards/billing-transaction-coordinator';
 import { FinanceTransactionCoordinator } from '../../../persistence/guards/finance-transaction-coordinator';
 import { TenancyService } from '../../tenancy/services/tenancy.service';
+import { resolveBillingDueDate } from '../../tenancy/domain/terms-billing-day';
 import { BillingCycle, Charge, CorrectPaymentInput, CreateBillingCycleInput, Deposit, DepositEvent, DepositPaymentApplication, DepositProjection, DepositSettlement, DepositState, Payment, PaymentAllocation, ManualRecordPaymentInput, SettleDepositInput } from '../contracts';
 
 function cents(v: DecimalString): bigint { if (!isNumeric18Scale2NonNegative(v)) throw new BadRequestException('Amount must be a non-negative decimal with at most two decimals'); const [w,f='']=v.split('.'); return BigInt(w)*100n+BigInt(f.padEnd(2,'0')); }
@@ -40,7 +41,7 @@ export class BillingService {
         }
       }
     });
-    return{id:r.billingCycleId,tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd,charges};
+    return{id:r.billingCycleId,tenancyId:i.tenancyId,tenancyTermsId:i.tenancyTermsId,periodStart:i.periodStart,periodEnd:i.periodEnd,dueDate:await this.dueDate(i.tenancyTermsId,i.periodStart),charges};
   }
   async findById(id:string){const r=await this.tx.run(({repositories})=>repositories.finance.findBillingCycle(id));if(!r)throw new NotFoundException(`Billing Cycle not found: ${id}`);return this.cycle(r,await this.tx.run(({repositories})=>repositories.finance.findChargesForCycle(id)));}
   async findByTenancyId(id?:string){const rs=await this.tx.run(({repositories})=>repositories.finance.findBillingCyclesForTenancy(id));return Promise.all(rs.map(async r=>this.cycle(r,await this.tx.run(({repositories})=>repositories.finance.findChargesForCycle(r.billingCycleId)))));}
@@ -131,7 +132,12 @@ export class BillingService {
       const due=cents(c.amount),used=cents(allocated);
       charges.push({id:c.chargeId,billingCycleId:c.billingCycleId,type:c.chargeType as Charge['type'],amount:c.amount,outstandingAmount:used>due?null:money(due-used)});
     }
-    return{id:x.billingCycleId,tenancyId:x.tenancyId,tenancyTermsId:x.tenancyTermsId,periodStart:x.periodStart,periodEnd:x.periodEnd,charges};
+    return{id:x.billingCycleId,tenancyId:x.tenancyId,tenancyTermsId:x.tenancyTermsId,periodStart:x.periodStart,periodEnd:x.periodEnd,dueDate:await this.dueDate(x.tenancyTermsId,x.periodStart),charges};
+  }
+  private async dueDate(termsId:string,periodStart:string):Promise<string|null>{
+    const terms=await this.tx.run(({repositories})=>repositories.tenancy.findTermsById(termsId));
+    const date=/^(\d{4})-(\d{2})-\d{2}$/.exec(periodStart);
+    return date?resolveBillingDueDate(terms?.billingDayOrDueDateRule,Number(date[1]),Number(date[2])):null;
   }
   private paymentRecord(x:Payment):PaymentRecord{return{paymentId:x.id,tenancyId:x.tenancyId,amount:x.amount,source:x.source,verification:x.verification,confirmedAt:x.confirmedAt,voidedOrReversedAt:x.voidedOrReversedAt??null,correctionNote:x.correctionNote??null,replacementPaymentId:x.replacementPaymentId??null};}
   private payment(x:PaymentRecord):Payment{return{id:x.paymentId,tenancyId:x.tenancyId,amount:x.amount,source:x.source as Payment['source'],verification:x.verification as Payment['verification'],confirmedAt:x.confirmedAt,...(x.voidedOrReversedAt?{voidedOrReversedAt:x.voidedOrReversedAt}:{}),...(x.correctionNote?{correctionNote:x.correctionNote}:{}),...(x.replacementPaymentId?{replacementPaymentId:x.replacementPaymentId}:{})};}

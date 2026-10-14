@@ -13,6 +13,8 @@
 
 For a recurring monthly day `N` from 1 through 31, set the due date to the earlier of `N` and the last calendar day of that billing month. Thus day 31 is due on February 28/29 and March 31; day 30 is due on February 28/29. Do not carry an unavailable day into the next month, shift the billing cycle, prorate charges, or imply a payment was received. Interpret it as a local Vietnam calendar date (date-only), with no UTC conversion.
 
+For the BillingCycle projection, the billing month is the calendar month containing `periodStart`. The API returns `dueDate` as `YYYY-MM-DD`; it returns `null` for malformed cycle dates or unknown historical Terms rules. This is a read-only projection and does not alter cycle boundaries or payment state.
+
 ### Required tests
 
 - Days 1, 28, 29, 30, and 31 in short/long months.

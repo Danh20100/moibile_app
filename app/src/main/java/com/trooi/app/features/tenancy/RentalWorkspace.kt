@@ -284,6 +284,7 @@ fun V1RentalWorkspace(
                 items(state.billing, key = { it.id }) { cycle ->
                     LedgerSectionTitle("Kỳ thanh toán", "${cycle.from} → ${cycle.to}")
                     LedgerStateLabel("Billing source · ${cycle.id}", LedgerTone.Warning)
+                    cycle.dueDate?.let { TroOiInformationRow("Ngày đến hạn theo Terms", it) }
                     Spacer(Modifier.height(8.dp))
                     TroOiInformationRow("Điều khoản áp dụng", cycle.termsId)
                     Spacer(Modifier.height(8.dp))

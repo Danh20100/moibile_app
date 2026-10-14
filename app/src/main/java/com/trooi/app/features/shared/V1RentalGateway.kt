@@ -16,7 +16,7 @@ data class RentalTerms(val id: String, val tenancyId: String, val version: Int, 
     val electricityArrangement: String, val waterArrangement: String, val obligations: String, val billingDay: Int?)
 data class RentalNotice(val id: String, val tenancyId: String, val type: String, val content: String, val issuedAt: String, val acknowledgedAt: String?)
 data class RentalCharge(val id: String, val type: String, val amount: String)
-data class RentalBilling(val id: String, val tenancyId: String, val termsId: String, val from: String, val to: String, val charges: List<RentalCharge>)
+data class RentalBilling(val id: String, val tenancyId: String, val termsId: String, val from: String, val to: String, val charges: List<RentalCharge>, val dueDate: String? = null)
 data class RentalPayment(val id: String, val tenancyId: String, val amount: String, val source: String, val verification: String, val confirmedAt: String)
 data class RentalReceipt(val id: String, val paymentId: String, val status: String, val issuedAt: String, val voidedAt: String?)
 data class RentalIncident(val id: String, val roomId: String, val category: String, val status: String, val createdAt: String, val closureReason: String?)
@@ -304,7 +304,7 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
         x.req("issuedAt"), x.opt("acknowledgedAt"))
     private fun charge(x: JsonObject) = RentalCharge(x.req("id"), x.req("type"), x.req("amount"))
     private fun billing(x: JsonObject) = RentalBilling(x.req("id"), x.req("tenancyId"), x.req("tenancyTermsId"),
-        x.req("periodStart"), x.req("periodEnd"), x.getAsJsonArray("charges").map { charge(it.asJsonObject) })
+        x.req("periodStart"), x.req("periodEnd"), x.getAsJsonArray("charges").map { charge(it.asJsonObject) }, x.opt("dueDate"))
     private fun payment(x: JsonObject) = RentalPayment(x.req("id"), x.req("tenancyId"), x.req("amount"), x.req("source"),
         x.req("verification"), x.req("confirmedAt"))
     private fun receipt(x: JsonObject) = RentalReceipt(x.req("id"), x.req("paymentId"), x.req("status"), x.req("issuedAt"), x.opt("voidedAt"))

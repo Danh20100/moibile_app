@@ -109,6 +109,16 @@ class V1CompletionContractTest {
         }
     }
 
+    @Test fun billingCycleReadsDueDateProjectionAndKeepsLegacyNull() = runBlocking {
+        MockWebServer().use { server ->
+            server.ok("""[{"id":"cycle-new","tenancyId":"t-1","tenancyTermsId":"terms-1","periodStart":"2025-02-01","periodEnd":"2025-02-28","dueDate":"2025-02-28","charges":[]},{"id":"cycle-old","tenancyId":"t-1","tenancyTermsId":"terms-old","periodStart":"2024-02-01","periodEnd":"2024-02-29","charges":[]}]""")
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val cycles = V1RentalGateway(client(server)).billingCycles("t-1")
+            assertEquals("2025-02-28", cycles[0].dueDate)
+            assertNull(cycles[1].dueDate)
+        }
+    }
+
     @Test fun historicalTermsWithUnknownBillingRuleShapeStillReadWithoutInferringADay() = runBlocking {
         MockWebServer().use { server ->
             server.ok("""[{"id":"terms-old","tenancyId":"t-1","version":1,"rentAmount":"1000.00","agreedDepositRequirement":"500.00","termStart":"2025-01-01","termEnd":"2025-12-31","effectiveFromCycleBoundary":"2025-01-01","billingDayOrDueDateRule":[],"electricityArrangement":"metered","waterArrangement":"fixed","minimalRentalConditions":"old"}]""")

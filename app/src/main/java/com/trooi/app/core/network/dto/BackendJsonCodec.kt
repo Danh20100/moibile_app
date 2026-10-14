@@ -301,6 +301,7 @@ object BackendJsonCodec {
         tenancyTermsId = obj.requiredString("tenancyTermsId"),
         periodStart = obj.requiredString("periodStart"),
         periodEnd = obj.requiredString("periodEnd"),
+        dueDate = obj.optionalString("dueDate"),
         charges = obj.requiredArray("charges").map { charge(it.asJsonObject) },
     )
 
