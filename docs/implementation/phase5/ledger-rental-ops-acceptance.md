@@ -109,7 +109,7 @@ The first full test run caught the Identity/KYC isolation static check flagging 
 - Owner onboarding/Organization claim is a separate security-contract dependency. Tests seed a legitimate owner Organization and must not be read as product self-claim acceptance.
 - No ordinary Google test account was signed into the emulator. The app cannot demonstrate AssetWizard photo upload, manual UI payments, tenant incident, checkout or restart readback in this run.
 - The combined multi-domain rental workflow is not represented by one executable JSON fixture yet. Media tests are fixture-driven; `tests/e2e/journeys/J04-monthly-rental-operations.yaml` remains `spec_only`.
-- No public Listing photo projection was added. Uploaded photos are private owner media.
+- This report's original P5.2 continuation did not add public Listing photo projection. On `integration/discovery-ledger-ui-preview`, additive migration `000012` plus the opt-in public photo route/UI have since been implemented; authorization/readback integration remains blocked. See the current integration gap register's `LED-P0-07` evidence.
 - No live SePay/MoMo test or real transfer was made. Manual Payment provenance remains distinct and server-authoritative.
 - Step-up reauthentication was deferred for the authorized manual Ledger MVP. The Backend still enforces signed-in identity and resource ownership, but there is no recent-auth proof on these writes.
 - MinIO cleanup handles request/DB failures and deterministic retry; an abrupt process death after object PUT can leave an unreachable private orphan pending future bucket reconciliation.

@@ -17,6 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.features.discovery.ListingDetailScreen
+import com.trooi.app.features.discovery.publicRentalDetail
+import com.trooi.app.core.model.AmenityCatalog
+import com.trooi.app.core.model.ListingVisibility
+import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.ui.theme.TroOiTheme
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,6 +104,30 @@ class NativeListingDetailPolishTest {
                 scrollUntil("Vị trí được công khai ở mức khu vực, không phải địa chỉ chính xác.")
                 save("location-$suffix.png")
             }
+        }
+    }
+
+    @Test fun publicListingRendersOnlyItsProjectedAmenityIdsWithoutFixtureDetails() {
+        val listing = PublicListingCard("backend-listing", "Phòng sáng", "Vị trí công khai", null,
+            "3500000", ListingVisibility.PUBLISHED,
+            amenities = listOf(AmenityCatalog.label("wifi"), AmenityCatalog.label("private_bathroom")))
+        val presentation = publicRentalDetail(listing)
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                activity.setContent {
+                    TroOiTheme {
+                        Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+                            ListingDetailScreen("backend-listing", onBack = {}, presentation = presentation, preview = true)
+                        }
+                    }
+                }
+            }
+            instrumentation.waitForIdleSync()
+            scrollUntil("Tiện nghi")
+            scrollUntil("Wi-Fi")
+            assertTrue(visibleNodes().any { it.text?.toString() == "Wi-Fi" && it.isVisibleToUser })
+            scrollUntil("Phòng tắm riêng")
+            assertTrue(visibleNodes().none { it.text?.toString() == "Máy giặt chung" && it.isVisibleToUser })
         }
     }
 }
