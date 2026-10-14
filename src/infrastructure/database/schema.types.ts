@@ -27,6 +27,7 @@ export interface Database {
   rooms: RoomsTable;
   listings: ListingsTable;
   listing_asset_details: ListingAssetDetailsTable;
+  listing_asset_media: ListingAssetMediaTable;
   listing_status_events: ListingStatusEventsTable;
   inquiries: InquiriesTable;
   tenancies: TenanciesTable;
@@ -79,6 +80,10 @@ export interface ListingAssetDetailsTable {
   electricity_offer: string | null; water_offer: string | null; service_offer: string | null;
   minimum_term_months: number | null; available_from: DateString | null;
   bathroom_arrangement: 'PRIVATE' | 'SHARED' | null; max_occupants: number | null; floor_label: string | null;
+}
+export interface ListingAssetMediaTable {
+  media_id: string; listing_id: string; object_key: string; content_type: 'image/jpeg' | 'image/png';
+  byte_size: number; position: number; created_at: TimestampString;
 }
 export interface ListingStatusEventsTable {
   listing_status_event_id: string; listing_id: string; from_status: string;

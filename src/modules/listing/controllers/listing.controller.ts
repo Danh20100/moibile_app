@@ -1,10 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Inject, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { ListingProfile, ListingTransitionEventInput } from '../contracts';
 import { ListingAssetDetailsDto, ListingAssetDetailsProfileDto, ListingProfileDto, UpdateListingDto } from '../dto';
+import { ReorderListingAssetMediaDto, UploadListingAssetMediaDto } from '../dto/listing-asset-media.dto';
+import { ListingAssetMediaService } from '../services/listing-asset-media.service';
 import { ListingService } from '../services/listing.service';
 
 @ApiTags('Listing')
@@ -15,6 +17,8 @@ export class ListingController {
     private readonly listingService: ListingService,
     @Inject(ResourceAuthorizationService)
     private readonly authz: ResourceAuthorizationService,
+    @Inject(ListingAssetMediaService)
+    private readonly media: ListingAssetMediaService,
   ) {}
 
   @Public()
@@ -67,6 +71,38 @@ export class ListingController {
   ) {
     await this.authz.assertOperatesListing(user.userId, id);
     return this.listingService.saveAssetDetails(id, dto);
+  }
+
+  @Get(':id/media')
+  async listAssetMedia(@Param('id') id: string, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.media.list(id);
+  }
+
+  @Post(':id/media')
+  async uploadAssetMedia(@Param('id') id: string, @Body() dto: UploadListingAssetMediaDto, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.media.upload(id, dto);
+  }
+
+  @Get(':id/media/:mediaId/content')
+  @Header('Cache-Control', 'private, no-store')
+  async assetMediaContent(@Param('id') id: string, @Param('mediaId') mediaId: string, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.media.content(id, mediaId);
+  }
+
+  @Patch(':id/media/order')
+  async reorderAssetMedia(@Param('id') id: string, @Body() dto: ReorderListingAssetMediaDto, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.media.reorder(id, dto);
+  }
+
+  @Delete(':id/media/:mediaId')
+  async removeAssetMedia(@Param('id') id: string, @Param('mediaId') mediaId: string, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    await this.media.remove(id, mediaId);
+    return { removed: true };
   }
 
   @Get(':id')

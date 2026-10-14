@@ -121,9 +121,10 @@ test('verification primitives stay inactive with no production callers, HTTP rou
     if (implementationFiles.includes(file)) {
       assert.doesNotMatch(source, /@(?:Controller|Module|Get|Post|Put|Delete|Patch)\b/);
     } else {
-      // Messaging activates private storage only; verification workflows remain inactive.
+      // Messaging and Listing may import shared private storage; verification workflows remain inactive.
       const forbidden =
-        file === 'src/modules/messaging/messaging.module.ts'
+        file === 'src/modules/messaging/messaging.module.ts' ||
+        file === 'src/infrastructure/object-storage/object-storage.module.ts'
           ? /(?:compreface-verifier|manual-verification\.workflow|CompreFaceVerifier|startManualReview|submitVerification|decideManualReview)/
           : marker;
       assert.doesNotMatch(source, forbidden, `${file} must not activate KYC primitives`);

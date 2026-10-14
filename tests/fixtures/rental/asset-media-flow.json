@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "actors": { "owner": "owner", "outsider": "outsider" },
+  "limits": { "maxBytes": 5242880, "maxPhotos": 10 },
+  "images": [
+    { "path": "tests/fixtures/rental/media/room-photo.jpg", "contentType": "image/jpeg" },
+    { "path": "tests/fixtures/rental/media/room-photo.png", "contentType": "image/png" },
+    { "path": "tests/fixtures/rental/media/room-photo-2.jpg", "contentType": "image/jpeg" }
+  ],
+  "steps": ["upload", "list", "read", "reorder", "reconnect", "deny-outsider", "remove"]
+}

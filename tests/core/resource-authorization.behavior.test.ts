@@ -14,6 +14,7 @@ import { IncidentService } from '../../src/modules/incident/services/incident.se
 import { InquiryController } from '../../src/modules/listing/controllers/inquiry.controller';
 import { InquiryService } from '../../src/modules/listing/services/inquiry.service';
 import { ListingController } from '../../src/modules/listing/controllers/listing.controller';
+import { ListingAssetMediaService } from '../../src/modules/listing/services/listing-asset-media.service';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
 import { OrganizationController } from '../../src/modules/organization/controllers/organization.controller';
 import { OrganizationService } from '../../src/modules/organization/services/organization.service';
@@ -60,7 +61,7 @@ function setupTestEnvironment() {
   const roomController = new RoomController(roomService, authz, lifecycle);
 
   const listingService = new ListingService(transactions);
-  const listingController = new ListingController(listingService, authz);
+  const listingController = new ListingController(listingService, authz, {} as ListingAssetMediaService);
 
   const inquiryService = new InquiryService(listingService, transactions);
   const inquiryController = new InquiryController(inquiryService, authz);

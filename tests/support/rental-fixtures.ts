@@ -53,3 +53,11 @@ interface RentalPersistenceFixture {
 export const rentalPersistenceFixture = loadFixture<RentalPersistenceFixture>(
   'rental/persistence-regression',
 );
+
+export const rentalAssetMediaFlow = loadFixture<{
+  version: number;
+  actors: { owner: string; outsider: string };
+  limits: { maxBytes: number; maxPhotos: number };
+  images: { path: string; contentType: 'image/jpeg' | 'image/png' }[];
+  steps: string[];
+}>('rental/asset-media-flow');
