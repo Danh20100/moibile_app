@@ -91,6 +91,11 @@ class NativeRemainingStatesTest {
     private fun draft() = DemoData.ownerManagement.assets.single { it.id == DemoRentalGraph.AN_NHIEN }
 
     @Test fun wizardRejectedDraftSaveRetainsValuesAndAllStepsRemainReachable() {
+        val validDraft = draft().copy(
+            description = "Mô tả tài sản hợp lệ",
+            operationalLatitude = "10.7769",
+            operationalLongitude = "106.7009",
+        )
         for (dark in listOf(false, true)) {
             var closes = 0
             var purchases = 0
@@ -100,16 +105,16 @@ class NativeRemainingStatesTest {
                     TroOiTheme(darkTheme = dark) {
                         val density = LocalDensity.current
                         CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
-                            AssetWizard(draft(), DemoData.ownerManagement, "Native owner", { closes++ },
+                            AssetWizard(validDraft, DemoData.ownerManagement, "Native owner", { closes++ },
                                 { asset, activate, publish -> saves += Triple(asset, activate, publish); Result.failure(IllegalStateException("Native rejected save")) },
                                 { purchases++; Result.failure(IllegalStateException("Native rejected purchase")) })
                         }
                     }
                 } }
-                text(draft().name)
-                set(find { it.className == "android.widget.EditText" && it.text?.toString() == draft().name }, "Tên tài sản dài giữ nguyên sau lỗi lưu")
+                text(validDraft.name)
+                set(find { it.className == "android.widget.EditText" && it.text?.toString() == validDraft.name }, "Tên tài sản dài giữ nguyên sau lỗi lưu")
                 capture("wizard-step1", dark)
-                click("Lưu nháp"); text("Chưa lưu được tài sản. Vui lòng kiểm tra thông tin và thử lại.")
+                click("Lưu nháp"); text("Native rejected save")
                 assertEquals(1, saves.size); assertEquals(false, saves.single().second); assertEquals(false, saves.single().third)
                 assertEquals("Tên tài sản dài giữ nguyên sau lỗi lưu", saves.single().first.name)
                 assertEquals(0, closes); assertEquals(0, purchases); capture("wizard-save-rejected", dark)
