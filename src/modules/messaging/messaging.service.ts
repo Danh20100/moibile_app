@@ -191,13 +191,7 @@ export class MessagingService {
       .orderBy('created_at', 'desc')
       .limit(1)
       .executeTakeFirst();
-    if (latest)
-      await this.repo.db
-        .updateTable('messaging_participants')
-        .set({ last_read_at: iso(latest.created_at) })
-        .where('conversation_id', '=', id)
-        .where('user_id', '=', userId)
-        .execute();
+    if (latest) await this.repo.advanceReadWatermark(id, userId, iso(latest.created_at));
     return { lastReadAt: latest ? iso(latest.created_at) : null };
   }
   async attachment(userId: string, id: string, attachmentId: string) {

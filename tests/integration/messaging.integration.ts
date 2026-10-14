@@ -193,6 +193,20 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal((await request(0, `/${conversation}/messages`)).body.data[1].text, 'B to A');
     assert.equal((await request(1, `/${conversation}/read`, {})).status, 201);
     assert.ok((await request(1, '')).body.data[0].lastReadAt);
+    const stale = '2020-01-01T00:00:00.000Z';
+    const newer = '2030-01-01T00:00:00.000Z';
+    const messagingRepository = new MessagingRepository(db);
+    await Promise.all([
+      messagingRepository.advanceReadWatermark(conversation, ids[1], newer),
+      messagingRepository.advanceReadWatermark(conversation, ids[1], stale),
+    ]);
+    const watermark = await db
+      .selectFrom('messaging_participants')
+      .select('last_read_at')
+      .where('conversation_id', '=', conversation)
+      .where('user_id', '=', ids[1])
+      .executeTakeFirstOrThrow();
+    assert.equal(new Date(watermark.last_read_at!).toISOString(), newer);
     const row = await db
       .selectFrom('messaging_attachments')
       .select('object_key')

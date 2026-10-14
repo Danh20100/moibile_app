@@ -128,3 +128,9 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] `LED-P1-01` implementation: migration `000013` persists one upload/delete operation intent per Listing. Upload uses a SHA-256-bound intent before MinIO PUT; delete uses an intent before object removal and metadata compaction. Startup reconciliation removes unindexed bytes after interrupted upload and completes pending deletion; same-request retries are safe. Conflicting media mutations are blocked while recovery is pending, and public reads suppress pending media.
 - [ ] `BLOCKED` integration acceptance: PostgreSQL/MinIO fault injection after PUT and after object deletion/before DB commit is authored in the persistence test but not run because `localhost:5432` is unavailable. Backend behavior/migration tests `9/9`, Identity freeze + database contract tests `7/7`, typecheck/lint/build pass. Do not claim `PASS_BACKEND` or `PASS_FULLSTACK` until migration and both fault paths run against isolated services.
+
+## P1 continuation — Messaging read watermark
+
+- [x] Make read watermark updates atomic and monotonic with PostgreSQL `GREATEST`, so a delayed older request cannot move the stored timestamp backwards.
+- [x] Add concurrent newer/stale watermark regression assertions to `tests/integration/messaging.integration.ts`.
+- [ ] Run the Messaging PostgreSQL/MinIO integration on the isolated services before reporting `PASS_BACKEND`; unavailable services keep this acceptance `BLOCKED`.

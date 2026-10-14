@@ -13,6 +13,17 @@ import type { Database } from '../../infrastructure/database/schema.types';
 export class MessagingRepository {
   constructor(@Inject(DATABASE_CLIENT) readonly db: Kysely<Database>) {}
 
+  async advanceReadWatermark(conversationId: string, userId: string, timestamp: string): Promise<void> {
+    await this.db
+      .updateTable('messaging_participants')
+      .set({
+        last_read_at: sql<string>`GREATEST(COALESCE(last_read_at, '-infinity'::timestamptz), ${timestamp}::timestamptz)`,
+      })
+      .where('conversation_id', '=', conversationId)
+      .where('user_id', '=', userId)
+      .execute();
+  }
+
   async assertParticipant(userId: string, id: string): Promise<void> {
     const row = await this.db
       .selectFrom('messaging_participants')
