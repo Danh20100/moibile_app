@@ -28,6 +28,7 @@ export interface Database {
   listings: ListingsTable;
   listing_asset_details: ListingAssetDetailsTable;
   listing_asset_media: ListingAssetMediaTable;
+  listing_asset_media_intents: ListingAssetMediaIntentsTable;
   listing_status_events: ListingStatusEventsTable;
   inquiries: InquiriesTable;
   tenancies: TenanciesTable;
@@ -84,6 +85,11 @@ export interface ListingAssetDetailsTable {
 export interface ListingAssetMediaTable {
   media_id: string; listing_id: string; object_key: string; content_type: 'image/jpeg' | 'image/png';
   byte_size: number; position: number; public_approved: boolean; created_at: TimestampString;
+}
+export interface ListingAssetMediaIntentsTable {
+  media_id: string; listing_id: string; operation: 'UPLOAD' | 'DELETE'; object_key: string;
+  content_type: 'image/jpeg' | 'image/png'; byte_size: number; position: number;
+  content_hash: string | null; created_at: TimestampString;
 }
 export interface ListingStatusEventsTable {
   listing_status_event_id: string; listing_id: string; from_status: string;

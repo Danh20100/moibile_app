@@ -25,3 +25,16 @@ test('public asset photos are opt-in and rollback refuses approved public state'
   assert.match(migration, /WHERE public_approved/);
   assert.match(migration, /data-preserving migration/);
 });
+
+test('asset media operation intents persist retry data and rollback refuses pending work', () => {
+  const up = readFileSync('database/migrations/sql/000013_listing_asset_media_intents.up.sql', 'utf8');
+  const down = readFileSync('database/migrations/sql/000013_listing_asset_media_intents.down.sql', 'utf8');
+  assert.match(up, /CREATE TABLE listing_asset_media_intents/);
+  assert.match(up, /object_key text NOT NULL/);
+  assert.match(up, /REFERENCES listings\(listing_id\) ON DELETE NO ACTION/);
+  assert.match(up, /operation IN \('UPLOAD', 'DELETE'\)/);
+  assert.match(up, /content_hash text/);
+  assert.match(up, /UNIQUE INDEX uq_listing_asset_media_intents_listing/);
+  assert.match(down, /IF EXISTS \(SELECT 1 FROM listing_asset_media_intents\)/);
+  assert.match(down, /DROP TABLE listing_asset_media_intents/);
+});

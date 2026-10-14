@@ -6,15 +6,32 @@ import { ListingAssetMediaService } from '../../src/modules/listing/services/lis
 import { rentalFixture } from './persistence/guards/rental-test-support';
 import { rentalAssetMediaFlow } from '../support/rental-fixtures';
 
+function failTransactionAfterWork(db: any, transactionToFail: number): any {
+  let transactionCount = 0;
+  return {
+    ...db,
+    transaction: () => {
+      transactionCount++;
+      const failAfterWork = transactionCount === transactionToFail;
+      return {
+        execute: (callback: (tx: any) => Promise<unknown>) => db.transaction().execute(async (tx: any) => {
+          const value = await callback(tx);
+          if (failAfterWork) throw new Error('database commit unavailable');
+          return value;
+        }),
+      };
+    },
+  };
+}
+
 test('asset photo bytes and ordering persist in PostgreSQL and retries cannot change media content', async () => {
   const url = process.env.TEST_DATABASE_URL;
   assert.ok(url, 'TEST_DATABASE_URL is required');
   const f = await rentalFixture(url);
   const objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
   let failDelete = false;
-  let failRestore = false;
   const storage = {
-    async putObject(value: { key: string; bytes: Uint8Array; contentType: string }) { if (failRestore) throw new Error('storage restore unavailable'); objects.set(value.key, value); },
+    async putObject(value: { key: string; bytes: Uint8Array; contentType: string }) { objects.set(value.key, value); },
     async getObject(key: string) { return objects.get(key) ?? null; },
     async deleteObject(key: string) { if (failDelete) throw new Error('storage unavailable'); objects.delete(key); },
   };
@@ -34,22 +51,29 @@ test('asset photo bytes and ordering persist in PostgreSQL and retries cannot ch
     const image = await reopened.content(listingId, second);
     assert.equal(image.contentType, rentalAssetMediaFlow.images[0]!.contentType);
     assert.deepEqual(Buffer.from(image.base64, 'base64'), secondBytes);
-    const failedTransactionDb = {
-      selectFrom: f.db.selectFrom.bind(f.db),
-      transaction: () => ({ execute: async () => { throw new Error('database unavailable'); } }),
-    } as unknown as typeof f.db;
-    await assert.rejects(new ListingAssetMediaService(failedTransactionDb, storage).remove(listingId, second));
-    assert.deepEqual(Buffer.from((await reopened.content(listingId, second)).base64, 'base64'), secondBytes);
-    failRestore = true;
-    await assert.rejects(new ListingAssetMediaService(failedTransactionDb, storage).remove(listingId, second), { message: 'Asset photo removal needs reconciliation' });
+    const interruptedUploadId = randomUUID();
+    const interruptedUpload = { mediaId: interruptedUploadId, contentType: 'image/jpeg' as const, base64: firstBytes.toString('base64') };
+    const uploadKey = `rental-assets/${listingId}/${interruptedUploadId}.jpg`;
+    await assert.rejects(new ListingAssetMediaService(failTransactionAfterWork(f.db, 2), storage).upload(listingId, interruptedUpload), { message: 'Asset photo upload pending reconciliation' });
+    assert.equal(objects.has(uploadKey), true);
+    const pendingUpload = await f.db.selectFrom('listing_asset_media_intents').selectAll().where('media_id', '=', interruptedUploadId).executeTakeFirst();
+    assert.equal(pendingUpload?.operation, 'UPLOAD');
+    assert.equal(await reopened.reconcilePendingIntents(), 1);
+    assert.equal(objects.has(uploadKey), false);
+    assert.equal(await f.db.selectFrom('listing_asset_media_intents').selectAll().where('media_id', '=', interruptedUploadId).executeTakeFirst().then(Boolean), false);
+
+    const failFinalizeDb = failTransactionAfterWork(f.db, 2) as typeof f.db;
+    await assert.rejects(new ListingAssetMediaService(failFinalizeDb, storage).remove(listingId, second), { message: 'Asset photo removal pending reconciliation' });
+    assert.equal(objects.has(`rental-assets/${listingId}/${second}.jpg`), false);
     assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [second, first]);
-    failRestore = false;
-    await storage.putObject({ key: `rental-assets/${listingId}/${second}.jpg`, bytes: secondBytes, contentType: 'image/jpeg' });
-    failDelete = true;
-    await assert.rejects(reopened.remove(listingId, second));
-    assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [second, first]);
-    failDelete = false;
-    await reopened.remove(listingId, second);
+    assert.equal(await f.db.selectFrom('listing_asset_media_intents').selectAll().where('media_id', '=', second).executeTakeFirst().then(Boolean), true);
+    assert.equal(await reopened.reconcilePendingIntents(), 1);
     assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [first]);
+    failDelete = true;
+    await assert.rejects(reopened.remove(listingId, first), { message: 'Asset photo removal pending reconciliation' });
+    assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [first]);
+    failDelete = false;
+    await reopened.remove(listingId, first);
+    assert.deepEqual(await reopened.list(listingId), []);
   } finally { await f.db.destroy(); }
 });

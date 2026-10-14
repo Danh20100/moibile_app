@@ -47,7 +47,7 @@ Android caller path is `AssetWizard → TroOiViewModel → BackendTroOiRepositor
 | Photo media ID, MIME, size, position and created time | `listing_asset_media` (migration `000011`) | Only owner-authorized metadata routes expose it. Cover is position zero; no photo blob, Android path or S3 credential is canonical DB data. |
 | Photo bytes | Private MinIO object key `rental-assets/<listing-id>/<media-id>.<jpg|png>` | Authenticated owner retrieval only. Object key and private bucket are not public Listing fields. Android cache files are disposable display cache. |
 
-The Listing → media foreign key uses `ON DELETE NO ACTION`. `000011` is additive; migrations `000001`–`000010`, the frozen Identity `000008`, and historical tenancy/payment ownership remain untouched. The down migration refuses to drop uploaded user data. Reordering runs in one PostgreSQL transaction with deferred uniqueness and positions restricted to `0..9`. A repeated media UUID with different bytes conflicts; same-byte retry returns the existing metadata. Removal reads and verifies the private object, deletes it before metadata, and compensates a failed metadata transaction by restoring the bytes. If restore also fails, the API returns 503 `Asset photo removal needs reconciliation` and retains the metadata row. A process crash between object deletion and metadata commit is still not crash-safe; durable delete intents/background reconciliation remain deferred.
+The Listing → media foreign key uses `ON DELETE NO ACTION`. `000011` is additive; migrations `000001`–`000010`, the frozen Identity `000008`, and historical tenancy/payment ownership remain untouched. The down migration refuses to drop uploaded user data. Reordering runs in one PostgreSQL transaction with deferred uniqueness and positions restricted to `0..9`. A repeated media UUID with different bytes conflicts; same-byte retry returns the existing metadata. On this branch, additive `000013` writes a per-Listing operation intent before MinIO PUT or DELETE. Upload intent stores object key, original position and SHA-256; an identical retry can finish the upload, while startup reconciliation removes unindexed bytes after an abandoned upload. Delete intent stores the same durable object metadata; the service then locks the Listing while deleting the MinIO object, deleting metadata, compacting positions and clearing the intent in one DB transaction. A failed operation leaves its intent for startup/request retry. Upload, reorder and public-consent mutations wait until that Listing has no pending intent; public reads hide pending media. The `000013` down migration refuses to drop pending work. PostgreSQL/MinIO fault-injection verification for both crash windows remains blocked by unavailable local PostgreSQL.
 
 ### Media routes
 
@@ -58,9 +58,9 @@ All routes are under `/api/v1` and require AuthGuard plus server-side Listing ow
 | `POST /listings/:id/media` | Validate and upload bounded JPEG/PNG bytes, then persist metadata. Idempotent by `mediaId`. |
 | `GET /listings/:id/media/:mediaId/content` | Authenticated base64 content read from private MinIO. |
 | `PATCH /listings/:id/media/order` | Require an exact permutation of current media IDs; transactionally update position. |
-| `DELETE /listings/:id/media/:mediaId` | Delete object and metadata, compact order; object-delete failure retains metadata, transaction failure restores bytes, and failed restoration returns 503 while retaining metadata for reconciliation. |
+| `DELETE /listings/:id/media/:mediaId` | Persist a delete intent, then delete object and metadata and compact order. On storage/DB failure return 503 and retain the intent for startup/retry reconciliation. |
 
-The request body parser allows the bounded base64 envelope (8 MiB); the service rejects payloads over 5 MiB, unsupported MIME, invalid JPEG/PNG content and images over 16 megapixels. An interrupted MinIO PUT is cleaned up on caught DB/request failures. A process crash after PUT but before metadata commit can leave a private unindexed object; retries use the same stable media ID/object key and overwrite it. Periodic bucket reconciliation is a remaining storage-operations improvement.
+The request body parser allows the bounded base64 envelope (8 MiB); the service rejects payloads over 5 MiB, unsupported MIME, invalid JPEG/PNG content and images over 16 megapixels. Migration `000013` commits an upload intent before MinIO PUT. An interrupted request leaves that intent; an identical SHA-256-bound retry can finish persisting metadata, while application startup deletes an unindexed object and clears the intent. Periodic bucket reconciliation remains useful for legacy or externally orphaned objects.
 
 ## Terms, billing and payment
 
@@ -78,6 +78,8 @@ Manual emulator test steps once an already-authorized operator and linked tenant
 These steps were **not manually executed on the emulator** because the app remained at sign-in and no authorized test account was available through the disabled Identity cutover gate.
 
 ## Verification evidence
+
+The evidence table below records the earlier P5.2 runtime baseline. The additive `000013` continuation described above supersedes the former media deletion compensation behavior; its own unit/static evidence and outstanding PostgreSQL/MinIO fault-injection status are recorded in the continuation note under Remaining blockers.
 
 All database runs use isolated `trooi_test` at `127.0.0.1:55518`. Media MinIO tests use the local disposable `trooi-ledger-test` bucket and remove their test objects.
 | Command / test | Result |
@@ -109,6 +111,7 @@ The first full test run caught the Identity/KYC isolation static check flagging 
 - Owner onboarding/Organization claim is a separate security-contract dependency. Tests seed a legitimate owner Organization and must not be read as product self-claim acceptance.
 - No ordinary Google test account was signed into the emulator. The app cannot demonstrate AssetWizard photo upload, manual UI payments, tenant incident, checkout or restart readback in this run.
 - The combined multi-domain rental workflow is not represented by one executable JSON fixture yet. Media tests are fixture-driven; `tests/e2e/journeys/J04-monthly-rental-operations.yaml` remains `spec_only`.
+- Asset photo upload and deletion now use migration `000013` for durable intents and startup/request retry reconciliation. Focused behavior/static tests pass `9/9`; Identity freeze and database-contract tests pass `7/7`; typecheck, lint and build pass. Persistence fault-injection covers DB failure after MinIO PUT and after MinIO deletion, but is unrun because PostgreSQL is unavailable. This is not `PASS_BACKEND` or `PASS_FULLSTACK`.
 - This report's original P5.2 continuation did not add public Listing photo projection. On `integration/discovery-ledger-ui-preview`, additive migration `000012` plus the opt-in public photo route/UI have since been implemented; authorization/readback integration remains blocked. See the current integration gap register's `LED-P0-07` evidence.
 - No live SePay/MoMo test or real transfer was made. Manual Payment provenance remains distinct and server-authoritative.
 - Step-up reauthentication was deferred for the authorized manual Ledger MVP. The Backend still enforces signed-in identity and resource ownership, but there is no recent-auth proof on these writes.

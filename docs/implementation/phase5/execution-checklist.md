@@ -123,3 +123,8 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] `DIS-P1-01`: expose stable, allowlisted amenity IDs only for published Listings in public feed and spatial search; Android maps them through the existing owner `AmenityCatalog` and renders detail without reading demo fixture facts.
 - [ ] `BLOCKED` acceptance: PostgreSQL/PostGIS HTTP query tests are authored but require the unavailable local PostgreSQL. Android emulator detail UI component test passes `2/2`; service behavior tests `5/5`, backend typecheck/lint/build, and Android JVM `241/241` pass. This is `PASS_ANDROID` component evidence only; do not claim `PASS_BACKEND`/`PASS_FULLSTACK`.
+
+## P1 continuation — Asset photo deletion recovery
+
+- [x] `LED-P1-01` implementation: migration `000013` persists one upload/delete operation intent per Listing. Upload uses a SHA-256-bound intent before MinIO PUT; delete uses an intent before object removal and metadata compaction. Startup reconciliation removes unindexed bytes after interrupted upload and completes pending deletion; same-request retries are safe. Conflicting media mutations are blocked while recovery is pending, and public reads suppress pending media.
+- [ ] `BLOCKED` integration acceptance: PostgreSQL/MinIO fault injection after PUT and after object deletion/before DB commit is authored in the persistence test but not run because `localhost:5432` is unavailable. Backend behavior/migration tests `9/9`, Identity freeze + database contract tests `7/7`, typecheck/lint/build pass. Do not claim `PASS_BACKEND` or `PASS_FULLSTACK` until migration and both fault paths run against isolated services.
