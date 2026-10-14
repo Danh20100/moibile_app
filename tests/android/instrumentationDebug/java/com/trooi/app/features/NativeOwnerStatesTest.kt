@@ -20,6 +20,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.core.demo.DemoData
 import com.trooi.app.core.model.*
 import com.trooi.app.core.network.BackendClient
+import com.trooi.app.core.network.OkHttpBackendApi
+import com.trooi.app.core.auth.GoogleCredentialAuth
 import com.trooi.app.core.network.InMemoryAuthTokenProvider
 import com.trooi.app.features.landlord.*
 import com.trooi.app.features.ledger.LedgerScreen
@@ -175,7 +177,12 @@ class NativeOwnerStatesTest {
                 if (chain.request().method == "GET") reads.incrementAndGet() else writes.incrementAndGet()
                 Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(500).message("Native rejected read").body("{}".toResponseBody()).build()
             }.build()
-            val model = OperatorViewModel(V1ContractGateway(BackendClient("http://127.0.0.1:1", tokens, true, client)))
+            val identityApi = OkHttpBackendApi(BackendClient("http://127.0.0.1:1", tokens, true))
+            val model = OperatorViewModel(
+                V1ContractGateway(BackendClient("http://127.0.0.1:1", tokens, true, client)),
+                identityApi,
+                GoogleCredentialAuth(identityApi),
+            )
             var created = 0
             ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
                 scenario.onActivity { activity -> activity.setContent {
@@ -198,7 +205,7 @@ class NativeOwnerStatesTest {
                     Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "Khu trọ kiểm thử dài giữ nguyên bản nháp") }))
                 find { it.viewIdResourceName == "organization-name" && it.text?.toString() == "Khu trọ kiểm thử dài giữ nguyên bản nháp" }
                 click("Tạo khu trọ")
-                assertEquals("REAUTH_UNAVAILABLE", model.ui.value.errorKind); assertNull(model.ui.value.success)
+            assertEquals("NETWORK_UNAVAILABLE", model.ui.value.errorKind); assertNull(model.ui.value.success)
                 assertEquals(0, writes.get()); assertEquals(0, created)
                 assertEquals("Khu trọ kiểm thử dài giữ nguyên bản nháp", tag("organization-name").text.toString())
                 capture("operator-protected-create", dark)
