@@ -407,6 +407,7 @@ fun LoginScreen(
     initialIdentifier: String = "",
     initialPassword: String = "",
     prefillKey: Long = 0L,
+    demoBackend: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -421,6 +422,14 @@ fun LoginScreen(
         title = "chào mừng trở lại",
         subtitle = "Đăng nhập để tiếp tục với TrọƠi",
     ) {
+        if (demoBackend) {
+            Text(
+                "DEMO BACKEND · chỉ dùng test account; không phải đăng nhập Google",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            Spacer(Modifier.height(12.dp))
+        }
         AuthTextField(
             value = identifier,
             onValueChange = { identifier = it },

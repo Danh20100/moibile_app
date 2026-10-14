@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.trooi.app.core.model.*
 import com.trooi.app.core.demo.DemoPaymentClient
+import com.trooi.app.core.network.AuthTokenProvider
+import com.trooi.app.core.network.BackendApi
+import com.trooi.app.core.network.BackendClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,14 +20,25 @@ class TroOiRepositoryImpl private constructor(
     private val fixture: Lazy<FixtureTroOiRepository>,
     private val backend: BackendTroOiRepository?,
     private val pinnedFixtureForTests: Boolean,
+    private val demoLogin: DemoBackendLogin?,
 ) : TroOiRepository {
-    @Inject constructor(@ApplicationContext context: Context, backend: BackendTroOiRepository) :
-        this(lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) }, backend, false)
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        backend: BackendTroOiRepository,
+        backendApi: BackendApi,
+        backendClient: BackendClient,
+        tokens: AuthTokenProvider,
+    ) : this(
+        lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) },
+        backend,
+        false,
+        DemoBackendLogin(backendClient, backendApi, tokens),
+    )
 
     // Retain fixture-only constructors for legacy instrumentation tests, regardless of DEV preference.
-    constructor(context: Context) : this(lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) }, null, true)
-    internal constructor(prefs: SharedPreferences?) : this(lazy { FixtureTroOiRepository(prefs) }, null, true)
-    internal constructor() : this(lazy { FixtureTroOiRepository() }, null, true)
+    constructor(context: Context) : this(lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) }, null, true, null)
+    internal constructor(prefs: SharedPreferences?) : this(lazy { FixtureTroOiRepository(prefs) }, null, true, null)
+    internal constructor() : this(lazy { FixtureTroOiRepository() }, null, true, null)
 
     private fun selected(): TroOiRepository = if (!pinnedFixtureForTests && RuntimeDataSource.isBackendBacked()) {
         checkNotNull(backend) { "Backend repository unavailable; cannot use fixture fallback." }
@@ -52,7 +66,10 @@ class TroOiRepositoryImpl private constructor(
     override suspend fun loadNotification(notificationId: String) = selected().loadNotification(notificationId)
     override suspend fun markNotificationRead(notificationId: String) =
         selected().markNotificationRead(notificationId)
-    override suspend fun login(identifier: String, password: String) = selected().login(identifier, password)
+    override suspend fun login(identifier: String, password: String) =
+        if (!pinnedFixtureForTests && RuntimeDataSource.isBackendBacked() && com.trooi.app.BuildConfig.DEMO_BACKEND_ENABLED) {
+            checkNotNull(demoLogin).login(identifier, password)
+        } else selected().login(identifier, password)
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String) =
         selected().signUp(fullName, phone, email, password)
     override suspend fun requestPasswordReset(identifier: String) = selected().requestPasswordReset(identifier)

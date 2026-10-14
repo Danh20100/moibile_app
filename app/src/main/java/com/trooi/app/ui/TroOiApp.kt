@@ -53,6 +53,7 @@ fun TroOiApp(
     debugTestCommand: DebugTestCommand? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED
     val snackbar = remember { SnackbarHostState() }
     val accountDrafts = rememberSaveableStateHolder()
     val discoveryStates = rememberSaveableStateHolder()
@@ -146,11 +147,11 @@ fun TroOiApp(
                 Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
                 if (!state.splashCompleted) {
                     TroOiFirstEntryScreen(
-                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        onSignInWithGoogle = if (demoBackend) null else { { viewModel.onGoogleLoginTapped(context) } },
                         onLoginClick = viewModel::openLogin,
                         onSignUpClick = viewModel::openSignUp,
                         authInProgress = state.authInProgress,
-                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
                         sessionRestoring = state.sessionRestoring,
                         isAuthenticated = state.isAuthenticated,
                         onCompleteTransition = viewModel::completeSplash,
@@ -164,8 +165,8 @@ fun TroOiApp(
                     AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
-                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
-                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        onSignInWithGoogle = if (demoBackend) null else { { viewModel.onGoogleLoginTapped(context) } },
+                        googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
                         authInProgress = state.authInProgress,
                     )
                 } else if (state.sourceUnavailable) {
@@ -175,8 +176,8 @@ fun TroOiApp(
                     AppPage.AuthWelcome -> AuthWelcomeScreen(
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::openSignUp,
-                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
-                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        onSignInWithGoogle = if (demoBackend) null else { { viewModel.onGoogleLoginTapped(context) } },
+                        googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
                         authInProgress = state.authInProgress,
                     )
                     AppPage.AuthLogin -> LoginScreen(
@@ -184,18 +185,20 @@ fun TroOiApp(
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
-                        onSignInWithGoogle = { viewModel.onGoogleLoginTapped(context) },
+                        onSignInWithGoogle = if (BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED) null
+                            else { { viewModel.onGoogleLoginTapped(context) } },
                         authInProgress = state.authInProgress,
                         initialIdentifier = debugTestCommand?.takeIf { it.route == "login" }?.identifier.orEmpty(),
                         initialPassword = debugTestCommand?.takeIf { it.route == "login" }?.password.orEmpty(),
                         prefillKey = debugTestCommand?.id ?: 0L,
+                        demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED,
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::signUp,
                         onGoogleRegister = { viewModel.registerWithGoogle(context) },
-                        googleBacked = RuntimeDataSource.isBackendBacked(),
+                        googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
                         mockMode = state.demoPreview,
                         authInProgress = state.authInProgress,
                         initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),

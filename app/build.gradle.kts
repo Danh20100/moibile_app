@@ -26,6 +26,11 @@ val googleWebClientId = providers.gradleProperty("trooiGoogleWebClientId")
     .orElse("")
     .get()
 val escapedGoogleWebClientId = googleWebClientId.replace("\\", "\\\\").replace("\"", "\\\"")
+val demoBackendEnabled = providers.gradleProperty("trooiDemoBackendEnabled")
+    .orElse(providers.environmentVariable("TROOI_DEMO_BACKEND_ENABLED"))
+    .map { it.equals("true", ignoreCase = true) }
+    .orElse(false)
+    .get()
 val paymentPublicOrigin = providers.gradleProperty("trooiPaymentPublicOrigin")
     .orElse(providers.environmentVariable("TROOI_PAYMENT_PUBLIC_ORIGIN"))
     .orElse("")
@@ -86,11 +91,13 @@ android {
     buildTypes {
         getByName("debug") {
             // Source selection happens at runtime in debug; there is no third build type.
+            buildConfigField("boolean", "DEMO_BACKEND_ENABLED", demoBackendEnabled.toString())
         }
         release {
             isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
+            buildConfigField("boolean", "DEMO_BACKEND_ENABLED", "false")
             buildConfigField("String", "PAYMENT_PUBLIC_ORIGIN", "\"$escapedReleasePaymentPublicOrigin\"")
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
