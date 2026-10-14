@@ -48,7 +48,9 @@ class AccountReworkTest {
 
     private fun click(text: String, list: String) {
         compose.onNodeWithTag(list).performScrollToNode(hasText(text))
-        if (list == "account-page-personal" && text in listOf("Email", "Số điện thoại", "Địa chỉ cư trú")) compose.onNodeWithTag("personal-action-$text").performClick() else compose.onNodeWithText(text).performClick()
+        if (list == "account-page-personal" && text in listOf("Email", "Số điện thoại", "Địa chỉ cư trú")) {
+            compose.onNodeWithTag("personal-action-$text").onChildren().filterToOne(hasText("Sửa")).performClick()
+        } else compose.onNodeWithText(text).performClick()
     }
 
     private fun passwordReauth(expectBoundary: Boolean = false) {
@@ -69,22 +71,24 @@ class AccountReworkTest {
         val restore = StateRestorationTester(compose)
         restore.setContent { TroOiTheme { AccountSettingsFlow(tenant, {}) } }
         click("Thông tin cá nhân", "account-page-settings")
-        click("Email", "account-page-personal")
+        click("Số điện thoại", "account-page-personal")
         passwordReauth()
         compose.onNodeWithTag("verification-contact-input").performTextReplacement("invalid")
         compose.onNodeWithText("Lưu thay đổi").assertIsNotEnabled()
-        compose.onNodeWithTag("verification-contact-input").performTextReplacement("lan@trooi.test")
+        compose.onNodeWithTag("verification-contact-input").performTextReplacement("0907654321")
         compose.onNodeWithText("Lưu thay đổi").performClick()
-        compose.onNodeWithText("Hãy gửi mã trước khi tiếp tục.").assertExists()
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithTag("otp-send").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithTag("email-otp-input").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("email-otp-input").performTextInput("123456")
+        compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
+        compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithTag("otp-verify").assertDoesNotExist()
         compose.onNodeWithText("Lưu thay đổi").performClick()
         compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
         compose.onNodeWithText("Đã hiểu").performClick()
         restore.emulateSavedInstanceStateRestore()
-        compose.onNodeWithTag("verification-contact-input").assertTextContains("lan@trooi.test")
+        compose.onNodeWithTag("verification-contact-input").assertTextContains("0907654321")
         compose.onNodeWithContentDescription("Quay lại").performClick()
         compose.onNodeWithText("Tiếp tục chỉnh sửa").performClick()
         compose.onNodeWithContentDescription("Quay lại").performClick()
@@ -184,7 +188,7 @@ class AccountReworkTest {
         capture("guest-entry")
     }
 
-    @Test fun otpWrongVerifiedChangedEmailAndBackendGate() {
+    @Test fun otpCannotBeSentOrVerifiedInMockOrBackendModeWithoutAProvider() {
         var email by mutableStateOf("a@trooi.test")
         var mock by mutableStateOf(true)
         compose.setContent { TroOiTheme {
@@ -195,14 +199,12 @@ class AccountReworkTest {
             }
         } }
         compose.onNodeWithTag("otp-send").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithTag("email-otp-input").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("email-otp-input").performTextInput("000000")
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithText("Submit final").performClick()
-        compose.onNodeWithText("Mã không đúng. Kiểm tra lại mã hoặc gửi lại.").assertExists()
-        compose.onNodeWithTag("email-otp-input").performTextReplacement("123456")
-        compose.onNodeWithText("Submit final").performClick()
-        compose.onNodeWithText("Mã không đúng. Kiểm tra lại mã hoặc gửi lại.").assertDoesNotExist()
-        compose.onNodeWithTag("otp-verify").assertDoesNotExist()
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.runOnIdle { email = "b@trooi.test"; mock = false }
         compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
         compose.onNodeWithTag("otp-send").performClick()
@@ -215,9 +217,8 @@ class AccountReworkTest {
             dispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
             Box(Modifier.width(320.dp)) { AccountSettingsFlow(tenant, {}, "personal") }
         } }
-        compose.onNodeWithTag("personal-action-Tên pháp lý").assertDoesNotExist()
+        compose.onNodeWithTag("personal-action-Tên pháp lý").assertExists()
         compose.onNodeWithTag("account-page-personal").assertExists()
-        compose.onNodeWithText("tenant@trooi.local").assertExists()
         compose.onNodeWithText("0901234567").assertExists()
         click("Số điện thoại", "account-page-personal")
         compose.onNodeWithContentDescription("Quay lại").performClick()
@@ -228,15 +229,10 @@ class AccountReworkTest {
         compose.runOnIdle { dispatcher!!.onBackPressed() }
         compose.onNodeWithText("Tiếp tục chỉnh sửa").performClick()
         compose.onNodeWithTag("otp-send").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithTag("email-otp-input").fetchSemanticsNodes().isNotEmpty() }
-        val field = compose.onNodeWithTag("email-otp-input").fetchSemanticsNode().boundsInRoot
-        for (tag in listOf("otp-resend")) {
-            val action = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
-            assertTrue(action.left >= field.left && action.right <= field.right && action.top >= field.top && action.bottom <= field.bottom)
-        }
-        compose.onNodeWithTag("email-otp-input").performTextInput("123456")
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithText("Lưu thay đổi").performClick()
-        passwordReauth()
         compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
         compose.onNodeWithText("Đã hiểu").performClick()
         capture("phone-inline-320dp")
@@ -299,16 +295,20 @@ class AccountReworkTest {
         capture("nav-google-320dp-font1.3")
     }
 
-    @Test fun interruptedOtpAndChangedEmailRecoverWithoutFalseVerification() {
+    @Test fun interruptedOtpNeverShowsVerificationWithoutAProvider() {
         var email by mutableStateOf("a@trooi.test")
         val restore = StateRestorationTester(compose)
         restore.setContent { TroOiTheme { EmailOtpPanel(email, true) } }
         compose.onNodeWithText("Gửi mã").performClick()
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
+        compose.onNodeWithText("Đã hiểu").performClick()
         compose.runOnIdle { email = "b@trooi.test" }
-        compose.waitUntil(1500) { compose.onAllNodesWithText("Gửi mã").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Gửi mã").assertIsDisplayed()
         compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
         compose.onNodeWithText("Gửi mã").performClick()
+        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
         restore.emulateSavedInstanceStateRestore()
-        compose.waitUntil(1500) { compose.onAllNodesWithText("Gửi mã").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
     }
 }

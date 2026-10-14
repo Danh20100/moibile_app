@@ -1,7 +1,7 @@
 package com.trooi.app.features.auth
 
-/** Deterministic debug fixture; never sends email. */
+/** No OTP fixture is accepted; verification requires a real delivery provider. */
 internal object MockEmailOtp {
-    const val available = true
-    const val code = "123456"
+    const val available = false
+    const val code = ""
 }
