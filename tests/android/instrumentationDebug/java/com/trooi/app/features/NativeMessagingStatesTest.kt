@@ -66,11 +66,13 @@ class NativeMessagingStatesTest {
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             scenario.onActivity { activity -> activity.setContent {
                 TroOiTheme {
-                    MessagesScreen(
-                        TroOiUiState(read = FrontendReadSnapshot(conversations = listOf(conversation))),
-                        {}, {}, onSave = { _, _, _ -> Result.success(Unit) },
-                        onLoadOlderMessages = { requested = it },
-                    )
+                    Box(Modifier.fillMaxSize().semantics { testTagsAsResourceId = true }) {
+                        MessagesScreen(
+                            TroOiUiState(read = FrontendReadSnapshot(conversations = listOf(conversation))),
+                            {}, {}, onSave = { _, _, _ -> Result.success(Unit) },
+                            onLoadOlderMessages = { requested = it },
+                        )
+                    }
                 }
             } }
             openConversation(conversation.id)

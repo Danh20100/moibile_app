@@ -21,9 +21,9 @@ class MessagingRepositoryTest {
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse = when {
                     request.path!!.endsWith("identity-access/me") -> response("""{"userId":"a","operatedOrganizationIds":[],"linkedTenancyIds":[]}""")
-                    request.path!!.endsWith("/messages") && request.method == "GET" -> {
+                    request.path!!.contains("/messages/page") && request.method == "GET" -> {
                         if (++histories == 2) { oldHistoryRequested.countDown(); check(releaseOldHistory.await(5, TimeUnit.SECONDS)) }
-                        response("[]")
+                        response("""{"messages":[],"nextCursor":null,"hasMore":false}""")
                     }
                     request.path!!.endsWith("/messages") -> response("""{"id":"m","conversationId":"$id","senderUserId":"a","text":"saved","createdAt":"2026-10-14T00:00:00.000Z","delivery":"server","attachments":[]}""").setResponseCode(201)
                     else -> response("[$conversation]")

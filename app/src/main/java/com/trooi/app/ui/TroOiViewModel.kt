@@ -181,9 +181,18 @@ class TroOiViewModel @Inject constructor(
             val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.loadLocalConversations() }
             if (generation != sessionGeneration) return@launch
             result.fold(
-                onSuccess = { conversations -> _state.update { it.copy(messagesLoading = false, read = it.read.copy(conversations = conversations.map { card -> card.copy(messages =
-                    (card.messages + it.read.conversations.firstOrNull { old -> old.id == card.id }?.messages.orEmpty())
-                        .distinctBy { message -> message.id }.sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }) }) })) } },
+                onSuccess = { conversations ->
+                    _state.update { current -> current.copy(
+                        messagesLoading = false,
+                        read = current.read.copy(conversations = conversations.map { card ->
+                            val previousMessages = current.read.conversations
+                                .firstOrNull { old -> old.id == card.id }?.messages.orEmpty()
+                            card.copy(messages = (card.messages + previousMessages)
+                                .distinctBy { message -> message.id }
+                                .sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }))
+                        }),
+                    ) }
+                },
                 onFailure = { _state.update { it.copy(messagesLoading = false, messagesLoadFailed = true) } },
             )
         }
@@ -720,10 +729,18 @@ class TroOiViewModel @Inject constructor(
         if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập."))
         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.sendMessage(userId, conversationId, text, images) }
         if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đã thay đổi."))
-        return result.map { conversations -> _state.update { current -> current.copy(read = current.read.copy(
-            conversations = conversations.map { card -> card.copy(messages =
-                (card.messages + current.read.conversations.firstOrNull { it.id == card.id }?.messages.orEmpty())
-                    .distinctBy { it.id }.sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }) }) })) }; Unit }
+        return result.map { conversations ->
+            _state.update { current -> current.copy(read = current.read.copy(
+                conversations = conversations.map { card ->
+                    val previousMessages = current.read.conversations
+                        .firstOrNull { it.id == card.id }?.messages.orEmpty()
+                    card.copy(messages = (card.messages + previousMessages)
+                        .distinctBy { it.id }
+                        .sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }))
+                },
+            )) }
+            Unit
+        }
     }
     fun consumeMessageContext() { _state.update { it.copy(messageConversationId = null) } }
     fun openMessageContext(type: String, id: String) {
