@@ -5,7 +5,7 @@ Status: **IN PROGRESS** (2026-10-14). This checklist records verified implementa
 ## Scope, sources, and invariants
 
 - Baseline: `integration/unified-source-candidate` at `c7873d3` (Phase 4 `9d56009` + local Gradle config hygiene).
-- Execution branch: `integration/phase5-profile-ledger-candidate`, isolated worktree `D:\Projects\.worktrees\TroOi-Project\phase5-profile-ledger-candidate`.
+- Execution branch: `integration/profile-ledger-candidate`, isolated worktree `D:\Projects\.worktrees\TroOi-Project\integration-profile-ledger-candidate`.
 - Ledger source: `temp/ledger-owner-tenant-ui-20261014` at `d9f79b8`. Discovery agent owns descendant `temp/discovery-ui-redesign-20261014`; do not mutate or merge unfinished code.
 - Frozen identity migration `000008`, its exact physical/logical/contract bytes, authoritative Payment semantics, and all historical rental FK/ownership relations MUST remain intact.
 - NO dummy/successful-looking OTP, KYC, Payment, storage or registration responses. Missing external verification remains fail-closed.
