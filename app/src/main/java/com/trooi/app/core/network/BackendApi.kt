@@ -20,7 +20,10 @@ interface BackendApi {
         maxPrice: String? = null,
     ): ApiOutcome<List<PublicListingSearchResultTransport>>
 
-    suspend fun authenticateGoogle(idToken: String): ApiOutcome<VerifiedPrincipalTransport>
+    suspend fun issueIdentityChallenge(purpose: String): ApiOutcome<IdentityAuthChallengeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun authenticateGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun refreshIdentitySession(refreshToken: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun logoutIdentitySession(): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ProfileAvatarUploadTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -160,12 +163,23 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
             .decode(BackendJsonCodec::publicSearchResults)
     }
 
-    override suspend fun authenticateGoogle(idToken: String) =
+    override suspend fun issueIdentityChallenge(purpose: String) = client.postJson(
+        "identity-access/auth/challenge", "{\"purpose\":\"$purpose\"}", authenticated = false,
+    ).decode { messagingGson.fromJson(it, IdentityAuthChallengeTransport::class.java) }
+
+    override suspend fun authenticateGoogle(idToken: String, nonce: String) =
         client.postJson(
             "identity-access/auth/google",
-            BackendJsonCodec.encodeGoogleToken(idToken),
+            "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)}}",
             authenticated = false,
-        ).decode(BackendJsonCodec::verifiedPrincipal)
+        ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }
+
+    override suspend fun refreshIdentitySession(refreshToken: String) = client.postJson(
+        "identity-access/auth/refresh", "{\"refreshToken\":${messagingGson.toJson(refreshToken)}}", authenticated = false,
+    ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }
+
+    override suspend fun logoutIdentitySession() = client.postEmpty("identity-access/auth/logout", authenticated = true)
+        .decode { Unit }
 
     override suspend fun getSessionContext(expectedToken: String?) =
         client.get("identity-access/me", authenticated = true, expectedToken = expectedToken).decode(BackendJsonCodec::sessionContext)

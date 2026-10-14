@@ -171,7 +171,7 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
         maxPrice: String?,
     ): Result<List<PublicListingCard>> = runCatching { publicListings() }
 
-    override suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession> =
+    override suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession> =
         Result.failure(IllegalStateException("Preview debug không dùng Google runtime authentication."))
 
     override suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot> =

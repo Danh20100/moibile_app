@@ -123,14 +123,14 @@ class BackendRuntimeContractTest {
 
     @Test fun googleAuthThenSessionUsesSameBearerCredential() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody(VERIFIED_PRINCIPAL_JSON))
+            server.enqueue(MockResponse().setBody(IDENTITY_SESSION_JSON))
             server.enqueue(MockResponse().setBody(SESSION_JSON))
             server.start(InetAddress.getLoopbackAddress(), 0)
             val tokens = InMemoryAuthTokenProvider()
             val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
 
-            api.authenticateGoogle("google-id-token").requireData()
-            tokens.setToken("google-id-token")
+            val issued = api.authenticateGoogle("google-id-token", "request-nonce").requireData()
+            tokens.setToken(issued.accessToken)
             val session = api.getSessionContext().requireData()
             assertEquals(setOf("org-1"), session.operatedOrganizationIds.toSet())
             assertEquals(setOf("tenancy-1"), session.linkedTenancyIds.toSet())
@@ -138,8 +138,10 @@ class BackendRuntimeContractTest {
             val authRequest = server.takeRequest()
             assertEquals("/api/v1/identity-access/auth/google", authRequest.path)
             assertNull(authRequest.getHeader("Authorization"))
-            assertTrue(authRequest.body.readUtf8().contains("google-id-token"))
-            assertEquals("Bearer google-id-token", server.takeRequest().getHeader("Authorization"))
+            val authBody = authRequest.body.readUtf8()
+            assertTrue(authBody.contains("google-id-token"))
+            assertTrue(authBody.contains("request-nonce"))
+            assertEquals("Bearer app-access-token", server.takeRequest().getHeader("Authorization"))
         }
     }
 
@@ -191,7 +193,7 @@ class BackendRuntimeContractTest {
 
     @Test fun failedSessionContextClearsGoogleCredential() = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody(VERIFIED_PRINCIPAL_JSON))
+            server.enqueue(MockResponse().setBody(IDENTITY_SESSION_JSON))
             server.enqueue(MockResponse().setResponseCode(401))
             server.start(InetAddress.getLoopbackAddress(), 0)
             val tokens = InMemoryAuthTokenProvider()
@@ -200,11 +202,11 @@ class BackendRuntimeContractTest {
                 tokens,
             )
 
-            val result = repository.authenticateWithGoogleIdToken("expired-after-verify")
+            val result = repository.authenticateWithGoogleIdToken("expired-after-verify", "nonce")
             assertTrue(result.isFailure)
             assertNull(tokens.token())
             assertNull(server.takeRequest().getHeader("Authorization"))
-            assertEquals("Bearer expired-after-verify", server.takeRequest().getHeader("Authorization"))
+            assertEquals("Bearer app-access-token", server.takeRequest().getHeader("Authorization"))
         }
     }
 
@@ -233,11 +235,11 @@ class BackendRuntimeContractTest {
         val tokens = InMemoryAuthTokenProvider()
         val repository = BackendTroOiRepository(api, tokens)
 
-        val session = repository.authenticateWithGoogleIdToken("id-token").getOrThrow()
+        val session = repository.authenticateWithGoogleIdToken("id-token", "nonce").getOrThrow()
         assertEquals(setOf("org-1"), session.access.operatedOrganizationIds)
         assertEquals(setOf("tenancy-1"), session.access.linkedTenancyIds)
         assertEquals("Nguyen A", session.displayName)
-        assertEquals("id-token", tokens.token())
+        assertEquals("app-access-token", tokens.token())
         val read = repository.refreshAuthorizedRead(session.access).getOrThrow()
         assertEquals(1, read.publicListings.size)
         assertEquals(ListingVisibility.PUBLISHED, read.publicListings.single().visibility)
@@ -432,8 +434,8 @@ class BackendRuntimeContractTest {
             listOf(PublicListingTransport("listing-1", "room-1", "published", "Phòng sáng", "Mô tả", "3500000.00", PublicLocationTransport(10.77, 106.69))),
         )
         override suspend fun getPublicListingsRaw() = throw UnsupportedOperationException()
-        override suspend fun authenticateGoogle(idToken: String) = ApiOutcome.Data(
-            VerifiedPrincipalTransport("user-1", "google", "https://accounts.google.com", "sub-1", "a@b.com", true, "Nguyen A", null),
+        override suspend fun authenticateGoogle(idToken: String, nonce: String) = ApiOutcome.Data(
+            IdentitySessionTransport("user-1", "session-1", "app-access-token", "refresh-token", "Bearer", 900, "2027-01-01T00:00:00Z"),
         )
         override suspend fun getSessionContext(expectedToken: String?) = ApiOutcome.Data(
             SessionContextTransport("user-1", listOf("org-1"), listOf("tenancy-1"), "a@b.com", "Nguyen A", null),
@@ -495,7 +497,7 @@ class BackendRuntimeContractTest {
 
     private companion object {
         const val PUBLISHED_LISTING_JSON = """[{"id":"listing-1","roomId":"room-1","status":"published","publicTitle":"Ph\u00f2ng s\u00e1ng","publicDescription":"M\u00f4 t\u1ea3","publicPriceProjection":"3500000.00","publicLocationProjection":{"latitude":10.77,"longitude":106.69},"operationalAddressText":"SECRET"},{"id":"listing-2","roomId":"room-2","status":"draft","publicTitle":"Draft","publicDescription":"Hidden","publicPriceProjection":"1.00","publicLocationProjection":{"latitude":10.0,"longitude":106.0}}]"""
-        const val VERIFIED_PRINCIPAL_JSON = """{"userId":"user-1","provider":"google","issuer":"https://accounts.google.com","subject":"sub-1","email":"a@b.com","name":"Nguyen A"}"""
+        const val IDENTITY_SESSION_JSON = """{"userId":"user-1","sessionId":"session-1","accessToken":"app-access-token","refreshToken":"refresh-token","tokenType":"Bearer","expiresInSeconds":900,"refreshExpiresAt":"2027-01-01T00:00:00Z"}"""
         const val SESSION_JSON = """{"userId":"user-1","operatedOrganizationIds":["org-1"],"linkedTenancyIds":["tenancy-1"],"email":"a@b.com","name":"Nguyen A"}"""
         const val INQUIRY_JSON = """{"id":"inquiry-1","listingId":"listing-1","senderUserId":"user-1","contactIntentOrMessage":"Cho mình xem phòng","status":"NEW","createdAt":"2026-09-30T00:00:00.000Z"}"""
     }

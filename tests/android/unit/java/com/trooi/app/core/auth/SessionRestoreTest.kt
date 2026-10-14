@@ -17,19 +17,14 @@ class SessionRestoreTest {
     )
 
     @Test
-    fun restore_requires_verified_me_before_hints() = runBlocking {
+    fun restore_rotates_server_session_before_applying_hints() = runBlocking {
         val calls = mutableListOf<String>()
-        val idToken = "google-id-token-secret"
-        val persistedValues = mutableListOf("user-1", "tenant:t-1")
         val outcome = restoreVerifiedSession(
-            reacquire = { Result.success(idToken) },
-            authenticateGoogle = { Result.success(Unit) },
-            loadMe = { Result.success(session) },
+            restore = { Result.success(session) },
             hintsFor = { SessionHints("user-1", true, SelectedContext.Tenant("t-1")) },
             log = calls,
         )
-        assertEquals(listOf("credential", "auth/google", "me", "hints", "context"), calls)
-        assertFalse(persistedValues.any { it.contains(idToken) })
+        assertEquals(listOf("session/refresh", "hints", "context"), calls)
         assertTrue(outcome is RestoreOutcome.Restored)
         assertEquals(SelectedContext.Tenant("t-1"), (outcome as RestoreOutcome.Restored).resolution.selection)
     }
@@ -37,9 +32,7 @@ class SessionRestoreTest {
     @Test
     fun wrongUserHintsAreIgnored() = runBlocking {
         val outcome = restoreVerifiedSession(
-            reacquire = { Result.success("token") },
-            authenticateGoogle = { Result.success(Unit) },
-            loadMe = { Result.success(session) },
+            restore = { Result.success(session) },
             hintsFor = {
                 SessionHints("other-user", true, SelectedContext.Tenant("t-other"))
             },
@@ -50,24 +43,18 @@ class SessionRestoreTest {
     @Test
     fun offlineOrUnauthorizedFailsClosed() = runBlocking {
         val offline = restoreVerifiedSession(
-            reacquire = { Result.success("token") },
-            authenticateGoogle = { Result.success(Unit) },
-            loadMe = { Result.failure(IllegalStateException("offline")) },
+            restore = { Result.failure(IllegalStateException("offline")) },
             hintsFor = { null },
         )
         assertEquals(RestoreOutcome.FailedClosed, offline)
         assertFalse(offline is RestoreOutcome.Restored)
         val unauthorized = restoreVerifiedSession(
-            reacquire = { Result.success("token") },
-            authenticateGoogle = { Result.failure(IllegalStateException("401")) },
-            loadMe = { error("me must not run") },
+            restore = { Result.failure(IllegalStateException("401")) },
             hintsFor = { null },
         )
         assertEquals(RestoreOutcome.FailedClosed, unauthorized)
         val cancelled = restoreVerifiedSession(
-            reacquire = { Result.failure(IllegalStateException("cancel")) },
-            authenticateGoogle = { error("auth must not run") },
-            loadMe = { error("me must not run") },
+            restore = { Result.failure(IllegalStateException("offline")) },
             hintsFor = { null },
         )
         assertEquals(RestoreOutcome.FailedClosed, cancelled)
@@ -78,9 +65,7 @@ class SessionRestoreTest {
     @Test
     fun missingCredentialRequiresExplicitLogin() = runBlocking {
         val outcome = restoreVerifiedSession(
-            reacquire = { Result.failure(NoRestoreCredential()) },
-            authenticateGoogle = { error("auth must not run") },
-            loadMe = { error("me must not run") },
+            restore = { Result.failure(NoRestoreCredential()) },
             hintsFor = { null },
         )
         assertEquals(RestoreOutcome.NeedsLogin, outcome)

@@ -12,13 +12,17 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.trooi.app.BuildConfig
+import com.trooi.app.core.network.BackendApi
+import com.trooi.app.core.network.dto.ApiOutcome
 import javax.inject.Inject
 
 /** Retrieves a Google ID Token only; Backend remains the identity verifier. */
-class GoogleCredentialAuth @Inject constructor() {
-    suspend fun getIdToken(context: Context): Result<String> = requestIdToken(context, returning = false)
+data class GoogleCredentialProof(val idToken: String, val nonce: String)
 
-    suspend fun reacquireIdToken(context: Context): Result<String> = requestIdToken(context, returning = true)
+class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
+    suspend fun getIdToken(context: Context): Result<GoogleCredentialProof> = requestIdToken(context, returning = false)
+
+    suspend fun reacquireIdToken(context: Context): Result<GoogleCredentialProof> = requestIdToken(context, returning = true)
 
     suspend fun clearCredentialState(context: Context): Result<Unit> = runCatching {
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
@@ -26,7 +30,11 @@ class GoogleCredentialAuth @Inject constructor() {
         Log.w(TAG, "clearCredentialState failed: " + error::class.java.simpleName + ": " + error.message)
     }
 
-    private suspend fun requestIdToken(context: Context, returning: Boolean): Result<String> {
+    private suspend fun requestIdToken(context: Context, returning: Boolean): Result<GoogleCredentialProof> {
+        val challenge = when (val result = api.issueIdentityChallenge("LOGIN")) {
+            is ApiOutcome.Data -> result.value
+            is ApiOutcome.Failure -> return Result.failure(IllegalStateException("Identity challenge unavailable: ${result.kind}"))
+        }
         val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
         // ponytail: blank local config is not a revoked session; sign-in still fails closed below.
         if (clientId.isEmpty() && returning) return Result.failure(NoRestoreCredential())
@@ -39,9 +47,10 @@ class GoogleCredentialAuth @Inject constructor() {
                     .setFilterByAuthorizedAccounts(true)
                     .setAutoSelectEnabled(true)
                     .setServerClientId(clientId)
+                    .setNonce(challenge.nonce)
                     .build()
             } else {
-                GetSignInWithGoogleOption.Builder(clientId).build()
+                GetSignInWithGoogleOption.Builder(clientId).setNonce(challenge.nonce).build()
             }
             val request = GetCredentialRequest.Builder()
                 .addCredentialOption(option)
@@ -54,9 +63,10 @@ class GoogleCredentialAuth @Inject constructor() {
             ) {
                 error("Google không trả về ID Token hợp lệ.")
             }
-            GoogleIdTokenCredential.createFrom(credential.data).idToken
+            val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
                 .takeIf(String::isNotBlank)
                 ?: error("Google ID Token trống.")
+            GoogleCredentialProof(idToken, challenge.nonce)
         }
         result.exceptionOrNull()?.let { error ->
             Log.w(TAG, "Credential Manager failed: " + error::class.java.simpleName + ": " + error.message)

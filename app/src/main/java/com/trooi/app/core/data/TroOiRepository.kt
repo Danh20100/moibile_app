@@ -50,6 +50,7 @@ interface TroOiRepository {
         Result.failure(IllegalStateException("Tính năng đang được phát triển."))
     fun initialSnapshot(): TroOiSnapshot
     fun clearSession()
+    suspend fun revokeCurrentBackendSession() = Unit
 
     suspend fun updateDisplayName(displayName: String): Result<UserSession> =
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
@@ -68,7 +69,7 @@ interface TroOiRepository {
         minPrice: String? = null,
         maxPrice: String? = null,
     ): Result<List<PublicListingCard>>
-    suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession>
+    suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession>
     suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot>
     suspend fun loadNotification(notificationId: String): Result<NotificationCard>
     suspend fun markNotificationRead(notificationId: String): Result<Unit>

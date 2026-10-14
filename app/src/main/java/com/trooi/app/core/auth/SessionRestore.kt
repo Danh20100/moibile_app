@@ -28,28 +28,17 @@ sealed interface RestoreOutcome {
 }
 
 suspend fun restoreVerifiedSession(
-    reacquire: suspend () -> Result<String>,
-    authenticateGoogle: suspend (String) -> Result<Unit>,
-    loadMe: suspend () -> Result<UserSession>,
+    restore: suspend () -> Result<UserSession>,
     hintsFor: (String) -> SessionHints?,
     log: MutableList<String> = mutableListOf(),
 ): RestoreOutcome {
-    val credential = reacquire()
-    log += "credential"
+    val result = restore()
+    log += "session/refresh"
     when {
-        credential.exceptionOrNull() is NoRestoreCredential -> return RestoreOutcome.NeedsLogin
-        credential.isFailure -> return RestoreOutcome.FailedClosed
-        credential.getOrNull().isNullOrBlank() -> return RestoreOutcome.NeedsLogin
+        result.exceptionOrNull() is NoRestoreCredential -> return RestoreOutcome.NeedsLogin
+        result.isFailure -> return RestoreOutcome.FailedClosed
     }
-    val idToken = credential.getOrThrow()
-
-    val google = authenticateGoogle(idToken)
-    log += "auth/google"
-    if (google.isFailure) return RestoreOutcome.FailedClosed
-
-    val me = loadMe()
-    log += "me"
-    val session = me.getOrNull() ?: return RestoreOutcome.FailedClosed
+    val session = result.getOrNull() ?: return RestoreOutcome.FailedClosed
 
     val hints = hintsFor(session.userId)?.takeIf { it.userId == session.userId && it.restoreEnabled }
     log += "hints"

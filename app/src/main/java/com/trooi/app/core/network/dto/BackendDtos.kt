@@ -64,6 +64,12 @@ data class VerifiedPrincipalTransport(
     val pictureUrl: String?,
 )
 
+data class IdentityAuthChallengeTransport(val purpose: String, val nonce: String, val expiresAt: String)
+data class IdentitySessionTransport(
+    val userId: String, val sessionId: String, val accessToken: String, val refreshToken: String,
+    val tokenType: String, val expiresInSeconds: Int, val refreshExpiresAt: String,
+)
+
 data class SessionContextTransport(
     val userId: String,
     val operatedOrganizationIds: List<String>,

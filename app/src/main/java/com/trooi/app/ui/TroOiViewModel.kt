@@ -291,13 +291,8 @@ class TroOiViewModel @Inject constructor(
         val startedAt = sessionGeneration
         _state.update { it.copy(sessionRestoring = true, restoreFailed = false) }
         viewModelScope.launch {
-            var captured: UserSession? = null
             val outcome = restoreVerifiedSession(
-                reacquire = { googleCredentialAuth.reacquireIdToken(context) },
-                authenticateGoogle = { token ->
-                    repository.authenticateWithGoogleIdToken(token).onSuccess { captured = it }.map { }
-                },
-                loadMe = { captured?.let { Result.success(it) } ?: repository.refreshSessionContext() },
+                restore = { repository.refreshSessionContext() },
                 hintsFor = { userId -> hintsStore.read()?.takeIf { it.userId == userId } },
             )
             if (startedAt != sessionGeneration) return@launch
@@ -556,8 +551,8 @@ class TroOiViewModel @Inject constructor(
         _state.update { it.copy(authInProgress = true) }
         authenticationJob = viewModelScope.launch {
             googleCredentialAuth.getIdToken(context).fold(
-                onSuccess = { idToken ->
-                    repository.authenticateWithGoogleIdToken(idToken).fold(
+                onSuccess = { proof ->
+                    repository.authenticateWithGoogleIdToken(proof.idToken, proof.nonce).fold(
                         onSuccess = { session ->
                             if (startedAt != sessionGeneration) {
                                 // A previous credential response must not resurrect a logged-out user.
@@ -982,8 +977,11 @@ class TroOiViewModel @Inject constructor(
         authenticationJob = null
         hintsStore.clear()
         trustSubmitGate.set(false)
-        repository.clearSession()
-        viewModelScope.launch { googleCredentialAuth.clearCredentialState(appContext) }
+        viewModelScope.launch {
+            runCatching { repository.revokeCurrentBackendSession() }
+            repository.clearSession()
+            googleCredentialAuth.clearCredentialState(appContext)
+        }
         _state.update { current ->
             current.copy(
                 isAuthenticated = false,

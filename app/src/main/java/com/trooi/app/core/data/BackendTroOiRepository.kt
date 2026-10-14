@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.trooi.app.core.model.*
+import com.trooi.app.core.auth.RefreshCredentialStore
 import com.trooi.app.core.network.AuthTokenProvider
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.*
@@ -19,6 +20,7 @@ class BackendTroOiRepository @Inject constructor(
     private val tokens: AuthTokenProvider,
     @param:ApplicationContext private val context: Context? = null,
 ) : TroOiRepository {
+    private val refreshCredentials by lazy { context?.let(::RefreshCredentialStore) }
     private val messageCacheLock = Any()
     private var messageCards: List<ConversationCard> = emptyList()
     override suspend fun loadLocalConversations(): Result<List<ConversationCard>> = runCatching {
@@ -105,11 +107,21 @@ class BackendTroOiRepository @Inject constructor(
         java.util.Base64.getDecoder().decode(image.base64).also { require(it.size <= 2_000_000) }
     }
     override fun initialSnapshot() = TroOiSnapshot()
-    override fun clearSession() { synchronized(messageCacheLock) { messageCards = emptyList(); tokens.clear() } }
+    override fun clearSession() { synchronized(messageCacheLock) { messageCards = emptyList(); tokens.clear(); refreshCredentials?.clear() } }
+
+    override suspend fun revokeCurrentBackendSession() {
+        try { api.logoutIdentitySession().required("logout identity session") } finally { clearSession() }
+    }
 
     suspend fun probePublicTransport(): TransportOutcome = api.getPublicListingsRaw()
 
     override suspend fun refreshSessionContext(): Result<UserSession> = try {
+        refreshCredentials?.let { store ->
+            val refresh = store.read() ?: throw IllegalStateException("Không có refresh credential đã bảo vệ.")
+            val rotated = api.refreshIdentitySession(refresh).required("refresh identity session")
+            tokens.setToken(rotated.accessToken)
+            store.write(rotated.refreshToken)
+        }
         val session = api.getSessionContext().required("session context")
         Result.success(UserSession(
             userId = session.userId,
@@ -211,19 +223,22 @@ class BackendTroOiRepository @Inject constructor(
         Result.failure(error)
     }
 
-    override suspend fun authenticateWithGoogleIdToken(idToken: String): Result<UserSession> {
+    override suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession> {
         if (idToken.isBlank()) return Result.failure(IllegalArgumentException("Google ID Token trống"))
         return try {
-            val principal = api.authenticateGoogle(idToken).required("Google authentication")
-            tokens.setToken(idToken)
+            val identitySession = api.authenticateGoogle(idToken, nonce).required("Google authentication")
+            require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
+            tokens.setToken(identitySession.accessToken)
+            refreshCredentials?.write(identitySession.refreshToken)
             val session = api.getSessionContext().required("session context")
-            val displayName = session.name ?: principal.name ?: session.email ?: principal.email ?: session.userId
+            check(session.userId == identitySession.userId) { "Authenticated User does not match issued session" }
+            val displayName = session.name ?: session.email ?: session.userId
             Result.success(
                 UserSession(
                     userId = session.userId,
                     displayName = displayName,
-                    email = session.email ?: principal.email,
-                    pictureUrl = session.pictureUrl ?: principal.pictureUrl,
+                    email = session.email,
+                    pictureUrl = session.pictureUrl,
                     access = AccessCapabilities(
                         linkedTenancyIds = session.linkedTenancyIds.toSet(),
                         operatedOrganizationIds = session.operatedOrganizationIds.toSet(),

@@ -3,7 +3,7 @@ package com.trooi.app.core.network
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** In-memory Google ID token holder; this phase does not invent a session JWT. */
+/** In-memory short-lived backend access token holder. Refresh credentials use Android Keystore storage. */
 interface AuthTokenProvider {
     fun token(): String?
     fun setToken(token: String)
@@ -16,7 +16,7 @@ class InMemoryAuthTokenProvider @Inject constructor() : AuthTokenProvider {
     override fun token(): String? = current
 
     override fun setToken(token: String) {
-        require(token.isNotBlank()) { "Cannot store an empty Google ID token" }
+        require(token.isNotBlank()) { "Cannot store an empty backend access token" }
         current = token
     }
 

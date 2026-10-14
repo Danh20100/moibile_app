@@ -45,8 +45,8 @@ class TroOiRepositoryImpl private constructor(
         latitude: Double, longitude: Double, radiusMeters: Double,
         minPrice: String?, maxPrice: String?,
     ) = selected().searchPublicListings(latitude, longitude, radiusMeters, minPrice, maxPrice)
-    override suspend fun authenticateWithGoogleIdToken(idToken: String) =
-        selected().authenticateWithGoogleIdToken(idToken)
+    override suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String) =
+        selected().authenticateWithGoogleIdToken(idToken, nonce)
     override suspend fun refreshAuthorizedRead(access: AccessCapabilities) =
         selected().refreshAuthorizedRead(access)
     override suspend fun loadNotification(notificationId: String) = selected().loadNotification(notificationId)
