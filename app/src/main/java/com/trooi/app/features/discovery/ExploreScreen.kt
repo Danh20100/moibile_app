@@ -609,6 +609,7 @@ fun SearchExperienceScreen(
     initialRoomType: String = "Tất cả",
     initialMinPrice: String = "",
     initialMaxPrice: String = "",
+    initialRadiusMeters: Int = 3000,
 ) {
     val context = LocalContext.current
     var queryText by rememberSaveable { mutableStateOf(initialArea) }
@@ -619,6 +620,8 @@ fun SearchExperienceScreen(
     var minPrice by rememberSaveable { mutableStateOf(initialMinPrice) }
     var maxPrice by rememberSaveable { mutableStateOf(initialMaxPrice) }
     var selectedRoomType by rememberSaveable { mutableStateOf(initialRoomType) }
+    var selectedRadiusMeters by rememberSaveable { mutableIntStateOf(initialRadiusMeters) }
+    val priceValidation = PublicDiscoveryFilters(minPrice, maxPrice, selectedRadiusMeters).validationMessage()
 
     BackHandler(onBack = onClose)
 
@@ -671,6 +674,7 @@ fun SearchExperienceScreen(
                     )
 
                     TroOiButton("Tìm kiếm",
+                        enabled = priceValidation == null,
                         onClick = {
                             onLocalSearch(
                                 if (centerLat != null && centerLng != null) "" else queryText,
@@ -679,7 +683,7 @@ fun SearchExperienceScreen(
                             onSearchSubmitted(
                                 centerLat,
                                 centerLng,
-                                3000,
+                                selectedRadiusMeters,
                                 minPrice.takeIf { it.isNotBlank() },
                                 maxPrice.takeIf { it.isNotBlank() },
                             )
@@ -782,6 +786,20 @@ fun SearchExperienceScreen(
                 }
             }
 
+            item {
+                TroOiCard("Khoảng cách tìm kiếm") {
+                    Text("Áp dụng khi tìm quanh vị trí đã chọn", style = MaterialTheme.typography.bodySmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PUBLIC_SEARCH_RADII_METERS.forEach { meters ->
+                            FilterChip(selected = selectedRadiusMeters == meters,
+                                onClick = { selectedRadiusMeters = meters },
+                                label = { Text("${meters / 1000} km") },
+                                modifier = Modifier.testTag("search-radius-$meters"))
+                        }
+                    }
+                }
+            }
+
             // 2. KHOẢNG GIÁ (Price Range Card)
             item {
                 TroOiCard("Khoảng giá", Modifier.testTag("search-price-card")) {
@@ -818,6 +836,10 @@ fun SearchExperienceScreen(
                     }
 
 
+                    priceValidation?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("search-price-validation"))
+                    }
                     // Min / Max text fields
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -930,6 +952,7 @@ fun exploreFilteredListings(
     minPrice: String = "",
     maxPrice: String = "",
 ): List<PublicListingCard> {
+    if (PublicDiscoveryFilters(minPrice, maxPrice).validationMessage() != null) return emptyList()
     return listings.filter { listing ->
         if (listing.visibility != ListingVisibility.PUBLISHED) return@filter false
         if (areaQuery.isNotBlank()) {

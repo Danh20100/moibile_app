@@ -36,7 +36,7 @@ data class PublicDiscoveryFilters(
         val max = maxPrice.takeIf { it.isNotBlank() }?.toBigDecimalOrNull()
         return public.filter { listing ->
             if (min == null && max == null) return@filter true
-            val price = listing.askingPriceLabel?.toBigDecimalOrNull() ?: return@filter false
+            val price = explorePriceVnd(listing.askingPriceLabel) ?: return@filter false
             (min == null || price >= min) && (max == null || price <= max)
         }
     }

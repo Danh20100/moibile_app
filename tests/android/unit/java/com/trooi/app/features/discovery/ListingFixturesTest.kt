@@ -38,16 +38,17 @@ class ListingFixturesTest {
         assertTrue(ListingFixtures.cards("", "Tất cả", "invalid", "").isEmpty())
     }
 
-    @Test fun detailIsLocalAndDoesNotWireBookingOrPayments() {
+    @Test fun detailUsesRealContactAndReportWithoutBookingOrPayment() {
         val source = File("src/main/java/com/trooi/app/features/discovery/ListingDetailScreen.kt").readText()
-        listOf("listing-hero-pager", "listing-image-indicator", "listing-back", "listing-favorite", "listing-viewing-cta", "listing-sticky-action").forEach { assertTrue(source.contains(it)) }
+        listOf("listing-hero-pager", "listing-image-indicator", "listing-back", "listing-contact-cta", "listing-sticky-action", "listing-report-action", "InquiryComposer(").forEach { assertTrue(source.contains(it)) }
         assertTrue(source.contains("BackHandler(onBack = onBack)"))
-        listOf("repository", "onSubmitInquiry", "PaymentGateway", "BackendApi").forEach { assertFalse(source.contains(it)) }
-        val explore = File("src/main/java/com/trooi/app/features/discovery/ExploreScreen.kt").readText()
-        assertTrue(explore.contains("onClick = { onOpenListing(item.listingId) }"))
+        listOf("Đặt lịch xem", "PaymentGateway", "BackendApi").forEach { assertFalse(source.contains(it)) }
+        val explore = File("src/main/java/com/trooi/app/features/discovery/DiscoveryExperience.kt").readText()
+        assertTrue(explore.contains("onOpenListing(item.listingId)"))
         assertTrue(explore.contains("discoveryCards("))
         val app = File("src/main/java/com/trooi/app/ui/TroOiApp.kt").readText()
-        assertTrue(app.contains("ListingDetailScreen(page.listingId, viewModel::goBack,"))
-        assertTrue(app.contains("publicRentalDetail(it)"))
+        assertTrue(app.contains("DiscoveryExperience("))
+        assertTrue(app.contains("onSubmitInquiry = viewModel::submitInquiry"))
+        assertTrue(app.contains("onOpenReport = viewModel::openTrustReport"))
     }
 }

@@ -55,6 +55,7 @@ fun TroOiApp(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val accountDrafts = rememberSaveableStateHolder()
+    val discoveryStates = rememberSaveableStateHolder()
     var lastAccountDraftKey by remember { mutableStateOf<String?>(null) }
     val accountDraftKey = "account-settings-${state.backendUserId}"
     LaunchedEffect(state.isAuthenticated, accountDraftKey) {
@@ -212,13 +213,16 @@ fun TroOiApp(
                         onSelect = viewModel::selectContext,
                         onBack = viewModel::goBack,
                     )
-                    AppPage.Discovery -> ExploreScreen(
-                        state = state,
-                        onOpenListing = viewModel::openListing,
-                        onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
-                        onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,
-                        allowDemoFallback = !RuntimeDataSource.isBackendBacked(),
-                    )
+                    AppPage.Discovery -> discoveryStates.SaveableStateProvider("discovery-main") {
+                        DiscoveryExperience(
+                            state = state,
+                            onOpenListing = viewModel::openListing,
+                            onOpenMap = viewModel::openGuestMap,
+                            onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
+                            onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,
+                            allowDemoFallback = !RuntimeDataSource.isBackendBacked(),
+                        )
+                    }
                     AppPage.Favorites -> FavoritesPlaceholderScreen(
                         onExplore = viewModel::openDiscovery,
                     )
@@ -251,7 +255,11 @@ fun TroOiApp(
                     is AppPage.ListingDetail -> if (state.read.publicListings.any { it.listingId == page.listingId && it.rentalDetails != null } || useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)) {
                         ListingDetailScreen(page.listingId, viewModel::goBack,
                             state.read.publicListings.firstOrNull { it.listingId == page.listingId }?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }
-                                ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId))
+                                ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId),
+                            state = state,
+                            onOpenLogin = viewModel::openLogin,
+                            onSubmitInquiry = viewModel::submitInquiry,
+                            onOpenReport = viewModel::openTrustReport)
                     } else V1ListingDetailScreen(
                         state = state, listingId = page.listingId, onBack = viewModel::goBack,
                         onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry, onMessageContext = viewModel::openMessageContext,

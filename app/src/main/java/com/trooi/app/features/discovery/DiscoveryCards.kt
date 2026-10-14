@@ -41,7 +41,8 @@ fun rentalPriceLabel(amount: String): String = amount.toBigDecimalOrNull()?.let 
 fun publicRentalDetail(listing: PublicListingCard): ListingFixture? = listing.rentalDetails?.let { detail ->
     ListingFixture(
         card = DiscoveryListingItem(listing.listingId, listing.title, listing.publicAreaLabel,
-            "${rentalPriceLabel(listing.askingPriceLabel?.removeSuffix("đ/tháng").orEmpty())}/tháng",
+            listing.askingPriceLabel?.let(::explorePriceVnd)?.let { "${rentalPriceLabel(it.toPlainString())}/tháng" }
+                ?: listing.askingPriceLabel?.takeIf { it.isNotBlank() } ?: "Liên hệ để biết giá",
             "${detail.area} m² · ${detail.furnishing}", category = detail.type,
             photoUris = detail.photoUris, photoResources = detail.photoResources),
         images = detail.photoResources, summary = (listOf(detail.type, "${detail.area} m²") +

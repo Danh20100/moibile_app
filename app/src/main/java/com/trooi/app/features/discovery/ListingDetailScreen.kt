@@ -23,15 +23,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.trooi.app.ui.components.*
+import com.trooi.app.core.model.TroOiUiState
+import com.trooi.app.features.inquiry.InquiryComposer
 
 @Composable
-fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: ListingFixture? = ListingFixtures.resolve(listingId), preview: Boolean = false) {
+fun ListingDetailScreen(
+    listingId: String,
+    onBack: () -> Unit,
+    presentation: ListingFixture? = ListingFixtures.resolve(listingId),
+    preview: Boolean = false,
+    state: TroOiUiState? = null,
+    onOpenLogin: () -> Unit = {},
+    onSubmitInquiry: (String, String) -> Unit = { _, _ -> },
+    onOpenReport: (String) -> Unit = {},
+) {
     BackHandler(onBack = onBack)
     val fixture = presentation
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var favorite by rememberSaveable(listingId) { mutableStateOf(false) }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val feedback: (String) -> Unit = { scope.launch { snackbar.showSnackbar(it) } }
     TroOiScreenScaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -46,8 +57,9 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: Lis
                         Text(fixture.card.askingPriceLabel, fontWeight = FontWeight.Bold)
                         Text("Xem chi phí thuê", style = MaterialTheme.typography.bodySmall)
                     }
-                    TroOiButton("Đặt lịch xem", onClick = { feedback("Tính năng đặt lịch xem đang được phát triển.") },
-                        modifier = Modifier.testTag("listing-viewing-cta"))
+                    TroOiButton("Liên hệ", onClick = {
+                        scope.launch { listState.animateScrollToItem((listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)) }
+                    }, modifier = Modifier.testTag("listing-contact-cta"))
                 }
             }
         },
@@ -58,11 +70,14 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: Lis
                 TroOiStateMessage(TroOiStateKind.UNAVAILABLE, "Tin đăng hiện không khả dụng.")
             }
         } else {
-            val photoCount = fixture.photoUris.size + fixture.images.size
+            val suppliedPhotoCount = fixture.photoUris.size + fixture.images.size
+            val photoCount = maxOf(1, suppliedPhotoCount)
             val pager = rememberPagerState { photoCount }
             LazyColumn(
                 Modifier.fillMaxSize().padding(padding).testTag("listing-detail-$listingId"),
+                state = listState,
                 contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item {
                     Box(Modifier.fillMaxWidth().height(300.dp)) {
@@ -88,60 +103,113 @@ fun ListingDetailScreen(listingId: String, onBack: () -> Unit, presentation: Lis
                                     }, Modifier.testTag("listing-share")) { Icon(Icons.Rounded.Share, "Chia sẻ") }
                                 }
                                 Surface(shape = androidx.compose.foundation.shape.CircleShape) {
-                                    IconButton({ favorite = !favorite }, Modifier.testTag("listing-favorite").semantics { selected = favorite }) {
-                                        Icon(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, if (favorite) "Bỏ yêu thích" else "Yêu thích")
+                                    IconButton({ onOpenReport(listingId) }, Modifier.testTag("listing-open-report")) {
+                                        Icon(Icons.Rounded.Flag, "Báo cáo tin đăng")
                                     }
                                 }
                             }
                         }
                         Surface(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), shape = MaterialTheme.shapes.small) {
-                            Text("${pager.currentPage + 1}/$photoCount", Modifier.padding(horizontal = 12.dp, vertical = 6.dp).testTag("listing-image-indicator"))
+                            Text(if (suppliedPhotoCount == 0) "Chưa có ảnh" else "${pager.currentPage + 1}/$photoCount",
+                                Modifier.padding(horizontal = 12.dp, vertical = 6.dp).testTag("listing-image-indicator"))
                         }
                     }
                 }
                 item {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(fixture.card.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text(fixture.card.category, style = MaterialTheme.typography.labelLarge, modifier = Modifier.testTag("listing-rental-type"))
-                        Text(fixture.card.publicAreaLabel)
-                        Text(fixture.summary, style = MaterialTheme.typography.bodyMedium)
-                        Text(fixture.card.askingPriceLabel, fontWeight = FontWeight.Bold)
+                    DetailSectionCard("Thông tin tổng quan", "listing-section-overview",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        Text(fixture.card.title, style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold)
+                        Text(fixture.card.category, style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.testTag("listing-rental-type"),
+                            color = MaterialTheme.colorScheme.primary)
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Rounded.LocationOn, contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(fixture.card.publicAreaLabel, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (fixture.summary.isNotBlank()) {
+                            Text(fixture.summary, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Text(fixture.card.askingPriceLabel, style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
                 item {
-                    HorizontalDivider(Modifier.padding(horizontal = 20.dp))
-                    Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Surface(shape = androidx.compose.foundation.shape.CircleShape, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(56.dp)) {
-                            Box(contentAlignment = Alignment.Center) { Text(fixture.host.take(1), style = MaterialTheme.typography.headlineSmall) }
-                        }
-                        Column {
-                            Text("Chủ trọ · ${fixture.host}", fontWeight = FontWeight.SemiBold)
-                            Text("Chủ trọ", style = MaterialTheme.typography.bodySmall)
+                    DetailSectionCard("Người đăng tin", "listing-section-host",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Surface(shape = androidx.compose.foundation.shape.CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(52.dp)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(fixture.host.take(1),
+                                        style = MaterialTheme.typography.headlineSmall)
+                                }
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(fixture.host.ifBlank { "Chưa công khai tên" },
+                                    fontWeight = FontWeight.SemiBold)
+                                Text("Chủ trọ", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
-                item { DetailSection("Về căn phòng", listOf(fixture.description)) }
-                item { DetailSection("Tiện nghi", fixture.amenities) }
-                if (fixture.costs.isNotEmpty()) item { DetailSection("Chi phí thuê", fixture.costs) }
                 item {
-                    DetailSection("Khu vực quanh bạn", listOf(fixture.card.publicAreaLabel, fixture.locationDescription))
-                    if (!preview) fixture.publicGeoPoint?.let { publicPoint ->
-                        Box(Modifier.padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
+                    DetailSectionCard("Về căn phòng", "listing-section-description",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        DetailTextBlock(listOf(fixture.description))
+                    }
+                }
+                item {
+                    DetailSectionCard("Tiện nghi", "listing-section-amenities",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        DetailAmenityGrid(fixture.amenities)
+                    }
+                }
+                if (fixture.costs.isNotEmpty()) item {
+                    DetailSectionCard("Chi phí thuê", "listing-section-costs",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        DetailCostRows(fixture.costs)
+                    }
+                }
+                item {
+                    DetailSectionCard("Khu vực công khai", "listing-section-location",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        Text(fixture.card.publicAreaLabel, style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold)
+                        if (fixture.locationDescription.isNotBlank())
+                            Text(fixture.locationDescription, style = MaterialTheme.typography.bodyMedium)
+                        DetailPublicLocationNote()
+                        if (!preview) fixture.publicGeoPoint?.let { publicPoint ->
                             StreetMapPicker(fixture.card.publicAreaLabel, publicPoint, {}, readOnly = true)
                         }
                     }
                 }
-                item { DetailSection("Điều cần biết", fixture.rules) }
+                item {
+                    DetailSectionCard("Điều cần biết", "listing-section-rules",
+                        Modifier.padding(horizontal = 20.dp)) {
+                        DetailTextBlock(fixture.rules)
+                    }
+                }
+                if (!preview && state != null) {
+                    item {
+                        Box(Modifier.padding(horizontal = 20.dp).testTag("listing-contact-section")) {
+                            InquiryComposer(state, listingId, onOpenLogin, onSubmitInquiry)
+                        }
+                    }
+                    item {
+                        TextButton(onClick = { onOpenReport(listingId) },
+                            modifier = Modifier.fillMaxWidth().testTag("listing-report-action")) {
+                            Text("Báo cáo tin đăng")
+                        }
+                    }
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun DetailSection(title: String, lines: List<String>) {
-    HorizontalDivider(Modifier.padding(horizontal = 20.dp))
-    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        lines.ifEmpty { listOf("Chủ trọ chưa bổ sung thông tin.") }.forEach { Text(it, style = MaterialTheme.typography.bodyLarge) }
     }
 }
