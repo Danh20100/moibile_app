@@ -34,6 +34,7 @@
     "test": "nest build && tsx --test src/**/*.spec.ts tests/**/*.test.ts",
     "test:conformance:database-v1": "tsx --test tests/conformance/database-v1/*.test.ts",
     "test:ledger:lifecycle-restart": "tsx --test tests/integration/persistence/application-wiring.integration.ts",
+    "test:ledger:due-date": "tsx --test tests/integration/persistence/billing-due-date.integration.ts",
     "test:ledger:media-faults": "tsx --test tests/integration/listing-asset-media.persistence.integration.ts",
     "test:messaging:integration": "tsx --test tests/integration/messaging.integration.ts",
     "test:identity:avatar": "tsx --test tests/integration/identity-avatar.integration.ts",
