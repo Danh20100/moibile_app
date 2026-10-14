@@ -2,7 +2,7 @@
 require('reflect-metadata');
 const { randomBytes, randomUUID } = require('node:crypto');
 const {
-  Body, Controller, Get, Module, Post, UnauthorizedException, ValidationPipe,
+  Body, Controller, Get, Module, Post, Req, UnauthorizedException, ValidationPipe,
 } = require('@nestjs/common');
 const { APP_GUARD, NestFactory, Reflector } = require('@nestjs/core');
 const { accounts, seedMvpPrincipals } = require('./mvp-fixture.cjs');
@@ -90,6 +90,17 @@ class DemoMvpController {
     return issueDemoSession(session.principal);
   }
 
+  async logout(request) {
+    const current = request.user;
+    for (const [token, session] of accessTokens) {
+      if (session.principal.sessionId === current.sessionId) accessTokens.delete(token);
+    }
+    for (const [token, session] of refreshTokens) {
+      if (session.principal.sessionId === current.sessionId) refreshTokens.delete(token);
+    }
+    return { revoked: true };
+  }
+
   async fixtureStatus() {
     return { mode: 'DEMO', identities: accounts.length, seededPayments: 0 };
   }
@@ -101,6 +112,8 @@ Body()(DemoMvpController.prototype, 'login', 0);
 Public()(DemoMvpController.prototype, 'refresh', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'refresh'));
 Post('refresh')(DemoMvpController.prototype, 'refresh', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'refresh'));
 Body()(DemoMvpController.prototype, 'refresh', 0);
+Post('logout')(DemoMvpController.prototype, 'logout', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'logout'));
+Req()(DemoMvpController.prototype, 'logout', 0);
 Get('status')(DemoMvpController.prototype, 'fixtureStatus', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'fixtureStatus'));
 Public()(DemoMvpController.prototype, 'fixtureStatus', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'fixtureStatus'));
 

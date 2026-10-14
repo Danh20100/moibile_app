@@ -56,6 +56,11 @@ class TroOiRepositoryImpl private constructor(
         if (!pinnedFixtureForTests && RuntimeDataSource.isBackendBacked() && com.trooi.app.BuildConfig.DEMO_BACKEND_ENABLED) {
             checkNotNull(demoLogin).restore()
         } else selected().refreshSessionContext()
+    override suspend fun revokeCurrentBackendSession() {
+        if (!pinnedFixtureForTests && RuntimeDataSource.isBackendBacked() && com.trooi.app.BuildConfig.DEMO_BACKEND_ENABLED) {
+            checkNotNull(demoLogin).logout().getOrThrow()
+        } else selected().revokeCurrentBackendSession()
+    }
     override suspend fun refreshPublicListings() = selected().refreshPublicListings()
     override suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>) = selected().loadPublicListingPhotos(listingId, mediaIds)
     override suspend fun searchPublicListings(

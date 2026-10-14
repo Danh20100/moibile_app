@@ -12,6 +12,8 @@ import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.network.dto.BackendJsonCodec
 import com.trooi.app.core.network.dto.TransportOutcome
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal class DemoBackendLogin(
     private val client: BackendClient,
@@ -21,7 +23,7 @@ internal class DemoBackendLogin(
 ) {
     private val refreshCredentials = RefreshCredentialStore(context)
 
-    suspend fun login(identifier: String, password: String): Result<UserSession> = runCatching {
+    suspend fun login(identifier: String, password: String): Result<UserSession> = withContext(Dispatchers.IO) { runCatching {
         val payload = JsonObject().apply {
             addProperty("identifier", identifier.trim())
             addProperty("password", password)
@@ -44,9 +46,9 @@ internal class DemoBackendLogin(
             refreshCredentials.clear()
             throw error
         }
-    }
+    } }
 
-    suspend fun restore(): Result<UserSession> = runCatching {
+    suspend fun restore(): Result<UserSession> = withContext(Dispatchers.IO) { runCatching {
         val refreshToken = refreshCredentials.read() ?: throw NoRestoreCredential()
         val payload = JsonObject().apply { addProperty("refreshToken", refreshToken) }.toString()
         val response = when (val outcome = client.postJson("demo/refresh", payload)) {
@@ -69,6 +71,19 @@ internal class DemoBackendLogin(
             tokens.clear()
             refreshCredentials.clear()
         }
+    } }
+
+    suspend fun logout(): Result<Unit> = runCatching {
+        val credential = tokens.token()
+        if (credential != null) {
+            when (val outcome = client.postJson("demo/logout", "{}", authenticated = true, expectedToken = credential)) {
+                is TransportOutcome.Success -> Unit
+                is TransportOutcome.Failure -> error("Demo session logout failed: ${outcome.kind}")
+            }
+        }
+    }.also {
+        tokens.clear()
+        refreshCredentials.clear()
     }
 
     private suspend fun resolve(response: DemoAccessTransport): UserSession {
