@@ -104,9 +104,9 @@ export class PostgresTenancyRepository implements TenancyRepository {
         tenancy_terms_id: input.tenancyTermsId, tenancy_id: input.tenancyId, version: input.version,
         rent_amount: input.rentAmount, agreed_deposit_requirement: input.agreedDepositRequirement,
         term_start: input.termStart, term_end: input.termEnd,
-        billing_day_or_due_date_rule: input.billingDayOrDueDateRule,
-        electricity_arrangement: input.electricityArrangement, water_arrangement: input.waterArrangement,
-        minimal_rental_conditions: input.minimalRentalConditions,
+        billing_day_or_due_date_rule: JSON.stringify(input.billingDayOrDueDateRule),
+        electricity_arrangement: JSON.stringify(input.electricityArrangement), water_arrangement: JSON.stringify(input.waterArrangement),
+        minimal_rental_conditions: JSON.stringify(input.minimalRentalConditions),
         effective_from_cycle_boundary: input.effectiveFromCycleBoundary,
       }).execute();
     } catch (error) { throw mapPostgresError(error); }

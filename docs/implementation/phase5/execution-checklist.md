@@ -179,4 +179,4 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 ## P1 decisions — Ledger Terms billing
 
-- [ ] `LED-P1-02/03` remain `OPEN_DECISION`. Draft at [Ledger_Terms_DueDay_Policy_Draft_2026-10-14.md](../../temps/Ledger_Terms_DueDay_Policy_Draft_2026-10-14.md) proposes month-end clamping for days 29–31 and strict validation of new `{day: 1..31}` Terms writes after writer inventory, while preserving historical Terms JSON values/shapes. No runtime behavior or migration has changed pending approval.
+- [x] `LED-P1-02/03` policy approved 2026-10-15 and implemented. New Terms writes require exact `{day: integer 1..31}`; historical JSON remains unmodified and is returned without inference (including legacy array/scalar shapes). Billing due dates clamp to month end as date-only Vietnam dates; isolated PostgreSQL tests cover projection and Terms JSON round-trip. No migration was added; see the integration gap register for current evidence and limits.
