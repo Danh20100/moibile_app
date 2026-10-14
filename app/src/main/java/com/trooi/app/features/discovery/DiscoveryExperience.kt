@@ -80,11 +80,14 @@ fun DiscoveryExperience(
     var geoSearch by rememberSaveable { mutableStateOf(false) }
     var compareIds by rememberSaveable { mutableStateOf(emptyList<String>()) }
     val listState = rememberLazyListState()
+    val publicListingsById = remember(state.read.publicListings) {
+        publicDiscoveryFeed(state.read.publicListings).associateBy { it.listingId }
+    }
     val invalidPrice = PublicDiscoveryFilters(min, max).validationMessage()
     val results = remember(state.read.publicListings, allowDemoFallback, area, type, min, max, sort) {
         priced(discoveryCards(state.read.publicListings, allowDemoFallback, area, type, min, max), sort)
     }
-    val eligible = results.map { it.listingId }.toSet()
+    val eligible = remember(results) { results.mapTo(mutableSetOf()) { it.listingId } }
     // Drop selections no longer present in the current public projection.
     LaunchedEffect(eligible) { compareIds = compareIds.filter { it in eligible } }
 
@@ -235,8 +238,7 @@ fun DiscoveryExperience(
                 }
             }
             items(results, key = { it.listingId }) { item ->
-                val projection = publicDiscoveryFeed(state.read.publicListings)
-                    .firstOrNull { it.listingId == item.listingId }
+                val projection = publicListingsById[item.listingId]
                 DiscoveryDecisionCard(
                     item = item, public = projection,
                     onLoadPublicPhoto = onLoadPublicPhoto,

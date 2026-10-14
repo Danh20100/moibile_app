@@ -9,17 +9,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.trooi.app.core.auth.GoogleCredentialAuth
@@ -28,6 +30,8 @@ import com.trooi.app.core.data.AppDataSource
 import com.trooi.app.core.data.BackendTroOiRepository
 import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.demo.DemoData
+import com.trooi.app.core.model.ListingVisibility
+import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.network.InMemoryAuthTokenProvider
@@ -93,6 +97,46 @@ class NativeDiscoveryViewModelTest {
             compose.onNodeWithText("Phòng đang cho thuê")
                 .fetchSemanticsNode().config.contains(SemanticsProperties.Heading),
         )
+    }
+
+    @Test fun largePublicFeedIsVirtualizedAndCanScrollToLastListing() {
+        val listings = List(500) { index ->
+            PublicListingCard(
+                listingId = "large-$index",
+                title = "Listing $index",
+                publicAreaLabel = "Khu vực công khai",
+                publicGeoPoint = null,
+                askingPriceLabel = "3500000",
+                visibility = ListingVisibility.PUBLISHED,
+            )
+        } + PublicListingCard(
+            listingId = "draft-hidden",
+            title = "Không hiển thị",
+            publicAreaLabel = "Địa chỉ riêng",
+            publicGeoPoint = null,
+            askingPriceLabel = "2000000",
+            visibility = ListingVisibility.DRAFT,
+        )
+        var openedListing: String? = null
+        compose.setContent {
+            TroOiTheme {
+                DiscoveryExperience(
+                    state = TroOiUiState(read = DemoData.read.copy(publicListings = listings)),
+                    onOpenListing = { openedListing = it },
+                    onOpenMap = {},
+                    allowDemoFallback = false,
+                )
+            }
+        }
+
+        compose.onNodeWithTag("discovery-card-large-0").assertIsDisplayed()
+        assertFalse(compose.onAllNodesWithTag("discovery-card-large-499").fetchSemanticsNodes().isNotEmpty())
+        assertFalse(compose.onAllNodesWithText("Không hiển thị").fetchSemanticsNodes().isNotEmpty())
+        // Header, quick filters, results heading, and sort row precede the listing items.
+        compose.onNodeWithTag("discovery-results").performScrollToIndex(4 + 499)
+        compose.onNodeWithTag("discovery-card-large-499").assertIsDisplayed()
+        compose.onNodeWithText("Listing 499").assertIsDisplayed().performClick()
+        assertEquals("large-499", openedListing)
     }
 
     @Test fun publicDiscoveryErrorAndRetryRemainReadableAt200PercentInLightTheme() {
