@@ -51,7 +51,8 @@ class BackendClient(
         authenticated: Boolean = false,
         headers: Map<String, String> = emptyMap(),
         expectedToken: String? = null,
-    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
+        retryOnIOException: Boolean = false,
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = retryOnIOException, expectedToken = expectedToken) { builder ->
         headers.forEach { (name, value) ->
             if (name.equals("Idempotency-Key", ignoreCase = true) && value.isNotBlank()) {
                 builder.header("Idempotency-Key", value)
@@ -149,7 +150,7 @@ class BackendClient(
                 }
             } catch (error: IOException) {
                 if (attempt + 1 < attempts) {
-                    warn("Transient GET I/O failure path=$path type=${error::class.java.simpleName}; retrying once")
+                    warn("Transient I/O failure path=$path type=${error::class.java.simpleName}; retrying once")
                 } else {
                     warn("I/O failure path=$path type=${error::class.java.simpleName} message=${error.message}")
                     return@withContext TransportOutcome.Failure(ErrorKind.NETWORK_UNAVAILABLE)

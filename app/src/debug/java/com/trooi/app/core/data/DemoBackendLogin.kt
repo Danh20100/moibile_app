@@ -14,6 +14,7 @@ import com.trooi.app.core.network.dto.TransportOutcome
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 internal class DemoBackendLogin(
     private val client: BackendClient,
@@ -50,8 +51,11 @@ internal class DemoBackendLogin(
 
     suspend fun restore(): Result<UserSession> = withContext(Dispatchers.IO) { runCatching {
         val refreshToken = refreshCredentials.read() ?: throw NoRestoreCredential()
-        val payload = JsonObject().apply { addProperty("refreshToken", refreshToken) }.toString()
-        val response = when (val outcome = client.postJson("demo/refresh", payload)) {
+        val payload = JsonObject().apply {
+            addProperty("refreshToken", refreshToken)
+            addProperty("requestId", UUID.randomUUID().toString())
+        }.toString()
+        val response = when (val outcome = client.postJson("demo/refresh", payload, retryOnIOException = true)) {
             is TransportOutcome.Success -> Gson().fromJson(
                 BackendJsonCodec.unwrapResponseData(outcome.document.rawBody),
                 DemoAccessTransport::class.java,

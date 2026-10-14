@@ -39,6 +39,7 @@ if (!['localhost', '127.0.0.1', '[::1]'].includes(database.hostname)) {
 
 const accessTokens = new Map();
 const refreshTokens = new Map();
+const refreshOperations = new Map();
 const tokenLifetimeMs = 12 * 60 * 60 * 1000;
 const password = process.env.TROOI_DEMO_PASSWORD || 'TroOiDemo2026!';
 let transactions;
@@ -81,13 +82,27 @@ class DemoMvpController {
 
   async refresh(body) {
     const refreshToken = body?.refreshToken;
+    const requestId = body?.requestId;
+    if (typeof requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
+      throw new UnauthorizedException('Demo refresh request ID is invalid');
+    }
+    for (const [id, operation] of refreshOperations) {
+      if (operation.expiresAt <= Date.now()) refreshOperations.delete(id);
+    }
+    const previous = refreshOperations.get(requestId);
+    if (previous) {
+      if (previous.refreshToken !== refreshToken) throw new UnauthorizedException('Demo refresh request ID was reused');
+      return previous.response;
+    }
     const session = typeof refreshToken === 'string' ? refreshTokens.get(refreshToken) : null;
     if (!session || session.expiresAt <= Date.now()) {
       if (refreshToken) refreshTokens.delete(refreshToken);
       throw new UnauthorizedException('Demo refresh credential expired or already rotated');
     }
     refreshTokens.delete(refreshToken);
-    return issueDemoSession(session.principal);
+    const response = issueDemoSession(session.principal);
+    refreshOperations.set(requestId, { refreshToken, response, expiresAt: Date.now() + 30_000 });
+    return response;
   }
 
   async logout(request) {
