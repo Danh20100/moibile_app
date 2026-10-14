@@ -12,8 +12,9 @@ test('asset photo bytes and ordering persist in PostgreSQL and retries cannot ch
   const f = await rentalFixture(url);
   const objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
   let failDelete = false;
+  let failRestore = false;
   const storage = {
-    async putObject(value: { key: string; bytes: Uint8Array; contentType: string }) { objects.set(value.key, value); },
+    async putObject(value: { key: string; bytes: Uint8Array; contentType: string }) { if (failRestore) throw new Error('storage restore unavailable'); objects.set(value.key, value); },
     async getObject(key: string) { return objects.get(key) ?? null; },
     async deleteObject(key: string) { if (failDelete) throw new Error('storage unavailable'); objects.delete(key); },
   };
@@ -33,6 +34,17 @@ test('asset photo bytes and ordering persist in PostgreSQL and retries cannot ch
     const image = await reopened.content(listingId, second);
     assert.equal(image.contentType, rentalAssetMediaFlow.images[0]!.contentType);
     assert.deepEqual(Buffer.from(image.base64, 'base64'), secondBytes);
+    const failedTransactionDb = {
+      selectFrom: f.db.selectFrom.bind(f.db),
+      transaction: () => ({ execute: async () => { throw new Error('database unavailable'); } }),
+    } as unknown as typeof f.db;
+    await assert.rejects(new ListingAssetMediaService(failedTransactionDb, storage).remove(listingId, second));
+    assert.deepEqual(Buffer.from((await reopened.content(listingId, second)).base64, 'base64'), secondBytes);
+    failRestore = true;
+    await assert.rejects(new ListingAssetMediaService(failedTransactionDb, storage).remove(listingId, second), { message: 'Asset photo removal needs reconciliation' });
+    assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [second, first]);
+    failRestore = false;
+    await storage.putObject({ key: `rental-assets/${listingId}/${second}.jpg`, bytes: secondBytes, contentType: 'image/jpeg' });
     failDelete = true;
     await assert.rejects(reopened.remove(listingId, second));
     assert.deepEqual((await reopened.list(listingId)).map((item) => item.id), [second, first]);

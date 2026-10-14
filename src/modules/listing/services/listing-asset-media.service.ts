@@ -81,12 +81,25 @@ export class ListingAssetMediaService {
   async remove(listingId: string, mediaId: string): Promise<void> {
     const row = await this.db.selectFrom('listing_asset_media').selectAll().where('listing_id', '=', listingId).where('media_id', '=', mediaId).executeTakeFirst();
     if (!row) throw new NotFoundException('Asset photo unavailable');
+    const object = await this.storage.getObject(row.object_key);
+    if (!object || object.contentType !== row.content_type || object.bytes.length !== row.byte_size)
+      throw new ServiceUnavailableException('Asset photo unavailable');
     await this.storage.deleteObject?.(row.object_key);
-    await this.db.transaction().execute(async (tx) => {
-      await tx.deleteFrom('listing_asset_media').where('listing_id', '=', listingId).where('media_id', '=', mediaId).execute();
-      const tail = await tx.selectFrom('listing_asset_media').select('media_id').where('listing_id', '=', listingId).where('position', '>', row.position).orderBy('position').execute();
-      for (const [index, item] of tail.entries()) await tx.updateTable('listing_asset_media').set({ position: row.position + index }).where('media_id', '=', item.media_id).execute();
-    });
+    try {
+      await this.db.transaction().execute(async (tx) => {
+        await tx.deleteFrom('listing_asset_media').where('listing_id', '=', listingId).where('media_id', '=', mediaId).execute();
+        const tail = await tx.selectFrom('listing_asset_media').select('media_id').where('listing_id', '=', listingId).where('position', '>', row.position).orderBy('position').execute();
+        for (const [index, item] of tail.entries()) await tx.updateTable('listing_asset_media').set({ position: row.position + index }).where('media_id', '=', item.media_id).execute();
+      });
+    } catch (error) {
+      try {
+        await this.storage.putObject({ key: row.object_key, bytes: object.bytes, contentType: row.content_type });
+      } catch (restoreError) {
+        // shortcut: failed compensation leaves metadata for operator reconciliation; add durable delete intents for crash-safe removal.
+        throw new ServiceUnavailableException('Asset photo removal needs reconciliation', { cause: restoreError });
+      }
+      throw error;
+    }
   }
 }
 
