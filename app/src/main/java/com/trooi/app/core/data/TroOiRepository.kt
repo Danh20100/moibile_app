@@ -20,6 +20,8 @@ data class UserSession(
     val email: String? = null,
 )
 
+data class ProfileAvatarImage(val contentType: String, val bytes: ByteArray)
+
 interface TroOiRepository {
     suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String,
         images: List<com.trooi.app.core.model.LocalMessageImage>): Result<List<com.trooi.app.core.model.ConversationCard>> {
@@ -51,6 +53,10 @@ interface TroOiRepository {
 
     suspend fun updateDisplayName(displayName: String): Result<UserSession> =
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
+    suspend fun loadOwnAvatar(expectedUserId: String): Result<ProfileAvatarImage?> =
+        Result.failure(IllegalStateException("Ảnh hồ sơ chưa khả dụng."))
+    suspend fun updateOwnAvatar(expectedUserId: String, contentType: String, bytes: ByteArray): Result<ProfileAvatarImage> =
+        Result.failure(IllegalStateException("Ảnh hồ sơ chưa khả dụng."))
     suspend fun refreshSessionContext(): Result<UserSession>
     suspend fun refreshPublicListings(): Result<List<PublicListingCard>>
     suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>): Result<List<String>> =

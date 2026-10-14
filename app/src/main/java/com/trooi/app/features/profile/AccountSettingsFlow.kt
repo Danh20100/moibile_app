@@ -70,6 +70,7 @@ fun AccountSettingsFlow(
     onSaveDisplayName: suspend (String) -> Result<Unit> = {
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
     },
+    avatarAction: (@Composable () -> Unit)? = null,
     onOpenOperatorWorkspace: () -> Unit = {},
     onStartLandlordOnboarding: () -> Unit = {},
 ) {
@@ -241,6 +242,7 @@ fun AccountSettingsFlow(
                         modifier = Modifier.testTag("personal-action-Xác minh danh tính"),
                     )
                 }
+                if (avatarAction != null) sectionItem { avatarAction() }
             }
             page == "edit:Tên hiển thị" -> sectionItem {
                 Text("Tên này sẽ hiển thị trên hồ sơ TrọƠi của bạn.")

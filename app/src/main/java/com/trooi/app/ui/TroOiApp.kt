@@ -327,6 +327,7 @@ fun TroOiApp(
                         onPrivacy = viewModel::openPrivacy,
                         onLogout = viewModel::logout,
                         onSaveDisplayName = viewModel::updateDisplayName,
+                        onUploadAvatar = if (RuntimeDataSource.isBackendBacked()) viewModel::uploadProfileAvatar else null,
                         onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
                         onOpenWorkspace = viewModel::openOperatorWorkspaceFromAccount,
                     )

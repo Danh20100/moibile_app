@@ -23,10 +23,29 @@ import java.net.URL
 import java.io.ByteArrayOutputStream
 
 @Composable
-internal fun ProfileAvatar(pictureUrl: String?, initial: String, size: androidx.compose.ui.unit.Dp = 80.dp) {
-    val bitmap by produceState<ImageBitmap?>(null, pictureUrl) {
+internal fun ProfileAvatar(
+    pictureUrl: String?,
+    initial: String,
+    size: androidx.compose.ui.unit.Dp = 80.dp,
+    privateAvatarBytes: ByteArray? = null,
+) {
+    val bitmap by produceState<ImageBitmap?>(null, pictureUrl, privateAvatarBytes) {
         value = null
-        if (pictureUrl?.startsWith("https://") == true) {
+        if (privateAvatarBytes != null && privateAvatarBytes.size <= 2 * 1024 * 1024) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(privateAvatarBytes, 0, privateAvatarBytes.size, bounds)
+                    require(bounds.outWidth > 0 && bounds.outHeight > 0 && maxOf(bounds.outWidth, bounds.outHeight) <= 12000)
+                    val options = BitmapFactory.Options().apply {
+                        inSampleSize = 1
+                        while (maxOf(bounds.outWidth, bounds.outHeight) / inSampleSize > 512) inSampleSize *= 2
+                    }
+                    BitmapFactory.decodeByteArray(privateAvatarBytes, 0, privateAvatarBytes.size, options)?.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+        if (value == null && pictureUrl?.startsWith("https://") == true) {
             value = withContext(Dispatchers.IO) {
                 runCatching {
                     val connection = URL(pictureUrl).openConnection().apply {

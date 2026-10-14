@@ -132,8 +132,12 @@ class BackendClient(
                         else -> TransportOutcome.Success(
                             status,
                             TransportDocument(response.body?.let { body ->
-                                if (path.startsWith("messaging/") || path.contains("/media")) {
-                                    val cap = if (path.startsWith("messaging/")) 3_000_000L else 8_000_000L
+                                if (path.startsWith("messaging/") || path.contains("/media") || path.endsWith("/avatar")) {
+                                    val cap = when {
+                                        path.startsWith("messaging/") -> 3_000_000L
+                                        path.endsWith("/avatar") -> 3_000_000L
+                                        else -> 8_000_000L
+                                    }
                                     if (body.contentLength() > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)
                                     val source = body.source()
                                     if (source.request(cap + 1) && source.buffer.size > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)

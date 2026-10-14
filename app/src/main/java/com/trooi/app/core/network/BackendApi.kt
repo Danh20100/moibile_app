@@ -23,6 +23,8 @@ interface BackendApi {
     suspend fun authenticateGoogle(idToken: String): ApiOutcome<VerifiedPrincipalTransport>
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ProfileAvatarUploadTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getOwnAvatar(expectedToken: String? = null): ApiOutcome<ProfileAvatarContentTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getOrganizations(): ApiOutcome<List<OrganizationTransport>>
     suspend fun getDashboard(organizationId: String): ApiOutcome<DashboardTransport>
     suspend fun getProperties(organizationId: String, expectedToken: String? = null): ApiOutcome<List<PropertyTransport>>
@@ -175,6 +177,20 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
             is TransportOutcome.Failure -> ApiOutcome.Failure(result.kind, result.httpStatus)
         }
     }
+
+    override suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String?): ApiOutcome<ProfileAvatarUploadTransport> = run {
+        require(contentType in listOf("image/jpeg", "image/png") && bytes.isNotEmpty() && bytes.size <= 2 * 1024 * 1024)
+        val payload = com.google.gson.JsonObject().apply {
+            addProperty("contentType", contentType)
+            addProperty("base64", java.util.Base64.getEncoder().encodeToString(bytes))
+        }
+        client.postJson("identity-access/profile/avatar", payload.toString(), true, expectedToken = expectedToken)
+            .decode { messagingGson.fromJson(it, ProfileAvatarUploadTransport::class.java) }
+    }
+
+    override suspend fun getOwnAvatar(expectedToken: String?) =
+        client.get("identity-access/profile/avatar", true, expectedToken = expectedToken)
+            .decode { messagingGson.fromJson(it, ProfileAvatarContentTransport::class.java) }
 
     override suspend fun getOrganizations() =
         client.get("organizations", authenticated = true).decode(BackendJsonCodec::organizations)

@@ -62,6 +62,24 @@ class RedesignUiTest {
         compose.onNodeWithText("Fake").assertDoesNotExist()
     }
 
+    @Test fun privateAvatarActionIsExposedOnlyWhenBackendUploadIsAvailable() {
+        val authenticated = TroOiUiState(isAuthenticated = true, displayName = "Lan", backendUserId = "user-1")
+        var backendAvailable by mutableStateOf(false)
+        compose.setContent {
+            TroOiTheme {
+                ProfileScreen(
+                    authenticated,
+                    onUploadAvatar = if (backendAvailable) ({ _, _ -> Result.success(Unit) }) else null,
+                )
+            }
+        }
+        compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("profile-personal"))
+        compose.onNodeWithTag("profile-personal").performClick()
+        compose.onNodeWithTag("profile-avatar-change").assertDoesNotExist()
+        compose.runOnIdle { backendAvailable = true }
+        compose.onNodeWithTag("profile-avatar-change").assertExists()
+    }
+
     @Test fun tenantCannotGainOperatorCapabilityWithoutCompletingOnboarding() {
         val state = TroOiUiState(isAuthenticated = true, displayName = "Lan", backendUserId = "u",
             access = AccessCapabilities(linkedTenancyIds = setOf("t")))

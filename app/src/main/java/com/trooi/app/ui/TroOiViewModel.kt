@@ -229,7 +229,10 @@ class TroOiViewModel @Inject constructor(
     }
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
     fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
-    fun openAccount() = open(AppPage.Account)
+    fun openAccount() {
+        open(AppPage.Account)
+        refreshProfileAvatar()
+    }
     fun openSettings() {
         _state.update { it.copy(settingsEntry = "settings") }
         openShared(AppPage.Settings)
@@ -902,6 +905,54 @@ class TroOiViewModel @Inject constructor(
         )
     }
 
+    fun refreshProfileAvatar() {
+        val original = _state.value
+        if (!RuntimeDataSource.isBackendBacked() || !original.isAuthenticated || original.backendUserId.isBlank()) return
+        val userId = original.backendUserId
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            repository.loadOwnAvatar(userId).fold(
+                onSuccess = { image ->
+                    if (generation == sessionGeneration) _state.update { current ->
+                        if (current.backendUserId == userId) current.copy(profileAvatarBytes = image?.bytes) else current
+                    }
+                },
+                onFailure = { /* Keep the current image; a private avatar read failure is not a successful empty result. */ },
+            )
+        }
+    }
+
+    suspend fun uploadProfileAvatar(contentType: String, bytes: ByteArray): Result<Unit> {
+        val original = _state.value
+        if (!RuntimeDataSource.isBackendBacked() || !original.isAuthenticated || original.backendUserId.isBlank()) {
+            return Result.failure(IllegalStateException("Bạn cần phiên Backend hợp lệ để tải ảnh hồ sơ."))
+        }
+        if (contentType !in listOf("image/jpeg", "image/png") || bytes.isEmpty() || bytes.size > 2 * 1024 * 1024) {
+            return Result.failure(IllegalArgumentException("Ảnh phải là JPEG/PNG và không quá 2 MB."))
+        }
+        val userId = original.backendUserId
+        val generation = sessionGeneration
+        _state.update { current -> if (current.backendUserId == userId) current.copy(profileAvatarUploading = true) else current }
+        return repository.updateOwnAvatar(userId, contentType, bytes).fold(
+            onSuccess = { image ->
+                if (generation != sessionGeneration || _state.value.backendUserId != userId) {
+                    Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+                } else {
+                    _state.update { current ->
+                        if (current.backendUserId == userId) current.copy(profileAvatarBytes = image.bytes, profileAvatarUploading = false) else current
+                    }
+                    Result.success(Unit)
+                }
+            },
+            onFailure = { error ->
+                if (generation == sessionGeneration) _state.update { current ->
+                    if (current.backendUserId == userId) current.copy(profileAvatarUploading = false) else current
+                }
+                Result.failure(error)
+            },
+        )
+    }
+
     fun refreshSessionContext() {
         if (!_state.value.isAuthenticated) return
         val generation = sessionGeneration
@@ -939,6 +990,8 @@ class TroOiViewModel @Inject constructor(
                 displayName = "",
                 email = null,
                 pictureUrl = null,
+                profileAvatarBytes = null,
+                profileAvatarUploading = false,
                 backendUserId = "",
                 access = AccessCapabilities(),
                 read = FrontendReadSnapshot(
@@ -1040,6 +1093,8 @@ class TroOiViewModel @Inject constructor(
             displayName = session.displayName,
             email = session.email,
             pictureUrl = session.pictureUrl,
+            profileAvatarBytes = current.profileAvatarBytes.takeIf { current.backendUserId == session.userId },
+            profileAvatarUploading = current.profileAvatarUploading.takeIf { current.backendUserId == session.userId } ?: false,
             backendUserId = session.userId,
             access = session.access,
             read = nextRead,

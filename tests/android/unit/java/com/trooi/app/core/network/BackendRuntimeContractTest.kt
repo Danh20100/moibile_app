@@ -66,6 +66,37 @@ class BackendRuntimeContractTest {
         }
     }
 
+    @Test fun privateProfileAvatarTransportUsesOnlyTheAuthenticatedSelfRoute() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(201).setBody(
+                """{"success":true,"data":{"contentType":"image/jpeg","byteSize":4,"updatedAt":"2026-10-14T00:00:00.000Z"}}""",
+            ))
+            server.enqueue(MockResponse().setBody(
+                """{"success":true,"data":{"contentType":"image/jpeg","byteSize":4,"updatedAt":"2026-10-14T00:00:00.000Z","base64":"AQIDBA=="}}""",
+            ))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("owner-token") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+
+            assertEquals(4, api.uploadOwnAvatar("image/jpeg", byteArrayOf(1, 2, 3, 4), "owner-token").requireData().byteSize)
+            assertEquals("AQIDBA==", api.getOwnAvatar("owner-token").requireData().base64)
+
+            val upload = server.takeRequest()
+            assertEquals("POST", upload.method)
+            assertEquals("/api/v1/identity-access/profile/avatar", upload.path)
+            assertEquals("Bearer owner-token", upload.getHeader("Authorization"))
+            val requestBody = com.google.gson.JsonParser.parseString(upload.body.readUtf8()).asJsonObject
+            assertEquals("image/jpeg", requestBody.get("contentType").asString)
+            assertEquals("AQIDBA==", requestBody.get("base64").asString)
+            assertFalse("The client cannot select an avatar owner", requestBody.has("userId"))
+
+            val read = server.takeRequest()
+            assertEquals("GET", read.method)
+            assertEquals("/api/v1/identity-access/profile/avatar", read.path)
+            assertEquals("Bearer owner-token", read.getHeader("Authorization"))
+        }
+    }
+
     @Test fun publicListingMapsOnlyPublishedPublicProjection() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(

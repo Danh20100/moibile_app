@@ -138,6 +138,34 @@ class BackendTroOiRepository @Inject constructor(
         ))
     } catch (error: RuntimeException) { Result.failure(error) }
 
+    override suspend fun loadOwnAvatar(expectedUserId: String): Result<ProfileAvatarImage?> = runCatching {
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        val session = api.getSessionContext(credential).required("avatar identity")
+        check(session.userId == expectedUserId) { "Authenticated User changed before avatar read" }
+        val content = when (val result = api.getOwnAvatar(credential)) {
+            is ApiOutcome.Data -> result.value
+            is ApiOutcome.Failure -> if (result.httpStatus == 404) null else error("Avatar read failed: ${result.kind}")
+        } ?: return@runCatching null
+        require(content.contentType in listOf("image/jpeg", "image/png"))
+        require(content.byteSize in 1..(2 * 1024 * 1024) && content.base64.length <= 2_796_204)
+        val bytes = java.util.Base64.getDecoder().decode(content.base64)
+        require(bytes.size == content.byteSize && tokens.token() == credential)
+        ProfileAvatarImage(content.contentType, bytes)
+    }
+
+    override suspend fun updateOwnAvatar(expectedUserId: String, contentType: String, bytes: ByteArray): Result<ProfileAvatarImage> = runCatching {
+        require(contentType in listOf("image/jpeg", "image/png") && bytes.isNotEmpty() && bytes.size <= 2 * 1024 * 1024)
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        val session = api.getSessionContext(credential).required("avatar identity")
+        check(session.userId == expectedUserId) { "Authenticated User changed before avatar upload" }
+        val stored = api.uploadOwnAvatar(contentType, bytes, credential).required("avatar upload")
+        require(stored.contentType == contentType && stored.byteSize == bytes.size)
+        check(tokens.token() == credential) { "Authenticated User changed during avatar upload" }
+        val readBack = loadOwnAvatar(expectedUserId).getOrThrow() ?: error("Avatar upload returned no persisted image")
+        check(readBack.contentType == contentType && readBack.bytes.contentEquals(bytes)) { "Avatar readback did not match uploaded bytes" }
+        readBack
+    }
+
     override suspend fun refreshPublicListings(): Result<List<PublicListingCard>> = try {
         Result.success(mapPublicListings(api.getPublicListings().required("public listings")))
     } catch (error: RuntimeException) {

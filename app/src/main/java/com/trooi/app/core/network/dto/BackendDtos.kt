@@ -38,6 +38,8 @@ data class ListingAssetDetailsTransport(
 
 data class ListingAssetMediaTransport(val id: String, val contentType: String, val byteSize: Int, val position: Int, val createdAt: String, val isPublic: Boolean = false)
 data class ListingAssetMediaContentTransport(val contentType: String, val base64: String)
+data class ProfileAvatarUploadTransport(val contentType: String, val byteSize: Int, val updatedAt: String)
+data class ProfileAvatarContentTransport(val contentType: String, val byteSize: Int, val updatedAt: String, val base64: String)
 
 data class PublicListingSearchResultTransport(
     val listingId: String,

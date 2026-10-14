@@ -7,6 +7,9 @@ import com.trooi.app.ui.components.TroOiScreenScaffold
 
 import com.trooi.app.ui.components.TroOiConfirmDialog
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +40,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.model.LocalLandlordApplication
+import com.trooi.app.features.messages.prepareMessagePhoto
 import kotlinx.coroutines.launch
 
 @Composable
@@ -52,6 +57,7 @@ fun ProfileScreen(
     onPrivacy: (() -> Unit)? = null,
     onLogout: () -> Unit = {},
     onSaveDisplayName: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
+    onUploadAvatar: (suspend (String, ByteArray) -> Result<Unit>)? = null,
     onCompleteLandlord: suspend (LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
     onOpenWorkspace: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -62,10 +68,38 @@ fun ProfileScreen(
     var detail by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var section by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var logoutConfirmation by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null && onUploadAvatar != null) scope.launch {
+            val outcome = runCatching {
+                val photo = prepareMessagePhoto(context, uri)
+                onUploadAvatar("image/jpeg", photo.bytes).getOrThrow()
+            }
+            snackbar.showSnackbar(outcome.fold(
+                onSuccess = { "Đã cập nhật ảnh hồ sơ." },
+                onFailure = { it.message ?: "Không thể cập nhật ảnh hồ sơ." },
+            ))
+        }
+    }
+    val avatarAction: (@Composable () -> Unit)? = if (onUploadAvatar == null) null else {
+        {
+            Button(
+                onClick = { avatarPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                enabled = !state.profileAvatarUploading,
+                modifier = Modifier.testTag("profile-avatar-change"),
+            ) {
+                if (state.profileAvatarUploading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text("Đổi ảnh đại diện")
+            }
+        }
+    }
     section?.let { initial ->
         Dialog(onDismissRequest = { section = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             TroOiPage(Modifier.fillMaxSize().safeDrawingPadding()) {
                 AccountSettingsFlow(state, { section = null }, initial, onSaveDisplayName = onSaveDisplayName,
+                    avatarAction = avatarAction,
                     onOpenOperatorWorkspace = onOpenWorkspace, onStartLandlordOnboarding = {
                         section = null
                         onboarding = true
@@ -79,8 +113,6 @@ fun ProfileScreen(
         text = "Phiên đăng nhập trên thiết bị này sẽ được xóa. Bạn có thể đăng nhập lại bất cứ lúc nào.",
         confirmLabel = "Đăng xuất", onConfirm = { logoutConfirmation = false; onLogout() }, destructive = true,
     )
-    val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     val landlordAction: () -> Unit = {
         when (presentation.landlordEntry) {
             LandlordEntry.ONBOARDING -> onboarding = true
@@ -145,7 +177,7 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
-                            ProfileAvatar(state.pictureUrl, presentation.name.take(1), 64.dp)
+                            ProfileAvatar(state.pictureUrl, presentation.name.take(1), 64.dp, state.profileAvatarBytes)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("TÀI KHOẢN CỦA TÔI", style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.80f))

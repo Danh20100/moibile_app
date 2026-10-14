@@ -42,6 +42,8 @@ data class TroOiUiState(
     val displayName: String = "",
     val email: String? = null,
     val pictureUrl: String? = null,
+    val profileAvatarBytes: ByteArray? = null,
+    val profileAvatarUploading: Boolean = false,
     val access: AccessCapabilities = AccessCapabilities(),
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),
     val demoPreview: Boolean = false,
