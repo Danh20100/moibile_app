@@ -9,7 +9,10 @@ import { createRepositorySet } from '../../../src/infrastructure/database/reposi
 import { IdentitySessionService } from '../../../src/modules/identity-access/services/identity-session.service';
 import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { googlePrincipalUserId } from '../../../src/common/identity/deterministic-user-id';
-import { UnauthorizedException, ServiceUnavailableException } from '@nestjs/common';
+import { UnauthorizedException, ServiceUnavailableException, type ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { AuthGuard } from '../../../src/common/guards/auth.guard';
+import { GooglePrincipalResolver } from '../../../src/modules/identity-access/services/google-principal-resolver';
 import { runMigrations } from '../../../scripts/database/migrate';
 import { resetPublicSchema } from './support/postgres-test-harness';
 
@@ -139,6 +142,21 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     const loginRequest = { idToken: 'test-only-google-proof', nonce: loginChallenge.nonce };
     const loggedIn = await identity.authenticateGoogle(loginRequest);
     assert.equal(loggedIn.userId, registeredUserId);
+    const sessionGuard = new AuthGuard(new Reflector(), new GooglePrincipalResolver(transactions));
+    const protectedRequest = (token: string) => {
+      const request: { headers: { authorization: string }; user?: { userId: string } } = {
+        headers: { authorization: `Bearer ${token}` },
+      };
+      const context = {
+        getHandler: () => ({}), getClass: () => ({}),
+        switchToHttp: () => ({ getRequest: () => request }),
+      } as unknown as ExecutionContext;
+      return { context, request };
+    };
+    const authorizedRequest = protectedRequest(loggedIn.accessToken);
+    assert.equal(await sessionGuard.canActivate(authorizedRequest.context), true);
+    assert.equal(authorizedRequest.request.user?.userId, registeredUserId,
+      'AuthGuard resolves the app session to the durable User');
     const reauthChallenge = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
     claims = { ...claims, nonce: reauthChallenge.nonce, authTime: Math.floor(Date.now() / 1000) };
     const reauthProof = await identity.completeOrganizationCreateReauth(
@@ -166,6 +184,8 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
       accessTokenSha256: createHash('sha256').update(loggedIn.accessToken).digest('hex'), now: new Date().toISOString(),
     })), null, 'logout revokes access on the next request');
+    await assert.rejects(sessionGuard.canActivate(protectedRequest(loggedIn.accessToken).context), UnauthorizedException,
+      'AuthGuard rejects the logged-out session on the next protected request');
     const secondLoginChallenge = await identity.issueChallenge('LOGIN');
     claims = { ...claims, nonce: secondLoginChallenge.nonce, authTime: Math.floor(Date.now() / 1000) };
     const secondSession = await identity.authenticateGoogle({ idToken: 'test-only-google-proof', nonce: secondLoginChallenge.nonce });
@@ -177,6 +197,8 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     assert.equal(await transactions.run(({ repositories }) => repositories.identitySessions.resolveAccessToken({
       accessTokenSha256: createHash('sha256').update(registered.accessToken).digest('hex'), now: new Date().toISOString(),
     })), null, 'revoke-all also removes the registration session');
+    await assert.rejects(sessionGuard.canActivate(protectedRequest(secondSession.accessToken).context), UnauthorizedException,
+      'AuthGuard rejects sessions revoked by revoke-all');
 
     const unverifiedChallenge = await identity.issueChallenge('REGISTER');
     claims = { ...claims, subject: 'google-email-unverified', email: 'unverified@example.test',
