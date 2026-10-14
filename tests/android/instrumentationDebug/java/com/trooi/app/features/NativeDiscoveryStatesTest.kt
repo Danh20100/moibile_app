@@ -1,11 +1,21 @@
 package com.trooi.app.features
 
 import android.graphics.Bitmap
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.ActivityResultRegistryOwner
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -234,6 +244,62 @@ class NativeDiscoveryStatesTest {
                 File(directory, "search-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 bitmap.recycle()
             }
+        }
+    }
+
+    @Test fun deniedLocationPermissionKeepsSearchWithoutDeviceCoordinates() {
+        val packageName = instrumentation.targetContext.packageName
+        fun shell(command: String) {
+            val output = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command))
+                .bufferedReader().use { it.readText() }
+            assertTrue(output, !output.contains("Unknown command") && !output.contains("Error:"))
+        }
+        shell("pm clear-permission-flags $packageName android.permission.ACCESS_COARSE_LOCATION user-set user-fixed")
+        shell("pm revoke $packageName android.permission.ACCESS_COARSE_LOCATION")
+        assertNotEquals(PackageManager.PERMISSION_GRANTED,
+            ContextCompat.checkSelfPermission(instrumentation.targetContext, "android.permission.ACCESS_COARSE_LOCATION"))
+
+        val searchEvents = mutableListOf<String>()
+        var permissionRequests = 0
+        val registry = object : ActivityResultRegistry() {
+            override fun <I, O> onLaunch(
+                requestCode: Int,
+                contract: ActivityResultContract<I, O>,
+                input: I,
+                options: ActivityOptionsCompat?,
+            ) {
+                permissionRequests++
+                dispatchResult(requestCode, Activity.RESULT_CANCELED, null as Intent?)
+            }
+        }
+        val registryOwner = object : ActivityResultRegistryOwner {
+            override val activityResultRegistry: ActivityResultRegistry = registry
+        }
+        try {
+            ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+                scenario.onActivity { activity -> activity.setContent {
+                    CompositionLocalProvider(LocalActivityResultRegistryOwner provides registryOwner) {
+                        TroOiTheme {
+                            SearchExperienceScreen(
+                                onClose = {},
+                                onSearchSubmitted = { lat, lng, radius, min, max ->
+                                    searchEvents += "remote:$lat:$lng:$radius:$min:$max"
+                                },
+                                onResetSearch = {},
+                                onLocalSearch = { area, type, min, max -> searchEvents += "local:$area:$type:$min:$max" },
+                            )
+                        }
+                    }
+                } }
+                waitFor("Tìm phòng")
+                click("Gần bạn")
+                assertEquals(1, permissionRequests)
+                click("Tìm kiếm")
+                assertEquals(listOf("local::Tất cả::", "remote:null:null:3000:null:null"), searchEvents)
+            }
+        } finally {
+            shell("pm revoke $packageName android.permission.ACCESS_COARSE_LOCATION")
+            shell("pm clear-permission-flags $packageName android.permission.ACCESS_COARSE_LOCATION user-set user-fixed")
         }
     }
 
