@@ -168,6 +168,11 @@ test('core application state remains readable after database client restart', as
       await repositories.identity.ensureUser(tenantId);
       await repositories.identity.ensureUser(outsiderId);
     });
+    await first.database.insertInto('auth_identities').values([
+      { auth_identity_id: randomUUID(), user_id: ownerId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.ownerSubject, linked_at: new Date().toISOString() },
+      { auth_identity_id: randomUUID(), user_id: tenantId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.tenantSubject, linked_at: new Date().toISOString() },
+      { auth_identity_id: randomUUID(), user_id: outsiderId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.outsiderSubject, linked_at: new Date().toISOString() },
+    ]).execute();
     const verifier: GoogleIdTokenVerifier = {
       async verify(token) {
         const subject = subjects.get(token);
@@ -294,6 +299,26 @@ test('core application state remains readable after database client restart', as
       minimalRentalConditions: F.values.rentalConditions,
       effectiveFromCycleBoundary: F.values.effectiveBoundary,
     });
+    const historicalTerms = {
+      tenancyTermsId: '83000000-0000-4000-8000-000000000099', tenancyId: tenancy.id, version: F.values.termsVersion + 1,
+      rentAmount: F.values.rentAmount, agreedDepositRequirement: F.values.depositRequirement,
+      termStart: F.values.termStart, termEnd: F.values.termEnd, billingDayOrDueDateRule: [],
+      electricityArrangement: 'metered', waterArrangement: ['fixed'], minimalRentalConditions: 'legacy',
+      effectiveFromCycleBoundary: F.values.effectiveBoundary,
+    };
+    await first.transactions.run(({ repositories }) => repositories.tenancy.insertTerms(historicalTerms));
+    const termsResponse = await request(F.actors.tenantToken, `/tenancies/${tenancy.id}/terms`);
+    assert.equal(termsResponse.status, 200);
+    const returnedTerms = (await termsResponse.json() as { data: Array<Record<string, unknown>> }).data;
+    const returnedHistoricalTerms = returnedTerms.find((value) => value.id === historicalTerms.tenancyTermsId);
+    assert.deepEqual(returnedHistoricalTerms && {
+      billingDayOrDueDateRule: returnedHistoricalTerms.billingDayOrDueDateRule,
+      electricityArrangement: returnedHistoricalTerms.electricityArrangement,
+      waterArrangement: returnedHistoricalTerms.waterArrangement,
+      minimalRentalConditions: returnedHistoricalTerms.minimalRentalConditions,
+    }, {
+      billingDayOrDueDateRule: [], electricityArrangement: 'metered', waterArrangement: ['fixed'], minimalRentalConditions: 'legacy',
+    }, 'authorized HTTP Terms list preserves historical JSON shapes');
     const acknowledgement = await first.acknowledgements.acknowledge({
       tenancyTermsId: terms.id,
       tenancyParticipantId: participant.id,
