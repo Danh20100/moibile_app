@@ -50,6 +50,8 @@ test('BillingCycle due date clamps from its start month and unknown historical T
   assert.equal(cycle.dueDate, '2026-02-28');
   const legacy = await finance.createCycle({ ...F.values.scenario3, periodStart: '2026-03-01', periodEnd: '2026-03-31' });
   assert.equal(legacy.dueDate, null, 'unknown stored billing-day JSON does not infer a date');
+  const malformed = await finance.createCycle({ ...F.values.scenario3, periodStart: '2026-04-99', periodEnd: '2026-04-99' });
+  assert.equal(malformed.dueDate, null, 'invalid calendar dates do not produce due dates');
   assert.deepEqual(await finance.findPaymentsByTenancyId('tenancy-a'), [], 'due-date projection creates no Payment');
 });
 

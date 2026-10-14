@@ -137,7 +137,9 @@ export class BillingService {
   private async dueDate(termsId:string,periodStart:string):Promise<string|null>{
     const terms=await this.tx.run(({repositories})=>repositories.tenancy.findTermsById(termsId));
     const date=/^(\d{4})-(\d{2})-\d{2}$/.exec(periodStart);
-    return date?resolveBillingDueDate(terms?.billingDayOrDueDateRule,Number(date[1]),Number(date[2])):null;
+    if(!date||Number(date[1])<1)return null;
+    try{if(new Date(`${periodStart}T00:00:00Z`).toISOString().slice(0,10)!==periodStart)return null;}catch{return null;}
+    return resolveBillingDueDate(terms?.billingDayOrDueDateRule,Number(date[1]),Number(date[2]));
   }
   private paymentRecord(x:Payment):PaymentRecord{return{paymentId:x.id,tenancyId:x.tenancyId,amount:x.amount,source:x.source,verification:x.verification,confirmedAt:x.confirmedAt,voidedOrReversedAt:x.voidedOrReversedAt??null,correctionNote:x.correctionNote??null,replacementPaymentId:x.replacementPaymentId??null};}
   private payment(x:PaymentRecord):Payment{return{id:x.paymentId,tenancyId:x.tenancyId,amount:x.amount,source:x.source as Payment['source'],verification:x.verification as Payment['verification'],confirmedAt:x.confirmedAt,...(x.voidedOrReversedAt?{voidedOrReversedAt:x.voidedOrReversedAt}:{}),...(x.correctionNote?{correctionNote:x.correctionNote}:{}),...(x.replacementPaymentId?{replacementPaymentId:x.replacementPaymentId}:{})};}
