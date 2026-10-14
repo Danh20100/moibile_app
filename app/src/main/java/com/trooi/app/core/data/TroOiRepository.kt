@@ -70,6 +70,8 @@ interface TroOiRepository {
         maxPrice: String? = null,
     ): Result<List<PublicListingCard>>
     suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession>
+    suspend fun registerWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession> =
+        Result.failure(IllegalStateException("Đăng ký Google chưa khả dụng."))
     suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot>
     suspend fun loadNotification(notificationId: String): Result<NotificationCard>
     suspend fun markNotificationRead(notificationId: String): Result<Unit>

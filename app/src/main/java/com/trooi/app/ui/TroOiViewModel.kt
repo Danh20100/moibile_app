@@ -546,13 +546,26 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun signInWithGoogle(context: Context) {
+        completeGoogleAuthentication(context, register = false)
+    }
+
+    fun registerWithGoogle(context: Context) {
+        if (!RuntimeDataSource.isBackendBacked()) {
+            showMessage("Đăng ký Google chỉ khả dụng khi kết nối Backend.")
+            return
+        }
+        completeGoogleAuthentication(context, register = true)
+    }
+
+    private fun completeGoogleAuthentication(context: Context, register: Boolean) {
         if (!RuntimeDataSource.isBackendBacked() || _state.value.authInProgress) return
         val startedAt = sessionGeneration
         _state.update { it.copy(authInProgress = true) }
         authenticationJob = viewModelScope.launch {
-            googleCredentialAuth.getIdToken(context).fold(
+            (if (register) googleCredentialAuth.getRegistrationIdToken(context) else googleCredentialAuth.getIdToken(context)).fold(
                 onSuccess = { proof ->
-                    repository.authenticateWithGoogleIdToken(proof.idToken, proof.nonce).fold(
+                    (if (register) repository.registerWithGoogleIdToken(proof.idToken, proof.nonce)
+                    else repository.authenticateWithGoogleIdToken(proof.idToken, proof.nonce)).fold(
                         onSuccess = { session ->
                             if (startedAt != sessionGeneration) {
                                 // A previous credential response must not resurrect a logged-out user.

@@ -22,6 +22,7 @@ interface BackendApi {
 
     suspend fun issueIdentityChallenge(purpose: String): ApiOutcome<IdentityAuthChallengeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun authenticateGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun registerGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun refreshIdentitySession(refreshToken: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun logoutIdentitySession(): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun issueOrganizationCreateReauthChallenge(): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -172,6 +173,13 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     override suspend fun authenticateGoogle(idToken: String, nonce: String) =
         client.postJson(
             "identity-access/auth/google",
+            "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)}}",
+            authenticated = false,
+        ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }
+
+    override suspend fun registerGoogle(idToken: String, nonce: String) =
+        client.postJson(
+            "identity-access/register/google",
             "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)}}",
             authenticated = false,
         ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }

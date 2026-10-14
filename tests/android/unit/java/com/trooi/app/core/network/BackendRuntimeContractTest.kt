@@ -165,6 +165,23 @@ class BackendRuntimeContractTest {
         }
     }
 
+    @Test fun googleRegistrationUsesTheExplicitPublicRegistrationRoute() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody(IDENTITY_SESSION_JSON))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), InMemoryAuthTokenProvider(), true))
+
+            api.registerGoogle("verified-google-id-token", "registration-nonce").requireData()
+
+            val request = server.takeRequest()
+            assertEquals("/api/v1/identity-access/register/google", request.path)
+            assertNull(request.getHeader("Authorization"))
+            val body = request.body.readUtf8()
+            assertTrue(body.contains("verified-google-id-token"))
+            assertTrue(body.contains("registration-nonce"))
+        }
+    }
+
     @Test fun ledgerRequestRejectsAChangedAccountTokenBeforeSending() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("{}"))

@@ -70,4 +70,30 @@ class NativeAuthLayoutTest {
             }
         }
     }
+
+    @Test fun backendSignupOffersExplicitGoogleRegistrationWithoutMockOtpForm() {
+        var registered = false
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity -> activity.setContent {
+                TroOiTheme {
+                    SignUpScreen({}, {}, { _, _, _, _ -> }, onGoogleRegister = { registered = true }, googleBacked = true)
+                }
+            } }
+            for (attempt in 0 until 50) {
+                if (nodes(instrumentation.uiAutomation.rootInActiveWindow).any { it.text?.toString() == "Đăng ký bằng Google" }) break
+                Thread.sleep(100)
+            }
+            instrumentation.waitForIdleSync()
+            val screenNodes = nodes(instrumentation.uiAutomation.rootInActiveWindow)
+            var action = screenNodes.firstOrNull { it.text?.toString() == "Đăng ký bằng Google" }
+            assertNotNull(action)
+            while (action != null && !action.isClickable) action = action.parent
+            assertTrue(action?.isEnabled == true)
+            assertFalse(screenNodes.any { it.text?.toString()?.contains("Mật khẩu") == true })
+            assertFalse(screenNodes.any { it.text?.toString() == "Gửi mã" })
+            assertTrue(action!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            instrumentation.waitForIdleSync()
+            assertTrue(registered)
+        }
+    }
 }

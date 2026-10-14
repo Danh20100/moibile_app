@@ -22,6 +22,9 @@ data class GoogleCredentialProof(val idToken: String, val nonce: String)
 class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
     suspend fun getIdToken(context: Context): Result<GoogleCredentialProof> = requestIdToken(context, returning = false)
 
+    suspend fun getRegistrationIdToken(context: Context): Result<GoogleCredentialProof> =
+        requestIdToken(context, returning = false, purpose = "REGISTER")
+
     suspend fun reacquireIdToken(context: Context): Result<GoogleCredentialProof> = requestIdToken(context, returning = true)
 
     suspend fun reacquireForReauthentication(context: Context, nonce: String): Result<String> =
@@ -33,8 +36,12 @@ class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
         Log.w(TAG, "clearCredentialState failed: " + error::class.java.simpleName + ": " + error.message)
     }
 
-    private suspend fun requestIdToken(context: Context, returning: Boolean): Result<GoogleCredentialProof> {
-        val challenge = when (val result = api.issueIdentityChallenge("LOGIN")) {
+    private suspend fun requestIdToken(
+        context: Context,
+        returning: Boolean,
+        purpose: String = "LOGIN",
+    ): Result<GoogleCredentialProof> {
+        val challenge = when (val result = api.issueIdentityChallenge(purpose)) {
             is ApiOutcome.Data -> result.value
             is ApiOutcome.Failure -> return Result.failure(IllegalStateException("Identity challenge unavailable: ${result.kind}"))
         }

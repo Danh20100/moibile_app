@@ -194,6 +194,8 @@ fun TroOiApp(
                         onBack = viewModel::goBack,
                         onLogin = viewModel::openLogin,
                         onSignUp = viewModel::signUp,
+                        onGoogleRegister = { viewModel.registerWithGoogle(context) },
+                        googleBacked = RuntimeDataSource.isBackendBacked(),
                         mockMode = state.demoPreview,
                         authInProgress = state.authInProgress,
                         initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),

@@ -225,8 +225,18 @@ class BackendTroOiRepository @Inject constructor(
 
     override suspend fun authenticateWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession> {
         if (idToken.isBlank()) return Result.failure(IllegalArgumentException("Google ID Token trống"))
+        return establishGoogleSession(idToken, nonce, register = false)
+    }
+
+    override suspend fun registerWithGoogleIdToken(idToken: String, nonce: String): Result<UserSession> {
+        if (idToken.isBlank()) return Result.failure(IllegalArgumentException("Google ID Token trống"))
+        return establishGoogleSession(idToken, nonce, register = true)
+    }
+
+    private suspend fun establishGoogleSession(idToken: String, nonce: String, register: Boolean): Result<UserSession> {
         return try {
-            val identitySession = api.authenticateGoogle(idToken, nonce).required("Google authentication")
+            val identitySession = (if (register) api.registerGoogle(idToken, nonce) else api.authenticateGoogle(idToken, nonce))
+                .required(if (register) "Google registration" else "Google authentication")
             require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
             tokens.setToken(identitySession.accessToken)
             refreshCredentials?.write(identitySession.refreshToken)
@@ -246,7 +256,7 @@ class BackendTroOiRepository @Inject constructor(
                 ),
             )
         } catch (error: RuntimeException) {
-            tokens.clear()
+            clearSession()
             Result.failure(error)
         }
     }
