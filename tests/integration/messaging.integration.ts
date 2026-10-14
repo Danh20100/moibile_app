@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { encode } from 'jpeg-js';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { fork } from 'node:child_process';
+import { resolve } from 'node:path';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
@@ -426,6 +428,58 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal(pendingIntents.rows[0]?.count, '1');
     await db.deleteFrom('messaging_attachment_upload_intents').where('message_id', '=', freshMessageId).execute();
     await storage.deleteObject!(freshKey);
+
+    await app.close();
+    const crashAt = new Date();
+    const crashedWorker = fork(resolve('tests/integration/messaging-crash-worker.ts'), [], {
+      execArgv: ['--import', 'tsx'],
+      env: {
+        ...process.env,
+        MESSAGING_CRASH_USER_ID: ids[0],
+        MESSAGING_CRASH_CONVERSATION_ID: conversation,
+        MESSAGING_CRASH_IMAGE_BASE64: jpeg.toString('base64'),
+      },
+      stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+    });
+    const objectWritten = await new Promise<{ key: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        crashedWorker.kill('SIGKILL');
+        reject(new Error('Crash worker did not finish MinIO PUT'));
+      }, 15_000);
+      crashedWorker.once('message', (message: { type?: string; key?: string }) => {
+        clearTimeout(timeout);
+        if (message.type !== 'object-written' || !message.key) {
+          crashedWorker.kill('SIGKILL');
+          reject(new Error('Unexpected crash worker message'));
+        }
+        else resolve({ key: message.key });
+      });
+      crashedWorker.once('error', (error) => { clearTimeout(timeout); reject(error); });
+      crashedWorker.once('exit', (code) => {
+        clearTimeout(timeout);
+        reject(new Error(`Crash worker exited before MinIO PUT confirmation (${code})`));
+      });
+    });
+    crashedWorker.kill('SIGKILL');
+    await new Promise<void>((resolve) => crashedWorker.once('exit', () => resolve()));
+    const orphanIntent = await db.selectFrom('messaging_attachment_upload_intents').select('message_id')
+      .where('object_key', '=', objectWritten.key).executeTakeFirstOrThrow();
+    assert.equal(await db.selectFrom('messaging_messages').select('message_id')
+      .where('message_id', '=', orphanIntent.message_id).executeTakeFirst(), undefined);
+    assert.deepEqual(Buffer.from((await storage.getObject(objectWritten.key))!.bytes), jpeg);
+    await db.updateTable('messaging_attachment_upload_intents').set({
+      created_at: new Date(crashAt.getTime() - 60 * 60 * 1000).toISOString(),
+    }).where('message_id', '=', orphanIntent.message_id).execute();
+    app = await NestFactory.create(MessagingTestModule, { bodyParser: false, logger: false });
+    app.setGlobalPrefix(API_PREFIX);
+    applyHttpBodyParsers(app);
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+    app.useGlobalInterceptors(new TransformInterceptor());
+    await app.listen(0, '127.0.0.1');
+    assert.equal(await app.get<ObjectStoragePort>(OBJECT_STORAGE_PORT).getObject(objectWritten.key), null,
+      'startup must delete an orphan from a process killed after MinIO PUT');
+    assert.equal(await db.selectFrom('messaging_attachment_upload_intents').select('message_id')
+      .where('message_id', '=', orphanIntent.message_id).executeTakeFirst(), undefined);
     console.log(
       'CONFIRMED: A->B, B->A, PostgreSQL reload, private image retrieval, outsider denial, and startup attachment reconciliation (test Google verifier)',
     );
