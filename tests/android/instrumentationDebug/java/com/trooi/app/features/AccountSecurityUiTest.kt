@@ -33,7 +33,7 @@ class AccountSecurityUiTest {
         compose.onNodeWithText("Mã PIN bảo mật").performClick()
         compose.onNodeWithText("Thay đổi mã PIN").performClick()
         compose.onNodeWithText("Mã PIN mới").assertDoesNotExist()
-        compose.onNodeWithText("Mã PIN bảo mật").performTextInput("482795")
+        compose.onAllNodesWithText("Mã PIN bảo mật").onLast().performTextInput("482795")
         compose.onNodeWithTag("reauth-confirm").performClick()
         compose.waitUntil(3000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Mã PIN mới").performTextInput("482795")
@@ -42,7 +42,7 @@ class AccountSecurityUiTest {
         compose.onNodeWithText("Thay đổi mã PIN").assertIsNotEnabled()
         compose.onNodeWithText("Nhập lại mã PIN").performTextReplacement("482795")
         compose.onNodeWithText("Thay đổi mã PIN").performClick()
-        compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
         compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithText("Mật khẩu hiện tại").assertDoesNotExist()
         compose.onAllNodesWithText("Quên mã PIN").onLast().performClick()
@@ -62,22 +62,23 @@ class AccountSecurityUiTest {
 
 
     @Test fun wrongPasswordAndCancellationKeepFormClosed() {
-        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(backendUserId = "fixture-user-lan"), {}, "personal") } }
-        compose.onNodeWithTag("personal-action-Email").performClick()
+        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(backendUserId = "fixture-user-lan"), {}, "edit:Địa chỉ cư trú") } }
+        compose.onNodeWithText("Xác thực để chỉnh sửa").performClick()
+        compose.onNodeWithText("Xác thực bảo mật").assertExists()
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
         compose.onNodeWithText("Mật khẩu hiện tại").performTextInput("wrong")
         compose.onNodeWithTag("reauth-confirm").performClick()
         compose.waitUntil(3000) { compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
         compose.onNodeWithText("Hủy").performClick()
-        compose.onNodeWithTag("account-page-personal").assertExists()
+        compose.onNodeWithText("Xác thực để chỉnh sửa").assertExists()
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
     }
 
     @Test fun backendCannotOpenProtectedFormOrUseMockProof() {
-        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "personal") } }
-        compose.onNodeWithTag("personal-action-Email").performClick()
-        compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
+        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "edit:Địa chỉ cư trú") } }
+        compose.onNodeWithText("Xác thực để chỉnh sửa").performClick()
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
         compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
     }
@@ -90,6 +91,15 @@ class AccountSecurityUiTest {
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
         compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
         compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
+    }
+
+    @Test fun loginEmailActionIsNextKeyboardFocusAfterBackButton() {
+        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") } }
+        val back = compose.onNodeWithContentDescription("Quay lại")
+        back.performSemanticsAction(SemanticsActions.RequestFocus)
+        back.assertIsFocused()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
+        compose.onNodeWithText("Thay đổi email").assertIsFocused()
     }
 
     @Test fun languageHasOnlyTwoSections() {
