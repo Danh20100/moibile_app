@@ -168,3 +168,7 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] Emulator test `NativeDiscoveryStatesTest.publicDiscoveryRetryRemainsReadableAt200PercentInBothThemes` passes `1/1`, exercising error recovery at 200% font scale in light and dark themes on a 320dp phone-width composition.
 - [ ] `DIS-P2-01` remains `DEFERRED`: this is `PASS_ANDROID` for one component only; TalkBack focus/announcements, tablet/landscape, sharing, and long-list performance are not covered.
+
+## P1 decisions — Ledger Terms billing
+
+- [ ] `LED-P1-02/03` remain `OPEN_DECISION`. Draft at [Ledger_Terms_DueDay_Policy_Draft_2026-10-14.md](../../temps/Ledger_Terms_DueDay_Policy_Draft_2026-10-14.md) proposes month-end clamping for days 29–31 and strict validation of new `{day: 1..31}` Terms writes after writer inventory, while preserving historical Terms JSON values/shapes. No runtime behavior or migration has changed pending approval.
