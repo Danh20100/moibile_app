@@ -73,6 +73,10 @@ test('public spatial search returns only published in-range public projections a
       RangeError,
     );
   } finally {
+    await db.deleteFrom('listing_asset_details').where('listing_id', 'in', [
+      '50000000-0000-4000-8000-000000000001',
+      '50000000-0000-4000-8000-000000000003',
+    ]).execute();
     await db.deleteFrom('listings').where('listing_id', 'in', [
       '50000000-0000-4000-8000-000000000001',
       '50000000-0000-4000-8000-000000000002',
