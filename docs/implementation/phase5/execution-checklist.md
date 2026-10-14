@@ -24,20 +24,20 @@ Status: **IN PROGRESS** (2026-10-14). This checklist records verified implementa
 
 ## P5.1A — Identity P0: shared resolver and Google authorization
 
-- [ ] Review G1-A/G1-E/G1-S activation/cutover decisions and required audit/session boundary; do not bypass frozen runtime `BLOCKED` state.
-- [ ] Implement one shared proof→principal resolution boundary used by **both** Google login and protected-request AuthGuard; avoid raw deterministic-ID bypass.
-- [ ] Resolve two historical Google issuer aliases to one stable existing User; never match ownership via equal email, merge Users, or rekey financial/rental FKs.
-- [ ] Atomically create new User + canonical `auth_identities` binding + verified `user_emails` + `user_profiles`, only with verified Google proof and approved registration semantics.
-- [ ] Preserve existing edited Profile/email, reject unverified email for new registration, reject duplicate email and ambiguous legacy principals fail-closed.
-- [ ] Add per-principal race tests, alias conflict tests, verified email test and rollback proof on fresh isolated PostgreSQL.
-- [ ] Verify two independent Google accounts can open authorized Inquiry/Tenancy Messages and outsider cannot access messages/media; no seeded fake binding in production.
-- [ ] Get actual live Google and two-account device acceptance before declaring account identity activation complete.
+- [x] Review G1-A/G1-E/G1-S: AUTH-06/F-A1 approves fail-closed alias conflict behavior, while cutover/remediation, email freshness and common session/audit protocol remain OPEN; runtime activation remains gated.
+- [x] Add one shared Google principal resolver for login and AuthGuard; raw deterministic-ID fallback is removed. `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` defaults off.
+- [x] Resolve supported issuer aliases to one existing mapped/legacy User; verified email equality is not used for ownership, conflicts reject, and Organization/Tenancy references are never transferred.
+- [ ] New Google registration stays unavailable: verified-email freshness/completion and approved session cutover are not implemented. Unregistered principals fail closed without User creation.
+- [x] Preserve display-name Profile data and do not initialize/change it from later Google claims; resolver and profile persistence tests pass.
+- [x] PostgreSQL resolver tests cover concurrent access to one principal, issuer alias compatibility, legacy reference preservation, conflict rejection and unregistered no-create behavior; foundation suite covers registration rollback/concurrency.
+- [x] Messaging test-verifier HTTP acceptance with real PostgreSQL and private MinIO: A/B exchange in authorized Inquiry, history survives database-backed retrieval, C/anonymous are denied, private attachment retrieval works.
+- [ ] Real Google token, live two-account login and device acceptance remain unverified; test-verifier Messaging is not live-provider acceptance.
 
 ## P5.1B — Profile writes, contact, security and onboarding
 
-- [ ] Preserve and regress tested `user_profiles.display_name` save/refresh across Google logins.
+- [x] Preserve and regress tested `user_profiles.display_name` save/refresh; production Google resolver is currently `PASS_GATED` while cutover gate is off.
 - [ ] Define and approve additive schema only for fields actually required by MVP; after existing `000009` use the next verified free migration number; never change `000008`.
-- [ ] Durable contact/personal info updates with correct ownership; verified email and phone are **not** generic self-edit fields.
+- [ ] Durable ordinary personal fields beyond display name; verified email and phone remain separate proof-bound fields. No approved additional-field schema exists.
 - [ ] Reauthentication, session/audit/recovery contracts, verified email change with CAS, and Argon2id password setup/change/reset with appropriate proofs.
 - [ ] Real email/SMS OTP provider or explicitly fail-closed deferred UI — never client-only verification.
 - [ ] Private avatar media + metadata + cross-device readback.
@@ -45,6 +45,8 @@ Status: **IN PROGRESS** (2026-10-14). This checklist records verified implementa
 - [ ] Operator three-step onboarding to real Organization/authorization state; preserve current OCR-as-suggestion boundary.
 - [ ] Private KYC evidence and manual-review lifecycle (no OCR auto-approval); provider/retention/permission approval required.
 - [ ] Profile Android/API/PostgreSQL/MinIO two-account, logout/relogin and restart E2E.
+
+P5.1 execution evidence and the feature-by-feature status matrix are in [profile-identity-acceptance.md](profile-identity-acceptance.md). Fresh backend suite: 456/456; isolated Identity/Profile/PostgreSQL suites: 23 tests pass; Messaging private-storage HTTP test: 1 pass. Android JVM: 216/216; APK builds and lint pass. Connected Android instrumentation was started on the local emulator, then stopped after 34/87 tests with 15 failures in existing onboarding/settings flows; no Android sources changed in this slice. Real Google acceptance remains blocked by the absence of a configured live ID token and the disabled runtime gate.
 
 ## P5.2 — Ledger Full-stack (after P5.1 P0)
 
@@ -76,6 +78,6 @@ Status: **IN PROGRESS** (2026-10-14). This checklist records verified implementa
 
 - `pnpm exec tsx --test tests/core/profile-display-name-mvp.test.ts tests/core/identity-persistence-alignment.test.ts tests/verification/identity-foundation-freeze.test.ts`: **14 passed**, 0 failed.
 - `pnpm exec tsx --test tests/integration/persistence/profile-persistence.integration.ts` against isolated `trooi_test` at `127.0.0.1:55518`: **1 passed**, 0 failed, migrations `000001`–`000009`.
-- Runtime discrepancy proven: `IdentityAccessService.authenticateWithGoogle()` calls `identity.ensureUser(principal.userId)`, and `AuthGuard.canActivate()` calls `verifyGoogleIdToken()` and uses the raw derived User ID. Neither resolves durable `auth_identities`. Do not enable only one side.
+- Initial handoff discrepancy: `IdentityAccessService.authenticateWithGoogle()` called `identity.ensureUser(principal.userId)`, and `AuthGuard.canActivate()` used its separately derived ID; neither resolved durable `auth_identities`. The implementation below replaces both paths with the shared resolver behind the disabled activation gate.
 - Database structure/repository foundation is present but frozen contract explicitly says runtime activation is BLOCKED pending Account Verification/session/security cutover. Production Google Messages and security flows remain unverified.
 - This branch is for implementation; these environment tests **do not** imply all Profile/Identity or Ledger features are implemented.
