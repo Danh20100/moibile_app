@@ -87,6 +87,31 @@ class NativeDiscoveryStatesTest {
         }
     }
 
+    @Test fun publicDiscoveryRetryRemainsReadableAt200PercentInBothThemes() {
+        for (dark in listOf(false, true)) {
+            var retries = 0
+            ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+                scenario.onActivity { activity -> activity.setContent {
+                    TroOiTheme(darkTheme = dark) {
+                        val density = LocalDensity.current
+                        CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                            Box(Modifier.width(320.dp).fillMaxHeight()) {
+                                DiscoveryExperience(
+                                    state = TroOiUiState(publicDiscoveryError = "Không tìm được tin đăng quanh vị trí công khai."),
+                                    onOpenListing = {}, onOpenMap = {}, onRetrySearch = { retries++ },
+                                    allowDemoFallback = false,
+                                )
+                            }
+                        }
+                    }
+                } }
+                waitFor("Không tìm được tin đăng quanh vị trí công khai.")
+                click("Thử lại")
+                assertEquals(1, retries)
+            }
+        }
+    }
+
     @Test fun missingMapConfigurationRendersWithoutEspressoInBothThemes() {
         assumeTrue(BuildConfig.MAPS_API_KEY.isBlank())
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round7-native-map").apply { mkdirs() }

@@ -163,3 +163,8 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] Emulator `NativeMapSmokeTest` passes `3/3`: no-key configuration renders a clear state, public markers/camera search stay on published public projections, and private location pinning does not populate the public pin.
 - [ ] `DIS-P1-02` remains `BLOCKED` pending a valid Maps test key, interactive map/marker bounds behavior, and location permission-denial device acceptance. The component results are `PASS_ANDROID` only for the tested helpers/config state.
+
+## P2 continuation — Discovery accessibility component
+
+- [x] Emulator test `NativeDiscoveryStatesTest.publicDiscoveryRetryRemainsReadableAt200PercentInBothThemes` passes `1/1`, exercising error recovery at 200% font scale in light and dark themes on a 320dp phone-width composition.
+- [ ] `DIS-P2-01` remains `DEFERRED`: this is `PASS_ANDROID` for one component only; TalkBack focus/announcements, tablet/landscape, sharing, and long-list performance are not covered.
