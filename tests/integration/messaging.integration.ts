@@ -179,8 +179,9 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal(sent.body.data.senderUserId, ids[0]);
     assert.equal(sent.body.data.delivery, 'server');
     const attachment = sent.body.data.attachments[0].id;
-    const received = await request(1, `/${conversation}/messages`);
-    assert.equal(received.body.data[0].text, 'A to B');
+    const received = await request(1, `/${conversation}/messages/page?limit=1`);
+    assert.equal(received.body.data.messages[0].text, 'A to B');
+    assert.equal(received.body.data.hasMore, false);
     const image = await request(1, `/${conversation}/attachments/${attachment}`);
     assert.equal(image.status, 200);
     assert.deepEqual(Buffer.from(image.body.data.base64, 'base64'), jpeg);
@@ -189,8 +190,25 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal((await request(2, '')).body.data.length, 0);
     assert.equal((await request(2, `/${conversation}/read`, {})).status, 403);
     assert.equal((await request(2, `/${conversation}/messages`, { text: 'outsider' })).status, 403);
-    assert.equal((await request(1, `/${conversation}/messages`, { text: 'B to A' })).status, 201);
-    assert.equal((await request(0, `/${conversation}/messages`)).body.data[1].text, 'B to A');
+    const sentBack = await request(1, `/${conversation}/messages`, { text: 'B to A' });
+    assert.equal(sentBack.status, 201);
+    await db.updateTable('messaging_messages')
+      .set({ created_at: '2026-10-14T00:00:00.000Z' })
+      .where('conversation_id', '=', conversation)
+      .execute();
+    const latestPage = await request(0, `/${conversation}/messages/page?limit=1`);
+    assert.equal(latestPage.body.data.messages[0].id, sentBack.body.data.id);
+    assert.equal(latestPage.body.data.messages[0].text, 'B to A');
+    assert.equal(latestPage.body.data.hasMore, true);
+    assert.ok(latestPage.body.data.nextCursor);
+    const olderPage = await request(0,
+      `/${conversation}/messages/page?limit=1&cursor=${encodeURIComponent(latestPage.body.data.nextCursor)}`);
+    assert.equal(olderPage.body.data.messages[0].id, sent.body.data.id);
+    assert.equal(olderPage.body.data.messages[0].text, 'A to B');
+    assert.equal(olderPage.body.data.hasMore, false);
+    assert.equal(olderPage.body.data.nextCursor, null);
+    assert.equal((await request(0, `/${conversation}/messages/page?limit=101`)).status, 400);
+    assert.equal((await request(0, `/${conversation}/messages/page?cursor=bad`)).status, 400);
     assert.equal((await request(1, `/${conversation}/read`, {})).status, 201);
     assert.ok((await request(1, '')).body.data[0].lastReadAt);
     const stale = '2020-01-01T00:00:00.000Z';

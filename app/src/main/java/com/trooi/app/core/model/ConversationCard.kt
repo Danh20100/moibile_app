@@ -23,4 +23,7 @@ data class ConversationCard(
     val messages: List<ConversationMessage>,
     val photoUri: String? = null,
     val lastReadAt: String? = null,
+    val olderMessagesCursor: String? = null,
+    val loadingOlderMessages: Boolean = false,
+    val olderMessagesLoadFailed: Boolean = false,
 )

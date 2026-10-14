@@ -59,6 +59,27 @@ class NativeMessagingStatesTest {
         error("Missing conversation: $id")
     }
 
+    @Test fun olderMessagePageCanBeRequestedFromConversation() {
+        val base = DemoData.conversations(DemoData.accounts.first().userId).first()
+        val conversation = base.copy(olderMessagesCursor = "opaque-cursor")
+        var requested: String? = null
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity -> activity.setContent {
+                TroOiTheme {
+                    MessagesScreen(
+                        TroOiUiState(read = FrontendReadSnapshot(conversations = listOf(conversation))),
+                        {}, {}, onSave = { _, _, _ -> Result.success(Unit) },
+                        onLoadOlderMessages = { requested = it },
+                    )
+                }
+            } }
+            openConversation(conversation.id)
+            click("Tải tin nhắn cũ hơn")
+            instrumentation.waitForIdleSync()
+            assertEquals(conversation.id, requested)
+        }
+    }
+
     @Test fun rejectedLocalSaveKeepsDraftAndValidatesBeforeCallingTheRepository() {
         val conversation = DemoData.conversations(DemoData.accounts.first().userId).first()
         for (dark in listOf(false, true)) {

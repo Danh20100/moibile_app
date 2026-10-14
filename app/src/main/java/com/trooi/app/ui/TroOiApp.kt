@@ -246,6 +246,7 @@ fun TroOiApp(
                         onDetailVisibilityChanged = { messageDetailVisible = it },
                         onOpenContext = viewModel::openMessageContext, onContextSelected = viewModel::consumeMessageContext,
                         onRead = viewModel::readMessageConversation,
+                        onLoadOlderMessages = viewModel::loadOlderMessagePage,
                         onAttachment = viewModel::loadMessageAttachment)
                     AppPage.GuestMap -> V1GuestMapScreen(
                         state = state,

@@ -4,6 +4,7 @@ import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.FrontendReadSnapshot
 import com.trooi.app.core.model.NotificationCard
 import com.trooi.app.core.model.PublicListingCard
+import com.trooi.app.core.model.ConversationCard
 
 data class TroOiSnapshot(
     val read: FrontendReadSnapshot = FrontendReadSnapshot(),
@@ -29,6 +30,8 @@ interface TroOiRepository {
     suspend fun readConversation(id: String): Result<Unit> = Result.success(Unit)
     suspend fun messageAttachment(conversationId: String, attachmentId: String): Result<ByteArray> = Result.failure(IllegalStateException("Ảnh không khả dụng."))
     suspend fun loadLocalConversations(): Result<List<com.trooi.app.core.model.ConversationCard>> = Result.success(emptyList())
+    suspend fun loadOlderMessages(conversationId: String): Result<ConversationCard> =
+        Result.failure(IllegalStateException("Không thể tải trang tin nhắn cũ hơn."))
     suspend fun saveLocalMessage(expectedUserId: String, conversationId: String, text: String): Result<FrontendReadSnapshot> =
         Result.failure(IllegalStateException("Nhắn tin đang được phát triển."))
     suspend fun createDemoCheckout(tenancyId: String, amount: String, key: String): Result<com.trooi.app.features.shared.GatewayCheckout> =

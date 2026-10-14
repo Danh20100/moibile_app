@@ -183,8 +183,36 @@ class TroOiViewModel @Inject constructor(
             result.fold(
                 onSuccess = { conversations -> _state.update { it.copy(messagesLoading = false, read = it.read.copy(conversations = conversations.map { card -> card.copy(messages =
                     (card.messages + it.read.conversations.firstOrNull { old -> old.id == card.id }?.messages.orEmpty())
-                        .distinctBy { message -> message.id }.sortedBy { message -> message.createdAt }) })) } },
+                        .distinctBy { message -> message.id }.sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }) }) })) } },
                 onFailure = { _state.update { it.copy(messagesLoading = false, messagesLoadFailed = true) } },
+            )
+        }
+    }
+    fun loadOlderMessagePage(conversationId: String) {
+        val existing = _state.value.read.conversations.firstOrNull { it.id == conversationId } ?: return
+        if (existing.olderMessagesCursor == null || existing.loadingOlderMessages) return
+        val generation = sessionGeneration
+        _state.update { current -> current.copy(read = current.read.copy(conversations =
+            current.read.conversations.map { card -> if (card.id == conversationId) card.copy(
+                loadingOlderMessages = true, olderMessagesLoadFailed = false) else card })) }
+        viewModelScope.launch {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                repository.loadOlderMessages(conversationId)
+            }
+            if (generation != sessionGeneration) return@launch
+            result.fold(
+                onSuccess = { loaded -> _state.update { current -> current.copy(read = current.read.copy(
+                    conversations = current.read.conversations.map { card -> if (card.id != conversationId) card else loaded.copy(
+                        messages = (loaded.messages + card.messages).distinctBy { it.id }
+                            .sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }),
+                        loadingOlderMessages = false,
+                        olderMessagesLoadFailed = false,
+                    ) }
+                )) } },
+                onFailure = { _state.update { current -> current.copy(read = current.read.copy(
+                    conversations = current.read.conversations.map { card -> if (card.id == conversationId) card.copy(
+                        loadingOlderMessages = false, olderMessagesLoadFailed = true) else card }
+                )) } },
             )
         }
     }
@@ -695,7 +723,7 @@ class TroOiViewModel @Inject constructor(
         return result.map { conversations -> _state.update { current -> current.copy(read = current.read.copy(
             conversations = conversations.map { card -> card.copy(messages =
                 (card.messages + current.read.conversations.firstOrNull { it.id == card.id }?.messages.orEmpty())
-                    .distinctBy { it.id }.sortedBy { it.createdAt }) })) }; Unit }
+                    .distinctBy { it.id }.sortedWith(compareBy<com.trooi.app.core.model.ConversationMessage> { it.createdAt }.thenBy { it.id }) }) })) }; Unit }
     }
     fun consumeMessageContext() { _state.update { it.copy(messageConversationId = null) } }
     fun openMessageContext(type: String, id: String) {

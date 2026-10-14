@@ -13,6 +13,7 @@ import {
 } from '../../persistence/ports/object-storage.port';
 import { MessagingRepository } from './messaging.repository';
 import type { PostMessageDto } from './messaging.dto';
+import type { ListMessagesQueryDto } from './messaging.dto';
 
 export function decodeMessageImages(dto: PostMessageDto): Buffer[] {
   if ((dto.text?.length ?? 0) > 4000 || (dto.images?.length ?? 0) > 5)
@@ -50,6 +51,35 @@ export function decodeMessageImages(dto: PostMessageDto): Buffer[] {
   return images;
 }
 const iso = (value: string | Date): string => new Date(value).toISOString();
+const MESSAGE_PAGE_SIZE = 50;
+const MESSAGE_PAGE_MAX = 100;
+
+interface MessageCursor {
+  createdAt: string;
+  messageId: string;
+}
+
+export function encodeMessageCursor(cursor: MessageCursor): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+}
+
+export function decodeMessageCursor(value?: string): MessageCursor | undefined {
+  if (value === undefined) return undefined;
+  try {
+    if (!value || value.length > 512 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error();
+    const json = Buffer.from(value, 'base64url').toString('utf8');
+    if (Buffer.from(json, 'utf8').toString('base64url') !== value) throw new Error();
+    const parsed: unknown = JSON.parse(json);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    const cursor = parsed as Record<string, unknown>;
+    if (Object.keys(cursor).sort().join(',') !== 'createdAt,messageId') throw new Error();
+    if (typeof cursor.createdAt !== 'string' || !Number.isFinite(Date.parse(cursor.createdAt))) throw new Error();
+    if (typeof cursor.messageId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor.messageId)) throw new Error();
+    return { createdAt: new Date(cursor.createdAt).toISOString(), messageId: cursor.messageId };
+  } catch {
+    throw new BadRequestException('Invalid message cursor');
+  }
+}
 
 @Injectable()
 export class MessagingService {
@@ -104,28 +134,78 @@ export class MessagingService {
       .orderBy('created_at', 'desc')
       .orderBy('message_id', 'desc')
       .execute();
-    return Promise.all(
-      rows.reverse().map(async (row) => {
-        const attachments = await this.repo.db
-          .selectFrom('messaging_attachments')
-          .select(['attachment_id', 'byte_size', 'content_type'])
-          .where('message_id', '=', row.message_id)
-          .execute();
-        return {
-          id: row.message_id,
-          conversationId: id,
-          senderUserId: row.sender_user_id,
-          text: row.text,
-          createdAt: iso(row.created_at),
-          delivery: 'server',
-          attachments: attachments.map((a) => ({
-            id: a.attachment_id,
-            byteSize: a.byte_size,
-            contentType: a.content_type,
-          })),
-        };
-      }),
-    );
+    return this.mapMessages(id, rows);
+  }
+
+  async messagePage(userId: string, id: string, query: ListMessagesQueryDto = {}) {
+    await this.repo.assertParticipant(userId, id);
+    const cursor = decodeMessageCursor(query.cursor);
+    const limit = query.limit ?? MESSAGE_PAGE_SIZE;
+    if (!Number.isInteger(limit) || limit < 1 || limit > MESSAGE_PAGE_MAX) {
+      throw new BadRequestException('Message page size is out of range');
+    }
+    let pageQuery = this.repo.db
+      .selectFrom('messaging_messages')
+      .selectAll()
+      .where('conversation_id', '=', id)
+      .orderBy('created_at', 'desc')
+      .orderBy('message_id', 'desc');
+    if (cursor) {
+      pageQuery = pageQuery.where((eb) => eb.or([
+        eb('created_at', '<', cursor.createdAt),
+        eb.and([
+          eb('created_at', '=', cursor.createdAt),
+          eb('message_id', '<', cursor.messageId),
+        ]),
+      ]));
+    }
+    const rows = await pageQuery.limit(limit + 1).execute();
+    const hasMore = rows.length > limit;
+    const pageRows = rows.slice(0, limit);
+    const oldest = pageRows.at(-1);
+    return {
+      messages: await this.mapMessages(id, pageRows),
+      nextCursor: hasMore && oldest
+        ? encodeMessageCursor({ createdAt: iso(oldest.created_at), messageId: oldest.message_id })
+        : null,
+      hasMore,
+    };
+  }
+
+  private async mapMessages(id: string, rows: Array<{
+    message_id: string;
+    conversation_id: string;
+    sender_user_id: string;
+    text: string;
+    created_at: string | Date;
+  }>) {
+    const messageIds = rows.map((row) => row.message_id);
+    const attachments = messageIds.length
+      ? await this.repo.db
+        .selectFrom('messaging_attachments')
+        .select(['message_id', 'attachment_id', 'byte_size', 'content_type'])
+        .where('message_id', 'in', messageIds)
+        .execute()
+      : [];
+    const attachmentsByMessage = new Map<string, typeof attachments>();
+    for (const attachment of attachments) {
+      const group = attachmentsByMessage.get(attachment.message_id) ?? [];
+      group.push(attachment);
+      attachmentsByMessage.set(attachment.message_id, group);
+    }
+    return [...rows].reverse().map((row) => ({
+      id: row.message_id,
+      conversationId: id,
+      senderUserId: row.sender_user_id,
+      text: row.text,
+      createdAt: iso(row.created_at),
+      delivery: 'server',
+      attachments: (attachmentsByMessage.get(row.message_id) ?? []).map((attachment) => ({
+        id: attachment.attachment_id,
+        byteSize: attachment.byte_size,
+        contentType: attachment.content_type,
+      })),
+    }));
   }
   async post(userId: string, id: string, dto: PostMessageDto) {
     await this.repo.assertParticipant(userId, id);

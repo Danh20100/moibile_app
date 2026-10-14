@@ -26,22 +26,56 @@ class BackendTroOiRepository @Inject constructor(
         val userId = api.getSessionContext().required("messaging identity").userId
         api.messagingConversations().required("conversations").map { conversation ->
             val others = conversation.participants.filter { it.userId != userId }
+            val page = api.messagingMessages(conversation.id).required("messages")
             ConversationCard(id = conversation.id, counterpartUserId = others.first().userId,
                 counterpartName = others.joinToString { it.displayName }, rentalLabel = conversation.contextType,
                 contextId = conversation.contextId, photoResource = null, lastReadAt = conversation.lastReadAt,
-                messages = api.messagingMessages(conversation.id).required("messages").map { message ->
+                messages = page.messages.map { message ->
                     check(message.delivery == "server" && message.conversationId == conversation.id)
                     ConversationMessage(message.id, message.senderUserId, message.text, message.createdAt,
                         attachmentIds = message.attachments.map { it.id })
-                })
+                }, olderMessagesCursor = page.nextCursor)
         }.let { refreshed -> synchronized(messageCacheLock) {
             check(tokens.token() == credential)
             // Messages are immutable: a refresh started before send must retain its server acknowledgement.
-            messageCards = refreshed.map { card -> card.copy(messages =
-                (card.messages + messageCards.firstOrNull { it.id == card.id }?.messages.orEmpty())
-                    .distinctBy { it.id }.sortedBy { it.createdAt }) }
+            messageCards = refreshed.map { card ->
+                val cached = messageCards.firstOrNull { it.id == card.id }
+                card.copy(
+                    messages = (card.messages + cached?.messages.orEmpty())
+                        .distinctBy { it.id }.sortedWith(compareBy<ConversationMessage> { it.createdAt }.thenBy { it.id }),
+                    olderMessagesCursor = cached?.olderMessagesCursor ?: card.olderMessagesCursor,
+                )
+            }
             messageCards
         } }
+    }
+    override suspend fun loadOlderMessages(conversationId: String): Result<ConversationCard> = runCatching {
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        val current = synchronized(messageCacheLock) { messageCards.firstOrNull { it.id == conversationId } }
+            ?: error("Conversation is no longer available")
+        val cursor = current.olderMessagesCursor ?: return@runCatching current
+        val page = api.messagingMessages(conversationId, cursor).required("older messages")
+        check(tokens.token() == credential)
+        page.messages.forEach { message ->
+            check(message.delivery == "server" && message.conversationId == conversationId)
+        }
+        synchronized(messageCacheLock) {
+            check(tokens.token() == credential)
+            val latest = messageCards.firstOrNull { it.id == conversationId }
+                ?: error("Conversation is no longer available")
+            val updated = latest.copy(
+                messages = (page.messages.map { message -> ConversationMessage(
+                    message.id, message.senderUserId, message.text, message.createdAt,
+                    attachmentIds = message.attachments.map { it.id },
+                ) } + latest.messages).distinctBy { it.id }
+                    .sortedWith(compareBy<ConversationMessage> { it.createdAt }.thenBy { it.id }),
+                olderMessagesCursor = page.nextCursor,
+                loadingOlderMessages = false,
+                olderMessagesLoadFailed = false,
+            )
+            messageCards = messageCards.map { if (it.id == conversationId) updated else it }
+            updated
+        }
     }
     override suspend fun sendMessage(expectedUserId: String, conversationId: String, text: String,
         images: List<LocalMessageImage>): Result<List<ConversationCard>> = runCatching {

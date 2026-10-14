@@ -60,6 +60,7 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
     onOpenContext: (String, String) -> Unit = { _, _ -> },
     onContextSelected: () -> Unit = {},
     onRead: suspend (String) -> Unit = {},
+    onLoadOlderMessages: (String) -> Unit = {},
     onAttachment: suspend (String, String) -> Result<ByteArray> = { _, _ -> Result.failure(IllegalStateException()) }) {
     var selectedId by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var search by rememberSaveable(state.backendUserId) { mutableStateOf("") }
@@ -77,6 +78,7 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
             if (!state.messagesLoading) onRead(selected.id)
         }
         ConversationScreen(selected, state.backendUserId, { selectedId = null }, onSave, onAttachment,
+            onLoadOlderMessages,
             state.messagesLoadFailed, onReload)
         return
     }
@@ -154,7 +156,8 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
 @Composable
 private fun ConversationScreen(conversation: ConversationCard, userId: String, onBack: () -> Unit,
     onSave: suspend (String, String, List<LocalMessageImage>) -> Result<Unit>,
-    onAttachment: suspend (String, String) -> Result<ByteArray>, refreshFailed: Boolean, onReload: () -> Unit) {
+    onAttachment: suspend (String, String) -> Result<ByteArray>, onLoadOlderMessages: (String) -> Unit,
+    refreshFailed: Boolean, onReload: () -> Unit) {
     val maxLength = if (com.trooi.app.core.data.RuntimeDataSource.isBackendBacked()) 4000 else 500
     var draft by rememberSaveable(userId, conversation.id) { mutableStateOf("") }
     var saving by remember(userId, conversation.id) { mutableStateOf(false) }
@@ -185,7 +188,14 @@ private fun ConversationScreen(conversation: ConversationCard, userId: String, o
             }
         }
     }
-    LaunchedEffect(conversation.id, conversation.messages.size) { if (conversation.messages.isNotEmpty()) list.animateScrollToItem(conversation.messages.lastIndex) }
+    var scrolledToLatestMessageId by remember(conversation.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(conversation.id, conversation.messages.lastOrNull()?.id) {
+        val latestMessageId = conversation.messages.lastOrNull()?.id
+        if (latestMessageId != null && latestMessageId != scrolledToLatestMessageId) {
+            list.animateScrollToItem(conversation.messages.lastIndex)
+            scrolledToLatestMessageId = latestMessageId
+        }
+    }
     Column(Modifier.fillMaxSize().imePadding().testTag("conversation-detail")) {
         Box(Modifier.fillMaxWidth().padding(start = 8.dp, end = 20.dp, top = 12.dp, bottom = 12.dp)) {
             TroOiPageHeader(conversation.counterpartName, conversation.rentalLabel, onBack, "Quay lại Tin nhắn")
@@ -197,6 +207,22 @@ private fun ConversationScreen(conversation: ConversationCard, userId: String, o
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversation-messages"), state = list,
             contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            if (conversation.olderMessagesCursor != null) item(key = "older-messages-control") {
+                when {
+                    conversation.loadingOlderMessages -> TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải tin nhắn cũ…")
+                    conversation.olderMessagesLoadFailed -> TroOiStateMessage(
+                        TroOiStateKind.ERROR, "Chưa tải được tin nhắn cũ.",
+                        actionText = "Thử lại", onAction = { onLoadOlderMessages(conversation.id) },
+                        actionModifier = Modifier.testTag("messages-load-older-retry"),
+                    )
+                    else -> TroOiButton(
+                        "Tải tin nhắn cũ hơn",
+                        onClick = { onLoadOlderMessages(conversation.id) },
+                        style = TroOiButtonStyle.TERTIARY,
+                        modifier = Modifier.fillMaxWidth().testTag("messages-load-older"),
+                    )
+                }
+            }
             items(conversation.messages, key = { it.id }) { message ->
                 val own = message.senderUserId == userId
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (own) Arrangement.End else Arrangement.Start) {

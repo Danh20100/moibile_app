@@ -9,12 +9,13 @@ import {
   UnauthorizedException,
   ValidationPipe,
   Header,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../../common';
 import type { VerifiedPrincipal } from '../identity-access/contracts';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingService } from './messaging.service';
-import { OpenConversationDto, PostMessageDto } from './messaging.dto';
+import { ListMessagesQueryDto, OpenConversationDto, PostMessageDto } from './messaging.dto';
 
 function identity(user?: VerifiedPrincipal): string {
   if (!user) throw new UnauthorizedException();
@@ -48,6 +49,14 @@ export class MessagingController {
     @CurrentUser() user?: VerifiedPrincipal,
   ) {
     return this.service.messages(identity(user), id);
+  }
+  @Get(':id/messages/page') messagePage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+    query: ListMessagesQueryDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ) {
+    return this.service.messagePage(identity(user), id, query);
   }
   @Post(':id/messages') post(
     @Param('id', ParseUUIDPipe) id: string,

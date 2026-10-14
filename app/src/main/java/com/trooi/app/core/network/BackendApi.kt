@@ -5,7 +5,7 @@ import javax.inject.Inject
 
 interface BackendApi {
     suspend fun messagingConversations(): ApiOutcome<List<MessagingConversation>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
-    suspend fun messagingMessages(id: String): ApiOutcome<List<MessagingMessage>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun messagingMessages(id: String, cursor: String? = null): ApiOutcome<MessagingMessagePage> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingOpen(type: String, id: String): ApiOutcome<MessagingOpen> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingSend(id: String, text: String, images: List<ByteArray>, expectedToken: String? = null): ApiOutcome<MessagingMessage> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingRead(id: String): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -108,8 +108,12 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     override suspend fun messagingConversations() = client.get("messaging/conversations", true).decode {
         messagingGson.fromJson(it, Array<MessagingConversation>::class.java).toList()
     }
-    override suspend fun messagingMessages(id: String) = client.get("messaging/conversations/$id/messages", true).decode {
-        messagingGson.fromJson(it, Array<MessagingMessage>::class.java).toList()
+    override suspend fun messagingMessages(id: String, cursor: String?) = client.get(
+        "messaging/conversations/$id/messages/page",
+        authenticated = true,
+        query = buildMap { put("limit", "50"); cursor?.let { put("cursor", it) } },
+    ).decode {
+        messagingGson.fromJson(it, MessagingMessagePage::class.java)
     }
     override suspend fun messagingOpen(type: String, id: String): ApiOutcome<MessagingOpen> {
         val payload = com.google.gson.JsonObject().apply { addProperty("contextType", type); addProperty("contextId", id) }

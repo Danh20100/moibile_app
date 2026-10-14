@@ -4,7 +4,10 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsInt,
   IsUUID,
+  Max,
+  Min,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -26,4 +29,9 @@ export class PostMessageDto {
   @ValidateNested({ each: true })
   @Type(() => MessageImageDto)
   images?: MessageImageDto[];
+}
+
+export class ListMessagesQueryDto {
+  @IsOptional() @IsString() @MaxLength(512) cursor?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
 }
