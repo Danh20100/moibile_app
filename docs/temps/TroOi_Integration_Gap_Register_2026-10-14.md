@@ -174,7 +174,7 @@ flowchart TD
 
 ### Wave A — Mở khóa người dùng thật (`P0`, blocker chung)
 
-- [ ] `APP-A01` Quyết định Identity G1-A/G1-E/G1-S: legacy mapping/cutover, verified-email registration, session/audit/revocation.
+- [ ] `APP-A01` Phê duyệt Identity G1-A/G1-E/G1-S: legacy mapping/cutover, verified-email registration, session/audit/revocation. Draft bảo mật cụ thể ở [Identity_G1_Policy_Draft_2026-10-14.md](Identity_G1_Policy_Draft_2026-10-14.md); cả ba quyết định vẫn `OPEN`, runtime gate giữ `OFF`.
 - [ ] `APP-A02` Google login/registration theo **durable User** và AuthGuard nhất quán; không tự claim seeded owner.
 - [ ] `APP-A03` Owner onboarding → Organization + relationship-based permissions thật.
 - [ ] `APP-A04` Test 2 tài khoản khác nhau, logout, restart, User/Org/tenancy authorizations. **Gate A** = cả hai vào app, tách dữ liệu chính xác.
@@ -220,6 +220,7 @@ flowchart TD
 
 ### P0 execution updates
 
+- Identity G1 decision follow-up (2026-10-14): a concrete, explicitly unapproved G1-A/G1-E/G1-S policy draft now specifies collision handling, verified-email registration, session rotation/revocation, audit, additive schema options, tests, rollback and acceptance. No runtime or migration was changed; gate stays `OFF`, `PRO-P0-01/02/03/04` remain `BLOCKED` pending approval and real Google/device acceptance.
 - `LED-P0-02`: `PASS_ANDROID` at source HEAD after the Mock repository stopped fetching finance during fixture reads. Debug Owner/Tenant operations and explicitly historical finance remain available without DemoPay; checkout still fails against an unavailable service. Evidence: `:app:testDebugUnitTest --tests com.trooi.app.core.model.FixtureCatalogTest.mockLedgerLoadsHistoricalFixtureWhenDemoPayIsOffline` passed (2026-10-14). This does not establish `PASS_BACKEND` or `PASS_FULLSTACK`.
 - `LED-P0-07`: backend/API and Android support owner-selected public photos. Migration `000012_public_listing_photos` defaults each photo to private; public IDs/content require owner opt-in and a currently `PUBLISHED` Listing, and content responses use `Cache-Control: no-store`. Android provides per-photo consent, protected owner updates, lazy visible-card cover loading, and detail-gallery loading. Fresh isolated PostgreSQL/MinIO HTTP integration passes `1/1` for owner upload/readback, outsider denial, public opt-in/projection/content, and unpublish hiding; private MinIO reconnect/readback passes `1/1`. The Android UI component evidence remains separate from authenticated API-backed device acceptance, so `PASS_FULLSTACK` remains `BLOCKED`.
 - `LED-P0-03`: private Asset media now has fresh PostgreSQL/MinIO reconnect/readback (`1/1`) and authenticated HTTP owner/outsider authorization (`1/1`) evidence. Android AssetWizard upload/reload/restart on an authenticated session remains unverified; no full-stack pass is claimed.

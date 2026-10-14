@@ -24,7 +24,8 @@ Status: **IN PROGRESS** (2026-10-14). This checklist records verified implementa
 
 ## P5.1A — Identity P0: shared resolver and Google authorization
 
-- [x] Review G1-A/G1-E/G1-S: AUTH-06/F-A1 approves fail-closed alias conflict behavior, while cutover/remediation, email freshness and common session/audit protocol remain OPEN; runtime activation remains gated.
+- [x] Preserve the previously approved AUTH-06/F-A1 fail-closed alias-conflict behavior; this is not approval of the full G1-A cutover policy.
+- [ ] G1-A/G1-E/G1-S remain `OPEN`: concrete security policy draft at [Identity_G1_Policy_Draft_2026-10-14.md](../../temps/Identity_G1_Policy_Draft_2026-10-14.md) is not approved. Keep the Identity runtime gate off until all three decisions are explicitly approved.
 - [x] Add one shared Google principal resolver for login and AuthGuard; raw deterministic-ID fallback is removed. `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` defaults off.
 - [x] Resolve supported issuer aliases to one existing mapped/legacy User; verified email equality is not used for ownership, conflicts reject, and Organization/Tenancy references are never transferred.
 - [ ] New Google registration stays unavailable: verified-email freshness/completion and approved session cutover are not implemented. Unregistered principals fail closed without User creation.
