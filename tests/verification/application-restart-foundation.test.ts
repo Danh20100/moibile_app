@@ -6,6 +6,10 @@ import { loadFixture, validateFixture } from '../support/fixture-loader';
 
 test('application restart uses schema-validated business fixtures and preserves the allocated balance comparison', () => {
   const fixture = loadFixture<Record<string, unknown>>('payment/application-restart');
+  const values = fixture.values as Record<string, unknown>;
+  const expected = fixture.expected as Record<string, unknown>;
+  assert.notEqual(values.ownerId, values.tenantId, 'Owner and Tenant must be separate fixture principals');
+  assert.equal(expected.paymentVerification, 'USER_RECORDED');
   const schema = JSON.parse(
     readFileSync('tests/fixtures/payment/application-restart.schema.json', 'utf8'),
   );
@@ -90,6 +94,8 @@ test('application restart uses schema-validated business fixtures and preserves 
     /assert\.equal\(cycle\.charges\[0\]\?\.outstandingAmount, F\.expected\.initialOutstanding\)/,
   );
   assert.match(source, /assert\.deepEqual\(restartedCycle, allocatedCycle\)/);
+  assert.match(source, /assert\.equal\(payment\.verification, F\.expected\.paymentVerification\)/);
+  assert.match(source, /assert\.equal\(restartedPayment\.verification, F\.expected\.paymentVerification\)/);
   assert.match(source, /restartedCycle\.charges\[0\]\?\.outstandingAmount/);
   assert.match(source, /allocatedCycle\.charges\[0\]\?\.outstandingAmount/);
   assert.match(

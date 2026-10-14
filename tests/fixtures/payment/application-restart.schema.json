@@ -10,7 +10,7 @@
     "expected": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["initialOutstanding", "remainingOutstanding"],
+      "required": ["initialOutstanding", "remainingOutstanding", "paymentVerification", "tenancyStatusAfterActivation", "listingStatusAfterActivation"],
       "properties": {
         "initialOutstanding": {
           "type": "string",
@@ -19,6 +19,18 @@
         "remainingOutstanding": {
           "type": "string",
           "enum": ["2500000.00"]
+        },
+        "paymentVerification": {
+          "type": "string",
+          "enum": ["USER_RECORDED"]
+        },
+        "tenancyStatusAfterActivation": {
+          "type": "string",
+          "enum": ["active"]
+        },
+        "listingStatusAfterActivation": {
+          "type": "string",
+          "enum": ["unpublished"]
         }
       }
     },
@@ -33,6 +45,7 @@
       "additionalProperties": false,
       "required": [
         "ownerId",
+        "tenantId",
         "propertyId",
         "roomId",
         "listingId",
@@ -49,6 +62,8 @@
         "inquiryMessage",
         "inquiryStatus",
         "participantRole",
+        "activeAssetManagementStatus",
+        "tenancyActivatedAt",
         "joinedAt",
         "termsVersion",
         "rentAmount",
@@ -90,6 +105,10 @@
         "ownerId": {
           "type": "string",
           "enum": ["10000000-0000-4000-8000-000000000099"]
+        },
+        "tenantId": {
+          "type": "string",
+          "enum": ["10000000-0000-4000-8000-000000000098"]
         },
         "propertyId": { "type": "string", "format": "uuid" },
         "roomId": { "type": "string", "format": "uuid" },
@@ -178,6 +197,14 @@
         "participantRole": {
           "type": "string",
           "enum": ["PRIMARY"]
+        },
+        "activeAssetManagementStatus": {
+          "type": "string",
+          "enum": ["ACTIVE"]
+        },
+        "tenancyActivatedAt": {
+          "type": "string",
+          "enum": ["2026-10-01T00:00:00.000Z"]
         },
         "joinedAt": {
           "type": "string",

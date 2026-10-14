@@ -18,6 +18,7 @@ import { TenancyNoticeService } from '../../../src/modules/tenancy/services/tena
 import { BillingService } from '../../../src/modules/billing/services/billing.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
 import { IncidentService } from '../../../src/modules/incident/services/incident.service';
+import { RentalLifecycleCoordinator } from '../../../src/modules/rental-lifecycle/services/rental-lifecycle.coordinator';
 import { AuditTrustService } from '../../../src/modules/audit-trust/services/audit-trust.service';
 import { runMigrations } from '../../../scripts/database/migrate';
 import { resetPublicSchema } from './support/postgres-test-harness';
@@ -44,6 +45,7 @@ function runtime(databaseUrl: string) {
   const receipts = new ReceiptService(billing, transactions);
   const incidents = new IncidentService(rooms, transactions);
   const trust = new AuditTrustService(transactions);
+  const rentalLifecycle = new RentalLifecycleCoordinator(rooms, properties, listings, tenancies, participants);
   return {
     database,
     transactions,
@@ -61,6 +63,7 @@ function runtime(databaseUrl: string) {
     receipts,
     incidents,
     trust,
+    rentalLifecycle,
   };
 }
 
@@ -74,7 +77,11 @@ test('core application state remains readable after database client restart', as
   let firstClosed: boolean = false;
   try {
     const ownerId = F.values.ownerId;
-    await first.transactions.run(({ repositories }) => repositories.identity.ensureUser(ownerId));
+    const tenantId = F.values.tenantId;
+    await first.transactions.run(async ({ repositories }) => {
+      await repositories.identity.ensureUser(ownerId);
+      await repositories.identity.ensureUser(tenantId);
+    });
     const organization = await first.organizations.create({
       name: F.values.organizationName,
       primaryOwnerUserId: ownerId,
@@ -112,21 +119,34 @@ test('core application state remains readable after database client restart', as
     const listing = listingResults[0]!;
     assert.equal(listingResults[1]!.id, listing.id);
     await assert.rejects(first.listings.createDraft({ ...listingInput, publicTitle: listingAssetFixture.idempotencyConflicts.listingTitle }));
-    const assetDetails = listingAssetFixture.details;
+    const assetDetails = { ...listingAssetFixture.details, managementStatus: F.values.activeAssetManagementStatus };
     await first.listings.saveAssetDetails(listing.id, assetDetails);
     assert.deepEqual(await first.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
+    const published = await first.rentalLifecycle.publishListing(listing.id, {
+      reasonCode: F.values.publishReason,
+      actorType: F.values.publishActorType,
+      actorUserId: ownerId,
+      trigger: F.values.publishTrigger,
+    });
+    assert.equal(published.status, F.values.publishedListingStatus);
+    const report = await first.trust.submitReport(
+      { listingId: published.id, reason: F.values.trustReportReason },
+      ownerId,
+    );
     const inquiry = await first.inquiries.create({
       listingId: listing.id,
       contactIntentOrMessage: F.values.inquiryMessage,
       status: F.values.inquiryStatus,
     });
-    const tenancy = await first.tenancies.createDraft(room.id);
+    const tenancy = await first.rentalLifecycle.createTenancy(room.id);
     const participant = await first.participants.add({
       tenancyId: tenancy.id,
-      userId: ownerId,
+      userId: tenantId,
       role: F.values.participantRole,
       joinedAt: F.values.joinedAt,
     });
+    assert.equal(participant.userId, tenantId);
+    assert.notEqual(participant.userId, ownerId);
     const terms = await first.terms.createVersion({
       tenancyId: tenancy.id,
       version: F.values.termsVersion,
@@ -143,9 +163,17 @@ test('core application state remains readable after database client restart', as
     const acknowledgement = await first.acknowledgements.acknowledge({
       tenancyTermsId: terms.id,
       tenancyParticipantId: participant.id,
-      userId: ownerId,
+      userId: tenantId,
       acknowledgedAt: F.values.acknowledgedAt,
     });
+    const activeTenancy = await first.rentalLifecycle.activateTenancy(tenancy.id, {
+      reasonCode: F.values.publishReason,
+      actorType: F.values.publishActorType,
+      actorUserId: ownerId,
+      trigger: F.values.publishTrigger,
+    }, F.values.tenancyActivatedAt);
+    assert.equal(activeTenancy.status, F.expected.tenancyStatusAfterActivation);
+    const occupiedRoom = await first.rooms.findById(room.id);
     const notice = await first.notices.issue({
       tenancyId: tenancy.id,
       noticeType: F.values.noticeType,
@@ -167,6 +195,8 @@ test('core application state remains readable after database client restart', as
       source: F.values.paymentSource,
       confirmedAt: F.values.paymentConfirmedAt,
     });
+    assert.equal(payment.source, F.values.paymentSource);
+    assert.equal(payment.verification, F.expected.paymentVerification);
     await first.billing.allocatePayment(
       payment.id,
       cycle.charges[0]!.id,
@@ -195,16 +225,6 @@ test('core application state remains readable after database client restart', as
       (await first.incidents.findById(incident.id)).status,
       F.values.expectedIncidentStatusBeforeRestart,
     );
-    const published = await first.listings.transition(listing.id, F.values.publishedListingStatus, {
-      reasonCode: F.values.publishReason,
-      actorType: F.values.publishActorType,
-      actorUserId: ownerId,
-      trigger: F.values.publishTrigger,
-    });
-    const report = await first.trust.submitReport(
-      { listingId: published.id, reason: F.values.trustReportReason },
-      ownerId,
-    );
     const allocatedCycle = await first.billing.findById(cycle.id);
     assert.equal(allocatedCycle.charges[0]?.outstandingAmount, F.expected.remainingOutstanding);
     await first.database.destroy();
@@ -215,10 +235,12 @@ test('core application state remains readable after database client restart', as
       assert.deepEqual(await second.organizations.findById(organization.id), organization);
       assert.deepEqual(await second.properties.findById(property.id), property);
       assert.deepEqual(await second.rooms.findById(room.id), room);
-      assert.deepEqual(await second.listings.findById(listing.id), published);
+      const restartedListing = await second.listings.findById(listing.id);
+      assert.equal(restartedListing.status, F.expected.listingStatusAfterActivation);
       assert.deepEqual(await second.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
       assert.deepEqual(await second.inquiries.findById(inquiry.id), inquiry);
-      assert.deepEqual(await second.tenancies.findById(tenancy.id), tenancy);
+      assert.deepEqual(await second.tenancies.findById(activeTenancy.id), activeTenancy);
+      assert.deepEqual(await second.rooms.findById(room.id), occupiedRoom);
       assert.deepEqual(await second.participants.findById(participant.id), participant);
       assert.deepEqual(await second.terms.findById(terms.id), terms);
       assert.deepEqual(await second.acknowledgements.listByTermsId(terms.id), [acknowledgement]);
@@ -226,7 +248,10 @@ test('core application state remains readable after database client restart', as
       const restartedCycle = await second.billing.findById(cycle.id);
       assert.deepEqual(restartedCycle, allocatedCycle);
       assert.equal(restartedCycle.charges[0]?.outstandingAmount, F.expected.remainingOutstanding);
-      assert.deepEqual(await second.billing.findPaymentById(payment.id), payment);
+      const restartedPayment = await second.billing.findPaymentById(payment.id);
+      assert.deepEqual(restartedPayment, payment);
+      assert.equal(restartedPayment.source, F.values.paymentSource);
+      assert.equal(restartedPayment.verification, F.expected.paymentVerification);
       assert.deepEqual(
         (await second.billing.listDepositEvents(deposit.id)).map((event) => event.eventType),
         F.values.expectedDepositEvents,

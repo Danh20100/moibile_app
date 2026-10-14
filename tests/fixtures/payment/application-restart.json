@@ -2,11 +2,15 @@
   "version": 1,
   "expected": {
     "initialOutstanding": "3500000.00",
-    "remainingOutstanding": "2500000.00"
+    "remainingOutstanding": "2500000.00",
+    "paymentVerification": "USER_RECORDED",
+    "tenancyStatusAfterActivation": "active",
+    "listingStatusAfterActivation": "unpublished"
   },
   "provenance": "Synthetic application restart scenarios for isolated PostgreSQL; outstanding amounts follow active allocations.",
   "values": {
     "ownerId": "10000000-0000-4000-8000-000000000099",
+    "tenantId": "10000000-0000-4000-8000-000000000098",
     "propertyId": "10000000-0000-4000-8000-000000000091",
     "roomId": "10000000-0000-4000-8000-000000000092",
     "listingId": "10000000-0000-4000-8000-000000000093",
@@ -32,6 +36,8 @@
     "inquiryMessage": "Interested",
     "inquiryStatus": "NEW",
     "participantRole": "PRIMARY",
+    "activeAssetManagementStatus": "ACTIVE",
+    "tenancyActivatedAt": "2026-10-01T00:00:00.000Z",
     "joinedAt": "2026-09-29T00:00:00.000Z",
     "termsVersion": 1,
     "rentAmount": "3500000.00",

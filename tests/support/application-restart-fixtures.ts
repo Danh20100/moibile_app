@@ -12,9 +12,16 @@ import { loadFixture } from './fixture-loader';
 interface ApplicationRestartFixture {
   version: 1;
   provenance: string;
-  expected: { initialOutstanding: string; remainingOutstanding: string };
+  expected: {
+    initialOutstanding: string;
+    remainingOutstanding: string;
+    paymentVerification: 'USER_RECORDED';
+    tenancyStatusAfterActivation: 'active';
+    listingStatusAfterActivation: 'unpublished';
+  };
   values: {
     ownerId: string;
+    tenantId: string;
     propertyId: string;
     roomId: string;
     listingId: string;
@@ -31,6 +38,8 @@ interface ApplicationRestartFixture {
     inquiryMessage: string;
     inquiryStatus: Parameters<InquiryService['create']>[0]['status'];
     participantRole: Parameters<TenancyParticipantService['add']>[0]['role'];
+    activeAssetManagementStatus: 'ACTIVE';
+    tenancyActivatedAt: string;
     joinedAt: string;
     termsVersion: number;
     rentAmount: string;
