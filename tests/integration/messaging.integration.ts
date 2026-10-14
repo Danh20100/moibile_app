@@ -7,6 +7,7 @@ import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
 import { CreateBucketCommand, DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
+import { sql } from 'kysely';
 import {
   AuthGuard,
   applyHttpBodyParsers,
@@ -277,6 +278,8 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     );
     assert.equal((await request(1, `/${conversation}/messages`)).body.data.length, 2);
     assert.equal(await storage.getObject(attempted[0]), null);
+    assert.equal((await db.selectFrom('messaging_attachment_upload_intents').select('attachment_id')
+      .where('object_key', '=', attempted[0]!).execute()).length, 0);
     const selfInquiry = randomUUID();
     await db
       .insertInto('inquiries')
@@ -341,8 +344,90 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
       (await request(2, '', { contextType: 'tenancy', contextId: tenancy })).status,
       403,
     );
+    const intentCheckingService = new MessagingService(new MessagingRepository(db), {
+      async putObject(input) {
+        const intent = await db.selectFrom('messaging_attachment_upload_intents').select('object_key')
+          .where('object_key', '=', input.key).executeTakeFirst();
+        assert.ok(intent, 'durable intent must commit before object storage receives bytes');
+        await storage.putObject(input);
+      },
+      getObject: (key) => storage.getObject(key),
+      deleteObject: (key) => storage.deleteObject!(key),
+    });
+    const intentAwareMessage = await intentCheckingService.post(ids[0], conversation, {
+      text: 'intent precedes media bytes',
+      images: [{ contentType: 'image/jpeg', base64: jpeg.toString('base64') }],
+    });
+    assert.equal((await db.selectFrom('messaging_attachment_upload_intents').select('attachment_id')
+      .where('message_id', '=', intentAwareMessage.id).execute()).length, 0);
+    let signalPutStarted!: () => void;
+    let releasePut!: () => void;
+    const putStarted = new Promise<void>((resolve) => { signalPutStarted = resolve; });
+    const putGate = new Promise<void>((resolve) => { releasePut = resolve; });
+    const gatedService = new MessagingService(new MessagingRepository(db), {
+      async putObject(input) {
+        signalPutStarted();
+        await putGate;
+        await storage.putObject(input);
+      },
+      getObject: (key) => storage.getObject(key),
+      deleteObject: (key) => storage.deleteObject!(key),
+    });
+    const activeUpload = gatedService.post(ids[0], conversation, {
+      text: 'recovery waits for an in-flight upload',
+      images: [{ contentType: 'image/jpeg', base64: jpeg.toString('base64') }],
+    });
+    await putStarted;
+    let recoveryFinished = false;
+    const concurrentRecovery = gatedService.reconcilePendingUploads(new Date(Date.now() + 60_000))
+      .then((result) => { recoveryFinished = true; return result; });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(recoveryFinished, false, 'reconciliation must wait for an active storage write');
+    } finally {
+      releasePut();
+    }
+    const activeMessage = await activeUpload;
+    assert.equal(await concurrentRecovery, 0, 'committed upload intent is no longer pending');
+    const activeAttachment = await db.selectFrom('messaging_attachments').select('object_key')
+      .where('attachment_id', '=', activeMessage.attachments[0]!.id).executeTakeFirstOrThrow();
+    assert.ok(await storage.getObject(activeAttachment.object_key));
+    const orphanMessageId = randomUUID();
+    const orphanAttachmentId = randomUUID();
+    const orphanKey = `messaging/${conversation}/${orphanMessageId}/${orphanAttachmentId}.jpg`;
+    await storage.putObject({ key: orphanKey, bytes: jpeg, contentType: 'image/jpeg' });
+    await sql`INSERT INTO messaging_attachment_upload_intents
+      (attachment_id, message_id, conversation_id, sender_user_id, object_key, byte_size, content_type, created_at)
+      VALUES (${orphanAttachmentId}, ${orphanMessageId}, ${conversation}, ${ids[0]}, ${orphanKey}, ${jpeg.length}, 'image/jpeg', now() - interval '1 hour')`.execute(db);
+    const freshMessageId = randomUUID();
+    const freshAttachmentId = randomUUID();
+    const freshKey = `messaging/${conversation}/${freshMessageId}/${freshAttachmentId}.jpg`;
+    await storage.putObject({ key: freshKey, bytes: jpeg, contentType: 'image/jpeg' });
+    await sql`INSERT INTO messaging_attachment_upload_intents
+      (attachment_id, message_id, conversation_id, sender_user_id, object_key, byte_size, content_type, created_at)
+      VALUES (${freshAttachmentId}, ${freshMessageId}, ${conversation}, ${ids[0]}, ${freshKey}, ${jpeg.length}, 'image/jpeg', now())`.execute(db);
+    const committedAttachment = await db.selectFrom('messaging_attachments').selectAll()
+      .where('attachment_id', '=', attachment).executeTakeFirstOrThrow();
+    await sql`INSERT INTO messaging_attachment_upload_intents
+      (attachment_id, message_id, conversation_id, sender_user_id, object_key, byte_size, content_type, created_at)
+      VALUES (${attachment}, ${sent.body.data.id}, ${conversation}, ${ids[0]}, ${committedAttachment.object_key}, ${committedAttachment.byte_size}, ${committedAttachment.content_type}, now() - interval '1 hour')`.execute(db);
+    await app.close();
+    app = await NestFactory.create(MessagingTestModule, { bodyParser: false, logger: false });
+    app.setGlobalPrefix(API_PREFIX);
+    applyHttpBodyParsers(app);
+    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+    app.useGlobalInterceptors(new TransformInterceptor());
+    await app.listen(0, '127.0.0.1');
+    const restartedStorage = app.get<ObjectStoragePort>(OBJECT_STORAGE_PORT);
+    assert.equal(await restartedStorage.getObject(orphanKey), null, 'stale orphan upload must be removed on startup');
+    assert.ok(await restartedStorage.getObject(freshKey), 'an upload inside the recovery grace period must be left alone');
+    assert.ok(await restartedStorage.getObject(committedAttachment.object_key), 'committed message media must survive reconciliation');
+    const pendingIntents = await sql<{ count: string }>`SELECT count(*)::text AS count FROM messaging_attachment_upload_intents`.execute(db);
+    assert.equal(pendingIntents.rows[0]?.count, '1');
+    await db.deleteFrom('messaging_attachment_upload_intents').where('message_id', '=', freshMessageId).execute();
+    await storage.deleteObject!(freshKey);
     console.log(
-      'CONFIRMED: A->B, B->A, PostgreSQL reload, private image retrieval, outsider/public access denied (test Google verifier)',
+      'CONFIRMED: A->B, B->A, PostgreSQL reload, private image retrieval, outsider denial, and startup attachment reconciliation (test Google verifier)',
     );
   } finally {
     await app?.close();

@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { decode } from 'jpeg-js';
@@ -14,6 +16,9 @@ import {
 import { MessagingRepository } from './messaging.repository';
 import type { PostMessageDto } from './messaging.dto';
 import type { ListMessagesQueryDto } from './messaging.dto';
+
+// Let another replica finish a slow upload before startup reconciliation treats its intent as abandoned.
+const UPLOAD_RECOVERY_GRACE_MS = 15 * 60 * 1000;
 
 export function decodeMessageImages(dto: PostMessageDto): Buffer[] {
   if ((dto.text?.length ?? 0) > 4000 || (dto.images?.length ?? 0) > 5)
@@ -82,11 +87,51 @@ export function decodeMessageCursor(value?: string): MessageCursor | undefined {
 }
 
 @Injectable()
-export class MessagingService {
+export class MessagingService implements OnModuleInit {
+  private readonly logger = new Logger(MessagingService.name);
+
   constructor(
     @Inject(MessagingRepository) private readonly repo: MessagingRepository,
     @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.reconcilePendingUploads();
+    } catch (error) {
+      this.logger.warn(`Messaging upload reconciliation remains pending: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+  }
+
+  async reconcilePendingUploads(olderThan = new Date(Date.now() - UPLOAD_RECOVERY_GRACE_MS)): Promise<number> {
+    const candidates = await this.repo.db.selectFrom('messaging_attachment_upload_intents')
+      .select('message_id').distinct().where('created_at', '<', olderThan.toISOString()).execute();
+    let reconciled = 0;
+    for (const { message_id: messageId } of candidates) {
+      reconciled += await this.reconcileUpload(messageId, olderThan);
+    }
+    return reconciled;
+  }
+
+  private async reconcileUpload(messageId: string, olderThan?: Date): Promise<number> {
+    return this.repo.db.transaction().execute(async (tx) => {
+      const intents = await tx.selectFrom('messaging_attachment_upload_intents').selectAll()
+        .where('message_id', '=', messageId).orderBy('attachment_id').forUpdate().execute();
+      const eligible = olderThan
+        ? intents.filter((intent) => new Date(intent.created_at).getTime() < olderThan.getTime())
+        : intents;
+      if (!eligible.length) return 0;
+      if (eligible.length !== intents.length) throw new Error('Messaging upload has intents across recovery windows');
+      const persisted = await tx.selectFrom('messaging_messages').select('message_id')
+        .where('message_id', '=', messageId).executeTakeFirst();
+      if (!persisted) {
+        if (!this.storage.deleteObject) throw new Error('Object storage does not support deletion');
+        for (const intent of intents) await this.storage.deleteObject(intent.object_key);
+      }
+      await tx.deleteFrom('messaging_attachment_upload_intents').where('message_id', '=', messageId).execute();
+      return intents.length;
+    });
+  }
 
   async list(userId: string) {
     const rows = await this.repo.db
@@ -218,18 +263,41 @@ export class MessagingService {
       byte_size: image.length,
       content_type: 'image/jpeg',
     }));
-    const uploaded: string[] = [];
-    try {
-      for (let index = 0; index < bytes.length; index++) {
-        uploaded.push(attachments[index].object_key);
-        await this.storage.putObject({
-          key: attachments[index].object_key,
-          bytes: bytes[index],
-          contentType: 'image/jpeg',
-        });
-      }
-      const createdAt = new Date().toISOString();
+    const createdAt = new Date().toISOString();
+    if (attachments.length) {
       await this.repo.db.transaction().execute(async (tx) => {
+        await tx.insertInto('messaging_attachment_upload_intents').values(attachments.map((attachment) => ({
+          attachment_id: attachment.attachment_id,
+          message_id: messageId,
+          conversation_id: id,
+          sender_user_id: userId,
+          object_key: attachment.object_key,
+          byte_size: attachment.byte_size,
+          content_type: 'image/jpeg' as const,
+          created_at: createdAt,
+        }))).execute();
+      });
+    }
+    try {
+      await this.repo.db.transaction().execute(async (tx) => {
+        if (attachments.length) {
+          const intents = await tx.selectFrom('messaging_attachment_upload_intents').selectAll()
+            .where('message_id', '=', messageId).orderBy('attachment_id').forUpdate().execute();
+          if (intents.length !== attachments.length || attachments.some((attachment) =>
+            !intents.some((intent) => intent.attachment_id === attachment.attachment_id &&
+              intent.object_key === attachment.object_key && intent.byte_size === attachment.byte_size))) {
+            throw new Error('Messaging attachment upload intent changed before completion');
+          }
+          // Holding the intent row locks across PUT prevents a second instance from
+          // reconciling this upload while its object write is still in flight.
+          for (let index = 0; index < bytes.length; index++) {
+            await this.storage.putObject({
+              key: attachments[index].object_key,
+              bytes: bytes[index],
+              contentType: 'image/jpeg',
+            });
+          }
+        }
         await tx
           .insertInto('messaging_messages')
           .values({
@@ -242,6 +310,8 @@ export class MessagingService {
           .execute();
         if (attachments.length)
           await tx.insertInto('messaging_attachments').values(attachments).execute();
+        if (attachments.length)
+          await tx.deleteFrom('messaging_attachment_upload_intents').where('message_id', '=', messageId).execute();
       });
       return {
         id: messageId,
@@ -257,7 +327,7 @@ export class MessagingService {
         })),
       };
     } catch {
-      await Promise.allSettled(uploaded.map((key) => this.storage.deleteObject?.(key)));
+      try { await this.reconcileUpload(messageId); } catch { /* durable intent remains for startup retry */ }
       throw new ServiceUnavailableException('Message was not saved; retry');
     }
   }

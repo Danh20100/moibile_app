@@ -141,6 +141,11 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 - [x] Add concurrent newer/stale watermark regression assertions to `tests/integration/messaging.integration.ts`.
 - [x] `MSG-P1-02` `PASS_BACKEND`: the isolated `messaging_test` PostgreSQL/MinIO HTTP integration asserts concurrent stale/new read-watermark updates preserve the greatest timestamp; fresh runs pass `1/1` twice. This does not imply live Google or `PASS_FULLSTACK`.
 
+## P1 continuation — Messaging attachment recovery
+
+- [x] `MSG-P1-03` implementation: additive migration `000014` persists per-attachment upload intents before MinIO PUT; row locks serialize PUT/commit against recovery, and message, attachment metadata and intent removal commit atomically. Failed-request cleanup is retryable; startup reconciliation waits 15 minutes, deletes stale uncommitted objects, and preserves attachments whose Message committed.
+- [x] `MSG-P1-03` `PASS_BACKEND`: `pnpm test:messaging:integration` verifies intent-before-PUT, recovery waits for an in-flight PUT, stale orphan cleanup, committed media preservation and grace-period protection on isolated PostgreSQL/MinIO. Fresh integration runs pass `1/1` twice; no hard-kill, live Google, Android or `PASS_FULLSTACK` claim.
+
 ## P1 continuation — Messaging history pagination
 
 - [x] Add additive bounded cursor API (`GET /messaging/conversations/:id/messages/page`) with participant authorization, deterministic `(created_at, message_id)` keyset ordering, strict cursor validation, and batched attachment hydration. Preserve the legacy all-messages response contract.

@@ -17,6 +17,7 @@ export interface Database {
   messaging_participants: { conversation_id: string; user_id: string; last_read_at: string | null };
   messaging_messages: { message_id: string; conversation_id: string; sender_user_id: string; text: string; created_at: string };
   messaging_attachments: { attachment_id: string; message_id: string; object_key: string; byte_size: number; content_type: string };
+  messaging_attachment_upload_intents: MessagingAttachmentUploadIntentsTable;
   users: UsersTable;
   auth_identities: AuthIdentitiesTable;
   user_emails: UserEmailsTable;
@@ -90,6 +91,10 @@ export interface ListingAssetMediaIntentsTable {
   media_id: string; listing_id: string; operation: 'UPLOAD' | 'DELETE'; object_key: string;
   content_type: 'image/jpeg' | 'image/png'; byte_size: number; position: number;
   content_hash: string | null; created_at: TimestampString;
+}
+export interface MessagingAttachmentUploadIntentsTable {
+  attachment_id: string; message_id: string; conversation_id: string; sender_user_id: string;
+  object_key: string; byte_size: number; content_type: 'image/jpeg'; created_at: TimestampString;
 }
 export interface ListingStatusEventsTable {
   listing_status_event_id: string; listing_id: string; from_status: string;

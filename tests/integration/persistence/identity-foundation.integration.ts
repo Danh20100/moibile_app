@@ -199,7 +199,8 @@ test('frozen v1 snapshot upgrades without rekeying Users and media rollback guar
     // Rollback of the data-bearing media migration must remain guarded, even in integration setup.
     await resetPublicSchema(url);
     await runMigrations('up', url);
-    await runMigrations('down', url); // 000013: no pending intents
+    await runMigrations('down', url); // 000014: no pending Messaging uploads
+    await runMigrations('down', url); // 000013: no pending Listing intents
     await runMigrations('down', url); // 000012: no public-photo records
     await assert.rejects(
       runMigrations('down', url),
