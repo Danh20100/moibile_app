@@ -5,6 +5,7 @@ import { createDatabaseClient } from '../../../src/infrastructure/database/datab
 import { PostgresTransactionManager } from '../../../src/infrastructure/database/postgres-transaction-manager';
 import { createRepositorySet } from '../../../src/infrastructure/database/repositories/repository-set';
 import { IdentitySessionService } from '../../../src/modules/identity-access/services/identity-session.service';
+import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { googlePrincipalUserId } from '../../../src/common/identity/deterministic-user-id';
 import { UnauthorizedException, ServiceUnavailableException } from '@nestjs/common';
 import { runMigrations } from '../../../scripts/database/migrate';
@@ -94,6 +95,27 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     const loginRequest = { idToken: 'test-only-google-proof', nonce: loginChallenge.nonce };
     const loggedIn = await identity.authenticateGoogle(loginRequest);
     assert.equal(loggedIn.userId, registeredUserId);
+    const reauthChallenge = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
+    claims = { ...claims, nonce: reauthChallenge.nonce, authTime: Math.floor(Date.now() / 1000) };
+    const reauthProof = await identity.completeOrganizationCreateReauth(
+      { idToken: 'test-only-google-proof', nonce: reauthChallenge.nonce }, registeredUserId, loggedIn.sessionId,
+    );
+    const organizations = new OrganizationService(transactions);
+    const organization = await organizations.createWithReauthentication({ name: 'Authorized workspace',
+      primaryOwnerUserId: registeredUserId, sessionId: loggedIn.sessionId, reauthProof: reauthProof.proof });
+    assert.equal(organization.primaryOwnerUserId, registeredUserId);
+    await assert.rejects(organizations.createWithReauthentication({ name: 'Replay',
+      primaryOwnerUserId: registeredUserId, sessionId: loggedIn.sessionId, reauthProof: reauthProof.proof }), UnauthorizedException);
+    assert.equal(await database.selectFrom('organizations').selectAll()
+      .where('primary_owner_user_id', '=', registeredUserId).execute().then((rows) => rows.length), 1,
+    'consumed operation proof cannot create a second Organization');
+    assert.ok(await database.selectFrom('identity_security_events').selectAll().where('session_id', '=', loggedIn.sessionId)
+      .where('event_code', '=', 'REAUTH_ISSUED').executeTakeFirst());
+    const staleReauth = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
+    claims = { ...claims, nonce: staleReauth.nonce, authTime: Math.floor(Date.now() / 1000) - 600 };
+    await assert.rejects(identity.completeOrganizationCreateReauth(
+      { idToken: 'test-only-google-proof', nonce: staleReauth.nonce }, registeredUserId, loggedIn.sessionId,
+    ), UnauthorizedException, 'stale Google authentication cannot mint an Organization proof');
     await assert.rejects(identity.authenticateGoogle(loginRequest), UnauthorizedException,
       'the Google nonce cannot create a second session after replay');
 

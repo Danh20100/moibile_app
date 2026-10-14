@@ -28,6 +28,9 @@ export interface IdentitySessionResponse {
   refreshExpiresAt: string;
 }
 
+export interface OrganizationCreateReauthChallenge { nonce: string; expiresAt: string }
+export interface OrganizationCreateReauthProof { proof: string; expiresAt: string }
+
 @Injectable()
 export class IdentitySessionService {
   constructor(
@@ -51,6 +54,57 @@ export class IdentitySessionService {
       });
     });
     return { purpose, nonce, expiresAt };
+  }
+
+  async issueOrganizationCreateReauthChallenge(userId: string, sessionId: string): Promise<OrganizationCreateReauthChallenge> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('An application session is required');
+    const now = new Date();
+    const nonce = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
+    await this.transactions.run(async ({ repositories }) => {
+      await repositories.identitySessions.createChallenge({ challengeId: randomUUID(),
+        purpose: 'REAUTH_ORGANIZATION_CREATE', nonceSha256: digest(nonce), userId, sessionId,
+        createdAt: now.toISOString(), expiresAt });
+      await repositories.identitySessions.appendSecurityEvent({ eventId: randomUUID(), userId, sessionId,
+        eventCode: 'REAUTH_ISSUED', outcome: 'SUCCESS', occurredAt: now.toISOString(),
+        requestMetadata: { phase: 'challenge' } });
+    });
+    return { nonce, expiresAt };
+  }
+
+  async completeOrganizationCreateReauth(input: { idToken: string; nonce: string }, userId: string, sessionId: string): Promise<OrganizationCreateReauthProof> {
+    this.requireEnabled();
+    let identity: Awaited<ReturnType<typeof verifyGoogleIdToken>>;
+    try { identity = await verifyGoogleIdToken(this.verifier, input.idToken); }
+    catch { await this.recordReauthRejected(userId, sessionId, 'proof_invalid'); throw new UnauthorizedException('Reauthentication was rejected'); }
+    if (!this.matchesFreshNonce(input.nonce, identity.nonce) || !this.isRecentAuth(identity.authTime)) {
+      await this.recordReauthRejected(userId, sessionId, 'proof_stale_or_nonce_invalid');
+      throw new UnauthorizedException('Fresh Google authentication is required');
+    }
+    const proof = randomBytes(32).toString('base64url');
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
+    const issued = await this.transactions.run(async ({ repositories }) => {
+      const principal = { issuer: identity.issuer as 'accounts.google.com' | 'https://accounts.google.com', subject: identity.subject };
+      const binding = await repositories.identityFoundation.resolveGooglePrincipal(principal);
+      if (binding.kind !== 'resolved' || binding.userId !== userId) return false;
+      const challenge = await repositories.identitySessions.consumeChallenge({ nonceSha256: digest(input.nonce),
+        purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString() });
+      if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
+      await repositories.identitySessions.createChallenge({ challengeId: randomUUID(),
+        purpose: 'REAUTH_ORGANIZATION_CREATE', nonceSha256: digest(proof), userId, sessionId,
+        createdAt: now.toISOString(), expiresAt });
+      await repositories.identitySessions.appendSecurityEvent({ eventId: randomUUID(), userId, sessionId,
+        eventCode: 'REAUTH_ISSUED', outcome: 'SUCCESS', occurredAt: now.toISOString(),
+        requestMetadata: { phase: 'operation_proof', operation: 'organization.create' } });
+      return true;
+    });
+    if (!issued) {
+      await this.recordReauthRejected(userId, sessionId, 'challenge_scope_invalid');
+      throw new UnauthorizedException('Reauthentication challenge is invalid or expired');
+    }
+    return { proof, expiresAt };
   }
 
   async authenticateGoogle(input: { idToken: string; nonce: string }): Promise<IdentitySessionResponse> {
@@ -219,6 +273,14 @@ export class IdentitySessionService {
     const now = new Date().toISOString();
     await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
       eventId: randomUUID(), userId: null, sessionId: null, eventCode, outcome: 'REJECTED',
+      occurredAt: now, requestMetadata: { reason: reason.slice(0, 48) },
+    }));
+  }
+
+  private async recordReauthRejected(userId: string, sessionId: string, reason: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
+      eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED',
       occurredAt: now, requestMetadata: { reason: reason.slice(0, 48) },
     }));
   }

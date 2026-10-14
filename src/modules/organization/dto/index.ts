@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreateOrganizationDto {
   @ApiProperty({
@@ -9,6 +9,11 @@ export class CreateOrganizationDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
+
+  @ApiProperty({ description: 'One-time proof bound to the current User, session and organization.create operation' })
+  @IsString()
+  @Length(40, 128)
+  reauthProof!: string;
 }
 
 export class UpdateOrganizationDto {

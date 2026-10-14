@@ -117,6 +117,7 @@ function setupTestEnvironment() {
 
   return {
     authz,
+    orgService,
     orgController,
     propertyController,
     roomController,
@@ -139,20 +140,15 @@ test('Resource Authorization: Organization scoping & owner binding', async () =>
   const userB = createPrincipal('user-b');
 
   // User A creates an organization, attempting to set owner to user-spoofed
-  const orgA = await env.orgController.create(
-    { name: 'Khu Tro User A', primaryOwnerUserId: 'user-spoofed' } as never,
-    userA,
-  );
-  // Must be bound to userA.userId, ignoring client's spoofed authority
+  await assert.rejects(env.orgController.create({ name: 'Khu Tro User A', reauthProof: 'proof' }, userA), UnauthorizedException,
+    'organization HTTP creation requires an application session and consumed reauthentication proof');
+  const orgA = await env.orgService.create({ name: 'Khu Tro User A', primaryOwnerUserId: userA.userId });
   assert.equal(orgA.primaryOwnerUserId, userA.userId);
 
   // Protected creation must fail closed when no verified principal is present.
   await assert.rejects(
     () =>
-      env.orgController.create(
-        { name: 'Spoofed Workspace', primaryOwnerUserId: 'user-spoofed' } as never,
-        undefined,
-      ),
+      env.orgController.create({ name: 'Spoofed Workspace', reauthProof: 'proof' }, undefined),
     (err: unknown) => err instanceof UnauthorizedException,
   );
 
@@ -183,7 +179,7 @@ test('Resource Authorization: Property & Room scoping and isolation', async () =
   const userA = createPrincipal('user-a');
   const userB = createPrincipal('user-b');
 
-  const orgA = await env.orgController.create({ name: 'Org A' }, userA);
+  const orgA = await env.orgService.create({ name: 'Org A', primaryOwnerUserId: userA.userId });
 
   // User B tries to create Property under User A's organization -> 403 Forbidden
   await assert.rejects(
@@ -255,7 +251,7 @@ test('Resource Authorization: Listing & Rental Lifecycle permissions', async () 
   const userA = createPrincipal('user-a');
   const userB = createPrincipal('user-b');
 
-  const orgA = await env.orgController.create({ name: 'Org A' }, userA);
+  const orgA = await env.orgService.create({ name: 'Org A', primaryOwnerUserId: userA.userId });
   const propA = await env.propertyController.create(
     {
       organizationId: orgA.id,
@@ -383,7 +379,7 @@ test('Resource Authorization: Tenancy, Tenant Linked access & Finance isolation'
   const userB = createPrincipal('user-b'); // Tenant
   const userC = createPrincipal('user-c'); // Unrelated third party
 
-  const orgA = await env.orgController.create({ name: 'Org A' }, userA);
+  const orgA = await env.orgService.create({ name: 'Org A', primaryOwnerUserId: userA.userId });
   const propA = await env.propertyController.create(
     {
       organizationId: orgA.id,
@@ -434,7 +430,7 @@ test('Resource Authorization: Tenancy, Tenant Linked access & Finance isolation'
       agreedDepositRequirement: '3000000',
       termStart: '2026-10-01',
       termEnd: '2027-10-01',
-      billingDayOrDueDateRule: {},
+      billingDayOrDueDateRule: { day: 5 },
       electricityArrangement: {},
       waterArrangement: {},
       minimalRentalConditions: {},
@@ -673,7 +669,7 @@ test('Resource Authorization: Incidents scoping and role boundaries', async () =
   const userB = createPrincipal('user-b'); // Tenant
   const userC = createPrincipal('user-c'); // Stranger
 
-  const orgA = await env.orgController.create({ name: 'Org A' }, userA);
+  const orgA = await env.orgService.create({ name: 'Org A', primaryOwnerUserId: userA.userId });
   const propA = await env.propertyController.create(
     {
       organizationId: orgA.id,
@@ -765,7 +761,7 @@ test('Resource Authorization: operator Room history composes source-backed listi
   const tenant = createPrincipal('tenant-room-history');
   const stranger = createPrincipal('stranger-room-history');
 
-  const org = await env.orgController.create({ name: 'Operational History Org' }, operator);
+  const org = await env.orgService.create({ name: 'Operational History Org', primaryOwnerUserId: operator.userId });
   const property = await env.propertyController.create(
     {
       organizationId: org.id,
@@ -815,7 +811,7 @@ test('Resource Authorization: operator Room history composes source-backed listi
       agreedDepositRequirement: '3000000.00',
       termStart: '2026-09-01',
       termEnd: '2027-08-31',
-      billingDayOrDueDateRule: {},
+      billingDayOrDueDateRule: { day: 5 },
       electricityArrangement: {},
       waterArrangement: {},
       minimalRentalConditions: {},
@@ -891,7 +887,7 @@ test('Resource Authorization: former tenant keeps historical reads but loses ope
   const formerTenant = createPrincipal('former-tenant');
   const stranger = createPrincipal('history-stranger');
 
-  const org = await env.orgController.create({ name: 'History Org' }, operator);
+  const org = await env.orgService.create({ name: 'History Org', primaryOwnerUserId: operator.userId });
   const property = await env.propertyController.create(
     {
       organizationId: org.id,
@@ -924,7 +920,7 @@ test('Resource Authorization: former tenant keeps historical reads but loses ope
       agreedDepositRequirement: '3000000',
       termStart: '2026-01-01',
       termEnd: '2026-12-31',
-      billingDayOrDueDateRule: {},
+      billingDayOrDueDateRule: { day: 5 },
       electricityArrangement: {},
       waterArrangement: {},
       minimalRentalConditions: {},

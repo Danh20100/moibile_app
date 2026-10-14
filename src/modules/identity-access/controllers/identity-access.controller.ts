@@ -15,6 +15,9 @@ import {
   RefreshSessionRequestDto,
   IdentityChallengeDto,
   IdentitySessionDto,
+  ReauthenticationProofDto,
+  ReauthenticationChallengeDto,
+  ReauthenticationResponseDto,
 } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
@@ -78,6 +81,21 @@ export class IdentityAccessController {
   async revokeAllSessions(@CurrentUser() user?: VerifiedPrincipal) {
     if (!user || !this.identitySessionService) throw new UnauthorizedException('Yêu cầu phiên đăng nhập');
     return this.identitySessionService.revokeAll(user.userId);
+  }
+
+  @Post('reauth/organization-create/challenge')
+  async issueOrganizationCreateReauthChallenge(@CurrentUser() user?: VerifiedPrincipal): Promise<ReauthenticationChallengeDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.issueOrganizationCreateReauthChallenge(user.userId, user.sessionId);
+  }
+
+  @Post('reauth/organization-create/proof')
+  async completeOrganizationCreateReauth(
+    @Body() dto: ReauthenticationProofDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ReauthenticationResponseDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.completeOrganizationCreateReauth(dto, user.userId, user.sessionId);
   }
 
   @Get('me')

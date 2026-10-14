@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash, randomUUID } from 'node:crypto';
+import { BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import {
   TRANSACTION_MANAGER,
   type TransactionManager,
@@ -32,6 +32,28 @@ export class OrganizationService {
         primaryOwnerUserId: value.primaryOwnerUserId,
       }),
     );
+    return structuredClone(value);
+  }
+
+  async createWithReauthentication(dto: CreateOrganizationInput & { reauthProof: string; sessionId: string }): Promise<OrganizationProfile> {
+    if (!dto.primaryOwnerUserId || !dto.sessionId || !dto.reauthProof) throw new UnauthorizedException('Fresh reauthentication is required');
+    const value: OrganizationProfile = { id: randomUUID(), name: dto.name, primaryOwnerUserId: dto.primaryOwnerUserId };
+    const accepted = await this.transactions.run(async ({ repositories }) => {
+      const challenge = await repositories.identitySessions.consumeChallenge({
+        nonceSha256: createHash('sha256').update(dto.reauthProof).digest('hex'),
+        purpose: 'REAUTH_ORGANIZATION_CREATE', now: new Date().toISOString(),
+      });
+      if (!challenge || challenge.userId !== dto.primaryOwnerUserId || challenge.sessionId !== dto.sessionId) {
+        await repositories.identitySessions.appendSecurityEvent({ eventId: randomUUID(), userId: dto.primaryOwnerUserId,
+          sessionId: dto.sessionId, eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED', occurredAt: new Date().toISOString(),
+          requestMetadata: { operation: 'organization.create' } });
+        return false;
+      }
+      await repositories.organization.createOrganization({ organizationId: value.id, name: value.name,
+        primaryOwnerUserId: value.primaryOwnerUserId });
+      return true;
+    });
+    if (!accepted) throw new UnauthorizedException('Reauthentication proof is invalid, expired, or already used');
     return structuredClone(value);
   }
 

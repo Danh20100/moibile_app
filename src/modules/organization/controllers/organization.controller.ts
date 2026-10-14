@@ -40,9 +40,12 @@ export class OrganizationController {
     if (!user) {
       throw new UnauthorizedException('Verified principal is required');
     }
-    return this.organizationService.create({
+    if (!user.sessionId) throw new UnauthorizedException('Application session is required');
+    return this.organizationService.createWithReauthentication({
       name: dto.name,
       primaryOwnerUserId: user.userId,
+      sessionId: user.sessionId,
+      reauthProof: dto.reauthProof,
     });
   }
 

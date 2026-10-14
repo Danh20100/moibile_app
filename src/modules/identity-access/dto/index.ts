@@ -17,6 +17,10 @@ export class GoogleSessionRequestDto {
   nonce!: string;
 }
 
+export class ReauthenticationProofDto extends GoogleSessionRequestDto {}
+export class ReauthenticationChallengeDto { @ApiProperty() nonce!: string; @ApiProperty() expiresAt!: string }
+export class ReauthenticationResponseDto { @ApiProperty() proof!: string; @ApiProperty() expiresAt!: string }
+
 export class RefreshSessionRequestDto {
   @ApiProperty({ description: 'Opaque one-time refresh credential' })
   @IsString() @IsNotEmpty()

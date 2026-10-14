@@ -7,7 +7,7 @@ import { validateSync } from 'class-validator';
 
 import { PaymentDto, RecordPaymentDto } from '../../src/modules/billing/dto';
 import { CreateListingDto } from '../../src/modules/listing/dto';
-import { UpdateOrganizationDto } from '../../src/modules/organization/dto';
+import { CreateOrganizationDto, UpdateOrganizationDto } from '../../src/modules/organization/dto';
 import { UpdatePropertyDto } from '../../src/modules/property/dto';
 import { UpdateRoomDto } from '../../src/modules/room/dto';
 import { CreateGatewayCheckoutDto } from '../../src/modules/payment-gateway/dto';
@@ -65,6 +65,17 @@ test('CreateListingDto.publicLocationProjection is required', () => {
 
   assert.equal(errors.length, 1);
   assert.ok(errors[0].constraints?.isDefined);
+});
+
+test('Organization creation requires a bounded reauthentication proof and rejects client ownership', () => {
+  const validate = (payload: object) => validateSync(plainToInstance(CreateOrganizationDto, payload), {
+    whitelist: true, forbidNonWhitelisted: true,
+  });
+  assert.ok(validate({ name: 'Workspace' }).some((error) => error.property === 'reauthProof'));
+  assert.deepEqual(validate({ name: 'Workspace', reauthProof: 'a'.repeat(43) }), []);
+  assert.ok(validate({ name: 'Workspace', reauthProof: 'short' }).some((error) => error.property === 'reauthProof'));
+  assert.ok(validate({ name: 'Workspace', reauthProof: 'a'.repeat(43), primaryOwnerUserId: 'attacker' })
+    .some((error) => error.property === 'primaryOwnerUserId'));
 });
 
 test('manual Payment DTO excludes caller verification and gateway source; read DTO retains provider evidence', () => {
