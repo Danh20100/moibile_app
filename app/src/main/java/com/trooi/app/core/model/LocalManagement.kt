@@ -44,7 +44,7 @@ data class LocalRentalAsset(
         monthlyRent.toBigDecimalOrNull()?.let { it.signum() > 0 } == true &&
         advertisedDeposit.toBigDecimalOrNull()?.let { it.signum() >= 0 } == true &&
         (maxOccupants == null || maxOccupants > 0) &&
-        !(type == "Phòng trọ" && bathroomArrangement == BathroomArrangement.SHARED && "Phòng tắm riêng" in amenities)
+        !(type == "Phòng trọ" && bathroomArrangement == BathroomArrangement.SHARED && amenities.any(AmenityCatalog::isPrivateBathroom))
     fun readyToPublish(): Boolean = valid() && !occupied && description.isNotBlank() &&
         (photoUris.isNotEmpty() || photoResources.isNotEmpty())
 }

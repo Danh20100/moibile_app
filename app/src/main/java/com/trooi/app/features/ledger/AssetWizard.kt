@@ -124,7 +124,7 @@ fun AssetWizard(
             val result = onSave(asset, if (full) false else activate, if (full) false else publish)
             result.onSuccess {
                 if (full) { pendingPublish = publish; capacityStage = 1 } else onClose()
-            }.onFailure { error = "Chưa lưu được tài sản. Vui lòng kiểm tra thông tin và thử lại." }
+            }.onFailure { error = it.message ?: "Chưa lưu được tài sản. Vui lòng kiểm tra thông tin và thử lại." }
             busy = false
         }
     }
@@ -145,7 +145,7 @@ fun AssetWizard(
             modifier = Modifier.fillMaxSize().imePadding().testTag("asset-wizard"), contentWindowInsets = WindowInsets.safeDrawing,
             topBar = { TroOiPageTopAppBar(title = { Text(if (step == 0) "Thêm tài sản" else "Bước $step / 6") },
                 navigationIcon = { IconButton({ if (step > 0) step-- else exitReview = true }, enabled = !busy) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") } },
-                actions = { TroOiButton("Lưu nháp", { save(false, false) }, enabled = !busy && asset.name.isNotBlank() && asset.type.isNotBlank(),
+                actions = { TroOiButton("Lưu nháp", { save(false, false) }, enabled = !busy && asset.valid() && asset.description.isNotBlank() && asset.operationalLatitude.isNotBlank() && asset.operationalLongitude.isNotBlank(),
                     modifier = Modifier.testTag("asset-save-draft"), style = TroOiButtonStyle.TERTIARY) }) },
             bottomBar = {
                 Surface(shadowElevation = 4.dp) {
@@ -232,9 +232,10 @@ fun AssetWizard(
                     4 -> item { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Tiện nghi", style = MaterialTheme.typography.titleLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Wi-Fi", "Điều hòa", "Máy giặt", "Bếp", "Phòng tắm riêng", "Ban công", "Chỗ để xe", "Thang máy", "Camera an ninh")
-                                .filterNot { it == "Phòng tắm riêng" && asset.type == "Phòng trọ" && asset.bathroomArrangement == BathroomArrangement.SHARED }.forEach { value ->
-                                FilterChip(value in asset.amenities, { asset = asset.copy(amenities = if (value in asset.amenities) asset.amenities - value else asset.amenities + value) }, { Text(value) }, Modifier.heightIn(min = 48.dp))
+                            AmenityCatalog.options
+                                .filterNot { it.id == "private_bathroom" && asset.type == "Phòng trọ" && asset.bathroomArrangement == BathroomArrangement.SHARED }.forEach { option ->
+                                val selected = option.id in asset.amenities || option.label in asset.amenities
+                                FilterChip(selected, { asset = asset.copy(amenities = if (selected) asset.amenities - option.id - option.label else asset.amenities + option.id) }, { Text(option.label) }, Modifier.heightIn(min = 48.dp))
                             }
                         }
                         AssetField("Nội quy · mỗi dòng một điều", asset.rules.joinToString("\n"), "asset-rules", multiline = true) { asset = asset.copy(rules = it.split('\n')) }
@@ -286,7 +287,7 @@ fun AssetWizard(
         }
         if (preview) Dialog({ preview = false }, DialogProperties(usePlatformDefaultWidth = false)) {
             ListingDetailScreen(asset.listingId, { preview = false }, publicRentalDetail(PublicListingCard(asset.listingId, asset.name, asset.publicArea, null,
-                "${asset.monthlyRent}đ/tháng", ListingVisibility.DRAFT, asset.amenities, rentalDetails = asset.publicDetails(host))), preview = true)
+                "${asset.monthlyRent}đ/tháng", ListingVisibility.DRAFT, asset.amenities.map(AmenityCatalog::label), rentalDetails = asset.publicDetails(host))), preview = true)
         }
         if (exitReview) TroOiActionDialog({ exitReview = false }, title = { Text("Rời bước thêm tài sản?") }, text = { Text("Bạn có thể lưu nháp và hoàn tất sau.") },
             confirmButton = { TroOiButton("Lưu nháp", { exitReview = false; save(false, false) }, enabled = asset.name.isNotBlank() && asset.type.isNotBlank()) },
