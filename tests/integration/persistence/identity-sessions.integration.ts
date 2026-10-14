@@ -24,6 +24,14 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
   const sessionId = 'a6000000-0000-4000-8000-000000000002';
   const now = '2026-10-15T00:00:00.000Z';
   const previousGate = process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED;
+  const gatedIdentity = new IdentitySessionService(transactions, { verify: async () => { throw new Error('must not verify while gated'); } });
+  for (const gate of [undefined, 'false']) {
+    if (gate === undefined) delete process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED;
+    else process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED = gate;
+    await assert.rejects(gatedIdentity.issueChallenge('LOGIN'), ServiceUnavailableException);
+    assert.equal(await database.selectFrom('identity_auth_challenges').select('challenge_id').execute().then((rows) => rows.length), 0);
+    assert.equal(await database.selectFrom('identity_security_events').select('event_id').execute().then((rows) => rows.length), 0);
+  }
   process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED = 'true';
   try {
     await transactions.run(({ repositories }) => repositories.identity.ensureUser(userId));
