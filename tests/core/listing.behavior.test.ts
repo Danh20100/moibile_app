@@ -41,9 +41,9 @@ test('new local draft uses draft and roomId as its only ownership reference', as
 
 test('client Listing ID makes a committed draft create safe to retry', async () => {
   const service = listingService();
-  const input = { ...draftInput(), id: '8e85110c-d2cf-4f2a-9de2-2046240beeb8' };
+  const input = { ...draftInput(), publicPriceProjection: '5000000', id: '8e85110c-d2cf-4f2a-9de2-2046240beeb8' };
   const first = await service.createDraft(input);
-  const retry = await service.createDraft(input);
+  const retry = await service.createDraft({ ...input, publicPriceProjection: '5000000.00' });
   assert.equal(retry.id, first.id);
   assert.equal((await service.findByRoomId(input.roomId)).length, 1);
   await assert.rejects(service.createDraft({ ...input, roomId: 'other-room' }), BadRequestException);
