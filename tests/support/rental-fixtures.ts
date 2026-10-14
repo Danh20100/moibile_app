@@ -17,6 +17,8 @@ interface RentalPersistenceFixture {
     room: string;
     listing: string;
     tenancy: string;
+    eligibleArchiveRoom: string;
+    eligibleArchiveListing: string;
   };
   organization: OrganizationRecord;
   property: PropertyRecord;

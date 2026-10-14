@@ -23,7 +23,7 @@
     },
     "ids": {
       "type": "object",
-      "required": ["user", "org", "property", "room", "listing", "tenancy"],
+      "required": ["user", "org", "property", "room", "listing", "tenancy", "eligibleArchiveRoom", "eligibleArchiveListing"],
       "additionalProperties": false,
       "properties": {
         "user": {
@@ -49,6 +49,14 @@
         "tenancy": {
           "type": "string",
           "enum": ["80000000-0000-4000-8000-000000000001"]
+        },
+        "eligibleArchiveRoom": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000002"]
+        },
+        "eligibleArchiveListing": {
+          "type": "string",
+          "enum": ["50000000-0000-4000-8000-000000000002"]
         }
       }
     },

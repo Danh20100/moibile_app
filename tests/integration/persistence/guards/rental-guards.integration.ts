@@ -58,8 +58,8 @@ test('rental guards enforce publish activation checkout and archive rules', asyn
     assert.equal((await f.p.findRoom(f.ids.room))?.operationalState, expected.inactive);
     assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.unpublished);
 
-    const eligibleRoomId = '40000000-0000-4000-8000-000000000002';
-    const eligibleListingId = '50000000-0000-4000-8000-000000000002';
+    const eligibleRoomId = f.ids.eligibleArchiveRoom;
+    const eligibleListingId = f.ids.eligibleArchiveListing;
     await f.p.createRoom({ ...data.room, roomId: eligibleRoomId, nameOrLabel: 'R2' });
     await f.listings.createListing({ ...data.listing, listingId: eligibleListingId, roomId: eligibleRoomId });
     await c.publishListing(eligibleListingId);
