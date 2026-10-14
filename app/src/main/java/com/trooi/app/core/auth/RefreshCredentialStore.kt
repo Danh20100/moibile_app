@@ -32,7 +32,7 @@ class RefreshCredentialStore(private val context: Context) {
     }
 
     fun clear() {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit())
     }
 
     private fun key(): SecretKey {

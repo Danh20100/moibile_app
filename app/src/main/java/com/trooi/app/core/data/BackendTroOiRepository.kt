@@ -117,10 +117,34 @@ class BackendTroOiRepository @Inject constructor(
 
     override suspend fun refreshSessionContext(): Result<UserSession> = try {
         refreshCredentials?.let { store ->
-            val refresh = store.read() ?: throw IllegalStateException("Không có refresh credential đã bảo vệ.")
-            val rotated = api.refreshIdentitySession(refresh).required("refresh identity session")
-            tokens.setToken(rotated.accessToken)
-            store.write(rotated.refreshToken)
+            val refresh = store.read() ?: run {
+                clearSession()
+                throw IllegalStateException("Không có refresh credential đã bảo vệ.")
+            }
+            val rotated = try {
+                val rotation = when (val outcome = api.refreshIdentitySession(refresh)) {
+                    is ApiOutcome.Data -> outcome.value
+                    is ApiOutcome.Failure -> throw IllegalStateException(
+                        "refresh identity session thất bại: ${outcome.kind}" +
+                            (outcome.httpStatus?.let { " (HTTP $it)" } ?: ""),
+                    )
+                }
+                require(rotation.accessToken.isNotBlank() && rotation.refreshToken.isNotBlank()) {
+                    "Backend trả refresh session không hợp lệ."
+                }
+                rotation
+            } catch (error: RuntimeException) {
+                // A lost response may follow a committed rotation; replaying the old token can revoke its family.
+                clearSession()
+                throw error
+            }
+            try {
+                store.write(rotated.refreshToken)
+                tokens.setToken(rotated.accessToken)
+            } catch (error: RuntimeException) {
+                clearSession()
+                throw error
+            }
         }
         val session = api.getSessionContext().required("session context")
         Result.success(UserSession(
