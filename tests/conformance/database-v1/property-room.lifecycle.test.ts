@@ -27,7 +27,7 @@ test('PROPERTY archive API derives blockers server-side after owner authorizatio
   assert.match(contracts, /\bPropertyArchiveBlockers\b/);
   assert.doesNotMatch(dto, /\bPropertyArchiveBlockers\b|\bhasNonTerminalTenancy\b/);
   assert.match(controller, /assertOperatesProperty\(user\.userId, id\)/);
-  assert.match(controller, /lifecycle!\.archiveProperty\(id\)/);
+  assert.match(controller, /lifecycle\.archiveProperty\(id\)/);
   assert.match(controller, /@Post\(':id\/archive'\)/);
 });
 
@@ -112,6 +112,6 @@ test('ROOM archive route requires owner authorization and derives blockers from 
   const controller = readRepoFile('src/modules/room/controllers/room.controller.ts');
   assert.match(controller, /@Post\(':id\/archive'\)/);
   assert.match(controller, /assertOperatesRoom\(user\.userId, id\)/);
-  assert.match(controller, /lifecycle!\.archiveRoom\(id\)/);
+  assert.match(controller, /lifecycle\.archiveRoom\(id\)/);
   assert.doesNotMatch(controller, /hasNonTerminalTenancy|hasOpenIncident/);
 });

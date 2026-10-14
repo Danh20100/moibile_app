@@ -49,11 +49,23 @@ test('rental guards enforce publish activation checkout and archive rules', asyn
     const incident = await incidents.findIncident(data.incident.incidentId);
     assert.ok(incident);
     await incidents.updateIncident({ ...incident, ...data.incidentClosure });
-    await c.archiveRoom(f.ids.room);
-    assert.equal((await f.p.findRoom(f.ids.room))?.recordLifecycle, expected.archived);
-    assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.archived);
-    await c.archiveProperty(f.ids.property);
-    assert.equal((await f.p.findProperty(f.ids.property))?.lifecycleStatus, expected.archived);
+    await assert.rejects(
+      c.archiveRoom(f.ids.room),
+      (error: unknown) =>
+        error instanceof RentalGuardViolation && error.guard === expected.archiveBlocker,
+    );
+    assert.equal((await f.p.findRoom(f.ids.room))?.recordLifecycle, 'ACTIVE');
+    assert.equal((await f.p.findRoom(f.ids.room))?.operationalState, expected.inactive);
+    assert.equal((await f.listings.findListing(f.ids.listing))?.status, expected.unpublished);
+
+    const eligibleRoomId = '40000000-0000-4000-8000-000000000002';
+    const eligibleListingId = '50000000-0000-4000-8000-000000000002';
+    await f.p.createRoom({ ...data.room, roomId: eligibleRoomId, nameOrLabel: 'R2' });
+    await f.listings.createListing({ ...data.listing, listingId: eligibleListingId, roomId: eligibleRoomId });
+    await c.publishListing(eligibleListingId);
+    await c.archiveRoom(eligibleRoomId);
+    assert.equal((await f.p.findRoom(eligibleRoomId))?.recordLifecycle, expected.archived);
+    assert.equal((await f.listings.findListing(eligibleListingId))?.status, expected.archived);
   } finally {
     await f.db.destroy();
   }

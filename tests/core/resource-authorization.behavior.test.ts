@@ -30,6 +30,7 @@ import { TenancySupportController } from '../../src/modules/tenancy/controllers/
 import { TenancyNoticeService } from '../../src/modules/tenancy/services/tenancy-notice.service';
 import { TenancyParticipantService } from '../../src/modules/tenancy/services/tenancy-participant.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
+import { RentalTransactionCoordinator } from '../../src/persistence/guards/rental-transaction-coordinator';
 import { TenancyTermsService } from '../../src/modules/tenancy/services/tenancy-terms.service';
 import { TermsAcknowledgementService } from '../../src/modules/tenancy/services/terms-acknowledgement.service';
 import { createCoreTestTransactionManager } from './support/in-memory-transaction-manager';
@@ -52,10 +53,11 @@ function setupTestEnvironment() {
   const orgController = new OrganizationController(orgService, authz);
 
   const propertyService = new PropertyService(orgService, transactions);
-  const propertyController = new PropertyController(propertyService, authz);
+  const lifecycle = new RentalTransactionCoordinator(transactions);
+  const propertyController = new PropertyController(propertyService, authz, lifecycle);
 
   const roomService = new RoomService(propertyService, transactions);
-  const roomController = new RoomController(roomService, authz);
+  const roomController = new RoomController(roomService, authz, lifecycle);
 
   const listingService = new ListingService(transactions);
   const listingController = new ListingController(listingService, authz);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Optional, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
@@ -16,8 +16,8 @@ export class RoomController {
     private readonly roomService: RoomService,
     @Inject(ResourceAuthorizationService)
     private readonly authz: ResourceAuthorizationService,
-    @Optional() @Inject(RentalTransactionCoordinator)
-    private readonly lifecycle?: RentalTransactionCoordinator,
+    @Inject(RentalTransactionCoordinator)
+    private readonly lifecycle: RentalTransactionCoordinator,
   ) {}
 
   @Post()
@@ -92,7 +92,7 @@ export class RoomController {
   @Post(':id/archive')
   async archive(@Param('id') id: string, @CurrentUser() user: VerifiedPrincipal): Promise<RoomProfile> {
     await this.authz.assertOperatesRoom(user.userId, id);
-    await this.lifecycle!.archiveRoom(id);
+    await this.lifecycle.archiveRoom(id);
     return this.roomService.findById(id);
   }
 }
