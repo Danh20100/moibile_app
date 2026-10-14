@@ -32,7 +32,7 @@ class TroOiRepositoryImpl private constructor(
         lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) },
         backend,
         false,
-        DemoBackendLogin(backendClient, backendApi, tokens),
+        DemoBackendLogin(backendClient, backendApi, tokens, context),
     )
 
     // Retain fixture-only constructors for legacy instrumentation tests, regardless of DEV preference.
@@ -52,7 +52,10 @@ class TroOiRepositoryImpl private constructor(
         backend?.clearSession()
     }
 
-    override suspend fun refreshSessionContext() = selected().refreshSessionContext()
+    override suspend fun refreshSessionContext() =
+        if (!pinnedFixtureForTests && RuntimeDataSource.isBackendBacked() && com.trooi.app.BuildConfig.DEMO_BACKEND_ENABLED) {
+            checkNotNull(demoLogin).restore()
+        } else selected().refreshSessionContext()
     override suspend fun refreshPublicListings() = selected().refreshPublicListings()
     override suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>) = selected().loadPublicListingPhotos(listingId, mediaIds)
     override suspend fun searchPublicListings(

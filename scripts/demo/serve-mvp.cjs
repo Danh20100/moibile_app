@@ -38,6 +38,7 @@ if (!['localhost', '127.0.0.1', '[::1]'].includes(database.hostname)) {
 }
 
 const accessTokens = new Map();
+const refreshTokens = new Map();
 const tokenLifetimeMs = 12 * 60 * 60 * 1000;
 const password = process.env.TROOI_DEMO_PASSWORD || 'TroOiDemo2026!';
 let transactions;
@@ -52,25 +53,41 @@ function demoPrincipal(request) {
   return { ...session.principal };
 }
 
+function issueDemoSession(principal) {
+  const accessToken = randomBytes(32).toString('base64url');
+  const refreshToken = randomBytes(48).toString('base64url');
+  const session = { expiresAt: Date.now() + tokenLifetimeMs, principal };
+  accessTokens.set(accessToken, session);
+  refreshTokens.set(refreshToken, session);
+  return { accessToken, refreshToken, userId: principal.userId, displayName: principal.name, expiresInSeconds: tokenLifetimeMs / 1000 };
+}
+
 class DemoMvpController {
   async login(body) {
     const account = accounts.find((entry) => entry.identifier === body?.identifier);
     if (!account || body?.password !== password) throw new UnauthorizedException('Invalid demo credentials');
-    const accessToken = randomBytes(32).toString('base64url');
     const sessionId = randomUUID();
-    accessTokens.set(accessToken, {
-      expiresAt: Date.now() + tokenLifetimeMs,
-      principal: {
-        userId: account.userId,
-        provider: 'google',
-        issuer: 'trooi.demo.local',
-        subject: account.userId,
-        name: account.name,
-        sessionId,
-        authenticatedAt: new Date().toISOString(),
-      },
-    });
-    return { accessToken, userId: account.userId, displayName: account.name, expiresInSeconds: tokenLifetimeMs / 1000 };
+    const principal = {
+      userId: account.userId,
+      provider: 'google',
+      issuer: 'trooi.demo.local',
+      subject: account.userId,
+      name: account.name,
+      sessionId,
+      authenticatedAt: new Date().toISOString(),
+    };
+    return issueDemoSession(principal);
+  }
+
+  async refresh(body) {
+    const refreshToken = body?.refreshToken;
+    const session = typeof refreshToken === 'string' ? refreshTokens.get(refreshToken) : null;
+    if (!session || session.expiresAt <= Date.now()) {
+      if (refreshToken) refreshTokens.delete(refreshToken);
+      throw new UnauthorizedException('Demo refresh credential expired or already rotated');
+    }
+    refreshTokens.delete(refreshToken);
+    return issueDemoSession(session.principal);
   }
 
   async fixtureStatus() {
@@ -81,6 +98,9 @@ Controller('demo')(DemoMvpController);
 Public()(DemoMvpController.prototype, 'login', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'login'));
 Post('login')(DemoMvpController.prototype, 'login', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'login'));
 Body()(DemoMvpController.prototype, 'login', 0);
+Public()(DemoMvpController.prototype, 'refresh', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'refresh'));
+Post('refresh')(DemoMvpController.prototype, 'refresh', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'refresh'));
+Body()(DemoMvpController.prototype, 'refresh', 0);
 Get('status')(DemoMvpController.prototype, 'fixtureStatus', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'fixtureStatus'));
 Public()(DemoMvpController.prototype, 'fixtureStatus', Object.getOwnPropertyDescriptor(DemoMvpController.prototype, 'fixtureStatus'));
 

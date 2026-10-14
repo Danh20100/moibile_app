@@ -1,19 +1,26 @@
 package com.trooi.app.core.data
 
+import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.trooi.app.core.auth.NoRestoreCredential
+import com.trooi.app.core.auth.RefreshCredentialStore
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.network.AuthTokenProvider
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.network.dto.BackendJsonCodec
 import com.trooi.app.core.network.dto.TransportOutcome
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 internal class DemoBackendLogin(
     private val client: BackendClient,
     private val api: BackendApi,
     private val tokens: AuthTokenProvider,
+    @ApplicationContext context: Context,
 ) {
+    private val refreshCredentials = RefreshCredentialStore(context)
+
     suspend fun login(identifier: String, password: String): Result<UserSession> = runCatching {
         val payload = JsonObject().apply {
             addProperty("identifier", identifier.trim())
@@ -29,29 +36,63 @@ internal class DemoBackendLogin(
         require(response.accessToken.isNotBlank()) { "Demo backend returned an empty session." }
         tokens.setToken(response.accessToken)
         try {
-            val context = when (val outcome = api.getSessionContext(response.accessToken)) {
-                is com.trooi.app.core.network.dto.ApiOutcome.Data -> outcome.value
-                is com.trooi.app.core.network.dto.ApiOutcome.Failure -> error("Demo session context failed: ${outcome.kind}")
-            }
-            require(context.userId == response.userId)
-            UserSession(
-                userId = context.userId,
-                displayName = context.name ?: response.displayName,
-                email = context.email,
-                pictureUrl = context.pictureUrl,
-                access = AccessCapabilities(
-                    linkedTenancyIds = context.linkedTenancyIds.toSet(),
-                    operatedOrganizationIds = context.operatedOrganizationIds.toSet(),
-                ),
-            )
+            require(response.refreshToken.isNotBlank()) { "Demo backend returned no refresh credential." }
+            refreshCredentials.write(response.refreshToken)
+            resolve(response)
         } catch (error: RuntimeException) {
             tokens.clear()
+            refreshCredentials.clear()
             throw error
         }
     }
 
+    suspend fun restore(): Result<UserSession> = runCatching {
+        val refreshToken = refreshCredentials.read() ?: throw NoRestoreCredential()
+        val payload = JsonObject().apply { addProperty("refreshToken", refreshToken) }.toString()
+        val response = when (val outcome = client.postJson("demo/refresh", payload)) {
+            is TransportOutcome.Success -> Gson().fromJson(
+                BackendJsonCodec.unwrapResponseData(outcome.document.rawBody),
+                DemoAccessTransport::class.java,
+            )
+            is TransportOutcome.Failure -> {
+                tokens.clear()
+                refreshCredentials.clear()
+                error("Demo session refresh failed: ${outcome.kind}")
+            }
+        }
+        require(response.accessToken.isNotBlank() && response.refreshToken.isNotBlank())
+        refreshCredentials.write(response.refreshToken)
+        tokens.setToken(response.accessToken)
+        resolve(response)
+    }.onFailure {
+        if (it !is NoRestoreCredential) {
+            tokens.clear()
+            refreshCredentials.clear()
+        }
+    }
+
+    private suspend fun resolve(response: DemoAccessTransport): UserSession {
+        require(response.accessToken.isNotBlank()) { "Demo backend returned an empty session." }
+        val context = when (val outcome = api.getSessionContext(response.accessToken)) {
+                is com.trooi.app.core.network.dto.ApiOutcome.Data -> outcome.value
+                is com.trooi.app.core.network.dto.ApiOutcome.Failure -> error("Demo session context failed: ${outcome.kind}")
+            }
+            require(context.userId == response.userId)
+        return UserSession(
+            userId = context.userId,
+            displayName = context.name ?: response.displayName,
+            email = context.email,
+            pictureUrl = context.pictureUrl,
+            access = AccessCapabilities(
+                linkedTenancyIds = context.linkedTenancyIds.toSet(),
+                operatedOrganizationIds = context.operatedOrganizationIds.toSet(),
+            ),
+        )
+    }
+
     private data class DemoAccessTransport(
         val accessToken: String,
+        val refreshToken: String,
         val userId: String,
         val displayName: String,
     )
