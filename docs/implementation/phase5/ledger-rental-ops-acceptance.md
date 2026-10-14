@@ -49,7 +49,7 @@ Android caller path is `AssetWizard → TroOiViewModel → BackendTroOiRepositor
 | Photo media ID, MIME, size, position and created time | `listing_asset_media` (migration `000011`) | Only owner-authorized metadata routes expose it. Cover is position zero; no photo blob, Android path or S3 credential is canonical DB data. |
 | Photo bytes | Private MinIO object key `rental-assets/<listing-id>/<media-id>.<jpg|png>` | Authenticated owner retrieval only. Object key and private bucket are not public Listing fields. Android cache files are disposable display cache. |
 
-The Listing → media foreign key uses `ON DELETE NO ACTION`. `000011` is additive; migrations `000001`–`000010`, the frozen Identity `000008`, and historical tenancy/payment ownership remain untouched. The down migration refuses to drop uploaded user data. Reordering runs in one PostgreSQL transaction with deferred uniqueness and positions restricted to `0..9`. A repeated media UUID with different bytes conflicts; same-byte retry returns the existing metadata. Removal deletes the private object before metadata so an object-store failure leaves the DB reference available for retry.
+The Listing → media foreign key uses `ON DELETE NO ACTION`. `000011` is additive; migrations `000001`–`000010`, the frozen Identity `000008`, and historical tenancy/payment ownership remain untouched. The down migration refuses to drop uploaded user data. Reordering runs in one PostgreSQL transaction with deferred uniqueness and positions restricted to `0..9`. A repeated media UUID with different bytes conflicts; same-byte retry returns the existing metadata. Removal reads and verifies the private object, deletes it before metadata, and compensates a failed metadata transaction by restoring the bytes. If restore also fails, the API returns 503 `Asset photo removal needs reconciliation` and retains the metadata row. A process crash between object deletion and metadata commit is still not crash-safe; durable delete intents/background reconciliation remain deferred.
 
 ### Media routes
 
@@ -61,13 +61,13 @@ All routes are under `/api/v1` and require AuthGuard plus server-side Listing ow
 | `POST /listings/:id/media` | Validate and upload bounded JPEG/PNG bytes, then persist metadata. Idempotent by `mediaId`. |
 | `GET /listings/:id/media/:mediaId/content` | Authenticated base64 content read from private MinIO. |
 | `PATCH /listings/:id/media/order` | Require an exact permutation of current media IDs; transactionally update position. |
-| `DELETE /listings/:id/media/:mediaId` | Delete object and metadata, compact order; object-delete failure retains metadata for retry. |
+| `DELETE /listings/:id/media/:mediaId` | Delete object and metadata, compact order; object-delete failure retains metadata, transaction failure restores bytes, and failed restoration returns 503 while retaining metadata for reconciliation. |
 
 The request body parser allows the bounded base64 envelope (8 MiB); the service rejects payloads over 5 MiB, unsupported MIME, invalid JPEG/PNG content and images over 16 megapixels. An interrupted MinIO PUT is cleaned up on caught DB/request failures. A process crash after PUT but before metadata commit can leave a private unindexed object; retries use the same stable media ID/object key and overwrite it. Periodic bucket reconciliation is a remaining storage-operations improvement.
 
 ## Terms, billing and payment
 
-The added Terms editor writes versioned data with explicitly user-entered rent, deposit requirement, dates, electricity/water arrangements and obligations. It does not copy rent from Listing. Billing now selects persisted Terms and accepts multiple `RENT`, `ELECTRICITY`, and `WATER` charges in one cycle. Backend validation and tenancy ownership checks remain authoritative.
+The added Terms editor writes versioned data with explicitly user-entered rent, deposit requirement, dates, billing day, electricity/water arrangements and obligations. The Android form requires a due day from 1 through 31 and stores it in the existing `billingDayOrDueDateRule` JSON as `{ "day": n }`; its HTTP contract test checks request and readback. It does not copy rent from Listing. Billing now selects persisted Terms and accepts multiple `RENT`, `ELECTRICITY`, and `WATER` charges in one cycle. The existing backend JSON contract remains open for compatibility and does not itself enforce this Android shape/range; direct callers may still submit other rules. Behavior for due days 29–31 in shorter months remains unspecified.
 
 The client-only `REAUTH_UNAVAILABLE` refusal was removed for ordinary authorized operator Ledger operations (Terms, Billing, manual Payment, allocation, Deposit and Receipt). Backend authentication, operator/participant ownership and finance invariants still apply. There is no step-up proof/session lifecycle yet; these operations rely on the existing authenticated session and API authorization. This is a deliberate MVP tradeoff, not a claim that reauthentication exists.
 
@@ -97,11 +97,11 @@ All database runs use isolated `trooi_test` at `127.0.0.1:55518`. Media MinIO te
 | Isolated Billing and Finance guards | 2/2 PASS |
 | Asset details HTTP/PostgreSQL/public privacy | 1/1 PASS |
 | Media validation + migration rollback guard | 2/2 PASS. |
-| Asset media PostgreSQL ordering/retry/delete failure | 1/1 PASS; delete failure retained metadata for retry. |
+| Asset media PostgreSQL ordering/retry/delete failure | 1/1 PASS; verified restoration after DB transaction failure, explicit 503 with retained metadata when restoration also fails, and MinIO delete failure retry. |
 | Asset media MinIO upload, DB reconnect, readback and delete | 1/1 PASS |
 | Asset media HTTP owner/outsider authorization | 1/1 PASS |
 | Messaging PostgreSQL/MinIO integration | 1/1 PASS (test verifier; not live Google). |
-| Android JVM `:app:testDebugUnitTest` | 222/222 PASS. |
+| Android JVM `:app:testDebugUnitTest` | 223/223 PASS, including Terms due-day HTTP payload/readback. |
 | Android `:app:assembleDebug`, `:app:assembleRelease`, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin` | PASS. |
 | Connected `ProtectedRentalSubmissionTest` | 1 test PASS on `emulator-5554` (Android 17); does not exercise the full Ledger workflow. |
 | App install/launch | APK installed without clearing data; launched to Google sign-in. |
@@ -125,5 +125,7 @@ The first full test run caught the Identity/KYC isolation static check flagging 
 - `12c8d30` — `feat(ledger): persist private asset photos`
 - `946a916` — `feat(android): upload and reload private asset photos`
 - `b3e1cfd` — `feat(ledger): connect terms and manual billing`
+- `ae47387` — `fix(storage): surface failed asset removal compensation`
+- Current Android due-day fix and acceptance-document commits are listed in the final completion handoff.
 - The acceptance-report commit and exact final branch HEAD are listed in the completion handoff.
 - No push/merge occurred, the source `integration/profile-ledger-candidate` worktree was not edited, and no other agent worktree was touched.

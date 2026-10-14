@@ -93,6 +93,8 @@ The P5.2B evidence above is the original handoff snapshot. The continuation belo
 - [x] Add versioned Terms editing and multi-charge Billing entry to the existing Ledger Android route; keep advertised Listing offers separate from agreed Terms and Finance records.
 - [x] Preserve manual `USER_RECORDED` payment provenance, server ownership checks, Payment/Deposit/Receipt conservation and existing rental lifecycle/atomic archive authority.
 - [x] Add versioned JSON media scenario and standalone JPEG/PNG test images. Do not claim the existing full monthly-operation journey is executable; J04 is still `spec_only`.
+- [x] Compensate photo removal when PostgreSQL metadata deletion fails; surface HTTP 503 and retain the metadata row if MinIO restoration also fails. Crash-safe deletion intent/reconciliation remains a documented limitation.
+- [x] Record the agreed monthly due day in Android Terms (`billingDayOrDueDateRule.day`) and read it back; MockWebServer contract test verifies the round trip.
 - [ ] Complete Android UI → API → PostgreSQL/MinIO save/reopen for an authorized operator and tenant, including payment, incident, checkout and historical readback.
 - [ ] Approve the Identity/session/audit cutover and Owner onboarding contract before ordinary Google users can create/claim Organizations. The runtime Identity gate remains disabled.
 - [ ] Run complete monthly rental operations from a single executable fixture; no live provider or real money is required for manual-payment acceptance.
@@ -106,3 +108,5 @@ Current acceptance, detailed API/migration mapping, test evidence, emulator bloc
 - Initial handoff discrepancy: `IdentityAccessService.authenticateWithGoogle()` called `identity.ensureUser(principal.userId)`, and `AuthGuard.canActivate()` used its separately derived ID; neither resolved durable `auth_identities`. The implementation below replaces both paths with the shared resolver behind the disabled activation gate.
 - Database structure/repository foundation is present but frozen contract explicitly says runtime activation is BLOCKED pending Account Verification/session/security cutover. Production Google Messages and security flows remain unverified.
 - This branch is for implementation; these environment tests **do not** imply all Profile/Identity or Ledger features are implemented.
+
+Latest continuation verification (2026-10-14): Backend typecheck/lint/build PASS; `pnpm test` 468/468; database-v1 conformance 58/58; PostgreSQL photo compensation 1/1; real MinIO reconnect/readback 1/1; authenticated photo HTTP 1/1; Android JVM 223/223; Debug/Release APK, lint, Android-test Kotlin compilation PASS; focused `ProtectedRentalSubmissionTest` 1/1 on emulator. Full Android rental workflow remains gated at Google sign-in and is not `PASS_FULLSTACK`.
