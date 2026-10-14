@@ -7,6 +7,7 @@ import type { TenancyTermsRecord } from '../../../persistence/ports/tenancy.repo
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { CreateTenancyTermsInput, TenancyTerms } from '../contracts';
 import { TenancyService } from './tenancy.service';
+import { isBillingDayRule } from '../domain/terms-billing-day';
 
 const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -27,6 +28,9 @@ export class TenancyTermsService {
     this.assertCalendarDate(input.termStart, 'termStart');
     this.assertCalendarDate(input.termEnd, 'termEnd');
     this.assertCalendarDate(input.effectiveFromCycleBoundary, 'effectiveFromCycleBoundary');
+    if (!isBillingDayRule(input.billingDayOrDueDateRule)) {
+      throw new BadRequestException('billingDayOrDueDateRule must be exactly { day: integer 1..31 }');
+    }
     if (input.termEnd < input.termStart) {
       throw new BadRequestException('termEnd must not precede termStart');
     }

@@ -270,7 +270,7 @@ object BackendJsonCodec {
         termStart = obj.requiredString("termStart"),
         termEnd = obj.requiredString("termEnd"),
         effectiveFromCycleBoundary = obj.requiredString("effectiveFromCycleBoundary"),
-        billingDayOrDueDateRule = obj.requiredObject("billingDayOrDueDateRule"),
+        billingDayOrDueDateRule = obj.required("billingDayOrDueDateRule"),
         electricityArrangement = obj.requiredObject("electricityArrangement"),
         waterArrangement = obj.requiredObject("waterArrangement"),
         minimalRentalConditions = obj.requiredObject("minimalRentalConditions"),

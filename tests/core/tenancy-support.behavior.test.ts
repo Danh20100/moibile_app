@@ -176,6 +176,12 @@ test('Terms opaque arrangement objects round-trip defensively', async () => {
   assert.deepEqual((await terms.findById(created.id)).electricityArrangement, { mode: 'manual' });
 });
 
+test('Terms creation rejects unknown billing day rules', async () => {
+  const { tenancy, terms } = await supportFixture();
+  await assert.rejects(terms.createVersion({ ...termsInput(tenancy.id), billingDayOrDueDateRule: {} }), BadRequestException);
+  await assert.rejects(terms.createVersion({ ...termsInput(tenancy.id), billingDayOrDueDateRule: { day: 5, old: true } }), BadRequestException);
+});
+
 test('Terms acknowledgement validates same Tenancy and linked User identity', async () => {
   const { tenancy, participants, terms, acknowledgements } = await supportFixture();
   const participant = await participants.add({

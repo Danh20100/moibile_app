@@ -106,6 +106,17 @@ class V1CompletionContractTest {
             assertEquals(5, request.getAsJsonObject("billingDayOrDueDateRule").get("day").asInt)
         }
     }
+
+    @Test fun historicalTermsWithUnknownBillingRuleShapeStillReadWithoutInferringADay() = runBlocking {
+        MockWebServer().use { server ->
+            server.ok("""[{"id":"terms-old","tenancyId":"t-1","version":1,"rentAmount":"1000.00","agreedDepositRequirement":"500.00","termStart":"2025-01-01","termEnd":"2025-12-31","effectiveFromCycleBoundary":"2025-01-01","billingDayOrDueDateRule":[],"electricityArrangement":"metered","waterArrangement":"fixed","minimalRentalConditions":"old"}]""")
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val terms = V1RentalGateway(client(server)).terms("t-1")
+            assertEquals(1, terms.size)
+            assertNull(terms.single().billingDay)
+            assertEquals("/api/v1/tenancies/t-1/terms", server.takeRequest().path)
+        }
+    }
     @Test fun forbiddenFutureChargeAndGatewayPaymentsAreRejectedLocally() = runBlocking {
         MockWebServer().use { server ->
             server.start(InetAddress.getLoopbackAddress(), 0)

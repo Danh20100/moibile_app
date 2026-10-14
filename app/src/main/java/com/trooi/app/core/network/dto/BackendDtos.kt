@@ -117,7 +117,7 @@ data class TenancyTermsTransport(
     val termStart: String,
     val termEnd: String,
     val effectiveFromCycleBoundary: String,
-    val billingDayOrDueDateRule: JsonObject = JsonObject(),
+    val billingDayOrDueDateRule: JsonElement = JsonObject(),
     val electricityArrangement: JsonObject = JsonObject(),
     val waterArrangement: JsonObject = JsonObject(),
     val minimalRentalConditions: JsonObject = JsonObject(),

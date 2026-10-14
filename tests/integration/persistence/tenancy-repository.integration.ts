@@ -74,6 +74,10 @@ test('tenancy adapter preserves vocabulary, exact values, uniqueness, dates, and
     await tenancies.insertTerms(terms);
     assert.deepEqual(await tenancies.findTermsVersion(tenancyId, 1), terms);
     assert.deepEqual(await tenancies.findTermsById(termsId), terms);
+    const historicalTerms = { ...terms, tenancyTermsId: '83000000-0000-4000-8000-000000000003', version: 2, billingDayOrDueDateRule: {} };
+    await tenancies.insertTerms(historicalTerms);
+    assert.deepEqual((await tenancies.findTermsById(historicalTerms.tenancyTermsId))?.billingDayOrDueDateRule, {},
+      'historical JSON shape is returned unchanged');
     await assert.rejects(tenancies.insertTerms({ ...terms, tenancyTermsId: '83000000-0000-4000-8000-000000000002' }), PersistenceUniqueViolation);
 
     await tenancies.insertAcknowledgement({

@@ -9,10 +9,20 @@ import {
   IsString,
   Matches,
   Min,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
+import { isBillingDayRule } from '../domain/terms-billing-day';
 
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+@ValidatorConstraint({ name: 'billingDayRule', async: false })
+class BillingDayRuleConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean { return isBillingDayRule(value); }
+  defaultMessage(): string { return 'billingDayOrDueDateRule must be exactly { day: integer 1..31 }'; }
+}
 
 export class AddTenancyParticipantDto {
   @ApiPropertyOptional()
@@ -69,8 +79,9 @@ export class CreateTenancyTermsDto {
   @Matches(CALENDAR_DATE)
   termEnd!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: 'object', additionalProperties: false, properties: { day: { type: 'integer', minimum: 1, maximum: 31 } } })
   @IsDefined()
+  @Validate(BillingDayRuleConstraint)
   billingDayOrDueDateRule!: unknown;
 
   @ApiProperty()
