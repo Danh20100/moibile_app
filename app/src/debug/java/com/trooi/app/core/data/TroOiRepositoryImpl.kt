@@ -223,7 +223,7 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> =
         Result.failure(IllegalStateException("Preview chỉ hiển thị giao diện; chưa gửi yêu cầu khôi phục."))
 
-    override suspend fun submitInquiry(listingId: String, message: String): Result<Unit> =
+    override suspend fun submitInquiry(listingId: String, message: String): Result<String> =
         Result.failure(IllegalStateException("Preview không tạo Inquiry thật."))
 
     override suspend fun loadNotification(notificationId: String): Result<NotificationCard> =

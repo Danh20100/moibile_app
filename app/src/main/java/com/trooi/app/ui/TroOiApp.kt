@@ -238,7 +238,7 @@ fun TroOiApp(
                     AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
                         viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage,
                         onDetailVisibilityChanged = { messageDetailVisible = it },
-                        onOpenContext = viewModel::openMessageContext,
+                        onOpenContext = viewModel::openMessageContext, onContextSelected = viewModel::consumeMessageContext,
                         onRead = viewModel::readMessageConversation,
                         onAttachment = viewModel::loadMessageAttachment)
                     AppPage.GuestMap -> V1GuestMapScreen(
@@ -253,7 +253,7 @@ fun TroOiApp(
                                 ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId))
                     } else V1ListingDetailScreen(
                         state = state, listingId = page.listingId, onBack = viewModel::goBack,
-                        onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry,
+                        onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry, onMessageContext = viewModel::openMessageContext,
                         onOpenReport = viewModel::openTrustReport,
                     )
                     is AppPage.TrustReport -> TrustReportScreen(
@@ -281,8 +281,9 @@ fun TroOiApp(
                                 focusId = authorized?.target?.id?.takeIf { it.isNotBlank() },
                                 onExit = viewModel::goBack,
                                 onUnauthorized = viewModel::logout,
+                                onMessageContext = viewModel::openMessageContext,
                             )
-                        } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout)
+                        } else V1TenantFlow(state, viewModel::openDiscovery, viewModel::logout, viewModel::openMessageContext)
                     } else V1TenantPortalScreen(state, viewModel::openDiscovery)
                     AppPage.TenantFinance -> if (state.demoPreview) com.trooi.app.features.tenancy.RentPaymentScreen(
                         state, viewModel::openCoreWorkspace, viewModel::finishDemoPayment, viewModel::retryAuthorizedRead, viewModel::rememberedDemoPayment,
@@ -332,6 +333,7 @@ fun TroOiApp(
                             organizationId,
                             entry = state.authorizedSource?.let(::operatorEntry),
                             onUnauthorized = viewModel::logout,
+                                onMessageContext = viewModel::openMessageContext,
                             onWorkspaceCreated = viewModel::refreshSessionContext,
                         )
                     } else V1OwnerPropertiesScreen(state)

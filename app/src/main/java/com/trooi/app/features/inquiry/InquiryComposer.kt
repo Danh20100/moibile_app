@@ -17,6 +17,7 @@ fun InquiryComposer(
     listingId: String,
     onOpenLogin: () -> Unit,
     onSubmit: (String, String) -> Unit,
+    onMessageContext: (String, String) -> Unit = { _, _ -> },
 ) {
     var message by remember(listingId) { mutableStateOf("") }
     val completed = state.inquiryCompletedListingId == listingId
@@ -29,6 +30,7 @@ fun InquiryComposer(
         } else if (completed) {
             Text("Đã gửi yêu cầu liên hệ.", modifier = Modifier.testTag("inquiry-success"))
             TroOiFeedback("Bạn có thể theo dõi phản hồi khi có cập nhật mới.")
+            state.inquiryCompletedId?.let { id -> TroOiButton("Nhắn tin", { onMessageContext("inquiry", id) }, modifier = Modifier.testTag("inquiry-message-context")) }
         } else {
             TroOiFormField(
                 value = message,

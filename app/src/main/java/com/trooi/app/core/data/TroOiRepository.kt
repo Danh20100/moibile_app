@@ -25,7 +25,7 @@ interface TroOiRepository {
         if (images.isNotEmpty()) return Result.failure(IllegalStateException("Ảnh không khả dụng trong chế độ demo."))
         return saveLocalMessage(expectedUserId, conversationId, text).map { it.conversations }
     }
-    suspend fun openConversation(contextType: String, contextId: String): Result<Unit> = Result.failure(IllegalStateException("Cần kết nối Backend."))
+    suspend fun openConversation(contextType: String, contextId: String): Result<String> = Result.failure(IllegalStateException("Cần kết nối Backend."))
     suspend fun readConversation(id: String): Result<Unit> = Result.success(Unit)
     suspend fun messageAttachment(conversationId: String, attachmentId: String): Result<ByteArray> = Result.failure(IllegalStateException("Ảnh không khả dụng."))
     suspend fun loadLocalConversations(): Result<List<com.trooi.app.core.model.ConversationCard>> = Result.success(emptyList())
@@ -68,5 +68,5 @@ interface TroOiRepository {
     suspend fun requestPasswordReset(identifier: String): Result<Unit>
 
     /** Inquiry is contact intent, never booking/chat state. */
-    suspend fun submitInquiry(listingId: String, message: String): Result<Unit>
+    suspend fun submitInquiry(listingId: String, message: String): Result<String>
 }

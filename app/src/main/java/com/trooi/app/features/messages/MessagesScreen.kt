@@ -58,12 +58,16 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
     onSave: suspend (String, String, List<LocalMessageImage>) -> Result<Unit>,
     onDetailVisibilityChanged: (Boolean) -> Unit = {},
     onOpenContext: (String, String) -> Unit = { _, _ -> },
+    onContextSelected: () -> Unit = {},
     onRead: suspend (String) -> Unit = {},
     onAttachment: suspend (String, String) -> Result<ByteArray> = { _, _ -> Result.failure(IllegalStateException()) }) {
     var selectedId by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var search by rememberSaveable(state.backendUserId) { mutableStateOf("") }
     var contextId by rememberSaveable(state.backendUserId) { mutableStateOf("") }
     var contextType by rememberSaveable(state.backendUserId) { mutableStateOf("inquiry") }
+    LaunchedEffect(state.messageConversationId, state.read.conversations) {
+        state.messageConversationId?.takeIf { id -> state.read.conversations.any { it.id == id } }?.let { selectedId = it; onContextSelected() }
+    }
     val selected = state.read.conversations.firstOrNull { it.id == selectedId }
     LaunchedEffect(selected != null) { onDetailVisibilityChanged(selected != null) }
     DisposableEffect(Unit) { onDispose { onDetailVisibilityChanged(false) } }
@@ -80,7 +84,7 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
         (it.counterpartName + " " + it.rentalLabel).contains(search.trim(), ignoreCase = true) }
         .sortedByDescending { it.messages.lastOrNull()?.createdAt }
     LazyColumn(Modifier.fillMaxSize().testTag("messages-screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (com.trooi.app.core.data.RuntimeDataSource.isBackendBacked()) item {
+        if (com.trooi.app.BuildConfig.DEBUG && com.trooi.app.core.data.RuntimeDataSource.isBackendBacked()) item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Mở cuộc trò chuyện từ yêu cầu hoặc hợp đồng", style = MaterialTheme.typography.titleMedium)
                 Row {
@@ -89,10 +93,10 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
                     FilterChip(contextType == "tenancy", { contextType = "tenancy" }, { Text("Hợp đồng") })
                 }
                 TroOiFormField(contextId, { contextId = it }, label = { Text("ID yêu cầu / hợp đồng") }, singleLine = true)
-                Button(onClick = { onOpenContext(contextType, contextId.trim()) }, enabled = runCatching {
+                TroOiButton("Mở cuộc trò chuyện", onClick = { onOpenContext(contextType, contextId.trim()) }, enabled = runCatching {
                     java.util.UUID.fromString(contextId.trim()).toString().equals(contextId.trim(), true)
-                }.getOrDefault(false)) { Text("Mở cuộc trò chuyện") }
-                TextButton(onClick = onReload) { Text("Làm mới") }
+                }.getOrDefault(false))
+                TroOiButton("Làm mới", onReload, style = TroOiButtonStyle.TERTIARY)
             }
         }
         item { TroOiPageHeader("Tin nhắn", "Trao đổi quanh tài sản thuê") }
@@ -189,7 +193,7 @@ private fun ConversationScreen(conversation: ConversationCard, userId: String, o
         HorizontalDivider()
         if (refreshFailed) Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Chưa cập nhật được tin nhắn.", Modifier.weight(1f), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = onReload) { Text("Thử lại") }
+            TroOiButton("Thử lại", onReload, style = TroOiButtonStyle.TERTIARY)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("conversation-messages"), state = list,
             contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {

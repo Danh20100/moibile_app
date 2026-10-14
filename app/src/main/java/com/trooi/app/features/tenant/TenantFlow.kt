@@ -14,7 +14,7 @@ import com.trooi.app.ui.components.*
 
 /** Only Backend-session-linked Tenancy IDs are browsable, including former rental history. */
 @Composable
-fun V1TenantFlow(state: TroOiUiState, onFindRooms: () -> Unit, onUnauthorized: () -> Unit) {
+fun V1TenantFlow(state: TroOiUiState, onFindRooms: () -> Unit, onUnauthorized: () -> Unit, onMessageContext: (String, String) -> Unit = { _, _ -> }) {
     var openedId by remember(state.displayName, state.access.linkedTenancyIds) { mutableStateOf<String?>(null) }
     val owned = state.access.linkedTenancyIds.sorted()
     if (openedId != null) {
@@ -23,6 +23,7 @@ fun V1TenantFlow(state: TroOiUiState, onFindRooms: () -> Unit, onUnauthorized: (
             linkedTenancyId = openedId,
             onExit = { openedId = null },
             onUnauthorized = onUnauthorized,
+            onMessageContext = onMessageContext,
         )
         return
     }

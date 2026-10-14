@@ -32,6 +32,7 @@ fun V1RentalWorkspace(
     focusId: String? = null,
     onExit: () -> Unit,
     onUnauthorized: () -> Unit,
+    onMessageContext: (String, String) -> Unit = { _, _ -> },
     model: RentalViewModel = hiltViewModel(),
 ) {
     val state by model.ui.collectAsStateWithLifecycle()
@@ -122,6 +123,7 @@ fun V1RentalWorkspace(
                 state.tenancy?.takeIf { it.id == route.id }?.let { tenancy ->
                     item {
                         TroOiCard("Lượt thuê") {
+                            TroOiButton("Nhắn tin", { onMessageContext("tenancy", tenancy.id) }, modifier = Modifier.testTag("tenancy-message-context"))
                             TroOiInformationRow("Trạng thái", tenancyStatusLabel(tenancy.status))
                             if (tenancy.startedAt != null) TroOiInformationRow("Bắt đầu", tenancy.startedAt)
                             if (tenancy.endedAt != null) TroOiInformationRow("Kết thúc", tenancy.endedAt)

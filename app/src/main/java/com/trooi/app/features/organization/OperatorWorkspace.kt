@@ -33,6 +33,7 @@ fun V1OperatorWorkspace(
     organizationId: String,
     entry: OperatorRoute? = null,
     onUnauthorized: () -> Unit,
+    onMessageContext: (String, String) -> Unit = { _, _ -> },
     onWorkspaceCreated: () -> Unit,
     model: OperatorViewModel = hiltViewModel(),
 ) {
@@ -57,6 +58,7 @@ fun V1OperatorWorkspace(
             focusId = rental.focusId,
             onExit = { model.back() },
             onUnauthorized = onUnauthorized,
+            onMessageContext = onMessageContext,
         )
         return
     }
@@ -551,6 +553,7 @@ fun V1OperatorWorkspace(
                     item {
                         TroOiCard("Yêu cầu liên hệ") {
                             Text(entry.message)
+                            TroOiButton("Nhắn tin", { onMessageContext("inquiry", entry.id) }, modifier = Modifier.testTag("operator-inquiry-message-context"))
                             TroOiInformationRow("Trạng thái", entry.status)
                             TroOiFeedback("Yêu cầu liên hệ không tự động giữ phòng hoặc tạo lượt thuê.")
                         }

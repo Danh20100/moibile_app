@@ -59,7 +59,7 @@ internal fun SecureMessagePhotoGrid(userId: String, conversationId: String, ids:
                 failed = value == null
             }
             if (photo != null) Image(photo!!, "Ảnh đính kèm riêng tư", Modifier.fillMaxWidth().height(172.dp).clip(RoundedCornerShape(11.dp)), contentScale = ContentScale.Crop)
-            else if (failed) androidx.compose.material3.TextButton(onClick = { retry++ }) { androidx.compose.material3.Text("Không tải được ảnh · Thử lại") }
+            else if (failed) com.trooi.app.ui.components.TroOiButton("Không tải được ảnh · Thử lại", { retry++ }, style = com.trooi.app.ui.components.TroOiButtonStyle.TERTIARY)
             else androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp))
         }
     }

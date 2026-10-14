@@ -181,7 +181,9 @@ class TroOiViewModel @Inject constructor(
             val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.loadLocalConversations() }
             if (generation != sessionGeneration) return@launch
             result.fold(
-                onSuccess = { conversations -> _state.update { it.copy(messagesLoading = false, read = it.read.copy(conversations = conversations)) } },
+                onSuccess = { conversations -> _state.update { it.copy(messagesLoading = false, read = it.read.copy(conversations = conversations.map { card -> card.copy(messages =
+                    (card.messages + it.read.conversations.firstOrNull { old -> old.id == card.id }?.messages.orEmpty())
+                        .distinctBy { message -> message.id }.sortedBy { message -> message.createdAt }) })) } },
                 onFailure = { _state.update { it.copy(messagesLoading = false, messagesLoadFailed = true) } },
             )
         }
@@ -395,7 +397,7 @@ class TroOiViewModel @Inject constructor(
         if (publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == listingId }) {
             return showMessage("Tin đăng này không có trong danh sách công khai.")
         }
-        _state.update { it.copy(inquiryCompletedListingId = null, inquiryError = null) }
+        _state.update { it.copy(inquiryCompletedListingId = null, inquiryCompletedId = null, inquiryError = null) }
         open(AppPage.ListingDetail(listingId))
     }
 
@@ -659,13 +661,19 @@ class TroOiViewModel @Inject constructor(
         if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập."))
         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repository.sendMessage(userId, conversationId, text, images) }
         if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đã thay đổi."))
-        return result.map { conversations -> _state.update { it.copy(read = it.read.copy(conversations = conversations)) }; Unit }
+        return result.map { conversations -> _state.update { current -> current.copy(read = current.read.copy(
+            conversations = conversations.map { card -> card.copy(messages =
+                (card.messages + current.read.conversations.firstOrNull { it.id == card.id }?.messages.orEmpty())
+                    .distinctBy { it.id }.sortedBy { it.createdAt }) })) }; Unit }
     }
+    fun consumeMessageContext() { _state.update { it.copy(messageConversationId = null) } }
     fun openMessageContext(type: String, id: String) {
         val generation = sessionGeneration
         viewModelScope.launch {
             repository.openConversation(type, id).fold(
-                { if (generation == sessionGeneration) openMessages() },
+                { conversationId -> if (generation == sessionGeneration) {
+                    _state.update { it.copy(messageConversationId = conversationId) }; openMessages()
+                } },
                 { if (generation == sessionGeneration) showMessage("Không mở được cuộc trò chuyện: ${it.message}") },
             )
         }
@@ -756,12 +764,12 @@ class TroOiViewModel @Inject constructor(
             return showMessage("Không thể liên hệ về tin đăng chưa công khai.")
         }
         val generation = sessionGeneration
-        _state.update { it.copy(submittingInquiry = true, inquiryCompletedListingId = null, inquiryError = null) }
+        _state.update { it.copy(submittingInquiry = true, inquiryCompletedListingId = null, inquiryCompletedId = null, inquiryError = null) }
         viewModelScope.launch {
             repository.submitInquiry(listingId, clean).fold(
-                onSuccess = {
+                onSuccess = { inquiryId ->
                     if (generation == sessionGeneration) _state.update {
-                        it.copy(submittingInquiry = false, inquiryCompletedListingId = listingId,
+                        it.copy(submittingInquiry = false, inquiryCompletedListingId = listingId, inquiryCompletedId = inquiryId,
                             inquiryError = null, snackbarMessage = "Hệ thống đã ghi nhận yêu cầu liên hệ.")
                     }
                 },
@@ -849,7 +857,7 @@ class TroOiViewModel @Inject constructor(
                 authInProgress = false,
                 runtimeLoading = false,
                 submittingInquiry = false,
-                inquiryCompletedListingId = null,
+                inquiryCompletedListingId = null, inquiryCompletedId = null, messageConversationId = null,
                 inquiryError = null,
                 submittingTrustReport = false,
                 trustReceipt = null,

@@ -252,6 +252,7 @@ fun V1ListingDetailScreen(
     onOpenLogin: () -> Unit,
     onSubmitInquiry: (String, String) -> Unit,
     onOpenReport: (String) -> Unit,
+    onMessageContext: (String, String) -> Unit = { _, _ -> },
 ) {
     BackHandler(onBack = onBack)
     val listing = publicDiscoveryFeed(state.read.publicListings).firstOrNull { it.listingId == listingId }
@@ -304,7 +305,7 @@ fun V1ListingDetailScreen(
                 }
             }
             item { LedgerDivider() }
-            item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry) }
+            item { InquiryComposer(state, listing.listingId, onOpenLogin, onSubmitInquiry, onMessageContext) }
             item {
                 TroOiButton(
                     "Báo cáo tin đăng",

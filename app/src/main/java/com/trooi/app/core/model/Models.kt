@@ -52,6 +52,8 @@ data class TroOiUiState(
     val messagesLoadFailed: Boolean = false,
     val submittingInquiry: Boolean = false,
     val inquiryCompletedListingId: String? = null,
+    val inquiryCompletedId: String? = null,
+    val messageConversationId: String? = null,
     val inquiryError: String? = null,
     val submittingTrustReport: Boolean = false,
     val trustReceipt: TrustReportReceipt? = null,
