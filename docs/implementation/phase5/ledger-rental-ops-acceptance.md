@@ -19,7 +19,6 @@ The existing backend tenancy, Terms, finance, incident, checkout/history and con
 The required combined Owner → Tenant → historical readback journey was **not** demonstrated through Android UI. The installed emulator launches to Google sign-in, and `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` remains disabled. This report does not call the implementation `PASS_FULLSTACK` or live-Google acceptance.
 
 ## Feature matrix
-
 | Feature | Status | Evidence and limit |
 | --- | --- | --- |
 | Existing Property/Room/Asset fields | `PASS_BACKEND_ONLY` | Existing P5.2B field mapping in [ledger-acceptance.md](ledger-acceptance.md); fresh Asset details HTTP/PostgreSQL test 1/1 verifies owner write/read, outsider denial and public projection privacy. |
@@ -38,7 +37,6 @@ The required combined Owner → Tenant → historical readback journey was **not
 ## AssetWizard and persistence mapping
 
 Android caller path is `AssetWizard → TroOiViewModel → BackendTroOiRepository → BackendApi → NestJS`. Non-media Asset field mapping remains as documented in P5.2B. Summary:
-
 | User data | Authoritative storage | Privacy / lifecycle |
 | --- | --- | --- |
 | Organization ownership | `organizations.primary_owner_user_id` and authorization queries | Caller cannot supply authority; test owner is pre-authorized. |
@@ -54,7 +52,6 @@ The Listing → media foreign key uses `ON DELETE NO ACTION`. `000011` is additi
 ### Media routes
 
 All routes are under `/api/v1` and require AuthGuard plus server-side Listing ownership:
-
 | Route | Behavior |
 | --- | --- |
 | `GET /listings/:id/media` | List ordered private image metadata. |
@@ -83,7 +80,6 @@ These steps were **not manually executed on the emulator** because the app remai
 ## Verification evidence
 
 All database runs use isolated `trooi_test` at `127.0.0.1:55518`. Media MinIO tests use the local disposable `trooi-ledger-test` bucket and remove their test objects.
-
 | Command / test | Result |
 | --- | --- |
 | `pnpm typecheck` | PASS |
@@ -91,16 +87,14 @@ All database runs use isolated `trooi_test` at `127.0.0.1:55518`. Media MinIO te
 | `pnpm build` | PASS |
 | `pnpm test` | 468/468 PASS (fresh final run with isolated `DATABASE_URL` and `TEST_DATABASE_URL`). |
 | `pnpm test:conformance:database-v1` | 58/58 PASS |
-| Tenancy/lifecycle/incident/archive focused behavior | 55/55 PASS |
-| Finance/manual payment focused behavior and HTTP | 38/38 PASS |
-| Isolated rental archive/checkout guards | 2/2 PASS |
-| Isolated Billing and Finance guards | 2/2 PASS |
+| Core Tenancy, Incident, archive, Finance, manual-payment and gateway behavior | 81/81 PASS on the fresh focused behavior/HTTP run. |
+| Isolated PostgreSQL rental/checkout, Finance and Billing guards | 4/4 PASS, rerun against `trooi_test`. |
 | Asset details HTTP/PostgreSQL/public privacy | 1/1 PASS |
 | Media validation + migration rollback guard | 2/2 PASS. |
 | Asset media PostgreSQL ordering/retry/delete failure | 1/1 PASS; verified restoration after DB transaction failure, explicit 503 with retained metadata when restoration also fails, and MinIO delete failure retry. |
 | Asset media MinIO upload, DB reconnect, readback and delete | 1/1 PASS |
 | Asset media HTTP owner/outsider authorization | 1/1 PASS |
-| Messaging PostgreSQL/MinIO integration | 1/1 PASS (test verifier; not live Google). |
+| Messaging PostgreSQL/MinIO integration | 1/1 PASS on fresh rerun (test verifier; not live Google). |
 | Android JVM `:app:testDebugUnitTest` | 223/223 PASS, including Terms due-day HTTP payload/readback. |
 | Android `:app:assembleDebug`, `:app:assembleRelease`, `:app:lintDebug`, `:app:compileDebugAndroidTestKotlin` | PASS. |
 | Connected `ProtectedRentalSubmissionTest` | 1 test PASS on `emulator-5554` (Android 17); does not exercise the full Ledger workflow. |
