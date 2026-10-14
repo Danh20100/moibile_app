@@ -95,6 +95,17 @@ class V1CompletionContractTest {
         }
     }
 
+    @Test fun termsPersistAndReadBackAgreedMonthlyDueDay() = runBlocking {
+        MockWebServer().use { server ->
+            server.ok("""{"id":"terms-1","tenancyId":"t-1","version":1,"rentAmount":"1000.00","agreedDepositRequirement":"500.00","termStart":"2026-10-01","termEnd":"2027-09-30","effectiveFromCycleBoundary":"2026-10-01","billingDayOrDueDateRule":{"day":5},"electricityArrangement":"metered","waterArrangement":"fixed","minimalRentalConditions":"quiet hours"}""")
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val api = V1RentalGateway(client(server))
+            val terms = api.createTerms("t-1", 1, "1000.00", "500.00", "2026-10-01", "2027-09-30", "2026-10-01", 5, "metered", "fixed", "quiet hours")
+            assertEquals(5, terms.billingDay)
+            val request = JsonParser.parseString(server.takeRequest().body.readUtf8()).asJsonObject
+            assertEquals(5, request.getAsJsonObject("billingDayOrDueDateRule").get("day").asInt)
+        }
+    }
     @Test fun forbiddenFutureChargeAndGatewayPaymentsAreRejectedLocally() = runBlocking {
         MockWebServer().use { server ->
             server.start(InetAddress.getLoopbackAddress(), 0)

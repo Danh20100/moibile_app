@@ -287,11 +287,11 @@ class RentalViewModel @Inject constructor(
         api.acknowledgeTerms(tenancyId, termsId, participantId)
     }
 
-    fun createTerms(tenancyId: String, rent: String, deposit: String, from: String, to: String, effectiveFrom: String,
+    fun createTerms(tenancyId: String, rent: String, deposit: String, from: String, to: String, effectiveFrom: String, dueDay: Int,
         electricity: String, water: String, obligations: String) = write {
         require(!_ui.value.tenantMode) { "Người thuê không thể phát hành phiên bản Terms." }
         val version = (_ui.value.terms.maxOfOrNull { it.version } ?: 0) + 1
-        val created = api.createTerms(tenancyId, version, rent, deposit, from, to, effectiveFrom, electricity, water, obligations)
+        val created = api.createTerms(tenancyId, version, rent, deposit, from, to, effectiveFrom, dueDay, electricity, water, obligations)
         require(created.tenancyId == tenancyId && created.version == version) { "Backend trả Terms không khớp yêu cầu." }
         _ui.update { it.copy(terms = api.terms(tenancyId)) }
     }

@@ -13,7 +13,7 @@ import javax.inject.Inject
 data class RentalTenancy(val id: String, val roomId: String, val status: String, val startedAt: String?, val endedAt: String?)
 data class RentalParticipant(val id: String, val tenancyId: String, val role: String, val userId: String?, val leftAt: String?)
 data class RentalTerms(val id: String, val tenancyId: String, val version: Int, val rentAmount: String, val depositRequirement: String, val termStart: String, val termEnd: String, val effectiveFrom: String,
-    val electricityArrangement: String, val waterArrangement: String, val obligations: String)
+    val electricityArrangement: String, val waterArrangement: String, val obligations: String, val billingDay: Int?)
 data class RentalNotice(val id: String, val tenancyId: String, val type: String, val content: String, val issuedAt: String, val acknowledgedAt: String?)
 data class RentalCharge(val id: String, val type: String, val amount: String)
 data class RentalBilling(val id: String, val tenancyId: String, val termsId: String, val from: String, val to: String, val charges: List<RentalCharge>)
@@ -129,13 +129,14 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     suspend fun termsDetail(id: String, termId: String): RentalTerms =
         read(client.get("tenancies/${segment(id)}/terms/${segment(termId)}", true), ::terms)
     suspend fun createTerms(id: String, version: Int, rent: String, deposit: String, from: String, to: String,
-        effectiveFrom: String, electricity: String, water: String, obligations: String): RentalTerms {
+        effectiveFrom: String, billingDay: Int, electricity: String, water: String, obligations: String): RentalTerms {
         require(version > 0 && validMoney(rent) && validMoney(deposit) && from.isNotBlank() && to.isNotBlank() && effectiveFrom.isNotBlank())
+        require(billingDay in 1..31) { "Ngày đến hạn phải từ 1 đến 31." }
         require(electricity.isNotBlank() && water.isNotBlank() && obligations.isNotBlank()) { "Cần ghi nhận điện, nước và nghĩa vụ đã thống nhất." }
         val body = JsonObject().apply {
             addProperty("version", version); addProperty("rentAmount", rent); addProperty("agreedDepositRequirement", deposit)
             addProperty("termStart", from); addProperty("termEnd", to); addProperty("effectiveFromCycleBoundary", effectiveFrom)
-            add("billingDayOrDueDateRule", JsonObject())
+            add("billingDayOrDueDateRule", JsonObject().apply { addProperty("day", billingDay) })
             addProperty("electricityArrangement", electricity); addProperty("waterArrangement", water); addProperty("minimalRentalConditions", obligations)
         }
         return read(client.postJson("tenancies/${segment(id)}/terms", body.toString(), true), ::terms)
@@ -297,7 +298,8 @@ class V1RentalGateway @Inject constructor(private val client: BackendClient) {
     private fun participant(x: JsonObject) = RentalParticipant(x.req("id"), x.req("tenancyId"), x.req("role"), x.opt("userId"), x.opt("leftAt"))
     private fun terms(x: JsonObject) = RentalTerms(x.req("id"), x.req("tenancyId"), x.get("version").asInt, x.req("rentAmount"),
         x.req("agreedDepositRequirement"), x.req("termStart"), x.req("termEnd"), x.req("effectiveFromCycleBoundary"),
-        x.textValue("electricityArrangement"), x.textValue("waterArrangement"), x.textValue("minimalRentalConditions"))
+        x.textValue("electricityArrangement"), x.textValue("waterArrangement"), x.textValue("minimalRentalConditions"),
+        x.get("billingDayOrDueDateRule")?.takeIf { it.isJsonObject }?.asJsonObject?.get("day")?.takeIf { !it.isJsonNull }?.asInt)
     private fun notice(x: JsonObject) = RentalNotice(x.req("id"), x.req("tenancyId"), x.req("noticeType"), x.req("contentOrNote"),
         x.req("issuedAt"), x.opt("acknowledgedAt"))
     private fun charge(x: JsonObject) = RentalCharge(x.req("id"), x.req("type"), x.req("amount"))

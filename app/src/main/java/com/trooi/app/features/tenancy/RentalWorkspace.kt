@@ -60,6 +60,7 @@ fun V1RentalWorkspace(
     var termsStart by remember(state.route) { mutableStateOf("") }
     var termsEnd by remember(state.route) { mutableStateOf("") }
     var termsEffective by remember(state.route) { mutableStateOf("") }
+    var termsDueDay by remember(state.route) { mutableStateOf("") }
     var termsElectricity by remember(state.route) { mutableStateOf("") }
     var termsWater by remember(state.route) { mutableStateOf("") }
     var termsObligations by remember(state.route) { mutableStateOf("") }
@@ -201,6 +202,7 @@ fun V1RentalWorkspace(
                         TroOiInformationRow("Tiền thuê", terms.rentAmount)
                         TroOiInformationRow("Mức cọc yêu cầu", terms.depositRequirement)
                         TroOiInformationRow("Hiệu lực", terms.effectiveFrom)
+                        terms.billingDay?.let { TroOiInformationRow("Ngày đến hạn", it.toString()) }
                         Text("Từ ${terms.termStart} đến ${terms.termEnd}")
                         TroOiInformationRow("Điện theo thỏa thuận", terms.electricityArrangement)
                         TroOiInformationRow("Nước theo thỏa thuận", terms.waterArrangement)
@@ -232,13 +234,14 @@ fun V1RentalWorkspace(
                         TroOiFormField(termsStart, { termsStart = it }, label = { Text("Ngày bắt đầu · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-start"))
                         TroOiFormField(termsEnd, { termsEnd = it }, label = { Text("Ngày kết thúc · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-end"))
                         TroOiFormField(termsEffective, { termsEffective = it }, label = { Text("Kỳ hiệu lực đầu · YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-effective"))
+                        TroOiFormField(termsDueDay, { termsDueDay = it.filter(Char::isDigit).take(2) }, label = { Text("Ngày đến hạn hàng tháng · 1–31") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-due-day"))
                         TroOiFormField(termsElectricity, { termsElectricity = it }, label = { Text("Điện · cách tính hai bên thống nhất") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-electricity"))
                         TroOiFormField(termsWater, { termsWater = it }, label = { Text("Nước · cách tính hai bên thống nhất") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("terms-water"))
                         TroOiFormField(termsObligations, { termsObligations = it }, label = { Text("Nghĩa vụ đã thống nhất") }, modifier = Modifier.fillMaxWidth().testTag("terms-obligations"))
                         TroOiFeedback("Phiên bản Terms chỉ lưu thông tin hai bên đã thống nhất; giá Listing không được tự chép thành hợp đồng.")
-                        TroOiButton("Tạo phiên bản điều khoản", { model.createTerms(route.id, termsRent, termsDeposit, termsStart, termsEnd, termsEffective, termsElectricity, termsWater, termsObligations) },
+                        TroOiButton("Tạo phiên bản điều khoản", { model.createTerms(route.id, termsRent, termsDeposit, termsStart, termsEnd, termsEffective, termsDueDay.toIntOrNull() ?: 0, termsElectricity, termsWater, termsObligations) },
                             enabled = !state.busy && termsRent.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) && termsDeposit.matches(Regex("\\d{1,16}(\\.\\d{1,2})?")) &&
-                                termsStart.isNotBlank() && termsEnd.isNotBlank() && termsEffective.isNotBlank() && termsElectricity.isNotBlank() && termsWater.isNotBlank() && termsObligations.isNotBlank(),
+                                termsStart.isNotBlank() && termsEnd.isNotBlank() && termsEffective.isNotBlank() && termsDueDay.toIntOrNull() in 1..31 && termsElectricity.isNotBlank() && termsWater.isNotBlank() && termsObligations.isNotBlank(),
                             modifier = Modifier.testTag("terms-create"))
                     }
                 }
