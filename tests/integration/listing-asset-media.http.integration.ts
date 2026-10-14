@@ -18,6 +18,7 @@ import { GooglePrincipalResolver } from '../../src/modules/identity-access/servi
 import { ListingModule } from '../../src/modules/listing/listing.module';
 import { ListingService } from '../../src/modules/listing/services/listing.service';
 import { rentalPersistenceFixture, rentalAssetMediaFlow } from '../support/rental-fixtures';
+import { listingAssetFixture } from '../support/listing-asset-fixtures';
 
 const issuer = 'https://accounts.google.com';
 const subjects = [randomUUID(), randomUUID()];
@@ -74,7 +75,10 @@ test('owner photo API stores private MinIO bytes and denies another account', { 
     const approved = await request(0, `/${mediaId}/public`, { method: 'PATCH', body: JSON.stringify({ isPublic: true }) });
     assert.equal(approved.status, 200);
     assert.equal((await approved.json() as any).data.isPublic, true);
-    await app.get(ListingService).saveAssetDetails(listingId, { managementStatus: 'ACTIVE', amenityIds: [], rules: [] });
+    await app.get(ListingService).saveAssetDetails(listingId, {
+      ...listingAssetFixture.details,
+      managementStatus: 'ACTIVE',
+    });
     await app.get(ListingService).transition(listingId, 'published', { reasonCode: 'TEST', actorType: 'USER', actorUserId: users[0]!, trigger: 'COMMAND' });
     const publicListings = await fetch(`${await app.getUrl()}/${API_PREFIX}/listings/public`);
     const listing = ((await publicListings.json() as any).data as any[]).find((value) => value.id === listingId);
