@@ -147,7 +147,7 @@ test('concurrent Google authentication preserves User references and never links
   }
 });
 
-test('frozen v1 snapshot upgrades without rekeying Users and empty migration rollback can bootstrap again', async () => {
+test('frozen v1 snapshot upgrades without rekeying Users and media rollback guard preserves the schema', async () => {
   const url = process.env.TEST_DATABASE_URL;
   assert.ok(url, 'TEST_DATABASE_URL is required');
   await resetPublicSchema(url);
@@ -196,14 +196,18 @@ test('frozen v1 snapshot upgrades without rekeying Users and empty migration rol
         kind + ' v1 entries preserved',
       );
 
-    // Destructive down verification is confined to an empty isolated test schema.
+    // Rollback of the data-bearing media migration must remain guarded, even in integration setup.
     await resetPublicSchema(url);
     await runMigrations('up', url);
-    const count = (
-      await client.query<{ count: number }>('SELECT count(*)::int AS count FROM schema_migrations')
-    ).rows[0]!.count;
-    for (let index = 0; index < count; index++) await runMigrations('down', url);
-    assert.equal((await queryCatalog(url)).tables.length, 0);
+    await runMigrations('down', url); // 000013: no pending intents
+    await runMigrations('down', url); // 000012: no public-photo records
+    await assert.rejects(
+      runMigrations('down', url),
+      /Migration 000011 contains user-uploaded private Asset photos/,
+    );
+    assert.ok((await queryCatalog(url)).tables.includes('listing_asset_media'));
+    // Reset the disposable test schema through the explicitly guarded test harness.
+    await resetPublicSchema(url);
     await runMigrations('up', url);
     const rebuilt = await queryCatalog(url);
     for (const [kind, names] of Object.entries(catalogBefore))
