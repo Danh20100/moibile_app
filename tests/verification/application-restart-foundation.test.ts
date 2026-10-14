@@ -3,6 +3,22 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { loadFixture, validateFixture } from '../support/fixture-loader';
+import { assertSafeTestDatabaseUrl } from '../integration/persistence/support/postgres-test-harness';
+
+test('application restart integration refuses remote or non-test database reset targets', () => {
+  assert.equal(
+    assertSafeTestDatabaseUrl('postgres://tester:secret@127.0.0.1:5432/trooi_test'),
+    'postgres://tester:secret@127.0.0.1:5432/trooi_test',
+  );
+  assert.throws(
+    () => assertSafeTestDatabaseUrl('postgres://tester:secret@db.example:5432/trooi_test'),
+    /Only a local trooi_test database may be reset/,
+  );
+  assert.throws(
+    () => assertSafeTestDatabaseUrl('postgres://tester:secret@127.0.0.1:5432/trooi_dev'),
+    /Only a local trooi_test database may be reset/,
+  );
+});
 
 test('application restart uses schema-validated business fixtures and preserves the allocated balance comparison', () => {
   const fixture = loadFixture<Record<string, unknown>>('payment/application-restart');

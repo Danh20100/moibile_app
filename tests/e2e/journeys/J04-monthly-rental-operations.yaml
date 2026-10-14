@@ -1,6 +1,11 @@
 id: J04
 name: active-tenancy-monthly-operations
 status: spec_only
+backend_partial:
+  command: pnpm test:ledger:lifecycle-restart
+  fixture: tests/fixtures/payment/application-restart.json
+  covers: [postgres-restart-readback, rental-lifecycle, manual-payment-provenance, billing-allocation, deposit, receipt, incident-timeline, notice]
+  missing: [http-api-authorization, private-photo-upload-readback, tenant-linked-read-authorization, authenticated-android-flow]
 flow_chain:
   - PORTAL-01
   - BILL-01

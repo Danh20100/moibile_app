@@ -21,7 +21,7 @@ import { IncidentService } from '../../../src/modules/incident/services/incident
 import { RentalLifecycleCoordinator } from '../../../src/modules/rental-lifecycle/services/rental-lifecycle.coordinator';
 import { AuditTrustService } from '../../../src/modules/audit-trust/services/audit-trust.service';
 import { runMigrations } from '../../../scripts/database/migrate';
-import { resetPublicSchema } from './support/postgres-test-harness';
+import { assertSafeTestDatabaseUrl, resetPublicSchema } from './support/postgres-test-harness';
 import { listingAssetFixture } from '../../support/listing-asset-fixtures';
 
 function runtime(databaseUrl: string) {
@@ -70,6 +70,7 @@ function runtime(databaseUrl: string) {
 test('core application state remains readable after database client restart', async () => {
   const databaseUrl = process.env.TEST_DATABASE_URL;
   assert.ok(databaseUrl, 'TEST_DATABASE_URL is required');
+  assertSafeTestDatabaseUrl(databaseUrl);
   await resetPublicSchema(databaseUrl);
   await runMigrations('up', databaseUrl);
 

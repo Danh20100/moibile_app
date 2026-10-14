@@ -11,10 +11,19 @@ export interface PhysicalCatalog {
   indexes: string[];
 }
 
-export async function resetPublicSchema(databaseUrl: string): Promise<void> {
-  if (decodeURIComponent(new URL(databaseUrl).pathname.slice(1)) !== 'trooi_test') {
-    throw new Error('Only trooi_test may be reset');
+const LOCAL_TEST_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+export function assertSafeTestDatabaseUrl(databaseUrl: string): string {
+  const parsed = new URL(databaseUrl);
+  const databaseName = decodeURIComponent(parsed.pathname.slice(1));
+  if (!LOCAL_TEST_HOSTS.has(parsed.hostname) || databaseName !== 'trooi_test') {
+    throw new Error('Only a local trooi_test database may be reset');
   }
+  return databaseUrl;
+}
+
+export async function resetPublicSchema(databaseUrl: string): Promise<void> {
+  assertSafeTestDatabaseUrl(databaseUrl);
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
