@@ -180,6 +180,7 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal(sent.body.data.delivery, 'server');
     const attachment = sent.body.data.attachments[0].id;
     const received = await request(1, `/${conversation}/messages/page?limit=1`);
+    assert.equal(received.status, 200, JSON.stringify(received.body));
     assert.equal(received.body.data.messages[0].text, 'A to B');
     assert.equal(received.body.data.hasMore, false);
     const image = await request(1, `/${conversation}/attachments/${attachment}`);
@@ -190,14 +191,18 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
     assert.equal((await request(2, '')).body.data.length, 0);
     assert.equal((await request(2, `/${conversation}/read`, {})).status, 403);
     assert.equal((await request(2, `/${conversation}/messages`, { text: 'outsider' })).status, 403);
-    const sentBack = await request(1, `/${conversation}/messages`, { text: 'B to A' });
-    assert.equal(sentBack.status, 201);
-    await db.updateTable('messaging_messages')
-      .set({ created_at: '2026-10-14T00:00:00.000Z' })
-      .where('conversation_id', '=', conversation)
-      .execute();
+    // Seed a tie in the immutable history to exercise the UUID cursor tiebreaker.
+    let sentBackId = randomUUID();
+    while (sentBackId <= sent.body.data.id) sentBackId = randomUUID();
+    await db.insertInto('messaging_messages').values({
+      message_id: sentBackId,
+      conversation_id: conversation,
+      sender_user_id: ids[1],
+      text: 'B to A',
+      created_at: sent.body.data.createdAt,
+    }).execute();
     const latestPage = await request(0, `/${conversation}/messages/page?limit=1`);
-    assert.equal(latestPage.body.data.messages[0].id, sentBack.body.data.id);
+    assert.equal(latestPage.body.data.messages[0].id, sentBackId);
     assert.equal(latestPage.body.data.messages[0].text, 'B to A');
     assert.equal(latestPage.body.data.hasMore, true);
     assert.ok(latestPage.body.data.nextCursor);

@@ -52,7 +52,12 @@ export class MessagingController {
   }
   @Get(':id/messages/page') messagePage(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+    @Query(new ValidationPipe({
+      expectedType: ListMessagesQueryDto,
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }))
     query: ListMessagesQueryDto,
     @CurrentUser() user?: VerifiedPrincipal,
   ) {
