@@ -174,7 +174,7 @@ class NativeRemainingStatesTest {
         }
     }
 
-    @Test fun onboardingRetainsPersonalDraftAndCannotAdvanceWithoutIdentityMedia() {
+    @Test fun onboardingCannotAdvanceWithoutIdentityMediaAndCancelDoesNotComplete() {
         for (dark in listOf(false, true)) {
             var dismisses = 0
             var finishes = 0
@@ -190,18 +190,13 @@ class NativeRemainingStatesTest {
                         }
                     }
                 } }
-                text("Bắt đầu làm chủ trọ"); capture("onboarding-start", dark); click("Bắt đầu")
-                set(find { it.className == "android.widget.EditText" && it.text?.toString() == "Người kiểm thử" }, "Tên cá nhân dài giữ nguyên trong phiên")
-                val birthday = find { it.className == "android.widget.EditText" && it.text?.toString().isNullOrEmpty() }
-                set(birthday, "31/02/2000"); text("Nhập ngày sinh hợp lệ trước hôm nay.")
-                assertTrue(visible().any { !it.isEnabled && nodes(it).any { child -> child.text?.toString() == "Tiếp tục" } })
-                set(find { it.className == "android.widget.EditText" && it.text?.toString() == "31/02/2000" }, "01/01/2000")
-                capture("onboarding-personal", dark); click("Tiếp tục"); text("Ảnh xác minh danh tính")
+                text("Trở thành chủ trọ"); capture("onboarding-start", dark); click("Bắt đầu")
+                text("Quét căn cước công dân")
                 assertTrue(visible().any { !it.isEnabled && nodes(it).any { child -> child.text?.toString() == "Tiếp tục" } })
                 assertEquals(0, completed); assertEquals(0, finishes); capture("onboarding-identity-unready", dark)
-                shell("input keyevent 4"); text("Tên cá nhân dài giữ nguyên trong phiên"); text("01/01/2000")
+                shell("input keyevent 4"); text("Trở thành chủ trọ")
                 click("Đóng"); text("Đóng đăng ký chủ trọ?"); click("Tiếp tục đăng ký")
-                text("Tên cá nhân dài giữ nguyên trong phiên"); assertEquals(0, dismisses)
+                text("Trở thành chủ trọ"); assertEquals(0, dismisses)
                 click("Đóng"); click("Đóng đăng ký"); assertEquals(1, dismisses); assertEquals(0, completed); assertEquals(0, finishes)
             }
         }
