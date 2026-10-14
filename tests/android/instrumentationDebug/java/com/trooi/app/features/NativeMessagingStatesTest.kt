@@ -193,7 +193,7 @@ class NativeMessagingStatesTest {
                     assertEquals(if (case == "messages-empty") 1 else 0, explores)
                 }
                 if (case == "notification-detail" || case == "notification-source") {
-                    val label = if (case == "notification-detail") "Đánh dấu đã đọc" else "Xem nội dung liên quan"
+                    val label = if (case == "notification-detail") "Đánh dấu đã đọc" else "Xem hồ sơ thuê"
                     click(label)
                     instrumentation.waitForIdleSync()
                     assertEquals(notification.notificationId, if (case == "notification-detail") marked else source)
