@@ -15,6 +15,9 @@ interface ApplicationRestartFixture {
   expected: { initialOutstanding: string; remainingOutstanding: string };
   values: {
     ownerId: string;
+    propertyId: string;
+    roomId: string;
+    listingId: string;
     organizationName: string;
     propertyName: string;
     operationalAddress: string;

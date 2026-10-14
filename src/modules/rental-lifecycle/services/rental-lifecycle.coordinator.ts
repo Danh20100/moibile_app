@@ -25,7 +25,6 @@ export class RentalLifecycleCoordinator {
 
   async createListing(input: CreateListingInput): Promise<ListingProfile> {
     await this.assertActiveAncestry(input.roomId);
-    await this.listings.assertCanCreateCurrent(input.roomId);
     return this.listings.createDraft(input);
   }
 

@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
   ValidateNested,
@@ -25,6 +26,11 @@ export class GeoPointDto {
 }
 
 export class CreatePropertyDto {
+  @ApiPropertyOptional({ description: 'Client generated UUID for safe request retry' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ description: 'ID of owning Organization workspace', example: 'org_12345' })
   @IsString()
   @IsNotEmpty()

@@ -36,6 +36,7 @@ async function propertyFixture() {
   const organizationId = await createOrganization(harness);
   return {
     service: harness.propertyService,
+    harness,
     dto: (overrides: Partial<CreatePropertyDto> = {}) => createDto({ organizationId, ...overrides }),
   };
 }
@@ -53,6 +54,17 @@ test('new property starts active', async () => {
   const { service, dto } = await propertyFixture();
   const created = await service.create(dto());
   assert.equal(created.lifecycleStatus, 'active');
+});
+
+test('client property ID makes a committed create safe to retry within its Organization', async () => {
+  const { service, dto, harness } = await propertyFixture();
+  const request = dto({ id: '6054a932-a213-411f-81a1-6a0eb12d1822' });
+  const first = await service.create(request);
+  const retry = await service.create(request);
+  assert.equal(retry.id, first.id);
+  assert.equal((await service.findByOrganizationId(request.organizationId)).length, 1);
+  const otherOrganizationId = await createOrganization(harness);
+  await assert.rejects(service.create(dto({ id: request.id, organizationId: otherOrganizationId })), BadRequestException);
 });
 
 test('operational and public locations are independent', async () => {
@@ -126,20 +138,18 @@ test('archived is terminal', async () => {
   const property = await service.create(dto());
   await service.archive(property.id, clearBlockers());
   await assert.rejects(service.archive(property.id, clearBlockers()), BadRequestException);
+  await assert.rejects(service.update(property.id, { name: 'Changed after archive' }), BadRequestException);
 });
 
-test('update cannot change lifecycle/unarchive', async () => {
+test('archived Property rejects edits and cannot be unarchived by an update', async () => {
   const { service, dto } = await propertyFixture();
   const property = await service.create(dto());
   await service.archive(property.id, clearBlockers());
 
-  const updated = await service.update(property.id, {
+  await assert.rejects(service.update(property.id, {
     name: 'Still archived',
     lifecycleStatus: 'active',
-  } as UpdatePropertyDto & { lifecycleStatus?: string });
-
-  assert.equal(updated.name, 'Still archived');
-  assert.equal(updated.lifecycleStatus, 'archived');
+  } as UpdatePropertyDto & { lifecycleStatus?: string }), BadRequestException);
 });
 
 test('client DTO contains no archive-blocker truth fields', () => {

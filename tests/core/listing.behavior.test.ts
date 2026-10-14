@@ -39,6 +39,16 @@ test('new local draft uses draft and roomId as its only ownership reference', as
   assert.equal('propertyId' in listing, false);
 });
 
+test('client Listing ID makes a committed draft create safe to retry', async () => {
+  const service = listingService();
+  const input = { ...draftInput(), id: '8e85110c-d2cf-4f2a-9de2-2046240beeb8' };
+  const first = await service.createDraft(input);
+  const retry = await service.createDraft(input);
+  assert.equal(retry.id, first.id);
+  assert.equal((await service.findByRoomId(input.roomId)).length, 1);
+  await assert.rejects(service.createDraft({ ...input, roomId: 'other-room' }), BadRequestException);
+});
+
 test('ListingProfile declaration removes stale lifecycle and duplicate-history fields', () => {
   const source = readRepoFile('src/modules/listing/contracts/index.ts');
   const declaration = source.match(/interface\s+ListingProfile[\s\S]*?\n}/);

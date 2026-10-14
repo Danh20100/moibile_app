@@ -62,6 +62,9 @@ data class PropertyTransport(
     val organizationId: String,
     val name: String,
     val lifecycleStatus: String,
+    val operationalAddressText: String? = null,
+    val operationalLocation: PublicLocationTransport? = null,
+    val publicLocationProjection: PublicLocationTransport? = null,
 )
 
 data class RoomTransport(

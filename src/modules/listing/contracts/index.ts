@@ -30,6 +30,7 @@ export interface ListingStatusEvent {
   metadata?: Record<string, unknown>;
 }
 export interface CreateListingInput {
+  id?: string;
   roomId: string;
   publicTitle: string;
   publicDescription: string;

@@ -7,6 +7,9 @@
   "provenance": "Synthetic application restart scenarios for isolated PostgreSQL; outstanding amounts follow active allocations.",
   "values": {
     "ownerId": "10000000-0000-4000-8000-000000000099",
+    "propertyId": "10000000-0000-4000-8000-000000000091",
+    "roomId": "10000000-0000-4000-8000-000000000092",
+    "listingId": "10000000-0000-4000-8000-000000000093",
     "organizationName": "Restart Workspace",
     "propertyName": "Restart Property",
     "operationalAddress": "Private address",

@@ -8,6 +8,7 @@ import { DATABASE_CLIENT } from './database.tokens';
 import { DatabaseLifecycleService } from './database-lifecycle.service';
 import { PostgresTransactionManager } from './postgres-transaction-manager';
 import { createRepositorySet } from './repositories/repository-set';
+import { RentalTransactionCoordinator } from '../../persistence/guards/rental-transaction-coordinator';
 import type { Database } from './schema.types';
 
 @Module({
@@ -22,7 +23,12 @@ import type { Database } from './schema.types';
       inject: [DATABASE_CLIENT],
       useFactory: (database: Kysely<Database>) => new PostgresTransactionManager(database, createRepositorySet),
     },
+    {
+      provide: RentalTransactionCoordinator,
+      inject: [TRANSACTION_MANAGER],
+      useFactory: (transactions: import('../../persistence/ports/transaction-manager').TransactionManager) => new RentalTransactionCoordinator(transactions),
+    },
   ],
-  exports: [DATABASE_CLIENT, TRANSACTION_MANAGER],
+  exports: [DATABASE_CLIENT, TRANSACTION_MANAGER, RentalTransactionCoordinator],
 })
 export class DatabaseModule {}

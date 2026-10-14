@@ -62,6 +62,29 @@ class BackendRuntimeContractTest {
         }
     }
 
+    @Test fun ledgerRequestRejectsAChangedAccountTokenBeforeSending() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("{}"))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("account-b-token") }
+            val client = BackendClient(localUrl(server), tokens, true)
+
+            assertEquals(ErrorKind.AUTH_EXPIRED, (client.get("properties", true, expectedToken = "account-a-token") as TransportOutcome.Failure).kind)
+            assertEquals(0, server.requestCount)
+            assertTrue(client.get("properties", true, expectedToken = "account-b-token") is TransportOutcome.Success)
+            assertEquals("Bearer account-b-token", server.takeRequest().getHeader("Authorization"))
+        }
+    }
+
+    @Test fun propertyRequestKeepsExactPrivateCoordinatesOutOfThePublicProjection() {
+        val body = com.google.gson.JsonParser.parseString(
+            BackendJsonCodec.encodeProperty("property-id", "org-id", "House", "Private street", 10.7777, 106.6888),
+        ).asJsonObject
+        assertEquals(10.7777, body.getAsJsonObject("operationalLocation").get("latitude").asDouble, 0.00001)
+        assertEquals(10.78, body.getAsJsonObject("publicLocationProjection").get("latitude").asDouble, 0.00001)
+        assertEquals(106.69, body.getAsJsonObject("publicLocationProjection").get("longitude").asDouble, 0.00001)
+    }
+
     @Test fun failedSessionContextClearsGoogleCredential() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody(VERIFIED_PRINCIPAL_JSON))
@@ -221,14 +244,14 @@ class BackendRuntimeContractTest {
                 openIncidentCount = 0,
             ),
         )
-        override suspend fun transitionRoomOperationalState(id: String, operationalState: String) =
+        override suspend fun transitionRoomOperationalState(id: String, operationalState: String, expectedToken: String?) =
             unsupported<RoomTransport>()
-        override suspend fun getCurrentListing(roomId: String): ApiOutcome<ListingTransport> =
+        override suspend fun getCurrentListing(roomId: String, expectedToken: String?): ApiOutcome<ListingTransport> =
             currentListing?.takeIf { it.roomId == roomId }?.let { ApiOutcome.Data(it) }
                 ?: ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
-        override suspend fun publishListing(id: String) = unsupported<ListingTransport>()
-        override suspend fun unpublishListing(id: String) = unsupported<ListingTransport>()
-        override suspend fun archiveListing(id: String) = unsupported<ListingTransport>()
+        override suspend fun publishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
+        override suspend fun unpublishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
+        override suspend fun archiveListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
         override suspend fun activateTenancy(id: String, occurredAt: String) = unsupported<TenancyTransport>()
         override suspend fun getTenancyHistory(id: String) = unsupported<RentalHistoryTransport>()
         override suspend fun getRoomHistory(id: String) = unsupported<RoomOperationalHistoryTransport>()
@@ -291,7 +314,7 @@ class BackendRuntimeContractTest {
         override suspend fun authenticateGoogle(idToken: String) = ApiOutcome.Data(
             VerifiedPrincipalTransport("user-1", "google", "https://accounts.google.com", "sub-1", "a@b.com", true, "Nguyen A", null),
         )
-        override suspend fun getSessionContext() = ApiOutcome.Data(
+        override suspend fun getSessionContext(expectedToken: String?) = ApiOutcome.Data(
             SessionContextTransport("user-1", listOf("org-1"), listOf("tenancy-1"), "a@b.com", "Nguyen A", null),
         )
         override suspend fun getOrganizations() = ApiOutcome.Data(
@@ -300,13 +323,13 @@ class BackendRuntimeContractTest {
                 OrganizationTransport("org-foreign", "Foreign", "other-user"),
             ),
         )
-        override suspend fun getProperties(organizationId: String) = ApiOutcome.Data(
+        override suspend fun getProperties(organizationId: String, expectedToken: String?) = ApiOutcome.Data(
             listOf(
                 PropertyTransport("prop-1", "org-1", "Property 1", "active"),
                 PropertyTransport("prop-foreign", "org-foreign", "Foreign", "active"),
             ),
         )
-        override suspend fun getRooms(propertyId: String) = ApiOutcome.Data(
+        override suspend fun getRooms(propertyId: String, expectedToken: String?) = ApiOutcome.Data(
             listOf(
                 RoomTransport("room-1", "prop-1", "P101", "occupied", "active"),
                 RoomTransport("room-foreign", "prop-foreign", "X", "vacant", "active"),

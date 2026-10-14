@@ -20,13 +20,15 @@ test('PROPERTY exposes both operational and public location concepts', () => {
   assert.match(source, /publicLocationProjection/);
 });
 
-test('PROPERTY archive blockers are an internal service seam only', () => {
+test('PROPERTY archive API derives blockers server-side after owner authorization', () => {
   const contracts = readRepoFile('src/modules/property/contracts/index.ts');
   const dto = readRepoFile('src/modules/property/dto/index.ts');
   const controller = readRepoFile('src/modules/property/controllers/property.controller.ts');
   assert.match(contracts, /\bPropertyArchiveBlockers\b/);
   assert.doesNotMatch(dto, /\bPropertyArchiveBlockers\b|\bhasNonTerminalTenancy\b/);
-  assert.doesNotMatch(controller, /\barchive\b|\bPropertyArchiveBlockers\b/);
+  assert.match(controller, /assertOperatesProperty\(user\.userId, id\)/);
+  assert.match(controller, /lifecycle!\.archiveProperty\(id\)/);
+  assert.match(controller, /@Post\(':id\/archive'\)/);
 });
 
 test('ROOM separates operational state from record lifecycle', () => {
@@ -104,4 +106,12 @@ test('ROOM HTTP operational-state route is owned by the lifecycle boundary', () 
   assert.match(lifecycleController, /rooms\/:id\/operational-state/);
   assert.match(lifecycleController, /transitionRoomManually/);
   assert.doesNotMatch(dto, /tenancy_activated|checkout_confirmed/);
+});
+
+test('ROOM archive route requires owner authorization and derives blockers from PostgreSQL', () => {
+  const controller = readRepoFile('src/modules/room/controllers/room.controller.ts');
+  assert.match(controller, /@Post\(':id\/archive'\)/);
+  assert.match(controller, /assertOperatesRoom\(user\.userId, id\)/);
+  assert.match(controller, /lifecycle!\.archiveRoom\(id\)/);
+  assert.doesNotMatch(controller, /hasNonTerminalTenancy|hasOpenIncident/);
 });

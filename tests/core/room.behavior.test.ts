@@ -226,6 +226,7 @@ test('archived room rejects all operational transitions', async () => {
     service.transitionOperationalState(room.id, 'occupied', 'tenancy_activated'),
     BadRequestException,
   );
+  await assert.rejects(service.update(room.id, { nameOrLabel: 'renamed after archive' }), BadRequestException);
 });
 
 test('archived parent blocks create', async () => {

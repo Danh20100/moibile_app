@@ -33,6 +33,9 @@
       "additionalProperties": false,
       "required": [
         "ownerId",
+        "propertyId",
+        "roomId",
+        "listingId",
         "organizationName",
         "propertyName",
         "operationalAddress",
@@ -88,6 +91,9 @@
           "type": "string",
           "enum": ["10000000-0000-4000-8000-000000000099"]
         },
+        "propertyId": { "type": "string", "format": "uuid" },
+        "roomId": { "type": "string", "format": "uuid" },
+        "listingId": { "type": "string", "format": "uuid" },
         "organizationName": {
           "type": "string",
           "enum": ["Restart Workspace"]

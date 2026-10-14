@@ -20,14 +20,21 @@ export class PropertyService {
   constructor(@Inject(OrganizationService) private readonly organizationService: OrganizationService, @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager) {}
   async create(dto: CreatePropertyDto): Promise<PropertyProfile> {
     await this.organizationService.findById(dto.organizationId); assertValidPoint(dto.operationalLocation, 'operationalLocation'); assertValidPoint(dto.publicLocationProjection, 'publicLocationProjection');
-    const value: PropertyProfile = { id: randomUUID(), organizationId: dto.organizationId, name: dto.name, lifecycleStatus: 'active', operationalAddressText: dto.operationalAddressText, operationalLocation: structuredClone(dto.operationalLocation), publicLocationProjection: structuredClone(dto.publicLocationProjection) };
+    if (dto.id) {
+      const existing = await this.transactions.run(({ repositories }) => repositories.property.findProperty(dto.id!));
+      if (existing) {
+        if (existing.organizationId !== dto.organizationId) throw new BadRequestException('Property request ID already belongs to a different Organization');
+        return profile(existing);
+      }
+    }
+    const value: PropertyProfile = { id: dto.id ?? randomUUID(), organizationId: dto.organizationId, name: dto.name, lifecycleStatus: 'active', operationalAddressText: dto.operationalAddressText, operationalLocation: structuredClone(dto.operationalLocation), publicLocationProjection: structuredClone(dto.publicLocationProjection) };
     await this.transactions.run(({ repositories }) => repositories.property.createProperty({ propertyId: value.id, organizationId: value.organizationId, name: value.name, lifecycleStatus: 'ACTIVE', operationalAddressText: value.operationalAddressText, operationalLocation: value.operationalLocation, publicLocationProjection: value.publicLocationProjection })); return structuredClone(value);
   }
   async findById(id: string): Promise<PropertyProfile> { const row = await this.transactions.run(({ repositories }) => repositories.property.findProperty(id)); if (!row) throw new NotFoundException(`Không tìm thấy property với id: ${id}`); return profile(row); }
   async findByOrganizationId(organizationId?: string): Promise<PropertyProfile[]> { return (await this.transactions.run(({ repositories }) => repositories.property.findPropertiesByOrganization(organizationId))).map(profile); }
   async update(id: string, dto: UpdatePropertyDto): Promise<PropertyProfile> {
     if (dto.operationalLocation) assertValidPoint(dto.operationalLocation, 'operationalLocation'); if (dto.publicLocationProjection) assertValidPoint(dto.publicLocationProjection, 'publicLocationProjection');
-    return this.transactions.run(async ({ repositories }) => { const current = await repositories.property.findProperty(id); if (!current) throw new NotFoundException(`Không tìm thấy property với id: ${id}`); const updated: PropertyRecord = { ...current, name: dto.name ?? current.name, operationalAddressText: dto.operationalAddressText ?? current.operationalAddressText, operationalLocation: dto.operationalLocation ?? current.operationalLocation, publicLocationProjection: dto.publicLocationProjection ?? current.publicLocationProjection }; await repositories.property.updateProperty(updated); return profile(updated); });
+    return this.transactions.run(async ({ repositories }) => { const current = await repositories.property.findProperty(id); if (!current) throw new NotFoundException(`Không tìm thấy property với id: ${id}`); if (current.lifecycleStatus !== 'ACTIVE') throw new BadRequestException('Archived Property cannot be edited'); const updated: PropertyRecord = { ...current, name: dto.name ?? current.name, operationalAddressText: dto.operationalAddressText ?? current.operationalAddressText, operationalLocation: dto.operationalLocation ?? current.operationalLocation, publicLocationProjection: dto.publicLocationProjection ?? current.publicLocationProjection }; await repositories.property.updateProperty(updated); return profile(updated); });
   }
   async archive(id: string, blockers: PropertyArchiveBlockers): Promise<PropertyProfile> {
     const active = Object.entries(blockers).filter(([, value]) => value).map(([key]) => key); if (active.length) throw new BadRequestException(`Property archive blocked by: ${active.join(', ')}`);

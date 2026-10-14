@@ -6,6 +6,7 @@ import {
   IsDefined,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
@@ -28,6 +29,11 @@ export class PublicLocationProjectionDto {
   longitude!: number;
 }
 export class CreateListingDto {
+  @ApiPropertyOptional({ description: 'Client generated UUID for safe request retry' })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ description: 'Parent Room ID', example: 'room_12345' })
   @IsString()
   @IsNotEmpty()

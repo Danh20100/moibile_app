@@ -36,6 +36,25 @@ object BackendJsonCodec {
         }.toString()
     }
 
+    fun encodeProperty(id: String, organizationId: String, name: String, address: String, latitude: Double, longitude: Double): String = JsonObject().apply {
+        addProperty("id", id); addProperty("organizationId", organizationId); addProperty("name", name); addProperty("operationalAddressText", address)
+        add("operationalLocation", geoPoint(latitude, longitude)); add("publicLocationProjection", geoPoint(kotlin.math.round(latitude * 100) / 100, kotlin.math.round(longitude * 100) / 100))
+    }.toString()
+
+    fun encodeRoom(id: String, propertyId: String, name: String): String = JsonObject().apply {
+        addProperty("id", id); addProperty("propertyId", propertyId); addProperty("nameOrLabel", name)
+    }.toString()
+
+    fun encodeListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double): String = JsonObject().apply {
+        addProperty("id", id); addProperty("roomId", roomId); addProperty("publicTitle", title); addProperty("publicDescription", description); addProperty("publicPriceProjection", price)
+        add("publicLocationProjection", geoPoint(kotlin.math.round(latitude * 100) / 100, kotlin.math.round(longitude * 100) / 100))
+    }.toString()
+
+    fun encodeListingUpdate(title: String, description: String, price: String, latitude: Double, longitude: Double): String = JsonObject().apply {
+        addProperty("publicTitle", title); addProperty("publicDescription", description); addProperty("publicPriceProjection", price)
+        add("publicLocationProjection", geoPoint(kotlin.math.round(latitude * 100) / 100, kotlin.math.round(longitude * 100) / 100))
+    }.toString()
+
     fun encodeTenancyActivation(occurredAt: String): String = JsonObject().apply {
         addProperty("occurredAt", occurredAt)
     }.toString()
@@ -120,6 +139,7 @@ object BackendJsonCodec {
 
     fun organizations(json: String): List<OrganizationTransport> = array(json, ::organization)
     fun properties(json: String): List<PropertyTransport> = array(json, ::property)
+    fun property(json: String): PropertyTransport = property(JsonParser.parseString(json).asJsonObject)
     fun rooms(json: String): List<RoomTransport> = array(json, ::room)
     fun room(json: String): RoomTransport = room(JsonParser.parseString(json).asJsonObject)
     fun tenancies(json: String): List<TenancyTransport> = array(json, ::tenancy)
@@ -160,7 +180,12 @@ object BackendJsonCodec {
         organizationId = obj.requiredString("organizationId"),
         name = obj.requiredString("name"),
         lifecycleStatus = obj.requiredString("lifecycleStatus"),
+        operationalAddressText = obj.optionalString("operationalAddressText"),
+        operationalLocation = obj.get("operationalLocation")?.takeIf { it.isJsonObject }?.asJsonObject?.publicLocation(),
+        publicLocationProjection = obj.get("publicLocationProjection")?.takeIf { it.isJsonObject }?.asJsonObject?.publicLocation(),
     )
+
+    private fun geoPoint(latitude: Double, longitude: Double) = JsonObject().apply { addProperty("latitude", latitude); addProperty("longitude", longitude) }
 
     private fun room(obj: JsonObject) = RoomTransport(
         id = obj.requiredString("id"),

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Optional, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, ResourceAuthorizationService } from '../../../common';
@@ -6,6 +6,7 @@ import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { PropertyProfile } from '../contracts';
 import { CreatePropertyDto, PropertyProfileDto, UpdatePropertyDto } from '../dto';
 import { PropertyService } from '../services/property.service';
+import { RentalTransactionCoordinator } from '../../../persistence/guards/rental-transaction-coordinator';
 
 @ApiTags('Property')
 @Controller('properties')
@@ -15,6 +16,8 @@ export class PropertyController {
     private readonly propertyService: PropertyService,
     @Inject(ResourceAuthorizationService)
     private readonly authz: ResourceAuthorizationService,
+    @Optional() @Inject(RentalTransactionCoordinator)
+    private readonly lifecycle?: RentalTransactionCoordinator,
   ) {}
 
   @Post()
@@ -90,5 +93,12 @@ export class PropertyController {
       await this.authz.assertOperatesProperty(user.userId, id);
     }
     return this.propertyService.update(id, dto);
+  }
+
+  @Post(':id/archive')
+  async archive(@Param('id') id: string, @CurrentUser() user: VerifiedPrincipal): Promise<PropertyProfile> {
+    await this.authz.assertOperatesProperty(user.userId, id);
+    await this.lifecycle!.archiveProperty(id);
+    return this.propertyService.findById(id);
   }
 }

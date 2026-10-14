@@ -42,7 +42,8 @@ class BackendClient(
         path: String,
         authenticated: Boolean = false,
         query: Map<String, String> = emptyMap(),
-    ): TransportOutcome = execute(path, authenticated, query, retryOnIOException = true) { builder -> builder.get() }
+        expectedToken: String? = null,
+    ): TransportOutcome = execute(path, authenticated, query, retryOnIOException = true, expectedToken = expectedToken) { builder -> builder.get() }
 
     suspend fun postJson(
         path: String,
@@ -63,12 +64,13 @@ class BackendClient(
         path: String,
         json: String,
         authenticated: Boolean = true,
-    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
+        expectedToken: String? = null,
+    ): TransportOutcome = execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
         builder.patch(json.toRequestBody(JSON_MEDIA_TYPE))
     }
 
-    suspend fun postEmpty(path: String, authenticated: Boolean = true): TransportOutcome =
-        execute(path, authenticated, emptyMap(), retryOnIOException = false) { builder ->
+    suspend fun postEmpty(path: String, authenticated: Boolean = true, expectedToken: String? = null): TransportOutcome =
+        execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder ->
             builder.post(ByteArray(0).toRequestBody(null))
         }
 

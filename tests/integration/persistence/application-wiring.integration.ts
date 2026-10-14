@@ -78,24 +78,33 @@ test('core application state remains readable after database client restart', as
       name: F.values.organizationName,
       primaryOwnerUserId: ownerId,
     });
-    const property = await first.properties.create({
+    const propertyInput = {
+      id: F.values.propertyId,
       organizationId: organization.id,
       name: F.values.propertyName,
       operationalAddressText: F.values.operationalAddress,
       operationalLocation: F.values.operationalLocation,
       publicLocationProjection: F.values.propertyPublicLocation,
-    });
-    const room = await first.rooms.create({
+    };
+    const property = await first.properties.create(propertyInput);
+    assert.equal((await first.properties.create(propertyInput)).id, property.id);
+    const roomInput = {
+      id: F.values.roomId,
       propertyId: property.id,
       nameOrLabel: F.values.roomLabel,
-    });
-    const listing = await first.listings.createDraft({
+    };
+    const room = await first.rooms.create(roomInput);
+    assert.equal((await first.rooms.create(roomInput)).id, room.id);
+    const listingInput = {
+      id: F.values.listingId,
       roomId: room.id,
       publicTitle: F.values.listingTitle,
       publicDescription: F.values.listingDescription,
       publicPriceProjection: F.values.listingPrice,
       publicLocationProjection: F.values.listingPublicLocation,
-    });
+    };
+    const listing = await first.listings.createDraft(listingInput);
+    assert.equal((await first.listings.createDraft(listingInput)).id, listing.id);
     const inquiry = await first.inquiries.create({
       listingId: listing.id,
       contactIntentOrMessage: F.values.inquiryMessage,
