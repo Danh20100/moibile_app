@@ -3,11 +3,12 @@ package com.trooi.app.core.data
 import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
-import com.trooi.app.core.model.*
+import com.trooi.app.core.auth.NoRestoreCredential
 import com.trooi.app.core.auth.RefreshCredentialStore
 import com.trooi.app.core.network.AuthTokenProvider
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.*
+import com.trooi.app.core.model.*
 import javax.inject.Inject
 import java.io.File
 import java.util.UUID
@@ -118,8 +119,7 @@ class BackendTroOiRepository @Inject constructor(
     override suspend fun refreshSessionContext(): Result<UserSession> = try {
         refreshCredentials?.let { store ->
             val refresh = store.read() ?: run {
-                clearSession()
-                throw IllegalStateException("Không có refresh credential đã bảo vệ.")
+                return Result.failure(NoRestoreCredential())
             }
             val rotated = try {
                 val rotation = when (val outcome = api.refreshIdentitySession(refresh)) {
