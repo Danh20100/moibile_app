@@ -102,27 +102,34 @@ class NativeMessagingStatesTest {
                         }
                     }
                 } }
-                openConversation(conversation.id); waitFor("Lưu")
+                openConversation(conversation.id)
                 fun field() = nodes(instrumentation.uiAutomation.rootInActiveWindow).single { it.className == "android.widget.EditText" }
+                fun saveButton(): AccessibilityNodeInfo {
+                    repeat(30) {
+                        nodes(instrumentation.uiAutomation.rootInActiveWindow)
+                            .firstOrNull { it.viewIdResourceName == "message-save" }?.let { return it }
+                        Thread.sleep(100)
+                    }
+                    error("Missing message-save button")
+                }
                 fun setDraft(value: String) {
                     assertTrue(field().performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,
                         Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value) }))
                     instrumentation.waitForIdleSync()
                     waitFor("${value.length}/500")
                 }
-                fun saveEnabled(): Boolean {
-                    var node = nodes(instrumentation.uiAutomation.rootInActiveWindow).first { it.text?.toString() == "Lưu" }
-                    while (!node.isClickable) node = node.parent
-                    return node.isEnabled
-                }
+                fun saveEnabled() = saveButton().isEnabled
                 assertFalse(saveEnabled())
                 setDraft("x".repeat(501)); assertFalse(saveEnabled()); assertNull(attempted)
                 val draft = "Bản nháp kiểm thử phải được giữ khi lưu thất bại."
-                setDraft(draft); assertTrue(saveEnabled()); click("Lưu")
+                setDraft(draft); assertTrue(saveEnabled()); assertTrue(saveButton().performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 waitFor("Chưa lưu được tin nhắn. Nội dung của bạn vẫn được giữ lại.")
                 assertEquals(conversation.id to draft, attempted)
                 assertEquals(draft, field().text.toString())
-                waitFor("Tin nhắn mới được lưu trên thiết bị, chưa gửi cho người nhận.")
+                assertFalse(nodes(instrumentation.uiAutomation.rootInActiveWindow).any {
+                    it.text?.toString() == "Tin nhắn mới được lưu trên thiết bị, chưa gửi cho người nhận." ||
+                        it.text?.toString() == "Đã gửi tin nhắn."
+                })
             }
         }
     }
