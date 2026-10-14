@@ -26,6 +26,14 @@ test('unknown historical rule shapes do not get inferred into due dates', () => 
   }
 });
 
+test('date-only billing days remain valid at Gregorian century and year boundaries', () => {
+  assert.equal(resolveBillingDueDate({ day: 29 }, 1900, 2), '1900-02-28');
+  assert.equal(resolveBillingDueDate({ day: 29 }, 2000, 2), '2000-02-29');
+  assert.equal(resolveBillingDueDate({ day: 29 }, 4, 2), '0004-02-29');
+  assert.equal(resolveBillingDueDate({ day: 31 }, 1, 1), '0001-01-31');
+  assert.equal(resolveBillingDueDate({ day: 31 }, 9999, 12), '9999-12-31');
+});
+
 test('new Terms accept exactly an integer day from 1 through 31', () => {
   const base = { version: 1, rentAmount: '1.00', agreedDepositRequirement: '0.00', termStart: '2026-01-01',
     termEnd: '2026-12-31', electricityArrangement: {}, waterArrangement: {}, minimalRentalConditions: {},
