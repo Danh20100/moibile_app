@@ -341,7 +341,9 @@ class RentalViewModel @Inject constructor(
             _ui.update { it.copy(error = "Lượt thuê hiện tại không được tạo checkout.", errorKind = "FORBIDDEN") }
             return
         }
-        if (securityUnavailable()) return
+        // Creating a checkout is not settlement or a privileged ownership mutation.
+        // Backend AuthGuard + tenancy authorization and idempotency remain authoritative.
+        // Keep step-up enforcement for protected participant changes (write()).
         if (_ui.value.busy) return
         val current = ++revision
         _ui.update {
