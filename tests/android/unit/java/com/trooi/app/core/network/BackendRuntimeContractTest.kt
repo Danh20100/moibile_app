@@ -19,6 +19,26 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
+    @Test fun organizationReauthenticationUsesAuthenticatedChallengeAndNonceProofRequests() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"nonce":"challenge-nonce","expiresAt":"2026-10-15T00:05:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"proof":"opaque-server-proof","expiresAt":"2026-10-15T00:05:00Z"}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("app-access-token") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            assertEquals("challenge-nonce", api.issueOrganizationCreateReauthChallenge().requireData().nonce)
+            assertEquals("opaque-server-proof", api.completeOrganizationCreateReauth("google-id-token", "challenge-nonce")
+                .requireData().proof)
+            val challenge = server.takeRequest()
+            assertEquals("/api/v1/identity-access/reauth/organization-create/challenge", challenge.path)
+            assertEquals("Bearer app-access-token", challenge.getHeader("Authorization"))
+            val proof = server.takeRequest()
+            assertEquals("/api/v1/identity-access/reauth/organization-create/proof", proof.path)
+            assertEquals("Bearer app-access-token", proof.getHeader("Authorization"))
+            assertTrue(proof.body.readUtf8().contains("challenge-nonce"))
+        }
+    }
+
     @Test fun publicListingTimeoutRetriesOnceThenRepositoryReturnsNetworkUnavailable() = runBlocking {
         MockWebServer().use { server ->
             repeat(2) { server.enqueue(MockResponse().setHeadersDelay(250, TimeUnit.MILLISECONDS).setBody("{}")) }

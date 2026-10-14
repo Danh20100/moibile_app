@@ -32,8 +32,8 @@ class V1ContractGateway @Inject constructor(private val client: BackendClient) {
     ).let { AccessCapabilities(it.linkedTenancyIds.toSet(), it.operatedOrganizationIds.toSet()) }
     suspend fun organizations(): List<V1Organization> = list(client.get("organizations", true), ::organization)
     suspend fun organization(id: String): V1Organization = read(client.get("organizations/${segment(id)}", true), ::organization)
-    suspend fun createOrganization(name: String): V1Organization =
-        read(client.postJson("organizations", fields("name" to name).toString(), true), ::organization)
+    suspend fun createOrganization(name: String, reauthProof: String): V1Organization =
+        read(client.postJson("organizations", fields("name" to name, "reauthProof" to reauthProof).toString(), true), ::organization)
     suspend fun editOrganization(id: String, name: String): V1Organization =
         read(client.patchJson("organizations/${segment(id)}", fields("name" to name).toString()), ::organization)
 

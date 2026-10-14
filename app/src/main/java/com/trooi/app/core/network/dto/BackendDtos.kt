@@ -69,6 +69,7 @@ data class IdentitySessionTransport(
     val userId: String, val sessionId: String, val accessToken: String, val refreshToken: String,
     val tokenType: String, val expiresInSeconds: Int, val refreshExpiresAt: String,
 )
+data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
 
 data class SessionContextTransport(
     val userId: String,

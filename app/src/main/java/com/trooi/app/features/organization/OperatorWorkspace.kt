@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,6 +39,7 @@ fun V1OperatorWorkspace(
     model: OperatorViewModel = hiltViewModel(),
 ) {
     val ui by model.ui.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LaunchedEffect(access, organizationId, entry) { model.begin(access, organizationId, entry) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     LaunchedEffect(ui.errorKind) { if (ui.errorKind == "AUTH_EXPIRED") onUnauthorized() }
@@ -115,7 +117,7 @@ fun V1OperatorWorkspace(
                 item {
                     TroOiCard("Tạo khu trọ") {
                         TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên workspace") }, modifier = Modifier.fillMaxWidth().testTag("organization-name"), singleLine = true)
-                        TroOiButton("Tạo khu trọ", { model.createOrganization(name) },
+                        TroOiButton("Tạo khu trọ", { model.createOrganization(name, context) },
                             enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
                     }
                 }

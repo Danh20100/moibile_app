@@ -24,6 +24,9 @@ class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
 
     suspend fun reacquireIdToken(context: Context): Result<GoogleCredentialProof> = requestIdToken(context, returning = true)
 
+    suspend fun reacquireForReauthentication(context: Context, nonce: String): Result<String> =
+        requestCredential(context, returning = false, nonce = nonce)
+
     suspend fun clearCredentialState(context: Context): Result<Unit> = runCatching {
         CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
     }.onFailure { error ->
@@ -42,31 +45,7 @@ class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
             require(clientId.isNotEmpty()) {
                 "Thiếu cấu hình Google Web Client ID cho đăng nhập."
             }
-            val option = if (returning) {
-                GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(true)
-                    .setAutoSelectEnabled(true)
-                    .setServerClientId(clientId)
-                    .setNonce(challenge.nonce)
-                    .build()
-            } else {
-                GetSignInWithGoogleOption.Builder(clientId).setNonce(challenge.nonce).build()
-            }
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(option)
-                .build()
-            val credential = CredentialManager.create(context)
-                .getCredential(context = context, request = request)
-                .credential
-            if (credential !is CustomCredential ||
-                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-            ) {
-                error("Google không trả về ID Token hợp lệ.")
-            }
-            val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-                .takeIf(String::isNotBlank)
-                ?: error("Google ID Token trống.")
-            GoogleCredentialProof(idToken, challenge.nonce)
+            GoogleCredentialProof(requestCredential(context, returning, challenge.nonce).getOrThrow(), challenge.nonce)
         }
         result.exceptionOrNull()?.let { error ->
             Log.w(TAG, "Credential Manager failed: " + error::class.java.simpleName + ": " + error.message)
@@ -76,6 +55,29 @@ class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
             is GetCredentialCancellationException -> result
             else -> result
         }
+    }
+
+    private suspend fun requestCredential(context: Context, returning: Boolean, nonce: String): Result<String> = runCatching {
+        val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
+        require(clientId.isNotEmpty()) { "Thiếu cấu hình Google Web Client ID cho đăng nhập." }
+        val option = if (returning) {
+            GetGoogleIdOption.Builder().setFilterByAuthorizedAccounts(true).setAutoSelectEnabled(true)
+                .setServerClientId(clientId).setNonce(nonce).build()
+        } else {
+            GetSignInWithGoogleOption.Builder(clientId).setNonce(nonce).build()
+        }
+        val request = GetCredentialRequest.Builder()
+                .addCredentialOption(option)
+                .build()
+        val credential = CredentialManager.create(context)
+                .getCredential(context = context, request = request)
+                .credential
+        if (credential !is CustomCredential ||
+                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) error("Google không trả về ID Token hợp lệ.")
+        GoogleIdTokenCredential.createFrom(credential.data).idToken
+                .takeIf(String::isNotBlank)
+                ?: error("Google ID Token trống.")
     }
 
     private companion object {

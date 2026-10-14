@@ -27,13 +27,15 @@ class V1CompletionContractTest {
         MockWebServer().use { server ->
             server.ok("""{"id":"org-1","name":"Nhà thuê","primaryOwnerUserId":"user-1"}""", 201)
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val created = V1ContractGateway(client(server)).createOrganization("Nhà thuê")
+            val created = V1ContractGateway(client(server)).createOrganization("Nhà thuê", "proof-from-backend")
             assertEquals("org-1", created.id)
             val request = server.takeRequest()
             assertEquals("POST", request.method)
             assertEquals("/api/v1/organizations", request.path)
             assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
-            assertEquals("Nhà thuê", JsonParser.parseString(request.body.readUtf8()).asJsonObject.get("name").asString)
+            val body = JsonParser.parseString(request.body.readUtf8()).asJsonObject
+            assertEquals("Nhà thuê", body.get("name").asString)
+            assertEquals("proof-from-backend", body.get("reauthProof").asString)
         }
     }
 
@@ -273,7 +275,7 @@ class V1CompletionContractTest {
         MockWebServer().use { server ->
             server.ok("""{"message":"forbidden"}""",403)
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val error = runCatching { V1ContractGateway(client(server)).createOrganization("Other") }.exceptionOrNull()
+            val error = runCatching { V1ContractGateway(client(server)).createOrganization("Other", "one-use-proof") }.exceptionOrNull()
             assertTrue(error is V1RequestException)
             assertEquals(403,(error as V1RequestException).status)
         }

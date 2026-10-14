@@ -2,6 +2,10 @@ package com.trooi.app.features.organization
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import com.trooi.app.core.auth.GoogleCredentialAuth
+import com.trooi.app.core.network.BackendApi
+import com.trooi.app.core.network.dto.ApiOutcome
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.PublicGeoPoint
 import com.trooi.app.core.network.dto.DashboardTransport
@@ -61,7 +65,11 @@ data class OperatorUiState(
 }
 
 @HiltViewModel
-class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) : ViewModel() {
+class OperatorViewModel @Inject constructor(
+    private val api: V1ContractGateway,
+    private val identityApi: BackendApi,
+    private val googleCredentialAuth: GoogleCredentialAuth,
+) : ViewModel() {
     private val _ui = MutableStateFlow(OperatorUiState())
     val ui: StateFlow<OperatorUiState> = _ui.asStateFlow()
     private var revision = 0
@@ -185,9 +193,20 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         }
     }
 
-    fun createOrganization(name: String) = write(requiresReauthentication = true) {
+    fun createOrganization(name: String, context: Context) = write {
         require(name.isNotBlank()) { "Nhập tên khu trọ" }
-        val created = api.createOrganization(name.trim())
+        val challenge = when (val result = identityApi.issueOrganizationCreateReauthChallenge()) {
+            is ApiOutcome.Data -> result.value.nonce?.takeIf(String::isNotBlank)
+                ?: error("Backend returned an invalid reauthentication challenge.")
+            is ApiOutcome.Failure -> throw V1RequestException(result.kind, result.httpStatus)
+        }
+        val idToken = googleCredentialAuth.reacquireForReauthentication(context, challenge).getOrThrow()
+        val proof = when (val result = identityApi.completeOrganizationCreateReauth(idToken, challenge)) {
+            is ApiOutcome.Data -> result.value.proof?.takeIf(String::isNotBlank)
+                ?: error("Google chưa xác nhận xác thực mới trong thời hạn cho phép.")
+            is ApiOutcome.Failure -> throw V1RequestException(result.kind, result.httpStatus)
+        }
+        val created = api.createOrganization(name.trim(), proof)
         val refreshed = api.organization(created.id)
         val granted = api.sessionAccess()
         require(refreshed.id in granted.operatedOrganizationIds) { "Backend chưa cấp relationship cho Organization mới." }
@@ -286,11 +305,8 @@ class OperatorViewModel @Inject constructor(private val api: V1ContractGateway) 
         _ui.update { it.copy(listing = updated) }
     }
 
-    private fun write(requiresReauthentication: Boolean = false, operation: suspend () -> Unit) {
+    private fun write(operation: suspend () -> Unit) {
         if (_ui.value.busy) return
-        if (requiresReauthentication) {
-            _ui.update { it.copy(error = com.trooi.app.features.profile.REAUTH_UNAVAILABLE, errorKind = "REAUTH_UNAVAILABLE", success = null) }; return
-        }
         val current = ++revision
         _ui.update { it.copy(busy = true, error = null, errorKind = null, success = null) }
         viewModelScope.launch {

@@ -24,6 +24,8 @@ interface BackendApi {
     suspend fun authenticateGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun refreshIdentitySession(refreshToken: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun logoutIdentitySession(): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun issueOrganizationCreateReauthChallenge(): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun completeOrganizationCreateReauth(idToken: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ProfileAvatarUploadTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -180,6 +182,16 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun logoutIdentitySession() = client.postEmpty("identity-access/auth/logout", authenticated = true)
         .decode { Unit }
+
+    override suspend fun issueOrganizationCreateReauthChallenge() = client.postEmpty(
+        "identity-access/reauth/organization-create/challenge", authenticated = true,
+    ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
+
+    override suspend fun completeOrganizationCreateReauth(idToken: String, nonce: String) = client.postJson(
+        "identity-access/reauth/organization-create/proof",
+        "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
 
     override suspend fun getSessionContext(expectedToken: String?) =
         client.get("identity-access/me", authenticated = true, expectedToken = expectedToken).decode(BackendJsonCodec::sessionContext)
