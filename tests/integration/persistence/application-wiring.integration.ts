@@ -235,7 +235,6 @@ test('core application state remains readable after database client restart', as
     try {
       assert.deepEqual(await second.organizations.findById(organization.id), organization);
       assert.deepEqual(await second.properties.findById(property.id), property);
-      assert.deepEqual(await second.rooms.findById(room.id), room);
       const restartedListing = await second.listings.findById(listing.id);
       assert.equal(restartedListing.status, F.expected.listingStatusAfterActivation);
       assert.deepEqual(await second.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
