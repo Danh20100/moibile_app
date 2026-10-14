@@ -15,7 +15,7 @@ export class PostgresPropertyRepository implements PropertyRepository {
         lifecycle_status: input.lifecycleStatus, operational_address_text: input.operationalAddressText,
         operational_location: geographyPoint(input.operationalLocation),
         public_location_projection: geographyPoint(input.publicLocationProjection),
-      }).execute();
+      }).onConflict((oc) => oc.column('property_id').doNothing()).execute();
     } catch (error) { throw mapPostgresError(error); }
   }
 
@@ -73,7 +73,7 @@ export class PostgresPropertyRepository implements PropertyRepository {
       await this.executor.insertInto('rooms').values({
         room_id: input.roomId, property_id: input.propertyId, name_or_label: input.nameOrLabel,
         operational_state: input.operationalState, record_lifecycle: input.recordLifecycle,
-      }).execute();
+      }).onConflict((oc) => oc.column('room_id').doNothing()).execute();
     } catch (error) { throw mapPostgresError(error); }
   }
 

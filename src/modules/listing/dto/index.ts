@@ -2,6 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsNotEmpty,
+  IsArray,
+  ArrayMaxSize,
+  ArrayUnique,
+  IsDateString,
+  IsInt,
+  IsIn,
+  MaxLength,
   IsNumber,
   IsDefined,
   IsOptional,
@@ -84,6 +91,34 @@ export class UpdateListingDto {
   @ValidateNested()
   @Type(() => PublicLocationProjectionDto)
   publicLocationProjection?: PublicLocationProjectionDto;
+}
+
+export class ListingAssetDetailsDto {
+  @ApiProperty({ enum: ['DRAFT', 'ACTIVE'] })
+  @IsIn(['DRAFT', 'ACTIVE'])
+  managementStatus!: 'DRAFT' | 'ACTIVE';
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) assetType?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) publicAreaLabel?: string | null;
+  @ApiPropertyOptional({ example: '24.5' }) @IsOptional() @IsString() @Matches(/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/) areaSquareMeters?: string | null;
+  @ApiPropertyOptional({ example: '3000000' }) @IsOptional() @IsString() @Matches(NUMERIC_18_SCALE_2) advertisedDeposit?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(100) bedrooms?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(100) bathrooms?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) furnishing?: string | null;
+  @ApiProperty({ type: [String], maxItems: 100 }) @IsArray() @ArrayMaxSize(100) @ArrayUnique() @IsString({ each: true }) @MaxLength(64, { each: true }) amenityIds!: string[];
+  @ApiProperty({ type: [String], maxItems: 100 }) @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @MaxLength(500, { each: true }) rules!: string[];
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(250) electricityOffer?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(250) waterOffer?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(250) serviceOffer?: string | null;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(600) minimumTermMonths?: number | null;
+  @ApiPropertyOptional({ example: '2026-10-14' }) @IsOptional() @IsDateString({ strict: true }) availableFrom?: string | null;
+  @ApiPropertyOptional({ enum: ['PRIVATE', 'SHARED'] }) @IsOptional() @IsIn(['PRIVATE', 'SHARED']) bathroomArrangement?: 'PRIVATE' | 'SHARED' | null;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(100) maxOccupants?: number | null;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(80) floorLabel?: string | null;
+}
+
+export class ListingAssetDetailsProfileDto extends ListingAssetDetailsDto {
+  @ApiProperty() @IsString() listingId!: string;
 }
 
 export class CreateInquiryDto {

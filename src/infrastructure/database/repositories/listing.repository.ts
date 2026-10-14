@@ -1,6 +1,6 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 
-import type { CreateInquiryInput, CreateListingInput, CreateListingStatusEventInput, InquiryRecord, ListingRecord, ListingRepository, ListingStatusEventRecord } from '../../../persistence/ports/listing.repository';
+import type { CreateInquiryInput, CreateListingInput, CreateListingStatusEventInput, InquiryRecord, ListingAssetDetailsRecord, ListingRecord, ListingRepository, ListingStatusEventRecord } from '../../../persistence/ports/listing.repository';
 import { geoPoint, geographyLatitude, geographyLongitude, geographyPoint } from '../postgis';
 import { mapPostgresError } from '../postgres-error.mapper';
 import type { Database } from '../schema.types';
@@ -15,12 +15,56 @@ export class PostgresListingRepository implements ListingRepository {
         public_title: input.publicTitle, public_description: input.publicDescription,
         public_price_projection: input.publicPriceProjection,
         public_location_projection: geographyPoint(input.publicLocationProjection),
-      }).execute();
+      }).onConflict((oc) => oc.column('listing_id').doNothing()).execute();
     } catch (error) { throw mapPostgresError(error); }
   }
 
   async findListing(listingId: string): Promise<ListingRecord | undefined> {
     return this.findListingWhere('listing_id', listingId);
+  }
+
+  async findAssetDetails(listingId: string): Promise<ListingAssetDetailsRecord | undefined> {
+    try {
+      const row = await this.executor.selectFrom('listing_asset_details').selectAll()
+        .where('listing_id', '=', listingId).executeTakeFirst();
+      return row ? {
+        listingId: row.listing_id, managementStatus: row.management_status,
+        assetType: row.asset_type, publicAreaLabel: row.public_area_label,
+        areaSquareMeters: row.area_square_meters, advertisedDeposit: row.advertised_deposit,
+        bedrooms: row.bedrooms, bathrooms: row.bathrooms, furnishing: row.furnishing,
+        amenityIds: [...row.amenity_ids], rules: [...row.rules],
+        electricityOffer: row.electricity_offer, waterOffer: row.water_offer,
+        serviceOffer: row.service_offer, minimumTermMonths: row.minimum_term_months,
+        availableFrom: row.available_from, bathroomArrangement: row.bathroom_arrangement,
+        maxOccupants: row.max_occupants, floorLabel: row.floor_label,
+      } : undefined;
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
+  async saveAssetDetails(input: ListingAssetDetailsRecord): Promise<void> {
+    try {
+      await this.executor.insertInto('listing_asset_details').values({
+        listing_id: input.listingId, management_status: input.managementStatus,
+        asset_type: input.assetType, public_area_label: input.publicAreaLabel,
+        area_square_meters: input.areaSquareMeters, advertised_deposit: input.advertisedDeposit,
+        bedrooms: input.bedrooms, bathrooms: input.bathrooms, furnishing: input.furnishing,
+        amenity_ids: input.amenityIds, rules: input.rules, electricity_offer: input.electricityOffer,
+        water_offer: input.waterOffer, service_offer: input.serviceOffer,
+        minimum_term_months: input.minimumTermMonths, available_from: input.availableFrom,
+        bathroom_arrangement: input.bathroomArrangement, max_occupants: input.maxOccupants,
+        floor_label: input.floorLabel,
+      }).onConflict((oc) => oc.column('listing_id').doUpdateSet({
+        management_status: input.managementStatus, asset_type: input.assetType,
+        public_area_label: input.publicAreaLabel, area_square_meters: input.areaSquareMeters,
+        advertised_deposit: input.advertisedDeposit, bedrooms: input.bedrooms,
+        bathrooms: input.bathrooms, furnishing: input.furnishing,
+        amenity_ids: input.amenityIds, rules: input.rules,
+        electricity_offer: input.electricityOffer, water_offer: input.waterOffer,
+        service_offer: input.serviceOffer, minimum_term_months: input.minimumTermMonths,
+        available_from: input.availableFrom, bathroom_arrangement: input.bathroomArrangement,
+        max_occupants: input.maxOccupants, floor_label: input.floorLabel,
+      })).execute();
+    } catch (error) { throw mapPostgresError(error); }
   }
 
   async findCurrentListingByRoom(roomId: string): Promise<ListingRecord | undefined> {

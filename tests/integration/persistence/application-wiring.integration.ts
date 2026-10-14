@@ -21,6 +21,7 @@ import { IncidentService } from '../../../src/modules/incident/services/incident
 import { AuditTrustService } from '../../../src/modules/audit-trust/services/audit-trust.service';
 import { runMigrations } from '../../../scripts/database/migrate';
 import { resetPublicSchema } from './support/postgres-test-harness';
+import { listingAssetFixture } from '../../support/listing-asset-fixtures';
 
 function runtime(databaseUrl: string) {
   const database = createDatabaseClient({
@@ -86,15 +87,19 @@ test('core application state remains readable after database client restart', as
       operationalLocation: F.values.operationalLocation,
       publicLocationProjection: F.values.propertyPublicLocation,
     };
-    const property = await first.properties.create(propertyInput);
-    assert.equal((await first.properties.create(propertyInput)).id, property.id);
+    const propertyResults = await Promise.all([first.properties.create(propertyInput), first.properties.create(propertyInput)]);
+    const property = propertyResults[0]!;
+    assert.equal(propertyResults[1]!.id, property.id);
+    await assert.rejects(first.properties.create({ ...propertyInput, name: listingAssetFixture.idempotencyConflicts.propertyName }));
     const roomInput = {
       id: F.values.roomId,
       propertyId: property.id,
       nameOrLabel: F.values.roomLabel,
     };
-    const room = await first.rooms.create(roomInput);
-    assert.equal((await first.rooms.create(roomInput)).id, room.id);
+    const roomResults = await Promise.all([first.rooms.create(roomInput), first.rooms.create(roomInput)]);
+    const room = roomResults[0]!;
+    assert.equal(roomResults[1]!.id, room.id);
+    await assert.rejects(first.rooms.create({ ...roomInput, nameOrLabel: listingAssetFixture.idempotencyConflicts.roomNameOrLabel }));
     const listingInput = {
       id: F.values.listingId,
       roomId: room.id,
@@ -103,8 +108,13 @@ test('core application state remains readable after database client restart', as
       publicPriceProjection: F.values.listingPrice,
       publicLocationProjection: F.values.listingPublicLocation,
     };
-    const listing = await first.listings.createDraft(listingInput);
-    assert.equal((await first.listings.createDraft(listingInput)).id, listing.id);
+    const listingResults = await Promise.all([first.listings.createDraft(listingInput), first.listings.createDraft(listingInput)]);
+    const listing = listingResults[0]!;
+    assert.equal(listingResults[1]!.id, listing.id);
+    await assert.rejects(first.listings.createDraft({ ...listingInput, publicTitle: listingAssetFixture.idempotencyConflicts.listingTitle }));
+    const assetDetails = listingAssetFixture.details;
+    await first.listings.saveAssetDetails(listing.id, assetDetails);
+    assert.deepEqual(await first.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
     const inquiry = await first.inquiries.create({
       listingId: listing.id,
       contactIntentOrMessage: F.values.inquiryMessage,
@@ -206,6 +216,7 @@ test('core application state remains readable after database client restart', as
       assert.deepEqual(await second.properties.findById(property.id), property);
       assert.deepEqual(await second.rooms.findById(room.id), room);
       assert.deepEqual(await second.listings.findById(listing.id), published);
+      assert.deepEqual(await second.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
       assert.deepEqual(await second.inquiries.findById(inquiry.id), inquiry);
       assert.deepEqual(await second.tenancies.findById(tenancy.id), tenancy);
       assert.deepEqual(await second.participants.findById(participant.id), participant);

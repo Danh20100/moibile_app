@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "required": ["version", "details", "idempotencyConflicts"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "enum": [1] },
+    "details": {
+      "type": "object",
+      "required": ["managementStatus", "assetType", "publicAreaLabel", "areaSquareMeters", "advertisedDeposit", "bedrooms", "bathrooms", "furnishing", "amenityIds", "rules", "electricityOffer", "waterOffer", "serviceOffer", "minimumTermMonths", "availableFrom", "bathroomArrangement", "maxOccupants", "floorLabel"],
+      "additionalProperties": false,
+      "properties": {
+        "managementStatus": { "type": "string", "enum": ["DRAFT"] },
+        "assetType": { "type": "string", "enum": ["Phòng trọ"] },
+        "publicAreaLabel": { "type": "string", "enum": ["Bình Thạnh"] },
+        "areaSquareMeters": { "type": "string", "enum": ["24.50"] },
+        "advertisedDeposit": { "type": "string", "enum": ["3000000.00"] },
+        "bedrooms": { "type": "integer", "enum": [1] },
+        "bathrooms": { "type": "integer", "enum": [1] },
+        "furnishing": { "type": "string", "enum": ["Đầy đủ"] },
+        "amenityIds": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string", "enum": ["wifi", "private_bathroom"] } },
+        "rules": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "enum": ["Không hút thuốc"] } },
+        "electricityOffer": { "type": "string", "enum": ["4,000 / kWh"] },
+        "waterOffer": { "type": "string", "enum": ["100,000 / người"] },
+        "serviceOffer": { "type": "string", "enum": ["200,000 / tháng"] },
+        "minimumTermMonths": { "type": "integer", "enum": [6] },
+        "availableFrom": { "type": "string", "enum": ["2026-11-01"] },
+        "bathroomArrangement": { "type": "string", "enum": ["PRIVATE"] },
+        "maxOccupants": { "type": "integer", "enum": [2] },
+        "floorLabel": { "type": "string", "enum": ["2"] }
+      }
+    },
+    "idempotencyConflicts": {
+      "type": "object",
+      "required": ["propertyName", "roomNameOrLabel", "listingTitle"],
+      "additionalProperties": false,
+      "properties": {
+        "propertyName": { "type": "string", "enum": ["Property payload conflict"] },
+        "roomNameOrLabel": { "type": "string", "enum": ["Room payload conflict"] },
+        "listingTitle": { "type": "string", "enum": ["Listing payload conflict"] }
+      }
+    }
+  }
+}

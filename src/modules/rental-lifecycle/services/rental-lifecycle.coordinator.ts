@@ -39,6 +39,7 @@ export class RentalLifecycleCoordinator {
       throw new BadRequestException('Listing publish requires a VACANT Room');
     }
     this.assertRequiredListingFields(listing);
+    await this.listings.assertAssetDetailsReadyToPublish(listingId);
     return this.listings.transition(listingId, 'published', context);
   }
 

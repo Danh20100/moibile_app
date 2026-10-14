@@ -24,11 +24,24 @@ export class PropertyService {
       const existing = await this.transactions.run(({ repositories }) => repositories.property.findProperty(dto.id!));
       if (existing) {
         if (existing.organizationId !== dto.organizationId) throw new BadRequestException('Property request ID already belongs to a different Organization');
+        if (existing.name !== dto.name || existing.operationalAddressText !== dto.operationalAddressText ||
+            existing.operationalLocation.latitude !== dto.operationalLocation.latitude || existing.operationalLocation.longitude !== dto.operationalLocation.longitude ||
+            existing.publicLocationProjection.latitude !== dto.publicLocationProjection.latitude || existing.publicLocationProjection.longitude !== dto.publicLocationProjection.longitude) {
+          throw new BadRequestException('Property request ID was already used with a different payload');
+        }
         return profile(existing);
       }
     }
     const value: PropertyProfile = { id: dto.id ?? randomUUID(), organizationId: dto.organizationId, name: dto.name, lifecycleStatus: 'active', operationalAddressText: dto.operationalAddressText, operationalLocation: structuredClone(dto.operationalLocation), publicLocationProjection: structuredClone(dto.publicLocationProjection) };
-    await this.transactions.run(({ repositories }) => repositories.property.createProperty({ propertyId: value.id, organizationId: value.organizationId, name: value.name, lifecycleStatus: 'ACTIVE', operationalAddressText: value.operationalAddressText, operationalLocation: value.operationalLocation, publicLocationProjection: value.publicLocationProjection })); return structuredClone(value);
+    await this.transactions.run(({ repositories }) => repositories.property.createProperty({ propertyId: value.id, organizationId: value.organizationId, name: value.name, lifecycleStatus: 'ACTIVE', operationalAddressText: value.operationalAddressText, operationalLocation: value.operationalLocation, publicLocationProjection: value.publicLocationProjection }));
+    const committed = await this.transactions.run(({ repositories }) => repositories.property.findProperty(value.id));
+    if (!committed || committed.organizationId !== value.organizationId || committed.name !== value.name ||
+        committed.operationalAddressText !== value.operationalAddressText ||
+        committed.operationalLocation.latitude !== value.operationalLocation.latitude || committed.operationalLocation.longitude !== value.operationalLocation.longitude ||
+        committed.publicLocationProjection.latitude !== value.publicLocationProjection.latitude || committed.publicLocationProjection.longitude !== value.publicLocationProjection.longitude) {
+      throw new BadRequestException('Property request ID was already used with a different payload');
+    }
+    return profile(committed);
   }
   async findById(id: string): Promise<PropertyProfile> { const row = await this.transactions.run(({ repositories }) => repositories.property.findProperty(id)); if (!row) throw new NotFoundException(`Không tìm thấy property với id: ${id}`); return profile(row); }
   async findByOrganizationId(organizationId?: string): Promise<PropertyProfile[]> { return (await this.transactions.run(({ repositories }) => repositories.property.findPropertiesByOrganization(organizationId))).map(profile); }

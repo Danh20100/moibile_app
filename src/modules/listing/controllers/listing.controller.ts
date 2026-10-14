@@ -1,10 +1,10 @@
-import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Inject, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { ListingProfile, ListingTransitionEventInput } from '../contracts';
-import { ListingProfileDto, UpdateListingDto } from '../dto';
+import { ListingAssetDetailsDto, ListingAssetDetailsProfileDto, ListingProfileDto, UpdateListingDto } from '../dto';
 import { ListingService } from '../services/listing.service';
 
 @ApiTags('Listing')
@@ -47,6 +47,26 @@ export class ListingController {
       throw new NotFoundException(`Current Listing not found for Room: ${roomId}`);
     }
     return listing;
+  }
+
+  @Get(':id/asset-details')
+  @ApiOperation({ summary: 'Read private operator Asset details for a Listing' })
+  @ApiResponse({ status: 200, type: ListingAssetDetailsProfileDto })
+  async findAssetDetails(@Param('id') id: string, @CurrentUser() user: VerifiedPrincipal) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.findAssetDetails(id);
+  }
+
+  @Put(':id/asset-details')
+  @ApiOperation({ summary: 'Create or replace private operator Asset details for a Listing' })
+  @ApiResponse({ status: 200, type: ListingAssetDetailsProfileDto })
+  async saveAssetDetails(
+    @Param('id') id: string,
+    @Body() dto: ListingAssetDetailsDto,
+    @CurrentUser() user: VerifiedPrincipal,
+  ) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.listingService.saveAssetDetails(id, dto);
   }
 
   @Get(':id')

@@ -123,6 +123,19 @@ test('publishes an eligible draft Listing', async () => {
   );
 });
 
+test('publish rejects a draft Asset details row without mutating Listing history', async () => {
+  const fixture = await lifecycleFixture();
+  const listing = await createListing(fixture);
+  await fixture.listings.saveAssetDetails(listing.id, {
+    managementStatus: 'DRAFT', amenityIds: [], rules: [],
+  });
+  const before = await snapshot(fixture, listing.id);
+
+  await assert.rejects(fixture.coordinator.publishListing(listing.id, context), BadRequestException);
+
+  assert.equal(await snapshot(fixture, listing.id), before);
+});
+
 for (const nextState of ['maintenance', 'inactive'] as const) {
   test(`publish rejects a ${nextState} Room without Listing/event mutation`, async () => {
     const fixture = await lifecycleFixture();

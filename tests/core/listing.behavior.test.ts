@@ -47,6 +47,7 @@ test('client Listing ID makes a committed draft create safe to retry', async () 
   assert.equal(retry.id, first.id);
   assert.equal((await service.findByRoomId(input.roomId)).length, 1);
   await assert.rejects(service.createDraft({ ...input, roomId: 'other-room' }), BadRequestException);
+  await assert.rejects(service.createDraft({ ...input, publicTitle: 'Different payload' }), BadRequestException);
 });
 
 test('ListingProfile declaration removes stale lifecycle and duplicate-history fields', () => {

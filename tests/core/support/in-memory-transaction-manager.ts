@@ -9,6 +9,7 @@ import type {
 import type { TransactionManager } from '../../../src/persistence/ports/transaction-manager';
 import type {
   InquiryRecord,
+  ListingAssetDetailsRecord,
   ListingRecord,
   ListingStatusEventRecord,
 } from '../../../src/persistence/ports/listing.repository';
@@ -46,6 +47,7 @@ export function createCoreTestTransactionManager(
   const properties = new Map<string, PropertyRecord>();
   const rooms = new Map<string, RoomRecord>();
   const listings = new Map<string, ListingRecord>();
+  const listingDetails = new Map<string, ListingAssetDetailsRecord>();
   const listingEvents: ListingStatusEventRecord[] = [];
   const inquiries = new Map<string, InquiryRecord>();
   const tenancies = new Map<string, TenancyRecord>();
@@ -121,6 +123,8 @@ export function createCoreTestTransactionManager(
         listings.set(value.listingId, structuredClone(value));
       },
       findListing: async (id: string) => structuredClone(listings.get(id)),
+      findAssetDetails: async (id: string) => structuredClone(listingDetails.get(id)),
+      saveAssetDetails: async (value: ListingAssetDetailsRecord) => { listingDetails.set(value.listingId, structuredClone(value)); },
       findCurrentListingByRoom: async (roomId: string) =>
         structuredClone(
           Array.from(listings.values()).find(

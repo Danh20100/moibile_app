@@ -26,6 +26,7 @@ export interface Database {
   properties: PropertiesTable;
   rooms: RoomsTable;
   listings: ListingsTable;
+  listing_asset_details: ListingAssetDetailsTable;
   listing_status_events: ListingStatusEventsTable;
   inquiries: InquiriesTable;
   tenancies: TenanciesTable;
@@ -69,6 +70,15 @@ export interface ListingsTable {
   listing_id: string; room_id: string; status: string; public_title: string;
   public_description: string; public_price_projection: DecimalString;
   public_location_projection: Geography;
+}
+export interface ListingAssetDetailsTable {
+  listing_id: string; management_status: 'DRAFT' | 'ACTIVE'; asset_type: string | null;
+  public_area_label: string | null; area_square_meters: DecimalString | null;
+  advertised_deposit: DecimalString | null; bedrooms: number | null; bathrooms: number | null;
+  furnishing: string | null; amenity_ids: string[]; rules: string[];
+  electricity_offer: string | null; water_offer: string | null; service_offer: string | null;
+  minimum_term_months: number | null; available_from: DateString | null;
+  bathroom_arrangement: 'PRIVATE' | 'SHARED' | null; max_occupants: number | null; floor_label: string | null;
 }
 export interface ListingStatusEventsTable {
   listing_status_event_id: string; listing_id: string; from_status: string;

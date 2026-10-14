@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "details": {
+    "managementStatus": "DRAFT",
+    "assetType": "Phòng trọ",
+    "publicAreaLabel": "Bình Thạnh",
+    "areaSquareMeters": "24.50",
+    "advertisedDeposit": "3000000.00",
+    "bedrooms": 1,
+    "bathrooms": 1,
+    "furnishing": "Đầy đủ",
+    "amenityIds": ["wifi", "private_bathroom"],
+    "rules": ["Không hút thuốc"],
+    "electricityOffer": "4,000 / kWh",
+    "waterOffer": "100,000 / người",
+    "serviceOffer": "200,000 / tháng",
+    "minimumTermMonths": 6,
+    "availableFrom": "2026-11-01",
+    "bathroomArrangement": "PRIVATE",
+    "maxOccupants": 2,
+    "floorLabel": "2"
+  },
+  "idempotencyConflicts": {
+    "propertyName": "Property payload conflict",
+    "roomNameOrLabel": "Room payload conflict",
+    "listingTitle": "Listing payload conflict"
+  }
+}
