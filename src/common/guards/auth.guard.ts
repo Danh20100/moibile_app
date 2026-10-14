@@ -1,13 +1,9 @@
-import { CanActivate, ExecutionContext, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 
-import {
-  GOOGLE_ID_TOKEN_VERIFIER,
-  verifyGoogleIdToken,
-  type GoogleIdTokenVerifier,
-} from '../../integrations/google-identity';
 import type { VerifiedPrincipal } from '../../modules/identity-access/contracts';
+import { GooglePrincipalResolver } from '../../modules/identity-access/services/google-principal-resolver';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
@@ -16,9 +12,9 @@ export class AuthGuard implements CanActivate {
     // @Inject required: tsx strip-only mode does not emit design:paramtypes
     @Inject(Reflector)
     private readonly reflector: Reflector,
+    @Inject(GooglePrincipalResolver)
     @Optional()
-    @Inject(GOOGLE_ID_TOKEN_VERIFIER)
-    private readonly verifier?: GoogleIdTokenVerifier,
+    private readonly googlePrincipalResolver?: Pick<GooglePrincipalResolver, 'resolve'>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -42,7 +38,10 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Bearer token không hợp lệ');
     }
 
-    const principal = await verifyGoogleIdToken(this.verifier, token);
+    if (!this.googlePrincipalResolver) {
+      throw new ServiceUnavailableException('Google account resolution is unavailable');
+    }
+    const principal = await this.googlePrincipalResolver.resolve(token);
     request.user = principal;
 
     return true;

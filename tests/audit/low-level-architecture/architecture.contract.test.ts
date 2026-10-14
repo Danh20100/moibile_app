@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import type { GoogleIdTokenVerifier } from '../../../src/integrations/google-identity';
 import { AuditTrustService } from '../../../src/modules/audit-trust/services/audit-trust.service';
 import { BillingService } from '../../../src/modules/billing/services/billing.service';
 import { IdentityAccessService } from '../../../src/modules/identity-access/services/identity-access.service';
@@ -18,24 +17,11 @@ import { RoomService } from '../../../src/modules/room/services/room.service';
 import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
 import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
-function injectVerifier(service: IdentityAccessService, verifier: GoogleIdTokenVerifier): void {
-  Object.defineProperty(service, 'verifier', {
-    configurable: true,
-    writable: true,
-    value: verifier,
-  });
-}
-
 describe('architecture contract audit', () => {
   it('does not infer a default business role during authentication', async () => {
     const service = new IdentityAccessService({
       run: async (work) => work({ repositories: { identity: { ensureUser: async () => undefined, userExists: async () => true } } as never, afterCommit: () => undefined }),
-    });
-    injectVerifier(service, {
-      async verify() {
-        return { issuer: 'https://accounts.google.com', subject: 'google-subject-1', email: 'user@example.com' };
-      },
-    });
+    }, { resolve: async () => ({ userId: 'resolved-user', provider: 'google', issuer: 'https://accounts.google.com', subject: 'google-subject-1', email: 'user@example.com' }) });
 
     const result = await service.authenticateWithGoogle({ idToken: 'valid-token' });
 

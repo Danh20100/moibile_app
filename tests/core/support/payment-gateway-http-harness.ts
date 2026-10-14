@@ -75,9 +75,8 @@ async function startHttpHarness(
     API_PREFIX,
     applyHttpBodyParsers,
   }: typeof import('../../../src/common') = require('../../../build/common');
-  const {
-    GOOGLE_ID_TOKEN_VERIFIER,
-  }: typeof import('../../../src/integrations/google-identity') = require('../../../build/integrations/google-identity');
+  const { GooglePrincipalResolver } = require('../../../build/modules/identity-access/services/google-principal-resolver');
+  const { googlePrincipalUserId } = require('../../../build/common/identity/deterministic-user-id');
   const {
     BillingController,
   }: typeof import('../../../src/modules/billing/controllers/billing.controller') = require('../../../build/modules/billing/controllers/billing.controller');
@@ -123,6 +122,19 @@ async function startHttpHarness(
       { provide: GATEWAY_CLOCK, useValue: demo.clock },
     );
   }
+  const testIdentityTransactions = {
+    run: async (work: (context: never) => Promise<unknown>) =>
+      work({
+        repositories: {
+          identityFoundation: {
+            resolveGooglePrincipal: async ({ issuer, subject }: { issuer: string; subject: string }) => ({
+              kind: 'resolved',
+              userId: googlePrincipalUserId(issuer, subject),
+            }),
+          },
+        },
+      } as never),
+  };
   @Module({
     controllers: trust
       ? [AuditTrustController]
@@ -138,7 +150,10 @@ async function startHttpHarness(
       ...('authz' in dependencies
         ? [{ provide: ResourceAuthorizationService, useValue: dependencies.authz }]
         : []),
-      { provide: GOOGLE_ID_TOKEN_VERIFIER, useValue: dependencies.verifier },
+      {
+        provide: GooglePrincipalResolver,
+        useFactory: () => new GooglePrincipalResolver(testIdentityTransactions as never, dependencies.verifier, true),
+      },
       { provide: APP_GUARD, useClass: AuthGuard },
     ],
   })

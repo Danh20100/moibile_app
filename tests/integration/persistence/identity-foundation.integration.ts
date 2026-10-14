@@ -14,6 +14,8 @@ import { Client } from 'pg';
 
 import { runMigrations } from '../../../scripts/database/migrate';
 import { IdentityAccessService } from '../../../src/modules/identity-access/services/identity-access.service';
+import { GooglePrincipalResolver } from '../../../src/modules/identity-access/services/google-principal-resolver';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { queryCatalog, resetPublicSchema } from './support/postgres-test-harness';
 import { rentalFixture } from './support/identity-legacy-fixture';
 
@@ -61,21 +63,24 @@ test('concurrent Google authentication preserves User references and never links
       organization: await repositories.organization.findOrganization(organizationId),
       participants: await repositories.tenancy.findParticipantsByTenancy(fixture.ids.tenancy),
     }));
-    const service = new IdentityAccessService(fixture.manager, {
+    const verifier = {
       // Only the external provider is substituted; service, transactions and repositories are real.
-      verify: async (subject) => ({
-        issuer: F.values.canonicalIssuer,
-        subject,
+      verify: async (token: string) => ({
+        issuer: token === F.values.aliasRace ? F.values.bareIssuer : F.values.canonicalIssuer,
+        subject: token === F.values.aliasRace ? G.subjectFirst : token,
         email: L.email,
         emailVerified: L.emailVerified,
       }),
-    });
+    };
+    const resolver = new GooglePrincipalResolver(fixture.manager, verifier, true);
+    const service = new IdentityAccessService(fixture.manager, resolver);
     const principals = await Promise.all(
       Array.from({ length: F.configuration.registrationConcurrency }, () =>
         service.authenticateWithGoogle({ idToken: G.subjectFirst }),
       ),
     );
     assert.ok(principals.every((principal) => principal.userId === userId));
+    assert.equal((await service.authenticateWithGoogle({ idToken: F.values.aliasRace })).userId, userId);
     assert.equal(
       (
         await fixture.db
@@ -93,14 +98,14 @@ test('concurrent Google authentication preserves User references and never links
       email: L.email,
     });
 
-    const other = await service.authenticateWithGoogle({ idToken: G.subjectSecond });
-    assert.equal(other.userId, G.userSecond);
-    assert.deepEqual(await service.getSessionContext(other), {
-      userId: other.userId,
-      operatedOrganizationIds: [],
-      linkedTenancyIds: [],
-      email: L.email,
-    });
+    await assert.rejects(
+      service.authenticateWithGoogle({ idToken: G.subjectSecond }),
+      ServiceUnavailableException,
+    );
+    assert.equal(
+      await fixture.db.selectFrom('users').select('user_id').where('user_id', '=', G.userSecond).executeTakeFirst(),
+      undefined,
+    );
     assert.deepEqual(
       await fixture.manager.run(async ({ repositories }) => ({
         organization: await repositories.organization.findOrganization(organizationId),
@@ -118,11 +123,11 @@ test('concurrent Google authentication preserves User references and never links
         error instanceof Error && 'code' in error && error.code === L.foreignKeyViolationCode,
     );
 
-    const unavailable = new IdentityAccessService(fixture.manager, {
+    const unavailable = new IdentityAccessService(fixture.manager, new GooglePrincipalResolver(fixture.manager, {
       verify: async () => {
         throw new Error(L.providerFailure);
       },
-    });
+    }, true));
     const usersBefore = await fixture.db
       .selectFrom('users')
       .selectAll()

@@ -1,73 +1,23 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
-
-import {
-  GOOGLE_ID_TOKEN_VERIFIER,
-  verifyGoogleIdToken,
-  type GoogleIdTokenVerifier,
-} from '../../../integrations/google-identity';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
 import { VerifyGoogleTokenDto } from '../dto';
 import type { ProfileRecord } from '../../../persistence/ports/identity-foundation.repository';
-
-const SEEDED_PAYMENT_ROOM = {
-  userId: '00000000-0000-4000-8000-000000000001',
-  organizationId: '00000000-0000-4000-8000-000000000002',
-  tenancyId: '00000000-0000-4000-8000-000000000101',
-  participantId: '00000000-0000-4000-8000-000000000102',
-} as const;
-
-const SEEDED_A02_TENANT = {
-  userId: 'e0080000-0000-4000-8000-000000000001',
-  tenancyId: 'e0080000-0000-4000-8000-000000000007',
-  participantId: 'e0080000-0000-4000-8000-000000000008',
-} as const;
+import { GooglePrincipalResolver } from './google-principal-resolver';
 
 @Injectable()
 export class IdentityAccessService {
-  private verifier?: GoogleIdTokenVerifier;
+  private readonly googlePrincipalResolver: Pick<GooglePrincipalResolver, 'resolve'>;
 
   constructor(
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
-    @Optional() @Inject(GOOGLE_ID_TOKEN_VERIFIER) verifier?: GoogleIdTokenVerifier,
+    @Optional() @Inject(GooglePrincipalResolver) googlePrincipalResolver?: Pick<GooglePrincipalResolver, 'resolve'>,
   ) {
-    this.verifier = verifier;
+    this.googlePrincipalResolver = googlePrincipalResolver ?? new GooglePrincipalResolver(transactions);
   }
 
   async authenticateWithGoogle(dto: VerifyGoogleTokenDto): Promise<VerifiedPrincipal> {
-    const principal = await verifyGoogleIdToken(this.verifier, dto.idToken);
-    await this.transactions.run(({ repositories }) => repositories.identity.ensureUser(principal.userId));
-    await this.claimSeededPaymentRoom(principal.userId);
-    return principal;
-  }
-
-  private async claimSeededPaymentRoom(userId: string): Promise<void> {
-    if (process.env.NODE_ENV !== 'development' || process.env.TROOI_DEMO_CLAIM_USER_ID !== userId || userId === SEEDED_PAYMENT_ROOM.userId) return;
-    await this.transactions.run(async ({ repositories }) => {
-      const organization = repositories.organization;
-      const tenancy = repositories.tenancy;
-      if (!organization?.findOrganization || !tenancy?.findParticipant || !tenancy.updateParticipant) return;
-      const org = await organization.findOrganization(SEEDED_PAYMENT_ROOM.organizationId);
-      if (org?.primaryOwnerUserId === SEEDED_PAYMENT_ROOM.userId) {
-        await organization.updateOrganization({ ...org, primaryOwnerUserId: userId });
-      }
-      const participant = await tenancy.findParticipant(SEEDED_PAYMENT_ROOM.participantId);
-      if (
-        participant?.tenancyId === SEEDED_PAYMENT_ROOM.tenancyId &&
-        participant.userId === SEEDED_PAYMENT_ROOM.userId &&
-        participant.leftAt === null
-      ) {
-        await tenancy.updateParticipant({ ...participant, userId });
-      }
-      const a02 = await tenancy.findParticipant(SEEDED_A02_TENANT.participantId);
-      if (
-        a02?.tenancyId === SEEDED_A02_TENANT.tenancyId &&
-        a02.userId === SEEDED_A02_TENANT.userId &&
-        a02.leftAt === null
-      ) {
-        await tenancy.updateParticipant({ ...a02, userId });
-      }
-    });
+    return this.googlePrincipalResolver.resolve(dto.idToken);
   }
 
   async findUserById(userId: string): Promise<UserReference> {

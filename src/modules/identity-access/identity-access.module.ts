@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../infrastructure/database/database.module';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../persistence/ports/transaction-manager';
+import type { GoogleIdTokenVerifier } from '../../integrations/google-identity';
 import {
   createGoogleIdTokenVerifierFromEnv,
   GOOGLE_ID_TOKEN_VERIFIER,
@@ -7,6 +9,7 @@ import {
 
 import { IdentityAccessController } from './controllers/identity-access.controller';
 import { IdentityAccessService } from './services/identity-access.service';
+import { GooglePrincipalResolver } from './services/google-principal-resolver';
 
 const googleIdTokenVerifierProvider = {
   provide: GOOGLE_ID_TOKEN_VERIFIER,
@@ -19,10 +22,17 @@ const googleIdTokenVerifierProvider = {
   },
 };
 
+const googlePrincipalResolverProvider = {
+  provide: GooglePrincipalResolver,
+  inject: [TRANSACTION_MANAGER, GOOGLE_ID_TOKEN_VERIFIER],
+  useFactory: (transactions: TransactionManager, verifier?: GoogleIdTokenVerifier) =>
+    new GooglePrincipalResolver(transactions, verifier),
+};
+
 @Module({
   imports: [DatabaseModule],
   controllers: [IdentityAccessController],
-  providers: [IdentityAccessService, googleIdTokenVerifierProvider],
-  exports: [IdentityAccessService, GOOGLE_ID_TOKEN_VERIFIER],
+  providers: [IdentityAccessService, googleIdTokenVerifierProvider, googlePrincipalResolverProvider],
+  exports: [IdentityAccessService, GooglePrincipalResolver, GOOGLE_ID_TOKEN_VERIFIER],
 })
 export class IdentityAccessModule {}

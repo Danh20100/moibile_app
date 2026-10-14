@@ -13,8 +13,10 @@ import {
   TransformInterceptor,
   API_PREFIX,
 } from '../../src/common';
-import { GOOGLE_ID_TOKEN_VERIFIER } from '../../src/integrations/google-identity';
 import { googlePrincipalUserId } from '../../src/common/identity/deterministic-user-id';
+import { DatabaseModule } from '../../src/infrastructure/database/database.module';
+import { TRANSACTION_MANAGER, type TransactionManager } from '../../src/persistence/ports/transaction-manager';
+import { GooglePrincipalResolver } from '../../src/modules/identity-access/services/google-principal-resolver';
 import { MessagingModule } from '../../src/modules/messaging/messaging.module';
 import { MessagingService } from '../../src/modules/messaging/messaging.service';
 import { MessagingRepository } from '../../src/modules/messaging/messaging.repository';
@@ -33,17 +35,20 @@ const issuer = 'https://accounts.google.com';
 const subjects = ['messaging-test-a', 'messaging-test-b', 'messaging-test-outsider'];
 const ids = subjects.map((subject) => googlePrincipalUserId(issuer, subject));
 // Only the external Google verifier is substituted. HTTP auth, PostgreSQL and S3 are real.
+const testVerifier = {
+  async verify(token: string) {
+    if (!subjects.includes(token)) throw new Error('Invalid test credential');
+    return { issuer, subject: token, emailVerified: true };
+  },
+};
+
 @Module({
-  imports: [MessagingModule],
+  imports: [MessagingModule, DatabaseModule],
   providers: [
     {
-      provide: GOOGLE_ID_TOKEN_VERIFIER,
-      useValue: {
-        async verify(token: string) {
-          if (!subjects.includes(token)) throw new Error('Invalid test credential');
-          return { issuer, subject: token, emailVerified: true };
-        },
-      },
+      provide: GooglePrincipalResolver,
+      inject: [TRANSACTION_MANAGER],
+      useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, testVerifier, true),
     },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
