@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 
 export class VerifyGoogleTokenDto {
   @ApiProperty({
@@ -135,4 +135,16 @@ export class UpdateDisplayNameDto {
   @IsString()
   @Length(1, 80)
   displayName!: string;
+}
+
+export class UploadProfileAvatarDto {
+  @ApiProperty({ enum: ['image/jpeg', 'image/png'] })
+  @IsString()
+  @IsIn(['image/jpeg', 'image/png'])
+  contentType!: 'image/jpeg' | 'image/png';
+
+  @ApiProperty({ description: 'Base64 encoded JPEG/PNG, at most 2 MB decoded' })
+  @IsString()
+  @MaxLength(2796204)
+  base64!: string;
 }

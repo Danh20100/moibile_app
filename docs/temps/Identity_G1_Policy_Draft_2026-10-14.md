@@ -25,7 +25,7 @@ This draft proposes security decisions for G1-A (legacy cutover/collisions), G1-
 
 ### Schema, rollback, acceptance
 
-- No schema change is needed for the proposed MVP if the existing `auth_identities` constraints and legacy mapping input are sufficient. If an auditable cutover manifest needs persistence, add a new additive migration after `000014`; never edit `000008`.
+- No schema change is needed for the proposed MVP if the existing `auth_identities` constraints and legacy mapping input are sufficient. If an auditable cutover manifest needs persistence, add a new additive migration after `000015_user_profile_avatars`; never edit `000008`.
 - Rollback means turn the gate off and stop the cutover job. Keep valid immutable bindings and all User/Organization/Payment ownership rows. Never reverse by deleting/reassigning identities. Any additive audit table is retained until its records are no longer required.
 - Accept when the reviewed mapping/preflight is reproducible, all collision/no-write tests pass on isolated PostgreSQL, the frozen migration checksum is unchanged, and two approved live Google test accounts resolve to their pre-existing Users without changing ownership. This is still not `PASS_FULLSTACK` until Android journeys pass separately.
 
@@ -49,7 +49,7 @@ This draft proposes security decisions for G1-A (legacy cutover/collisions), G1-
 
 ### Schema, rollback, acceptance
 
-- No migration is proposed: migration `000008` already has the required unique principal/email constraints and verification source. If implementation reveals a missing invariant, stop and propose a new additive migration after `000014`; do not alter `000008`.
+- No migration is proposed: migration `000008` already has the required unique principal/email constraints and verification source. If implementation reveals a missing invariant, stop and propose a new additive migration after `000015_user_profile_avatars`; do not alter `000008`.
 - Rollback disables the registration endpoint/feature flag. Keep legitimately created User and immutable identity rows; do not delete data or free email/principal keys for reuse. Support account closure requires a separately approved retention policy.
 - Accept after backend tests pass on isolated PostgreSQL, security review confirms token/nonce handling, the production Google OAuth audience/config is verified, and live Google registration succeeds only for an explicitly registered account. Confirm no Organization or ownership is implicitly granted.
 
@@ -73,7 +73,7 @@ This draft proposes security decisions for G1-A (legacy cutover/collisions), G1-
 
 ### Schema, rollback, acceptance
 
-- Additive migration only, tentatively `000015_identity_sessions` after `000014`: `auth_sessions` plus append-only `identity_security_events`, foreign keys to existing User rows, unique refresh-token hash, expiry/revocation indexes, and constraints preventing session ownership mutation. Do not put secrets or raw tokens in the event table. Freeze down migration when live session/audit rows exist; do not cascade-delete them.
+- Additive migration only, tentatively `000016_identity_sessions` after avatar-storage `000015`: `auth_sessions` plus append-only `identity_security_events`, foreign keys to existing User rows, unique refresh-token hash, expiry/revocation indexes, and constraints preventing session ownership mutation. Do not put secrets or raw tokens in the event table. Freeze down migration when live session/audit rows exist; do not cascade-delete them.
 - Rollback disables session exchange/refresh and forces session revocation or expiry before returning to any previously approved authentication path. Since the current Google resolver gate is OFF, there is no safe fallback to turn on automatically. Preserve audit history and identity ownership. Any deployment rollback leaves the Identity gate OFF.
 - Accept after migration up/down guards and repository tests pass; refresh/revoke/replay/race tests pass against isolated PostgreSQL; log redaction is verified; Android secure storage and logout/account-switch tests pass; and approved live Google owner/tenant accounts pass API and device verification. Only then may a separate explicit approval authorize enabling the runtime gate.
 

@@ -132,6 +132,13 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] `DIS-P1-01` `PASS_BACKEND` + `PASS_ANDROID` (component): stable allowlisted amenity IDs flow through published feed/spatial search and Android uses the owner `AmenityCatalog` for Listing detail. `pnpm test:discovery:postgis-search` verifies PostGIS projection/filter/index behavior twice; Android emulator detail component evidence is `2/2`. Authenticated Owner→Tenant and `PASS_FULLSTACK` remain `BLOCKED`.
 
+## P1 continuation — private Profile avatar backend
+
+- [x] Add `000015_user_profile_avatars` after frozen `000008` and migrations through `000014`; keep `000008` byte-for-byte unchanged. Persist only User-owned private JPEG/PNG metadata and durable replacement/recovery intents. The draft G1-S session migration number moves to `000016`; its approval status remains OPEN and the runtime Identity gate remains OFF.
+- [x] Add principal-derived `POST/GET identity-access/profile/avatar`, strict content/size validation, route-local JSON body limit, no-store read response and private S3 keys. Replacement keeps old media until new metadata commits; pending cleanup is recoverable at startup.
+- [x] `PRO-P1-03` `PASS_BACKEND` slice: `tests/integration/identity-avatar.integration.ts` passes `1/1` on isolated PostgreSQL + real local MinIO, proving exact byte readback after DB-client reconnect, a different User cannot read the avatar, replacement cleanup retries, and interrupted upload recovery removes only uncommitted bytes. It calls controller/service with test principals; it does not exercise AuthGuard or live Google. DTO/body-parser + profile/session/frozen-Identity tests pass `25/25`; Database v1 conformance `58/58`, typecheck, lint and build pass.
+- [ ] `PRO-P1-03` Android picker/upload/readback has not been implemented or tested; no live Google/Android or `PASS_FULLSTACK` claim. Identity gate remains OFF.
+
 ## P1 continuation — Asset photo deletion recovery
 
 - [x] `LED-P1-01` implementation: migration `000013` persists one upload/delete operation intent per Listing. Upload uses a SHA-256-bound intent before MinIO PUT; delete uses an intent before object removal and metadata compaction. Startup reconciliation removes unindexed bytes after interrupted upload and completes pending deletion; same-request retries are safe. Conflicting media mutations are blocked while recovery is pending, and public reads suppress pending media.

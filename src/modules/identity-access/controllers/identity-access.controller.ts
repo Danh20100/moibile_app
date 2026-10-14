@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Header, Inject, Optional, Param, Patch, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public } from '../../../common';
@@ -10,8 +10,10 @@ import {
   VerifiedPrincipalDto,
   VerifyGoogleTokenDto,
   UpdateDisplayNameDto,
+  UploadProfileAvatarDto,
 } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
+import { ProfileAvatarService } from '../services/profile-avatar.service';
 
 @ApiTags('Identity & Access')
 @Controller('identity-access')
@@ -19,6 +21,8 @@ export class IdentityAccessController {
   constructor(
     @Inject(IdentityAccessService)
     private readonly identityAccessService: IdentityAccessService,
+    @Optional() @Inject(ProfileAvatarService)
+    private readonly profileAvatarService?: ProfileAvatarService,
   ) {}
 
   @Public()
@@ -60,6 +64,27 @@ export class IdentityAccessController {
   ): Promise<ProfileRecord> {
     if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
     return this.identityAccessService.updateOwnDisplayName(user, dto.displayName);
+  }
+
+  @Post('profile/avatar')
+  @ApiOperation({ summary: 'Upload a private avatar for the authenticated User' })
+  async uploadOwnAvatar(
+    @CurrentUser() user: VerifiedPrincipal | undefined,
+    @Body() dto: UploadProfileAvatarDto,
+  ) {
+    if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
+    if (!this.profileAvatarService) throw new ServiceUnavailableException('Profile avatar storage is unavailable');
+    return this.profileAvatarService.upload(user.userId, dto);
+  }
+
+  @Get('profile/avatar')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
+  @ApiOperation({ summary: 'Read the authenticated User private avatar' })
+  async getOwnAvatar(@CurrentUser() user?: VerifiedPrincipal) {
+    if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
+    if (!this.profileAvatarService) throw new ServiceUnavailableException('Profile avatar storage is unavailable');
+    return this.profileAvatarService.content(user.userId);
   }
 
   @Get('users/:id')

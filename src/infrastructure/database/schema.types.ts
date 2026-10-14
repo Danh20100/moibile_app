@@ -22,6 +22,8 @@ export interface Database {
   auth_identities: AuthIdentitiesTable;
   user_emails: UserEmailsTable;
   user_profiles: UserProfilesTable;
+  user_profile_avatars: UserProfileAvatarsTable;
+  user_profile_avatar_intents: UserProfileAvatarIntentsTable;
   password_credentials: PasswordCredentialsTable;
   organizations: OrganizationsTable;
   properties: PropertiesTable;
@@ -222,4 +224,13 @@ export interface NotificationsTable {
 export interface AuthIdentitiesTable { auth_identity_id: string; user_id: string; provider: 'google'; issuer: string; subject: string; linked_at: TimestampString }
 export interface UserEmailsTable { user_email_id: string; user_id: string; email_address: string; normalized_email: string; verified_at: TimestampString; verification_source: 'google' | 'email_otp'; email_revision: string }
 export interface UserProfilesTable { user_id: string; display_name: string | null; created_at: TimestampString; updated_at: TimestampString }
+export interface UserProfileAvatarsTable {
+  user_id: string; object_key: string; content_type: 'image/jpeg' | 'image/png';
+  byte_size: number; sha256: string; updated_at: TimestampString;
+}
+export interface UserProfileAvatarIntentsTable {
+  user_id: string; operation: 'UPLOAD' | 'DELETE_PREVIOUS'; object_key: string; previous_object_key: string | null;
+  content_type: 'image/jpeg' | 'image/png'; byte_size: number; sha256: string;
+  created_at: TimestampString;
+}
 export interface PasswordCredentialsTable { user_id: string; password_hash: string; credential_revision: string; created_at: TimestampString; password_changed_at: TimestampString }

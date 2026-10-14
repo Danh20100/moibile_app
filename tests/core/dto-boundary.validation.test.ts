@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { plainToInstance } from 'class-transformer';
@@ -10,6 +11,8 @@ import { UpdateOrganizationDto } from '../../src/modules/organization/dto';
 import { UpdatePropertyDto } from '../../src/modules/property/dto';
 import { UpdateRoomDto } from '../../src/modules/room/dto';
 import { CreateGatewayCheckoutDto } from '../../src/modules/payment-gateway/dto';
+import { UploadProfileAvatarDto } from '../../src/modules/identity-access/dto';
+import { rentalAssetMediaFlow } from '../support/rental-fixtures';
 
 type DtoClass = new () => object;
 
@@ -96,4 +99,15 @@ test('manual Payment DTO excludes caller verification and gateway source; read D
     ),
     [],
   );
+});
+
+test('profile avatar upload accepts only bounded declared JPEG/PNG payloads', () => {
+  const jpeg = readFileSync(rentalAssetMediaFlow.images[0]!.path);
+  const validate = (payload: object) => validateSync(
+    plainToInstance(UploadProfileAvatarDto, payload), { whitelist: true, forbidNonWhitelisted: true },
+  );
+  assert.deepEqual(validate({ contentType: 'image/jpeg', base64: jpeg.toString('base64') }), []);
+  assert.ok(validate({ contentType: 'image/svg+xml', base64: jpeg.toString('base64') }).some((error) => error.property === 'contentType'));
+  assert.ok(validate({ contentType: 'image/png', base64: 'a'.repeat(2796205) }).some((error) => error.property === 'base64'));
+  assert.ok(validate({ contentType: 'image/png', base64: jpeg.toString('base64'), userId: 'spoof' }).some((error) => error.property === 'userId'));
 });
