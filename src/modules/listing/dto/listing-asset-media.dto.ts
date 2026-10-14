@@ -1,4 +1,4 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class UploadListingAssetMediaDto {
   @IsUUID() mediaId!: string;
@@ -8,4 +8,8 @@ export class UploadListingAssetMediaDto {
 
 export class ReorderListingAssetMediaDto {
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(10) @IsUUID('all', { each: true }) mediaIds!: string[];
+}
+
+export class SetListingAssetMediaPublicDto {
+  @IsBoolean() isPublic!: boolean;
 }

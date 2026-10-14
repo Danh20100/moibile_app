@@ -57,4 +57,7 @@ export class PublicListingSearchResultDto {
 
   @ApiProperty({ example: 842.5 })
   distanceMeters!: number;
+
+  @ApiProperty({ type: [String] })
+  publicPhotoIds?: string[];
 }

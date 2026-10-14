@@ -83,7 +83,7 @@ export interface ListingAssetDetailsTable {
 }
 export interface ListingAssetMediaTable {
   media_id: string; listing_id: string; object_key: string; content_type: 'image/jpeg' | 'image/png';
-  byte_size: number; position: number; created_at: TimestampString;
+  byte_size: number; position: number; public_approved: boolean; created_at: TimestampString;
 }
 export interface ListingStatusEventsTable {
   listing_status_event_id: string; listing_id: string; from_status: string;

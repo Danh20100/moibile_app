@@ -32,6 +32,11 @@ export class PostgresListingSearchRepository implements ListingSearchRepository 
           'longitude', ST_X(public_location_projection::geometry),
           'latitude', ST_Y(public_location_projection::geometry)
         ) AS "publicLocation",
+        ARRAY(
+          SELECT media_id FROM listing_asset_media
+          WHERE listing_id = listings.listing_id AND public_approved = true
+          ORDER BY position
+        ) AS "publicPhotoIds",
         ST_Distance(public_location_projection, ${point})::float8 AS "distanceMeters"
       FROM listings
       WHERE status = 'PUBLISHED'

@@ -550,6 +550,7 @@ class BackendTroOiRepository @Inject constructor(
                 publicGeoPoint = PublicGeoPoint(listing.publicLocation.latitude, listing.publicLocation.longitude),
                 askingPriceLabel = listing.publicPriceProjection,
                 visibility = visibility,
+                publicPhotoIds = listing.publicPhotoIds,
             )
         }
 
@@ -561,6 +562,7 @@ class BackendTroOiRepository @Inject constructor(
         askingPriceLabel = value.publicPriceProjection,
         visibility = ListingVisibility.PUBLISHED,
         distanceMeters = value.distanceMeters,
+        publicPhotoIds = value.publicPhotoIds,
     )
 
     private fun mapRoom(room: RoomTransport) = OperationalRoomCard(

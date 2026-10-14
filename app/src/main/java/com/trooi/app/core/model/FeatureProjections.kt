@@ -31,6 +31,7 @@ data class PublicListingCard(
     val amenities: List<String> = emptyList(),
     val distanceMeters: Double? = null,
     val rentalDetails: PublicRentalDetails? = null,
+    val publicPhotoIds: List<String> = emptyList(),
 )
 
 /** A discovery feed may render only published public Listing projections. */

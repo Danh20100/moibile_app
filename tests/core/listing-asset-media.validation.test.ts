@@ -18,3 +18,10 @@ test('asset media rollback is data preserving and refuses to drop uploaded refer
   assert.match(rollback, /data-preserving migration/);
   assert.doesNotMatch(rollback, /DROP TABLE/);
 });
+
+test('public asset photos are opt-in and rollback refuses approved public state', () => {
+  const migration = readFileSync('database/migrations/000012_public_listing_photos.ts', 'utf8');
+  assert.match(migration, /public_approved:[\s\S]*default: false/);
+  assert.match(migration, /WHERE public_approved/);
+  assert.match(migration, /data-preserving migration/);
+});

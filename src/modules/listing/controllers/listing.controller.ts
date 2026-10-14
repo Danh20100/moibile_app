@@ -5,7 +5,7 @@ import { CurrentUser, Public, ResourceAuthorizationService } from '../../../comm
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { ListingProfile, ListingTransitionEventInput } from '../contracts';
 import { ListingAssetDetailsDto, ListingAssetDetailsProfileDto, ListingProfileDto, UpdateListingDto } from '../dto';
-import { ReorderListingAssetMediaDto, UploadListingAssetMediaDto } from '../dto/listing-asset-media.dto';
+import { ReorderListingAssetMediaDto, SetListingAssetMediaPublicDto, UploadListingAssetMediaDto } from '../dto/listing-asset-media.dto';
 import { ListingAssetMediaService } from '../services/listing-asset-media.service';
 import { ListingService } from '../services/listing.service';
 
@@ -25,8 +25,16 @@ export class ListingController {
   @Get('public')
   @ApiOperation({ summary: 'Read currently published Listing projections' })
   @ApiResponse({ status: 200, description: 'Published listings', type: [ListingProfileDto] })
-  async findPublic(): Promise<ListingProfile[]> {
-    return this.listingService.findPublished();
+  async findPublic(): Promise<(ListingProfile & { publicPhotoIds: string[] })[]> {
+    const listings = await this.listingService.findPublished();
+    return Promise.all(listings.map(async (listing) => ({ ...listing, publicPhotoIds: await this.media.publicIds(listing.id) })));
+  }
+
+  @Public()
+  @Get('public/:id/media/:mediaId/content')
+  @Header('Cache-Control', 'no-store')
+  async publicAssetMediaContent(@Param('id') id: string, @Param('mediaId') mediaId: string) {
+    return this.media.publicContent(id, mediaId);
   }
 
   @Get()
@@ -77,6 +85,17 @@ export class ListingController {
   async listAssetMedia(@Param('id') id: string, @CurrentUser() user: VerifiedPrincipal) {
     await this.authz.assertOperatesListing(user.userId, id);
     return this.media.list(id);
+  }
+
+  @Patch(':id/media/:mediaId/public')
+  async setAssetMediaPublic(
+    @Param('id') id: string,
+    @Param('mediaId') mediaId: string,
+    @Body() dto: SetListingAssetMediaPublicDto,
+    @CurrentUser() user: VerifiedPrincipal,
+  ) {
+    await this.authz.assertOperatesListing(user.userId, id);
+    return this.media.setPublic(id, mediaId, dto.isPublic);
   }
 
   @Post(':id/media')

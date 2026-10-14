@@ -9,6 +9,7 @@ export interface PublishedListingSearchResult {
   publicPriceProjection: DecimalString;
   publicLocation: GeoPoint;
   distanceMeters: number;
+  publicPhotoIds?: string[];
 }
 
 export interface ListingSearchRepository {

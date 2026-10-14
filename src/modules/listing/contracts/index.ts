@@ -15,6 +15,7 @@ export interface ListingProfile {
   publicDescription: string;
   publicPriceProjection: DecimalString;
   publicLocationProjection: GeoPoint;
+  publicPhotoIds?: string[];
 }
 
 export interface ListingStatusEvent {

@@ -175,6 +175,9 @@ export class ListingProfileDto {
 
   @ApiProperty({ description: 'Public location projection', type: PublicLocationProjectionDto })
   publicLocationProjection!: PublicLocationProjectionDto;
+
+  @ApiProperty({ type: [String] })
+  publicPhotoIds!: string[];
 }
 
 export class ListingStatusEventDto {

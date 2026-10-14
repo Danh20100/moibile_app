@@ -21,6 +21,7 @@
         "Camera khu vực chung"
       ],
       "distanceMeters": null,
+      "publicPhotoIds": [],
       "rentalDetails": {
         "type": "Căn hộ",
         "area": "28",
@@ -68,6 +69,7 @@
         "Chỗ để xe"
       ],
       "distanceMeters": null,
+      "publicPhotoIds": [],
       "rentalDetails": {
         "type": "Phòng trọ",
         "area": "22",

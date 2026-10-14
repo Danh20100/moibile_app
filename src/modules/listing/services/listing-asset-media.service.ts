@@ -9,7 +9,7 @@ import type { ReorderListingAssetMediaDto, UploadListingAssetMediaDto } from '..
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_PIXELS = 16_000_000;
-type Media = { id: string; contentType: string; byteSize: number; position: number; createdAt: string };
+type Media = { id: string; contentType: string; byteSize: number; position: number; createdAt: string; isPublic: boolean };
 
 @Injectable()
 export class ListingAssetMediaService {
@@ -20,7 +20,36 @@ export class ListingAssetMediaService {
 
   async list(listingId: string): Promise<Media[]> {
     const rows = await this.db.selectFrom('listing_asset_media').selectAll().where('listing_id', '=', listingId).orderBy('position').execute();
-    return rows.map((row) => ({ id: row.media_id, contentType: row.content_type, byteSize: row.byte_size, position: row.position, createdAt: new Date(row.created_at).toISOString() }));
+    return rows.map((row) => ({ id: row.media_id, contentType: row.content_type, byteSize: row.byte_size, position: row.position, createdAt: new Date(row.created_at).toISOString(), isPublic: row.public_approved }));
+  }
+
+  async publicIds(listingId: string): Promise<string[]> {
+    const rows = await this.db.selectFrom('listing_asset_media as media')
+      .innerJoin('listings', 'listings.listing_id', 'media.listing_id')
+      .select('media.media_id').where('media.listing_id', '=', listingId)
+      .where('media.public_approved', '=', true).where('listings.status', '=', 'PUBLISHED')
+      .orderBy('media.position').execute();
+    return rows.map((row) => row.media_id);
+  }
+
+  async publicContent(listingId: string, mediaId: string) {
+    const row = await this.db.selectFrom('listing_asset_media as media')
+      .innerJoin('listings', 'listings.listing_id', 'media.listing_id')
+      .selectAll('media').where('media.listing_id', '=', listingId).where('media.media_id', '=', mediaId)
+      .where('media.public_approved', '=', true).where('listings.status', '=', 'PUBLISHED').executeTakeFirst();
+    if (!row) throw new NotFoundException('Public listing photo unavailable');
+    const object = await this.storage.getObject(row.object_key);
+    if (!object || object.contentType !== row.content_type || object.bytes.length !== row.byte_size)
+      throw new ServiceUnavailableException('Public listing photo unavailable');
+    return { contentType: row.content_type, base64: Buffer.from(object.bytes).toString('base64') };
+  }
+
+  async setPublic(listingId: string, mediaId: string, isPublic: boolean): Promise<Media> {
+    const row = await this.db.updateTable('listing_asset_media').set({ public_approved: isPublic })
+      .where('listing_id', '=', listingId).where('media_id', '=', mediaId).returningAll().executeTakeFirst();
+    if (!row) throw new NotFoundException('Asset photo unavailable');
+    return { id: row.media_id, contentType: row.content_type, byteSize: row.byte_size, position: row.position,
+      createdAt: new Date(row.created_at).toISOString(), isPublic: row.public_approved };
   }
 
   async upload(listingId: string, dto: UploadListingAssetMediaDto): Promise<Media> {
@@ -37,7 +66,7 @@ export class ListingAssetMediaService {
             throw new ConflictException('Media ID already belongs to different content');
           const object = await this.storage.getObject(existing.object_key);
           if (!object || !Buffer.from(object.bytes).equals(bytes)) throw new ConflictException('Media ID retry content differs');
-          return { id: existing.media_id, contentType: existing.content_type, byteSize: existing.byte_size, position: existing.position, createdAt: new Date(existing.created_at).toISOString() };
+          return { id: existing.media_id, contentType: existing.content_type, byteSize: existing.byte_size, position: existing.position, createdAt: new Date(existing.created_at).toISOString(), isPublic: existing.public_approved };
         }
         const current = await tx.selectFrom('listing_asset_media').select('media_id').where('listing_id', '=', listingId).orderBy('position').execute();
         if (current.length >= 10) throw new BadRequestException('At most 10 asset photos are allowed');
@@ -45,9 +74,9 @@ export class ListingAssetMediaService {
         uploaded = true;
         const row = await tx.insertInto('listing_asset_media').values({
           media_id: dto.mediaId, listing_id: listingId, object_key: objectKey, content_type: dto.contentType,
-          byte_size: bytes.length, position: current.length, created_at: new Date().toISOString(),
+          byte_size: bytes.length, position: current.length, public_approved: false, created_at: new Date().toISOString(),
         }).returningAll().executeTakeFirstOrThrow();
-        return { id: row.media_id, contentType: row.content_type, byteSize: row.byte_size, position: row.position, createdAt: new Date(row.created_at).toISOString() };
+        return { id: row.media_id, contentType: row.content_type, byteSize: row.byte_size, position: row.position, createdAt: new Date(row.created_at).toISOString(), isPublic: row.public_approved };
       });
     } catch (error) {
       // shortcut: interrupted PUTs can leave an unindexed object; stable media IDs overwrite it on retry, add bucket reconciliation if abandoned drafts become common.
