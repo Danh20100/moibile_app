@@ -50,6 +50,8 @@ interface TroOiRepository {
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
     suspend fun refreshSessionContext(): Result<UserSession>
     suspend fun refreshPublicListings(): Result<List<PublicListingCard>>
+    suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>): Result<List<String>> =
+        Result.failure(IllegalStateException("Ảnh tin đăng chưa khả dụng."))
     suspend fun searchPublicListings(
         latitude: Double,
         longitude: Double,

@@ -40,6 +40,7 @@ class TroOiRepositoryImpl private constructor(
 
     override suspend fun refreshSessionContext() = selected().refreshSessionContext()
     override suspend fun refreshPublicListings() = selected().refreshPublicListings()
+    override suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>) = selected().loadPublicListingPhotos(listingId, mediaIds)
     override suspend fun searchPublicListings(
         latitude: Double, longitude: Double, radiusMeters: Double,
         minPrice: String?, maxPrice: String?,

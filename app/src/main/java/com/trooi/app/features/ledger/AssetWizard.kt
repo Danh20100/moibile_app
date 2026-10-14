@@ -30,6 +30,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -251,6 +253,22 @@ fun AssetWizard(
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("asset-pick-photos"), style = TroOiButtonStyle.SECONDARY) }
                         asset.photoUris.forEachIndexed { index, uri -> item(key = uri) {
                             LocalRentalPhoto(uri, null, "Ảnh ${index + 1}", Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)))
+                            val mediaId = asset.photoMediaIds.getOrElse(index) { "" }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = mediaId.isNotBlank() && mediaId in asset.publicPhotoMediaIds,
+                                    onCheckedChange = { checked ->
+                                        if (mediaId.isNotBlank()) asset = asset.copy(publicPhotoMediaIds =
+                                            if (checked) asset.publicPhotoMediaIds + mediaId else asset.publicPhotoMediaIds - mediaId)
+                                    },
+                                    enabled = mediaId.isNotBlank() && !busy,
+                                    modifier = Modifier.semantics { contentDescription = "Cho phép hiển thị ảnh ${index + 1} trên tin công khai" }
+                                        .testTag("asset-photo-public-$index"),
+                                )
+                                Text("Cho phép hiển thị ảnh này trên tin công khai", style = MaterialTheme.typography.bodyMedium)
+                            }
+                            if (mediaId.isBlank()) Text("Lưu ảnh trước; mặc định ảnh chỉ chủ trọ xem được.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                 TroOiButton(if (index == 0) "Ảnh bìa" else "Chọn làm bìa", {
                                     val order = listOf(index) + asset.photoUris.indices.filterNot { it == index }
@@ -259,7 +277,7 @@ fun AssetWizard(
                                     Modifier.weight(1f).testTag("asset-cover-$index"), style = TroOiButtonStyle.TERTIARY)
                                 IconButton({ val order = asset.photoUris.indices.toMutableList(); java.util.Collections.swap(order, index, index - 1); asset = asset.copy(photoUris = order.map(asset.photoUris::get), photoMediaIds = order.map { asset.photoMediaIds.getOrElse(it) { "" } }) }, enabled = index > 0,
                                     modifier = Modifier.testTag("asset-photo-up-$index")) { Icon(Icons.Rounded.ArrowUpward, "Đưa ảnh lên trước") }
-                                IconButton({ asset = asset.copy(photoUris = asset.photoUris.filterIndexed { i, _ -> i != index }, photoMediaIds = asset.photoMediaIds.filterIndexed { i, _ -> i != index }) }, Modifier.testTag("asset-photo-remove-$index")) { Icon(Icons.Rounded.DeleteOutline, "Xóa ảnh ${index + 1}") }
+                                IconButton({ asset = asset.copy(photoUris = asset.photoUris.filterIndexed { i, _ -> i != index }, photoMediaIds = asset.photoMediaIds.filterIndexed { i, _ -> i != index }, publicPhotoMediaIds = asset.publicPhotoMediaIds - mediaId) }, Modifier.testTag("asset-photo-remove-$index")) { Icon(Icons.Rounded.DeleteOutline, "Xóa ảnh ${index + 1}") }
                             }
                         } }
                         asset.photoResources.forEach { resource -> item { LocalRentalPhoto(null, resource, asset.name, Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp))) } }

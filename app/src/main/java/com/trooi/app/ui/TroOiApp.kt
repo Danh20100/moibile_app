@@ -217,6 +217,7 @@ fun TroOiApp(
                         DiscoveryExperience(
                             state = state,
                             onOpenListing = viewModel::openListing,
+                            onLoadPublicPhoto = viewModel::loadPublicListingCover,
                             onOpenMap = viewModel::openGuestMap,
                             onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                             onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null,

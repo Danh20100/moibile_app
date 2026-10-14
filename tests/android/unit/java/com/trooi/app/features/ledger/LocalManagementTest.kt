@@ -36,4 +36,13 @@ class LocalManagementTest {
         val partial = LocalManagement().save(asset("b").copy(monthlyRent = "", photoUris = emptyList()), false, false)
         assertEquals(0, partial.used)
     }
+
+    @Test fun ownerPhotoConsentSurvivesAssetSaveAndDraftSerialization() {
+        val photo = "93000000-0000-4000-8000-000000000001"
+        val selected = asset("a").copy(photoMediaIds = listOf(photo), publicPhotoMediaIds = setOf(photo))
+        val saved = LocalManagement().save(selected, activate = false, publish = false).assets.single()
+        val restored = com.google.gson.Gson().fromJson(com.google.gson.Gson().toJson(saved), LocalRentalAsset::class.java)
+        assertEquals(setOf(photo), restored.publicPhotoMediaIds)
+        assertTrue(restored.publicPhotoMediaIds.all { it in restored.photoMediaIds })
+    }
 }

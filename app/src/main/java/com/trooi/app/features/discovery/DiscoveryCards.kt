@@ -44,7 +44,7 @@ fun publicRentalDetail(listing: PublicListingCard): ListingFixture? = listing.re
             listing.askingPriceLabel?.let(::explorePriceVnd)?.let { "${rentalPriceLabel(it.toPlainString())}/tháng" }
                 ?: listing.askingPriceLabel?.takeIf { it.isNotBlank() } ?: "Liên hệ để biết giá",
             "${detail.area} m² · ${detail.furnishing}", category = detail.type,
-            photoUris = detail.photoUris, photoResources = detail.photoResources),
+            photoUris = listing.photoUris.ifEmpty { detail.photoUris }, photoResources = detail.photoResources),
         images = detail.photoResources, summary = (listOf(detail.type, "${detail.area} m²") +
             if (detail.type == "Căn hộ") listOf("${detail.bedrooms} phòng ngủ", "${detail.bathrooms} phòng tắm")
             else listOfNotNull(when (detail.bathroomArrangement) { BathroomArrangement.PRIVATE -> "WC riêng"; BathroomArrangement.SHARED -> "WC chung"; null -> null })
@@ -52,7 +52,8 @@ fun publicRentalDetail(listing: PublicListingCard): ListingFixture? = listing.re
         host = detail.host, description = detail.description, amenities = listing.amenities,
         publicGeoPoint = com.trooi.app.core.model.publicMapPoint(listing),
         locationDescription = "Vị trí công khai ở mức khu vực. Địa chỉ chi tiết được trao đổi khi hẹn xem.",
-        rules = detail.rules.map(String::trim).filter(String::isNotBlank), reviewCount = 0, photoUris = detail.photoUris,
+        rules = detail.rules.map(String::trim).filter(String::isNotBlank), reviewCount = 0,
+        photoUris = listing.photoUris.ifEmpty { detail.photoUris }, publicPhotoIds = listing.publicPhotoIds,
         costs = listOf("Cọc dự kiến: ${rentalPriceLabel(detail.advertisedDeposit)}", "Thời hạn thuê tối thiểu: ${detail.minimumTermMonths} tháng") +
             listOf("Điện" to detail.electricityOffer, "Nước" to detail.waterOffer, "Dịch vụ" to detail.serviceOffer,
                 "Có thể nhận phòng từ" to detail.availableFrom).filter { it.second.isNotBlank() }.map { "${it.first}: ${it.second}" },

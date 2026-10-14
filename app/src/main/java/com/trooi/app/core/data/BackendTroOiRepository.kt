@@ -10,6 +10,8 @@ import com.trooi.app.core.network.dto.*
 import javax.inject.Inject
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Backend-backed repository. All authorization and canonical writes remain server-side. */
 class BackendTroOiRepository @Inject constructor(
@@ -106,6 +108,27 @@ class BackendTroOiRepository @Inject constructor(
         Result.success(mapPublicListings(api.getPublicListings().required("public listings")))
     } catch (error: RuntimeException) {
         Result.failure(error)
+    }
+
+    override suspend fun loadPublicListingPhotos(listingId: String, mediaIds: List<String>): Result<List<String>> = runCatching {
+        require(mediaIds.size <= 10 && mediaIds.distinct().size == mediaIds.size)
+        mediaIds.map { mediaId ->
+            UUID.fromString(mediaId)
+            val content = api.getPublicListingMediaContent(listingId, mediaId).required("public listing photo")
+            require(content.contentType in listOf("image/jpeg", "image/png"))
+            val bytes = java.util.Base64.getDecoder().decode(content.base64)
+            require(bytes.isNotEmpty() && bytes.size <= 5 * 1024 * 1024)
+            val suffix = if (content.contentType == "image/png") "png" else "jpg"
+            withContext(Dispatchers.IO) {
+                val directory = File(requireNotNull(context) { "Ảnh Backend không khả dụng trong kiểm thử JVM." }.cacheDir, "public-listing-media")
+                    .apply { check(exists() || mkdirs()) }
+                val file = File(directory, "$mediaId.$suffix")
+                val temporary = File(directory, "$mediaId.$suffix.tmp")
+                temporary.writeBytes(bytes)
+                check(temporary.renameTo(file) || (temporary.delete() && file.exists()))
+                Uri.fromFile(file).toString()
+            }
+        }
     }
 
     override suspend fun searchPublicListings(
@@ -254,7 +277,12 @@ class BackendTroOiRepository @Inject constructor(
             mediaId
         }
         currentMedia.filterNot { it.id in desiredIds }.forEach { api.removeListingAssetMedia(listingId, it.id, credential).required("remove asset photo") }
+        require(asset.publicPhotoMediaIds.all { it in desiredIds }) { "Quyền công khai chỉ áp dụng cho ảnh của tài sản này." }
         if (desiredIds.isNotEmpty()) api.reorderListingAssetMedia(listingId, desiredIds, credential).required("order asset photos")
+        val currentAfterSave = api.getListingAssetMedia(listingId, credential).required("asset photo visibility")
+        currentAfterSave.filter { it.isPublic != (it.id in asset.publicPhotoMediaIds) }.forEach { media ->
+            api.setListingAssetMediaPublic(listingId, media.id, media.id in asset.publicPhotoMediaIds, credential).required("save asset photo visibility")
+        }
         if (publish) {
             require(asset.readyToPublish()) { "Hoàn tất mô tả, giá, ảnh và thông tin tài sản trước khi đăng." }
             api.publishListing(listingId, credential).required("publish Listing")
@@ -391,6 +419,7 @@ class BackendTroOiRepository @Inject constructor(
                         rules = assetDetails?.rules.orEmpty(),
                         photoUris = downloadedPhotos,
                         photoMediaIds = media.sortedBy { it.position }.map { it.id },
+                        publicPhotoMediaIds = media.filter { it.isPublic }.mapTo(mutableSetOf()) { it.id },
                         status = if (room.recordLifecycle == "archived" || property.lifecycleStatus == "archived") ManagedAssetStatus.ARCHIVED
                             else if (assetDetails?.managementStatus == "ACTIVE" || currentListing?.status == "published") ManagedAssetStatus.ACTIVE
                             else ManagedAssetStatus.DRAFT,

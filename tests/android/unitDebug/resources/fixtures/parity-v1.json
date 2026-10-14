@@ -22,6 +22,7 @@
       ],
       "distanceMeters": null,
       "publicPhotoIds": [],
+      "photoUris": [],
       "rentalDetails": {
         "type": "Căn hộ",
         "area": "28",
@@ -70,6 +71,7 @@
       ],
       "distanceMeters": null,
       "publicPhotoIds": [],
+      "photoUris": [],
       "rentalDetails": {
         "type": "Phòng trọ",
         "area": "22",

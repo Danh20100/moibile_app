@@ -71,7 +71,7 @@ fun ListingDetailScreen(
             }
         } else {
             val suppliedPhotoCount = fixture.photoUris.size + fixture.images.size
-            val photoCount = maxOf(1, suppliedPhotoCount)
+            val photoCount = maxOf(1, suppliedPhotoCount, fixture.publicPhotoIds.size)
             val pager = rememberPagerState { photoCount }
             LazyColumn(
                 Modifier.fillMaxSize().padding(padding).testTag("listing-detail-$listingId"),
@@ -110,7 +110,8 @@ fun ListingDetailScreen(
                             }
                         }
                         Surface(modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), shape = MaterialTheme.shapes.small) {
-                            Text(if (suppliedPhotoCount == 0) "Chưa có ảnh" else "${pager.currentPage + 1}/$photoCount",
+                            Text(if (suppliedPhotoCount == 0 && fixture.publicPhotoIds.isNotEmpty()) "Ảnh công khai"
+                                else if (suppliedPhotoCount == 0) "Chưa có ảnh" else "${pager.currentPage + 1}/$photoCount",
                                 Modifier.padding(horizontal = 12.dp, vertical = 6.dp).testTag("listing-image-indicator"))
                         }
                     }

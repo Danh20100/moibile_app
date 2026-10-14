@@ -35,7 +35,7 @@ data class ListingAssetDetailsTransport(
     val maxOccupants: Int?, val floorLabel: String?,
 )
 
-data class ListingAssetMediaTransport(val id: String, val contentType: String, val byteSize: Int, val position: Int, val createdAt: String)
+data class ListingAssetMediaTransport(val id: String, val contentType: String, val byteSize: Int, val position: Int, val createdAt: String, val isPublic: Boolean = false)
 data class ListingAssetMediaContentTransport(val contentType: String, val base64: String)
 
 data class PublicListingSearchResultTransport(

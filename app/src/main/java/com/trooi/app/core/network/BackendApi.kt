@@ -41,6 +41,8 @@ interface BackendApi {
     suspend fun getListingAssetMedia(id: String, expectedToken: String? = null): ApiOutcome<List<ListingAssetMediaTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun uploadListingAssetMedia(id: String, mediaId: String, contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ListingAssetMediaTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getListingAssetMediaContent(id: String, mediaId: String, expectedToken: String? = null): ApiOutcome<ListingAssetMediaContentTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun setListingAssetMediaPublic(id: String, mediaId: String, isPublic: Boolean, expectedToken: String? = null): ApiOutcome<ListingAssetMediaTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getPublicListingMediaContent(id: String, mediaId: String): ApiOutcome<ListingAssetMediaContentTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun reorderListingAssetMedia(id: String, mediaIds: List<String>, expectedToken: String? = null): ApiOutcome<List<ListingAssetMediaTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun removeListingAssetMedia(id: String, mediaId: String, expectedToken: String? = null): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun createListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<ListingTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -236,6 +238,15 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun getListingAssetMediaContent(id: String, mediaId: String, expectedToken: String?) =
         client.get("listings/$id/media/$mediaId/content", true, expectedToken = expectedToken)
+            .decode { messagingGson.fromJson(it, ListingAssetMediaContentTransport::class.java) }
+
+    override suspend fun setListingAssetMediaPublic(id: String, mediaId: String, isPublic: Boolean, expectedToken: String?) =
+        client.patchJson("listings/$id/media/$mediaId/public", com.google.gson.JsonObject().apply {
+            addProperty("isPublic", isPublic)
+        }.toString(), true, expectedToken).decode { messagingGson.fromJson(it, ListingAssetMediaTransport::class.java) }
+
+    override suspend fun getPublicListingMediaContent(id: String, mediaId: String) =
+        client.get("listings/public/$id/media/$mediaId/content", authenticated = false)
             .decode { messagingGson.fromJson(it, ListingAssetMediaContentTransport::class.java) }
 
     override suspend fun reorderListingAssetMedia(id: String, mediaIds: List<String>, expectedToken: String?) =

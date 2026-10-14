@@ -60,6 +60,7 @@ private fun priced(items: List<DiscoveryListingItem>, sort: DiscoverySort): List
 fun DiscoveryExperience(
     state: TroOiUiState,
     onOpenListing: (String) -> Unit,
+    onLoadPublicPhoto: (String, String) -> Unit = { _, _ -> },
     onOpenMap: () -> Unit,
     onSearch: ((Double, Double, Double, String?, String?) -> Unit)? = null,
     onResetSearch: (() -> Unit)? = null,
@@ -225,6 +226,7 @@ fun DiscoveryExperience(
                     .firstOrNull { it.listingId == item.listingId }
                 DiscoveryDecisionCard(
                     item = item, public = projection,
+                    onLoadPublicPhoto = onLoadPublicPhoto,
                     compared = item.listingId in compareIds,
                     onCompare = {
                         if (item.listingId in compareIds) compareIds = compareIds - item.listingId
@@ -359,6 +361,7 @@ private fun CompareLine(label: String, value: String?) {
 private fun DiscoveryDecisionCard(
     item: DiscoveryListingItem,
     public: PublicListingCard?,
+    onLoadPublicPhoto: (String, String) -> Unit,
     compared: Boolean,
     onCompare: () -> Unit,
     compareFull: Boolean,
@@ -366,6 +369,11 @@ private fun DiscoveryDecisionCard(
     modifier: Modifier = Modifier,
 ) {
     val detail = public?.rentalDetails
+    LaunchedEffect(public?.listingId, public?.publicPhotoIds?.firstOrNull(), public?.photoUris?.firstOrNull()) {
+        val listingId = public?.listingId
+        val photoId = public?.publicPhotoIds?.firstOrNull()
+        if (listingId != null && photoId != null && public?.photoUris?.isEmpty() == true) onLoadPublicPhoto(listingId, photoId)
+    }
     Surface(
         modifier = modifier.fillMaxWidth().testTag("discovery-card-" + item.listingId),
         shape = RoundedCornerShape(18.dp),
@@ -375,7 +383,7 @@ private fun DiscoveryDecisionCard(
     ) {
         Column {
             Box(Modifier.fillMaxWidth().height(175.dp).clickable(onClick = onOpen)) {
-                LocalRentalPhoto(item.photoUris.firstOrNull(), item.photoResources.firstOrNull(),
+                LocalRentalPhoto(public?.photoUris?.firstOrNull() ?: item.photoUris.firstOrNull(), item.photoResources.firstOrNull(),
                     item.title, Modifier.fillMaxSize())
                 item.badge?.let {
                     SuggestionBadge(it, Modifier.align(Alignment.TopStart).padding(12.dp))

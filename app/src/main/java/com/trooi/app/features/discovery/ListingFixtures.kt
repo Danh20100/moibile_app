@@ -15,6 +15,7 @@ data class ListingFixture(
     val photoUris: List<String> = emptyList(),
     val costs: List<String> = emptyList(),
     val publicGeoPoint: com.trooi.app.core.model.PublicGeoPoint? = null,
+    val publicPhotoIds: List<String> = emptyList(),
 ) {
     // Share only public card fields; never local media URIs or operational metadata.
     fun shareText(): String = listOf(card.title, card.category, card.publicAreaLabel,

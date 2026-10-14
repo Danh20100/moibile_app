@@ -394,11 +394,42 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun openListing(listingId: String) {
-        if (publicDiscoveryFeed(_state.value.read.publicListings).none { it.listingId == listingId }) {
+        val listing = publicDiscoveryFeed(_state.value.read.publicListings).firstOrNull { it.listingId == listingId }
+        if (listing == null) {
             return showMessage("Tin đăng này không có trong danh sách công khai.")
         }
         _state.update { it.copy(inquiryCompletedListingId = null, inquiryCompletedId = null, inquiryError = null) }
         open(AppPage.ListingDetail(listingId))
+        if (listing.publicPhotoIds.isNotEmpty() && listing.photoUris.isEmpty()) {
+            val generation = sessionGeneration
+            viewModelScope.launch {
+                repository.loadPublicListingPhotos(listingId, listing.publicPhotoIds).fold(
+                    onSuccess = { uris ->
+                        if (generation == sessionGeneration && _state.value.page == AppPage.ListingDetail(listingId)) {
+                            _state.update { current -> current.copy(read = current.read.copy(publicListings = current.read.publicListings.map {
+                                if (it.listingId == listingId) it.copy(photoUris = uris) else it
+                            })) }
+                        }
+                    },
+                    onFailure = { showMessage("Chưa tải được ảnh công khai. Kiểm tra kết nối rồi mở lại tin đăng.") },
+                )
+            }
+        }
+    }
+
+    fun loadPublicListingCover(listingId: String, mediaId: String) {
+        val listing = _state.value.read.publicListings.firstOrNull { it.listingId == listingId } ?: return
+        if (listing.photoUris.isNotEmpty() || mediaId !in listing.publicPhotoIds) return
+        val generation = sessionGeneration
+        viewModelScope.launch {
+            repository.loadPublicListingPhotos(listingId, listOf(mediaId)).onSuccess { uris ->
+                if (generation == sessionGeneration) _state.update { current ->
+                    current.copy(read = current.read.copy(publicListings = current.read.publicListings.map {
+                        if (it.listingId == listingId && mediaId in it.publicPhotoIds && it.photoUris.isEmpty()) it.copy(photoUris = uris) else it
+                    }))
+                }
+            }
+        }
     }
 
     fun openTrustReport(listingId: String) {
