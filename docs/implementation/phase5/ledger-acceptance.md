@@ -1,169 +1,131 @@
-# TrọƠi P5.2 — Ledger implementation and acceptance
+# TrọƠi P5.2B — Ledger implementation and acceptance
 
 Date: 2026-10-14  
 Branch: `integration/profile-ledger-candidate`  
-Start HEAD: `ac4c0389000097f0b4099bc86c7eb0e0a2985d37`  
-First implementation slice HEAD (before safety-review follow-ups): `bb2a045e596834c04cd1d4388e41e7036ad3e489`.  
-Final branch HEAD is the acceptance-report commit at handoff; the exact commit ID is reported in the task handoff because a commit cannot include its own hash.  
+Start HEAD: `42536a298becbac2c3ec76f2df070f7a888330ae`
+Implementation HEAD before this report commit: `c90891e14f340bf1ae8bf34a5d626d36d8a97ce2`. Final report commit and branch HEAD are stated in the completion handoff.
 Recommendation: **partial_with_gates**
 
 ## Summary
 
-The candidate has retry-safe, server-authorized Property, Room and Listing create/update APIs, plus server-side Room/Property archive routes. Room archive is now one soft lifecycle transition performed under database locks: it checks state and retention blockers before mutating the Room or Listing, then moves the Listing through unpublish/archive and archives the Room in one transaction. The Android AssetWizard save is deliberately fail-closed until its full draft has durable field mappings; it returns an error before making any write and retains the in-progress UI state.
+Ledger drafts now have an additive, durable mapping for the AssetWizard's non-media fields. The authorized Android repository creates or updates Property → Room → Listing, saves private Listing asset details, then refreshes through the Backend. A new real HTTP/PostgreSQL test verifies persistence, restart readback, owner checks and separation from the public Listing projection. Stable client UUIDs and server payload comparisons make retries idempotent and reject reuse with different content.
 
-The schema does not represent most AssetWizard details or asset photos. Therefore this is not a complete Ledger Asset round trip: type, area, advertised deposit, amenities, rules, room details, furnishing, utility offers, term, availability and photos do not survive Backend readback. The app must not be represented as meeting the P5.2 full-stack definition for those fields. Publishing from the AssetWizard fails closed because a device-local photo is not a stored Listing image.
+The schema does not yet include asset photo metadata or upload/retrieval routes. Android therefore rejects a save containing local photos and rejects publish before writing; this is a visible error and the wizard keeps its draft. These limitations mean the full AssetWizard workflow is not `PASS_FULLSTACK`. Google runtime activation remains off behind `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED`; tests use isolated verifier fixtures only. Owner onboarding and Organization claims are not fabricated.
 
-P5.1 identity activation remains gated by `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` (default off). These tests do not enable it or accept live Google login. Creating or claiming an Organization remains unavailable without the approved identity/session/Organization onboarding contract.
+## AssetWizard → API → PostgreSQL mapping
 
-## Selective Ledger source review
+All routes are under `/api/v1`. Android path: `AssetWizard → TroOiViewModel → BackendTroOiRepository → BackendApi → OkHttpBackendApi`.
 
-Reviewed source branch `temp/ledger-owner-tenant-ui-20261014` at `d9f79b8b8acfb33340a26c2cdfbc8658348d7cfb`. No source UI files were copied. Its AssetWizard replaces the candidate's existing seven-step field flow with a shorter flow while still using device-local media; it does not implement server persistence. The candidate already exposed multi-select amenities. This implementation adds a Ledger-owned stable amenity catalog, while Discovery integration remains deferred until its owner hands off a clean commit. No Discovery worktree was available at the task's specified path, and none was modified.
-
-## Android → API → database mapping
-
-All API paths below are under `/api/v1`. Reads and Room archive use `AssetWizard/Ledger UI → TroOiViewModel → BackendTroOiRepository → BackendApi → OkHttpBackendApi`. Property/Room/Listing create/update APIs are implemented and authorized, but `BackendTroOiRepository.saveLocalAsset` currently returns a clear unavailable result before calling them because the API schema cannot preserve the full wizard draft. This prevents a success response that would discard entered fields.
-
-| AssetWizard value | Current persistence mapping | Readback / limit |
+| AssetWizard field | Authoritative persistence | Privacy and readback |
 | --- | --- | --- |
-| `propertyId` | `properties.property_id` | Client generated UUID; server only retries it within the same authorized Organization. |
-| `id` | `rooms.room_id` | Client generated UUID; server only retries it under the same Property. |
-| One authorized Organization | `properties.organization_id` | The API requires the caller to operate the Organization; caller IDs alone do not grant access. Android save is gated and does not currently submit it. |
-| `name` | `properties.name`, `rooms.name_or_label`, `listings.public_title` | Backend APIs persist these fields, but AssetWizard does not call the create/update routes while full draft persistence is gated. |
-| `operationalAddress` | `properties.operational_address_text` | Private authenticated Property data only. Never added to public Listing DTOs. UI create/update remains gated. |
-| `operationalLatitude/Longitude` | `properties.operational_location` | Backend Property API keeps the exact point private; UI create/update remains gated. |
-| `description`, `monthlyRent` | `listings.public_description`, `listings.public_price_projection` | Backend Listing API persists these; they become public only after server-authorized publication. UI create/update remains gated. |
-| Public coordinate | `properties.public_location_projection`, `listings.public_location_projection` | The Android request codec rounds selected points to two decimal places; create/update remains gated until full field persistence is supported. |
-| Listing identity | `listings.listing_id` | API accepts a client UUID and same-parent retries return the existing draft. Android save does not currently submit it. |
-| Room status / occupancy | `rooms.record_lifecycle`, `rooms.operational_state` | Reconstructed from authorized Room readback. No client-supplied occupancy or lifecycle authority. |
-| Type, area, bedrooms/bathrooms, deposit offer, furnishing, amenities, rules, utility offers, minimum term, availability | No current durable column/API mapping | Backend readback cannot reconstruct these. They are not included in any `PASS_FULLSTACK` claim. Amenity IDs are stable in the local draft model only. |
-| Photos | No asset upload/metadata API | Device-local URIs are not canonical. Publish returns an unavailable error before writing. Private MinIO was exercised for Messaging only, not Ledger media. |
+| `propertyId` | `properties.property_id` | Stable client UUID; server enforces Organization ownership and same-payload retries. |
+| `id` | `rooms.room_id` | Stable client UUID; server enforces the original Property on retries. |
+| `publicListingId` / Listing identity | `listings.listing_id` | Stable UUID derived from Property + Room when first created; existing current Listing ID is reused. |
+| `name` | `properties.name`, `rooms.name_or_label`, `listings.public_title` | Persisted as the operator name/room label/public title. |
+| `operationalAddress` | `properties.operational_address_text` | Private owner-authorized Property read only. Excluded from Discovery Listing projections. |
+| `operationalLatitude`, `operationalLongitude` | `properties.operational_location` | Exact point remains private. No Android device path or public API exposes it. |
+| `publicArea` | `listing_asset_details.public_area_label` | Private operator detail until publication projection is explicitly extended. |
+| `type` | `listing_asset_details.asset_type` | Private operator detail; round-tripped. |
+| `area` | `listing_asset_details.area_square_meters` (`numeric(8,2)`) | Validated positive when non-null; nullable draft readback remains empty rather than fabricated. |
+| `monthlyRent` | `listings.public_price_projection` | Advertised Listing price; never used to calculate Finance balances. |
+| `advertisedDeposit` | `listing_asset_details.advertised_deposit` (`numeric(18,2)`) | Advertised offer only; separate from tenancy deposit requirement/fulfilment. |
+| `description` | `listings.public_description` | Listing copy; only public via existing published Listing endpoint. |
+| `bedrooms`, `bathrooms` | `listing_asset_details.bedrooms`, `.bathrooms` | Nullable integers; input is validated. |
+| `furnishing` | `listing_asset_details.furnishing` | Nullable ordinary Listing detail. |
+| `amenities` | `listing_asset_details.amenity_ids` | Stable IDs only; server rejects unknown IDs. Existing historical label-based records remain readable through the UI catalog mapping. |
+| `rules` | `listing_asset_details.rules` | Operator-authored Listing details; public Listing endpoint does not include this private row. |
+| `electricityOffer`, `waterOffer`, `serviceOffer` | `listing_asset_details.electricity_offer`, `.water_offer`, `.service_offer` | Advertised utility offers; not tenancy terms or charges. |
+| `minimumTermMonths` | `listing_asset_details.minimum_term_months` | Optional positive bounded integer. |
+| `availableFrom` | `listing_asset_details.available_from` (`date`) | Optional ISO date. |
+| `bathroomArrangement`, `maxOccupants`, `floorLabel` | `listing_asset_details.bathroom_arrangement`, `.max_occupants`, `.floor_label` | Validated optional room details. |
+| `status` | `listing_asset_details.management_status` (`DRAFT`/`ACTIVE`) | Operational management status is separate from public Listing lifecycle. Archive is represented by Room/Listing lifecycle, not a hard delete. |
+| `listingStatus` | `listings.status` | Authoritative Listing lifecycle. Public reads return published Listings only. |
+| `occupied` | `rooms.operational_state` | Reconstructed from server lifecycle state; client cannot write occupancy. |
+| `photoUris`, `photoResources` | No durable Ledger mapping yet | Device paths/resources are not sent as canonical data. Non-empty photos fail closed before any API write. |
 
-Current routes and authorities:
+The schema addition is `listing_asset_details`, one row per existing `listings.listing_id`, with a no-delete FK. It does not duplicate Organization, Property, Room, Tenancy, Deposit or Payment authority. Migration `000010_listing_asset_details` is additive; migrations `000001`–`000009`, the frozen Identity migration `000008`, and historical ownership/reference relationships are unchanged. Its down migration refuses destructive rollback.
 
-| Route | Purpose and authorization |
+## Implemented routes and authorization
+
+| Route | Use and authorization |
 | --- | --- |
-| `POST /properties`, `PATCH /properties/:id`, `GET /properties?organizationId=…` | Existing Property service; controller requires operated Organization/Property authorization. |
-| `POST /rooms`, `PATCH /rooms/:id`, `GET /rooms?propertyId=…` | Existing Room service; controller requires operated Property/Room authorization. Create accepts an optional client UUID for safe retry. Archived Rooms reject edits. |
-| `POST /listings`, `PATCH /listings/:id`, `GET /listings?roomId=…` | Existing Listing route and lifecycle coordinator; create accepts an optional client UUID. Content remains a public projection and is not a tenancy or Payment record. |
-| `POST /listings/:id/publish`, `POST /listings/:id/unpublish`, `POST /listings/:id/archive` | Existing authorized Listing lifecycle routes. Publish checks active Property ancestry, vacancy and required content. |
-| `POST /rooms/:id/operational-state` | Existing RentalLifecycle route for authorized operational-state changes. Asset archive no longer calls it as a separate step. |
-| `POST /rooms/:id/archive` | Added authorized soft archive using `RentalTransactionCoordinator`; no caller-supplied blocker booleans. Any Tenancy history or open incident blocks archive pending retention/finance review. |
-| `POST /properties/:id/archive` | Added authorized soft archive using the same transaction guard across child Rooms and Listings. |
-| `GET /listings/public` | Existing public projection; contains Listing facts and coarse public coordinates, not Property address or operational coordinates. |
+| `GET /properties?organizationId=…`, `POST /properties`, `PATCH /properties/:id` | Existing Property routes. Controller authorization checks operated Organization/Property; exact address and operational coordinates are private. |
+| `GET /rooms?propertyId=…`, `POST /rooms`, `PATCH /rooms/:id` | Existing Room routes. Controller checks operated Property/Room. Same-ID retries must match the original parent and payload. |
+| `GET /listings?roomId=…`, `POST /listings`, `PATCH /listings/:id` | Existing Listing routes. Create accepts a stable ID; same-ID mismatched data rejects. |
+| `GET /listings/:id/asset-details`, `PUT /listings/:id/asset-details` | Added private operator detail routes. Both call `assertOperatesListing`; service validates amenity IDs, numeric/date fields, edit lifecycle and ACTIVE requirements. |
+| `POST /listings/:id/unpublish`, `POST /listings/:id/archive` | Existing authorized Listing lifecycle transitions. |
+| `POST /rooms/:id/archive`, `POST /properties/:id/archive` | Existing atomic soft archive routes; server derives blockers and checks before mutation. Room archive coordinator remains unchanged. |
+| `GET /listings/public` | Public Listing projection; the new private details table, exact address and exact operational coordinates are not returned. |
 
-No AssetWizard save writes occur in the current Android backend mode; the unavailable result leaves the form open and does not lose its draft. Backend create APIs accept stable IDs so future multi-request saves can recover from partially committed rows. Room archive is a single authorized endpoint and one database transaction; blocker errors occur before any Listing or Room state change.
+Asset save is sequential across Property, Room, Listing and asset details, so it is not one transaction. Each resource uses stable identity and same-payload retry checks; a retry recovers already committed rows and refuses conflicting ID reuse. If an API/process failure occurs midway, the UI reports failure, retains its entered draft and a retry resumes at the same IDs. Account token equality is checked before applying refresh results, preventing an old session response from replacing a new account's state.
 
 ## Feature matrix
 
-| Feature | Status | Evidence / remaining work |
+| Feature | Status | Evidence / limit |
 | --- | --- | --- |
-| Property create/update and private read | `PASS_BACKEND_ONLY` | Authorized API and real Property service/repository PostgreSQL restart test. Android AssetWizard create/update is currently gated before API calls. |
-| Room create/update/read | `PASS_BACKEND_ONLY` | Authorized API, PostgreSQL restart test, retry UUID test and Room authorization tests. Android AssetWizard create/update is gated. |
-| Listing draft/update | `PASS_BACKEND_ONLY` | Authorized Listing API and persistence plus stable-ID retry through PostgreSQL test. Android AssetWizard create/update is gated. |
-| Listing publish/unpublish | `PASS_GATED` | Existing lifecycle coordinator checks ancestry, vacancy and content; public projection remains scoped. App publish stays unavailable until private photo upload/readback exists. |
-| Room/Property archive | `PASS_BACKEND_ONLY` | Protected routes; transaction tests prove blocker rejection leaves a published Listing and active Room unchanged, and eligible published Room archive is atomic. Any Tenancy history blocks archive conservatively. |
-| Full AssetWizard persistence | `NOT_IMPLEMENTED` | Current schema drops wizard-only fields listed above. Do not call this Asset full-stack complete. |
-| Amenity multi-select/catalog | `PASS_BACKEND_ONLY` | Multi-select already existed; stable ID/label/icon catalog now owns Ledger options. IDs are not yet persisted or connected to Discovery's public catalog. |
-| Asset images / MinIO | `BLOCKED_SECURITY_CONTRACT` | No asset object metadata, upload authorization, or retrieval contract. Local URIs are not saved as server data. |
-| Owner onboarding / Organization claim | `BLOCKED_SECURITY_CONTRACT` | P5.1 session and Organization ownership cutover is open; no Organization is created or assigned by Ledger. |
-| Capacity/entitlement purchase | `BLOCKED_SECURITY_CONTRACT` | No verified entitlement/Payment contract; ViewModel remains unavailable and does not mutate capacity. |
-| Operator/Tenant Rooms and lifecycle reads | `PASS_BACKEND_ONLY` | Existing authorized Organization/Property/Room/Tenancy projections. |
-| Finance/Deposit/Receipt reads | `PASS_BACKEND_ONLY` | Values come from Finance APIs and confirmed Payment/Receipt sources; no rent arithmetic was added. A finance API failure can still fail the combined read instead of retaining operational data with a visible finance-only error. |
-| Ledger finance partial-error recovery | `NOT_IMPLEMENTED` | Snapshot load still treats downstream calls as one operation. |
-| Ledger contextual Messaging buttons | `NOT_IMPLEMENTED` | General Messaging context APIs and P5.1 test-verifier acceptance pass, but the current candidate Ledger does not wire these actions to persisted Inquiry/Tenancy IDs. |
-| Google identity in product runtime | `PASS_GATED` | Shared resolver remains gated off. Normal protected Backend APIs are unavailable until P5.1 cutover approval; no production gate bypass. |
-| Ledger Android device → PostgreSQL acceptance | `REGRESSION` | Current connected instrumentation run exceeded ten minutes without a completed report and was stopped. See baseline comparison below. |
+| Property create/update/private address+coordinates | `PASS_BACKEND_ONLY` | Server authorization and PostgreSQL persistence/readback; exercised through AssetWizard repository transport code, no device-to-database acceptance claim. |
+| Room create/update and occupancy readback | `PASS_BACKEND_ONLY` | Real PostgreSQL writes/reconnect readback and lifecycle authority. |
+| Listing create/update and retry conflict rejection | `PASS_BACKEND_ONLY` | Stable UUID, same-payload retry and mismatched payload checks; actual Postgres restart test. |
+| AssetWizard ordinary field persistence | `PASS_GATED` | Backend schema/routes/Android transport/repository mapping and tests exist. Android save rejects photos and publish, and connected device acceptance has not completed. |
+| Draft edits and server readback | `PASS_BACKEND_ONLY` | Private Asset details GET/PUT tested through real Nest HTTP and PostgreSQL for owner and outsider. |
+| Amenity catalog and durable IDs | `PASS_BACKEND_ONLY` | Stable catalog IDs persisted in `listing_asset_details.amenity_ids`, unknown IDs rejected. Cross-branch Discovery catalog handoff remains pending. |
+| Publish/unpublish/archive from AssetWizard | `PASS_GATED` | Existing Listing lifecycle and archive authorities remain; AssetWizard publish refuses before write until asset media is durable/readable. |
+| Room/Property archive blockers | `PASS_BACKEND_ONLY` | 4/4 archive behavior and 2/2 isolated PostgreSQL guard tests; Room archive remains atomic and soft. |
+| Ledger asset photos / private MinIO metadata/retrieval | `NOT_IMPLEMENTED` | Messaging's separate private MinIO integration passes, but Ledger has no asset-media API/table. Device-local URIs are rejected before save. |
+| Finance partial failure recovery | `PASS_GATED` | Repository retains operational snapshot and exposes recoverable finance errors/retry; Android unit test passes, device acceptance pending. No rent-based balance calculation. |
+| Contextual Ledger Messaging | `PASS_GATED` | Owner/Tenant actions pass persisted Tenancy context IDs into the existing context-opening callback. Messaging A/B PostgreSQL/S3 regression passes with test verifier; device path remains unverified. |
+| Organization onboarding/claim | `BLOCKED_SECURITY_CONTRACT` | Identity/session/Organization ownership contract remains open. No ownership is created from caller input. |
+| Google runtime activation | `PASS_GATED` | `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` remains disabled. Isolated test verifier is not live Google acceptance. |
+| Android UI → Backend → PostgreSQL → UI | `BLOCKED_DEVICE` | Instrumentation stopped at 45/87 with 17 observed failures after making no progress for over 30 seconds; no `PASS_FULLSTACK` claim. |
+| Capacity purchase/entitlement | `BLOCKED_SECURITY_CONTRACT` | No verified entitlement/payment contract; no local capacity mutation presented as a purchase. |
 
 ## Verification evidence
 
+All database runs used the isolated `troii_test` database on `127.0.0.1:55518`; Messaging ran on its isolated database and private MinIO container. No credentials were printed or committed.
+
 | Command / check | Result |
 | --- | --- |
-| `pnpm typecheck` | PASS after the archive controller dependency wiring and test-constructor updates |
-| `pnpm lint` | PASS, zero ESLint errors |
+| `pnpm typecheck` | PASS |
+| `pnpm lint` | PASS |
 | `pnpm build` | PASS |
-| `pnpm test` with `DATABASE_URL` and `TEST_DATABASE_URL` set to isolated `trooi_test` on port 55518 | PASS, 463 passed / 0 failed. An initial run against the `.env` default port 5432 failed the public Listing runtime smoke test because the database was unreachable; the isolated rerun passed. |
-| `pnpm test:conformance:database-v1` | PASS, 58 passed / 0 failed |
-| Property/Room/Listing/lifecycle/authorization core tests | PASS; included in `pnpm test` |
-| `node --import tsx --test --test-concurrency=1 tests/integration/persistence/application-wiring.integration.ts` against isolated `trooi_test` at port 55518 | PASS, 1 test; migrations 000001–000009, Property/Room/Listing create retry, and PostgreSQL client restart/readback |
-| `node --import tsx --test --test-concurrency=1 tests/integration/persistence/guards/rental-guards.integration.ts` against isolated `trooi_test` at port 55518 | PASS, 2 tests; confirmed blocked archive leaves Room/Listing unchanged and eligible published Room archives durably in PostgreSQL |
-| Profile/Identity/PostgreSQL/freeze batch | PASS, 25 passed / 0 failed; isolated PostgreSQL at port 55518 |
-| `node --import tsx --test tests/integration/messaging.integration.ts` | PASS, 1 test; separate PostgreSQL + private MinIO, test Google verifier, A/B message/history/attachment and outsider denial. This is not live Google acceptance. |
-| `:app:testDebugUnitTest` | PASS, 220 / 220, including a regression proving unsupported AssetWizard save makes zero Backend requests |
-| `:app:assembleDebug :app:assembleRelease :app:lintDebug` | PASS after follow-up changes; Release APK unsigned |
+| `pnpm test` with `DATABASE_URL` and `TEST_DATABASE_URL` set to isolated `trooi_test` | PASS, 465/465, 0 failures |
+| `pnpm test:conformance:database-v1` | PASS, 58/58 |
+| `pnpm exec tsx --test tests/core/rental-transaction-archive.behavior.test.ts` | PASS, 4/4 |
+| `pnpm exec tsx --test --test-concurrency=1 tests/integration/persistence/guards/rental-guards.integration.ts` with isolated PG | PASS, 2/2 |
+| `pnpm exec tsx --test --test-concurrency=1 tests/integration/persistence/application-wiring.integration.ts tests/integration/listing-asset-details.http.integration.ts` with isolated PG | PASS, 2/2; migrations `000001`–`000010`, same-ID retry conflict, Asset details reconnect readback, owner authorization and public projection privacy |
+| `pnpm exec tsx --test --test-concurrency=1 tests/integration/messaging.integration.ts` against `trooi-phase5-messaging` PostgreSQL + private MinIO | PASS, 1/1; A/B, private attachment, reconnect/history and outsider denial using test Google verifier, not live Google |
+| Android `:app:testDebugUnitTest` | PASS, 222/222 |
+| Android `:app:assembleDebug :app:assembleRelease :app:lintDebug` | PASS; unsigned Release APK |
 | `python app/scripts/verify_frontend_architecture.py` | PASS |
-| `python app/scripts/verify_fixture_isolation.py <debug.apk> <release.apk>` | PASS; 7 Debug JSON assets match source and 53 Release sentinels are excluded |
-| `:app:connectedDebugAndroidTest` | INCOMPLETE; ran longer than ten minutes on the attached emulator without a finished report, then stopped. No green result claimed. |
-| Live Google and Ledger asset storage/device E2E | NOT RUN / BLOCKED; no live Google token acceptance, and no asset media endpoints exist. |
+| `python app/scripts/verify_fixture_isolation.py app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/app-release-unsigned.apk` | PASS; 7 Debug JSON assets match source and 53 Release sentinels excluded |
+| Frozen Identity verification | PASS as part of the fresh `pnpm test` suite; no historical migration changed |
+| `:app:connectedDebugAndroidTest` | INCOMPLETE, 45/87 cases reached, 17 failures observed. The emulator stalled between cases and the run was interrupted; this is not green. |
+| Asset MinIO upload / UI-to-PostgreSQL device acceptance | NOT IMPLEMENTED / not claimed |
 
 ## Android instrumentation baseline and current result
 
-The P5.1 handoff records an instrumentation attempt that reached 34/87 cases with 15 failures in Account/settings, onboarding and Messages UI. The P5.2 task handoff also records a prior XML artifact with 18 failed cases among 50 recorded cases, including Account, Onboarding, Ledger and Messaging. The raw XML was not present in this worktree when checked, so those two historical counts are preserved as separate handoff evidence rather than reconciled.
+The P5.1 report records 34/87 cases reached with 15 failures, mainly Account/settings and Messages. The P5.2 handoff also records a separate XML artifact with 18 failed cases among 50 recorded cases, including Account, Onboarding, Ledger and Messaging. Those baseline artifacts disagree and were not reconciled. The fresh P5.2B run discovered 87 cases, reached 45/87, and had 17 observed failures before it was interrupted after more than 30 seconds without progress. Failure groups observed: 5 Account/settings cases, 3 AccountSecurity cases, AssetPublicationFlow, FixturePortfolioFlow, LandlordOnboardingFlow, MessagesFlow, 3 NativeAccountEntry cases, and 2 NativeMessagingStates cases. Because the current run reached more cases than the P5.1 report and is incomplete, these counts are evidence of regression status but are not a final apples-to-apples suite comparison. Raw partial logs remain under `app/build/outputs/androidTest-results/connected/debug/` (build output, not committed).
 
-The fresh P5.2 connected run remained active past ten minutes without creating a completed JUnit report. It is an incomplete current run, not a pass and not a comparable failure count. APK builds, JVM tests and lint pass independently.
+## Security and privacy findings
 
-## Security, schema and storage findings
+- Google Identity activation stays gated. Integration tests inject test verifiers only.
+- Property private address and exact operational coordinates are accessed only through authorized Property APIs. Public Listing projection does not expose the new `listing_asset_details` row.
+- Organization ownership is derived from session context; AssetWizard never trusts a caller-supplied Organization ID as authority.
+- Advertised rent/deposit/utility offers remain distinct from TenancyTerms, Billing, Deposits and Payments.
+- Save operations do not report success unless the APIs succeed and server refresh returns the saved Room/Listing under the same token.
+- Asset photo bytes/metadata and public image projection remain missing. Publication through the Android wizard fails closed; no local URI is sent to Backend.
+- Archive is soft and transactional; existing Tenancy/incident/finance blockers are preserved.
 
-- No migration was added. Historical migrations `000001`–`000009` and frozen Identity migration `000008` remain unchanged.
-- Property address and operational location stay behind authenticated Property routes. Discovery reads Listing public projections only. The Android create codec rounds public coordinates to two decimal places.
-- Property, Room and Listing create retries carry caller-generated UUIDs. Server code returns an existing row only within its original Organization/Property/Room scope; cross-scope ID reuse rejects.
-- Room/Property archive never hard-deletes. Any Tenancy history currently blocks archive, which is deliberately conservative because the archive contract does not prove all historical finance/deposit obligations are settled. Room archive blockers are checked before any Listing/Room mutation in the same transaction.
-- Asset photos are not uploaded. Messaging's private MinIO test is not evidence for Ledger media.
-- Identity resolution runtime stays disabled. Test-verifier account bindings remain isolated to test code.
-- Android AssetWizard save currently returns a visible unavailable error before any API write because the Backend schema cannot persist all entered fields. The form remains open; no claim of successful draft persistence is made. Backend create APIs still accept stable IDs so future complete saves can recover from partially committed rows.
+## Changes and commits
 
-## Commits
+Implementation is committed in separate Backend, Android and documentation slices. Commit IDs and final status are supplied in the completion handoff after commits are created. No push or merge was performed.
 
-- `f4b885e` — `feat(ledger): add authorized Property Room Listing persistence`
-- `bb2a045` — `feat(ledger): add stable amenity catalog`
-- `1717b18` — `fix(ledger): make Room archive atomic`
-- `08639f4` — `fix(ledger): reject lossy AssetWizard saves`
-- `c51efa8` — first acceptance checklist/report commit (updated by the final acceptance commit)
-- Acceptance checklist/report are committed separately after implementation; the final branch tip is given in the final task handoff.
+## Remaining work
 
-## Changed files
+1. Add authorized private asset-photo upload/retrieval and durable metadata using the existing S3-compatible adapter; add bounded validation, removal/reorder, cleanup, and explicit public Listing media projection.
+2. Connect publish/ready transitions to the AssetWizard once media round-trips; device/API failures must retain drafts.
+3. Complete connected instrumentation and investigate the observed existing Account/settings failures. Do not call a partial run green.
+4. Validate full Ledger UI behavior with the Identity activation gate and Organization onboarding contract unchanged; those product security gates remain separate from the test verifier.
+5. Integrate the shared amenity catalog with Discovery only after the separate Discovery owner hands off a clean commit.
 
-- `app/src/main/java/com/trooi/app/core/data/BackendTroOiRepository.kt`
-- `app/src/main/java/com/trooi/app/core/model/AmenityCatalog.kt`
-- `app/src/main/java/com/trooi/app/core/model/LocalManagement.kt`
-- `app/src/main/java/com/trooi/app/core/network/BackendApi.kt`
-- `app/src/main/java/com/trooi/app/core/network/BackendClient.kt`
-- `app/src/main/java/com/trooi/app/core/network/dto/BackendDtos.kt`
-- `app/src/main/java/com/trooi/app/core/network/dto/BackendJsonCodec.kt`
-- `app/src/main/java/com/trooi/app/features/ledger/AssetWizard.kt`
-- `src/infrastructure/database/database.module.ts`
-- `src/modules/listing/contracts/index.ts`
-- `src/modules/listing/dto/index.ts`
-- `src/modules/listing/services/listing.service.ts`
-- `src/modules/property/controllers/property.controller.ts`
-- `src/modules/property/dto/index.ts`
-- `src/modules/property/services/property.service.ts`
-- `src/modules/rental-lifecycle/services/rental-lifecycle.coordinator.ts`
-- `src/modules/room/controllers/room.controller.ts`
-- `src/modules/room/dto/index.ts`
-- `src/modules/room/services/room.service.ts`
-- `src/persistence/guards/rental-transaction-coordinator.ts`
-- `tests/android/unit/java/com/trooi/app/core/model/AmenityCatalogTest.kt`
-- `tests/android/unit/java/com/trooi/app/core/network/BackendRuntimeContractTest.kt`
-- `tests/conformance/database-v1/property-room.lifecycle.test.ts`
-- `tests/core/listing.behavior.test.ts`
-- `tests/core/property.behavior.test.ts`
-- `tests/core/room.behavior.test.ts`
-- `tests/core/rental-transaction-archive.behavior.test.ts`
-- `tests/core/resource-authorization.behavior.test.ts`
-- `tests/integration/persistence/guards/rental-guards.integration.ts`
-- `tests/fixtures/payment/application-restart.json`
-- `tests/fixtures/payment/application-restart.schema.json`
-- `tests/integration/persistence/application-wiring.integration.ts`
-- `tests/support/application-restart-fixtures.ts`
-- `docs/implementation/phase5/execution-checklist.md`
-- `docs/implementation/phase5/ledger-acceptance.md`
-
-## Follow-up safety review
-
-A post-implementation review found two correctness issues and both are fixed in the follow-up slice: Backend AssetWizard save now fails before writing if fields lack durable mappings, and Room archive checks blockers before any Listing/Room state changes inside one transaction. Regression tests cover the no-write save response and archive rollback behavior. The optional transaction-coordinator injection was also made required in both archive controllers so missing module wiring fails at startup.
-
-Fresh follow-up verification: archive transaction behavior **4/4** core, **2/2** real PostgreSQL; Backend AssetWizard fail-closed repository regression **1/1**. The full backend and Android gates listed above were rerun after these changes.
-
-## Recommendation
-
-**partial_with_gates**. Backend-owned base Property/Room/Listing writes, lifecycle guards, retry behavior, and PostgreSQL readback are reviewable. Full AssetWizard field persistence, Ledger media, partial finance recovery, contextual Ledger Messaging actions, owner onboarding, live Google activation, and successful emulator acceptance remain outstanding.
+Recommendation remains **partial_with_gates**. The verified deliverable is durable ordinary Asset data with server authorization plus tested readback. Ledger media, publication through the wizard, completed Android device acceptance, live Google and Owner onboarding are not complete.
