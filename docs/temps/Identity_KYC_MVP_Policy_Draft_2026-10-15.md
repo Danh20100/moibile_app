@@ -6,7 +6,7 @@
 
 - `CitizenIdOcr` extracts a candidate name and birth date on device. Its source comment explicitly says OCR is not identity verification or a KYC decision.
 - `LandlordOnboardingScreen` holds front/back images in transient `Bitmap` state. `LocalLandlordApplication` contains no images or ID number, and no Identity/Organization API or database KYC record was found in the current baseline.
-- `identityPhotosAccepted` means the applicant reviewed the OCR-assisted fields. It must not be rendered or stored as an approved/verified identity result.
+- The transient onboarding flag is named `identityDetailsReviewed`; it means the applicant reviewed the entered name/date of birth. It must not be rendered or stored as an approved/verified identity result.
 - Frozen migration `000008_identity_foundation` and Organization ownership remain independent of any OCR/KYC result.
 
 ## Proposed MVP decision

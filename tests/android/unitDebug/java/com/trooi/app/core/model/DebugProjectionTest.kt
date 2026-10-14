@@ -25,7 +25,7 @@ class DebugProjectionTest {
         val asset = LocalRentalAsset("lan-first", "lan-property", "Phòng trọ", "Phòng L01", "Địa chỉ riêng", "Bình Thạnh", "24", "3200000", "3200000",
             "Phòng sáng", photoResources = DemoData.occupiedAsset.photoResources)
         val application = LocalLandlordApplication("Nguyễn Ngọc Lan", "1995-06-15", "0901234567", "lan@example.com", true, true, true, asset, false)
-        assertTrue(repository.completeLocalLandlordOnboarding(application.copy(identityPhotosAccepted = false)).isFailure)
+        assertTrue(repository.completeLocalLandlordOnboarding(application.copy(identityDetailsReviewed = false)).isFailure)
         assertEquals(tenant, repository.refreshSessionContext().getOrThrow())
         val operator = repository.completeLocalLandlordOnboarding(application).getOrThrow()
         assertEquals(tenant.access.linkedTenancyIds, operator.access.linkedTenancyIds)

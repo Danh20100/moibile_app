@@ -7,7 +7,7 @@ import org.junit.Test
 class LandlordApplicationTest {
     private val application = LocalLandlordApplication(
         "Nguyễn Văn A", "1997-07-09", "0901234567", "contact@example.test",
-        identityPhotosAccepted = true, contactConfirmed = true, termsAccepted = true,
+        identityDetailsReviewed = true, contactConfirmed = true, termsAccepted = true,
         firstAsset = null, publish = false,
     )
     @Test fun firstPropertyIsOptionalAndCannotBePublishedWithoutAnAsset() {
@@ -15,7 +15,7 @@ class LandlordApplicationTest {
         assertFalse(application.copy(publish = true).valid())
     }
     @Test fun incompleteIdentityContactAndAgreementCannotCompleteSetup() {
-        assertFalse(application.copy(identityPhotosAccepted = false).valid())
+        assertFalse(application.copy(identityDetailsReviewed = false).valid())
         assertFalse(application.copy(contactConfirmed = false).valid())
         assertFalse(application.copy(termsAccepted = false).valid())
         assertFalse(application.copy(birthDate = "1997-02-31").valid())

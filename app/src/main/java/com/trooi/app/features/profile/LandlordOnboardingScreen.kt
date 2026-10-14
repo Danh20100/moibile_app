@@ -140,7 +140,7 @@ internal fun LandlordOnboardingScreen(
                     birthDate = requireNotNull(birthday).toString(),
                     phone = phone.trim(),
                     email = email.trim(),
-                    identityPhotosAccepted = cardReviewed,
+                    identityDetailsReviewed = cardReviewed,
                     contactConfirmed = contactConfirmed,
                     termsAccepted = termsAccepted,
                     firstAsset = null,
@@ -301,7 +301,7 @@ internal fun LandlordOnboardingScreen(
                                     Text("Vui lòng kiểm tra lại ngày sinh.",
                                         color = MaterialTheme.colorScheme.error)
                                 }
-                                OnboardingCheck("Tôi đã kiểm tra thông tin trên căn cước.",
+                                OnboardingCheck("Tôi đã kiểm tra họ tên và ngày sinh đã nhập.",
                                     cardReviewed, "onboarding-identity-accept", nameValid && birthValid) {
                                     cardReviewed = it
                                 }
