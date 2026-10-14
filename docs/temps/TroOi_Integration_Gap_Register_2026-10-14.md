@@ -11,13 +11,13 @@
 | Ký hiệu | Ý nghĩa |
 |---|---|
 | `IMPLEMENTED` | Đã tìm thấy code/route/UI, chưa mặc định chứng minh chạy E2E. |
-| `PASS_BACKEND_ONLY` | Có bằng chứng kiểm thử Backend/API/PostgreSQL và/hoặc MinIO cô lập. |
-| `PASS_GATED` | Luồng có test nhưng bị khóa bởi Identity/runtime contract; không thể coi đã dùng được với tài khoản thật. |
-| `PASS_UI_PARTIAL` | Có UI, build/unit test hoặc test giao diện phạm vi hẹp; chưa có hành trình xuyên suốt. |
-| `BLOCKED` | Phụ thuộc chưa mở hoặc chưa có chứng cứ nghiệm thu. |
+| `PASS_BACKEND` | Backend/API/DB/storage contract đã qua test phù hợp; chỉ chứng nhận phạm vi backend được nêu, không suy ra Android hoặc live provider. |
+| `PASS_ANDROID` | Android build/unit/instrumentation/device evidence đã qua; phải ghi rõ component hay journey, thiết bị và giới hạn. Không tự suy ra backend hoặc Full-stack. |
+| `PASS_FULLSTACK` | Hành trình nghiệm thu chạy qua Android và Backend/API/storage thật theo DoD, gồm principal/ownership và readback tương ứng; chỉ dùng khi có evidence cho cả hai đầu. |
+| `BLOCKED` | DoD chưa đạt vì gate/phụ thuộc chưa mở hoặc evidence còn thiếu; nêu rõ blocker và không nâng thành PASS. |
 | `NOT_IMPLEMENTED` | Chưa có cơ chế production tương ứng. |
 | `DEFERRED` | Chưa bắt buộc để đạt MVP; cần chốt trước production khi thích hợp. |
-| `DONE` | Chỉ dùng sau khi đủ điều kiện nghiệm thu và có đường dẫn bằng chứng. |
+| `DRAFT_PR` | Thay đổi còn trong draft pull request; chưa được xem là implementation đã nghiệm thu. |
 
 **Không dùng checklist trống để suy luận rằng code chưa có**: một số tài liệu P5.2B cũ đã bị supersede bởi P5.2C về ảnh Asset. Mọi kết luận lấy baseline tại HEAD nêu trên.
 
@@ -25,10 +25,10 @@
 
 | Module | Đã có | Thiếu / chưa được chứng minh | Trạng thái |
 |---|---|---|---|
-| **Hồ sơ (Profile/Identity)** | UI Profile/Settings/Onboarding; lưu tên hiển thị; Google token verifier + durable resolver đã code; Organization create route/client adapter exists; private avatar API/storage and Android picker/client readback slice added | Mở phiên Google cho User thật, đăng ký mới, approved session/reauth, usable Organization onboarding, OTP có provider, preference, KYC, Android E2E | **`PASS_GATED` / `BLOCKED` — P0** |
-| **Tin nhắn (Messaging)** | Backend PostgreSQL, MinIO ảnh riêng tư, authorization A/B/C, Android Messages UI, Inquiry/Tenancy context | Hai Google account thật → gửi/nhận/ảnh → logout/restart; UI/device QA; một số reliability/scaling | **`PASS_BACKEND_ONLY` — E2E P0** |
-| **Sổ (Ledger)** | Property/Room/Listing, AssetWizard, ảnh riêng tư MinIO, Tenancy/Terms, Billing/Manual Payment/Deposit/Receipt, Incident/Checkout/History; Mock Ledger offline và public photo projection đã có code | Owner Organization thật; Asset/Payment E2E; PostgreSQL/MinIO photo authorization/readback; crash recovery / due day | **`PASS_BACKEND_ONLY` — E2E P0** |
-| **Discovery** | UI feed/search/filter/sort/compare/detail, Google Maps, radius query, Inquiry entry; Android now loads owner-approved public photo covers/details | Owner publish → Tenant sees listing/photo → Inquiry → Messaging full flow; PostgreSQL/MinIO and device acceptance; map/device; favorites persistence; geocoding PR #10 chưa merge | **`PASS_UI_PARTIAL` — E2E P0** |
+| **Hồ sơ (Profile/Identity)** | UI Profile/Settings/Onboarding; lưu tên hiển thị; Google token verifier + durable resolver đã code; Organization create route/client adapter exists; private avatar API/storage and Android picker/client readback slice added | Mở phiên Google cho User thật, đăng ký mới, approved session/reauth, usable Organization onboarding, OTP có provider, preference, KYC, Android E2E | **`BLOCKED` — P0; có các slice `PASS_BACKEND`/`PASS_ANDROID`, runtime Identity gate OFF** |
+| **Tin nhắn (Messaging)** | Backend PostgreSQL, MinIO ảnh riêng tư, authorization A/B/C, Android Messages UI, Inquiry/Tenancy context | Hai Google account thật → gửi/nhận/ảnh → logout/restart; UI/device QA; một số reliability/scaling | **`PASS_BACKEND` + `PASS_ANDROID` (component); Full-stack P0 `BLOCKED`** |
+| **Sổ (Ledger)** | Property/Room/Listing, AssetWizard, ảnh riêng tư MinIO, Tenancy/Terms, Billing/Manual Payment/Deposit/Receipt, Incident/Checkout/History; Mock Ledger offline và public photo projection đã có code | Owner Organization thật; Asset/Payment E2E; PostgreSQL/MinIO photo authorization/readback; crash recovery / due day | **`PASS_BACKEND` + `PASS_ANDROID` (component); Full-stack P0 `BLOCKED`** |
+| **Discovery** | UI feed/search/filter/sort/compare/detail, Google Maps, radius query, Inquiry entry; Android now loads owner-approved public photo covers/details | Owner publish → Tenant sees listing/photo → Inquiry → Messaging full flow; PostgreSQL/MinIO and device acceptance; map/device; favorites persistence; geocoding PR #10 chưa merge | **`PASS_BACKEND` + `PASS_ANDROID` (component); Full-stack P0 `BLOCKED`** |
 
 ### Phụ thuộc trọng tâm
 
@@ -56,7 +56,7 @@ flowchart TD
 ### Đã triển khai / có bằng chứng
 
 - [x] Giao diện Profile, Settings, Security, trang trợ giúp và luồng Onboarding chủ trọ ba bước.
-- [x] `user_profiles.display_name` có thao tác cập nhật/đọc lại PostgreSQL qua principal được cấp quyền (`PASS_GATED`).
+- [x] `user_profiles.display_name` có thao tác cập nhật/đọc lại PostgreSQL qua principal được cấp quyền (`PASS_BACKEND`; Identity runtime gate remains OFF).
 - [x] Google ID token verifier; `GooglePrincipalResolver` giải quyết binding `auth_identities` và từ chối xung đột (kiểm thử cô lập).
 - [x] Không tự động tạo User bằng Google `sub` hoặc claim phòng demo trong Identity foundation mới.
 - [x] OCR CCCD hỗ trợ **gợi ý nhập liệu**, không xác minh căn cước và không tạo quyền sở hữu.
@@ -255,7 +255,7 @@ flowchart TD
 4. **Không tự tạo Organization, User, verified KYC, OTP thành công** để vượt gate E2E.
 5. **Không dùng test-host/mock verifier thay cho live Google account E2E**. Test Backend/MinIO cô lập là bằng chứng hữu ích nhưng chỉ cho lớp đó.
 6. **Không chạy migrations destructive / reset dữ liệu production** để “cho test qua”.
-7. Một thay đổi chỉ đánh dấu `DONE` sau khi có evidence gắn với đúng HEAD/integration branch.
+7. Chỉ ghi `PASS_BACKEND`, `PASS_ANDROID` hoặc `PASS_FULLSTACK` khi evidence gắn với đúng HEAD/integration branch; không dùng một lớp PASS để ngụ ý lớp còn lại.
 
 ## 8. Source / Provenance
 
@@ -289,3 +289,4 @@ Tài liệu này tổng hợp từ source + báo cáo nghiệm thu đã tồn t�
 - `PRO-P0-01` gate regression: the same isolated PostgreSQL test calls challenge issuance with the Identity runtime flag unset and set to `false`; both requests fail closed without writing challenge or audit rows. `identity-sessions.integration.ts` passes twice and `pnpm run typecheck` passes. This verifies the local service boundary, not deployed configuration; gate remains OFF.
 - `PRO-P0-01` AuthGuard integration: the isolated PostgreSQL session suite now routes valid app access tokens through the production `AuthGuard` and `GooglePrincipalResolver`, asserts the request receives the durable User ID, then asserts logout and revoke-all are rejected on the next guarded request. Suite passes twice; `pnpm run typecheck` passes. This is `PASS_BACKEND`, not live Google/device acceptance.
 - `PRO-P0-01` audit failure coverage extended: isolated PostgreSQL injects event-write failures during logout and revoke-all; both transactions roll back and the production AuthGuard continues to authorize the still-active session. `identity-sessions.integration.ts` passes twice; `pnpm run typecheck` passes. The local test gate is enabled only inside the test process; deployed Identity stays OFF.
+- Checklist status vocabulary cleanup: define `PASS_BACKEND`, `PASS_ANDROID` (with component/journey scope), `PASS_FULLSTACK` (both integrated sides against DoD), and `BLOCKED` separately; replace ambiguous aggregate legacy labels and align the summary table. Documentation-only; `git diff --check` passes.
