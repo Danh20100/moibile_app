@@ -88,11 +88,12 @@ test('authenticated Asset details persist through HTTP, enforce owner scope and 
     assert.equal((await request(1, 'PUT', { ...body, publicAreaLabel: 'Private' })).status, 403);
     await app.get(ListingService).transition(listingId, 'published', { reasonCode: 'TEST', actorType: 'USER', actorUserId: userIds[0]!, trigger: 'COMMAND' });
     const publicResponse = await fetch(`${await app.getUrl()}/${API_PREFIX}/listings/public`);
-    const publicText = await publicResponse.text();
+    const publicBody = await publicResponse.json() as { data: Array<Record<string, unknown>> };
     assert.equal(publicResponse.status, 200);
-    assert.equal(publicText.includes('amenityIds'), false);
-    assert.equal(publicText.includes('advertisedDeposit'), false);
-    assert.equal(publicText.includes('Private exact address'), false);
+    assert.deepEqual(publicBody.data[0]?.publicAmenityIds, ['wifi']);
+    assert.equal('amenityIds' in (publicBody.data[0] ?? {}), false);
+    assert.equal('advertisedDeposit' in (publicBody.data[0] ?? {}), false);
+    assert.equal(JSON.stringify(publicBody).includes('Private exact address'), false);
   } finally {
     await app.close();
     await database.destroy();

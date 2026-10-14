@@ -32,7 +32,7 @@ All routes are under `/api/v1`. Android path: `AssetWizard â†’ TroOiViewModel â†
 | `description` | `listings.public_description` | Listing copy; only public via existing published Listing endpoint. |
 | `bedrooms`, `bathrooms` | `listing_asset_details.bedrooms`, `.bathrooms` | Nullable integers; input is validated. |
 | `furnishing` | `listing_asset_details.furnishing` | Nullable ordinary Listing detail. |
-| `amenities` | `listing_asset_details.amenity_ids` | Stable IDs only; server rejects unknown IDs. Existing historical label-based records remain readable through the UI catalog mapping. |
+| `amenities` | `listing_asset_details.amenity_ids` | Stable IDs only; server rejects unknown IDs. Public Listing feed/search project only the allowlisted IDs after publication; Android maps them through the same `AmenityCatalog`. Other Asset detail fields remain private. |
 | `rules` | `listing_asset_details.rules` | Operator-authored Listing details; public Listing endpoint does not include this private row. |
 | `electricityOffer`, `waterOffer`, `serviceOffer` | `listing_asset_details.electricity_offer`, `.water_offer`, `.service_offer` | Advertised utility offers; not tenancy terms or charges. |
 | `minimumTermMonths` | `listing_asset_details.minimum_term_months` | Optional positive bounded integer. |

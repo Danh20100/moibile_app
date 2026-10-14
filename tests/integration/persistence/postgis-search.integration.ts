@@ -26,6 +26,9 @@ test('public spatial search returns only published in-range public projections a
       await sql`INSERT INTO rooms VALUES (${`40000000-0000-4000-8000-00000000000${i}`},${`30000000-0000-4000-8000-00000000000${i}`},'R','VACANT','ACTIVE')`.execute(db);
       await sql`INSERT INTO listings VALUES (${`50000000-0000-4000-8000-00000000000${i}`},${`40000000-0000-4000-8000-00000000000${i}`},${status},'T','D',1,ST_MakePoint(${lon},10.7)::geography)`.execute(db);
     }
+    await sql`INSERT INTO listing_asset_details (listing_id, amenity_ids) VALUES
+      ('50000000-0000-4000-8000-000000000001', ARRAY['wifi','private_bathroom','legacy_unknown']),
+      ('50000000-0000-4000-8000-000000000003', ARRAY['parking'])`.execute(db);
 
     const repository = new PostgresListingSearchRepository(db);
     const rows = await repository.findPublishedWithinRadius(
@@ -36,6 +39,7 @@ test('public spatial search returns only published in-range public projections a
     assert.equal(rows[0]?.listingId, '50000000-0000-4000-8000-000000000001');
     assert.ok(Math.abs((rows[0]?.publicLocation.longitude ?? 0) - 106.7001) < 0.00001);
     assert.ok((rows[0]?.distanceMeters ?? Infinity) < 1000);
+    assert.deepEqual(rows[0]?.publicAmenityIds, ['wifi', 'private_bathroom']);
 
     assert.equal(
       (await repository.findPublishedWithinRadius(

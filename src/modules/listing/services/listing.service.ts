@@ -4,9 +4,10 @@ import { isNumeric18Scale2NonNegative } from '../../../common/domain/decimal-str
 import type { JsonValue } from '../../../persistence/ports/repositories';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { CreateListingInput, ListingProfile, ListingStatus, ListingStatusEvent, ListingTransitionEventInput, UpdateListingContentInput } from '../contracts';
-import type { ListingAssetDetailsRecord } from '../../../persistence/ports/listing.repository';
+import { PUBLIC_LISTING_AMENITY_IDS, type ListingAssetDetailsRecord } from '../../../persistence/ports/listing.repository';
 import type { ListingAssetDetailsDto } from '../dto';
 const VALID_TRANSITIONS: Record<ListingStatus, ListingStatus[]> = { draft: ['published', 'archived'], published: ['unpublished'], unpublished: ['published', 'archived'], archived: [] };
+const PUBLIC_AMENITY_IDS = new Set<string>(PUBLIC_LISTING_AMENITY_IDS);
 const profile = (row: Awaited<ReturnType<Parameters<Parameters<TransactionManager['run']>[0]>[0]['repositories']['listing']['findListing']>>): ListingProfile | undefined => row ? ({ id: row.listingId, roomId: row.roomId, status: row.status.toLowerCase() as ListingStatus, publicTitle: row.publicTitle, publicDescription: row.publicDescription, publicPriceProjection: row.publicPriceProjection, publicLocationProjection: structuredClone(row.publicLocationProjection) }) : undefined;
 @Injectable()
 export class ListingService {
@@ -18,9 +19,16 @@ export class ListingService {
     if (!row) throw new NotFoundException(`Asset details not found for Listing: ${id}`);
     return row;
   }
+  async findPublicAmenityIds(id: string): Promise<string[]> {
+    return this.transactions.run(async ({ repositories }) => {
+      const listing = await repositories.listing.findListing(id);
+      if (!listing || listing.status !== 'PUBLISHED') return [];
+      const details = await repositories.listing.findAssetDetails(id);
+      return (details?.amenityIds ?? []).filter((amenityId) => PUBLIC_AMENITY_IDS.has(amenityId));
+    });
+  }
   async saveAssetDetails(id: string, input: ListingAssetDetailsDto): Promise<ListingAssetDetailsRecord> {
-    const allowedAmenities = new Set(['wifi', 'air_conditioning', 'washing_machine', 'kitchen', 'private_bathroom', 'balcony', 'parking', 'elevator', 'security_camera']);
-    if (input.amenityIds.some((value) => !allowedAmenities.has(value))) throw new BadRequestException('Unknown amenity ID');
+    if (input.amenityIds.some((value) => !PUBLIC_AMENITY_IDS.has(value))) throw new BadRequestException('Unknown amenity ID');
     return this.transactions.run(async ({ repositories }) => {
       const listing = await repositories.listing.findListing(id);
       if (!listing) throw new NotFoundException(`Listing not found: ${id}`);

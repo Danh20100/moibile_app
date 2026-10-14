@@ -25,9 +25,12 @@ export class ListingController {
   @Get('public')
   @ApiOperation({ summary: 'Read currently published Listing projections' })
   @ApiResponse({ status: 200, description: 'Published listings', type: [ListingProfileDto] })
-  async findPublic(): Promise<(ListingProfile & { publicPhotoIds: string[] })[]> {
+  async findPublic(): Promise<(ListingProfile & { publicPhotoIds: string[]; publicAmenityIds: string[] })[]> {
     const listings = await this.listingService.findPublished();
-    return Promise.all(listings.map(async (listing) => ({ ...listing, publicPhotoIds: await this.media.publicIds(listing.id) })));
+    return Promise.all(listings.map(async (listing) => ({ ...listing,
+      publicPhotoIds: await this.media.publicIds(listing.id),
+      publicAmenityIds: await this.listingService.findPublicAmenityIds(listing.id),
+    })));
   }
 
   @Public()

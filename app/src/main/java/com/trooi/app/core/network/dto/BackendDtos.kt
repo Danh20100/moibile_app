@@ -14,6 +14,7 @@ data class PublicListingTransport(
     val publicPriceProjection: String,
     val publicLocation: PublicLocationTransport,
     val publicPhotoIds: List<String> = emptyList(),
+    val publicAmenityIds: List<String> = emptyList(),
 )
 
 data class ListingTransport(
@@ -47,6 +48,7 @@ data class PublicListingSearchResultTransport(
     val publicLocation: PublicLocationTransport,
     val distanceMeters: Double,
     val publicPhotoIds: List<String> = emptyList(),
+    val publicAmenityIds: List<String> = emptyList(),
 )
 
 data class VerifiedPrincipalTransport(

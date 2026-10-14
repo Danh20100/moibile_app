@@ -16,7 +16,7 @@ fun discoveryCards(
     val public = publicDiscoveryFeed(listings)
     if (public.isEmpty() && allowDemoFallback) return ListingFixtures.cards(area, type, minimum, maximum)
     return exploreFilteredListings(public, area, type, minimum, maximum).map { listing ->
-        listing.rentalDetails?.let { return@map publicRentalDetail(listing)!!.card }
+        listing.rentalDetails?.let { return@map publicRentalDetail(listing).card }
         if (allowDemoFallback) ListingFixtures.resolve(listing.listingId)
             ?.takeIf { it.card.title == listing.title && it.card.publicAreaLabel == listing.publicAreaLabel }
             ?.let { return@map it.card }
@@ -38,25 +38,28 @@ fun rentalPriceLabel(amount: String): String = amount.toBigDecimalOrNull()?.let 
     java.text.NumberFormat.getNumberInstance(java.util.Locale.forLanguageTag("vi-VN")).format(it) + "đ"
 } ?: amount
 
-fun publicRentalDetail(listing: PublicListingCard): ListingFixture? = listing.rentalDetails?.let { detail ->
-    ListingFixture(
-        card = DiscoveryListingItem(listing.listingId, listing.title, listing.publicAreaLabel,
+fun publicRentalDetail(listing: PublicListingCard): ListingFixture {
+    val detail = listing.rentalDetails
+    val card = DiscoveryListingItem(listing.listingId, listing.title, listing.publicAreaLabel,
             listing.askingPriceLabel?.let(::explorePriceVnd)?.let { "${rentalPriceLabel(it.toPlainString())}/tháng" }
                 ?: listing.askingPriceLabel?.takeIf { it.isNotBlank() } ?: "Liên hệ để biết giá",
-            "${detail.area} m² · ${detail.furnishing}", category = detail.type,
-            photoUris = listing.photoUris.ifEmpty { detail.photoUris }, photoResources = detail.photoResources),
-        images = detail.photoResources, summary = (listOf(detail.type, "${detail.area} m²") +
-            if (detail.type == "Căn hộ") listOf("${detail.bedrooms} phòng ngủ", "${detail.bathrooms} phòng tắm")
-            else listOfNotNull(when (detail.bathroomArrangement) { BathroomArrangement.PRIVATE -> "WC riêng"; BathroomArrangement.SHARED -> "WC chung"; null -> null })
-            ).plus(listOfNotNull(detail.maxOccupants?.let { "Tối đa $it người" }, detail.floorLabel?.takeIf(String::isNotBlank)?.let { "Tầng $it" })).joinToString(" · "),
-        host = detail.host, description = detail.description, amenities = listing.amenities,
+            detail?.let { "${it.area} m² · ${it.furnishing}" }.orEmpty(), category = detail?.type ?: "Phòng cho thuê",
+            photoUris = listing.photoUris.ifEmpty { detail?.photoUris.orEmpty() }, photoResources = detail?.photoResources.orEmpty())
+    return ListingFixture(
+        card = card,
+        images = detail?.photoResources.orEmpty(), summary = detail?.let { (listOf(it.type, "${it.area} m²") +
+            if (it.type == "Căn hộ") listOf("${it.bedrooms} phòng ngủ", "${it.bathrooms} phòng tắm")
+            else listOfNotNull(when (it.bathroomArrangement) { BathroomArrangement.PRIVATE -> "WC riêng"; BathroomArrangement.SHARED -> "WC chung"; null -> null })
+            ).plus(listOfNotNull(it.maxOccupants?.let { count -> "Tối đa $count người" }, it.floorLabel?.takeIf(String::isNotBlank)?.let { floor -> "Tầng $floor" })).joinToString(" · ") }.orEmpty(),
+        host = detail?.host.orEmpty(), description = detail?.description.orEmpty(), amenities = listing.amenities,
         publicGeoPoint = com.trooi.app.core.model.publicMapPoint(listing),
         locationDescription = "Vị trí công khai ở mức khu vực. Địa chỉ chi tiết được trao đổi khi hẹn xem.",
-        rules = detail.rules.map(String::trim).filter(String::isNotBlank), reviewCount = 0,
-        photoUris = listing.photoUris.ifEmpty { detail.photoUris }, publicPhotoIds = listing.publicPhotoIds,
-        costs = listOf("Cọc dự kiến: ${rentalPriceLabel(detail.advertisedDeposit)}", "Thời hạn thuê tối thiểu: ${detail.minimumTermMonths} tháng") +
-            listOf("Điện" to detail.electricityOffer, "Nước" to detail.waterOffer, "Dịch vụ" to detail.serviceOffer,
-                "Có thể nhận phòng từ" to detail.availableFrom).filter { it.second.isNotBlank() }.map { "${it.first}: ${it.second}" },
+        rules = detail?.rules.orEmpty().map(String::trim).filter(String::isNotBlank), reviewCount = 0,
+        photoUris = listing.photoUris.ifEmpty { detail?.photoUris.orEmpty() }, publicPhotoIds = listing.publicPhotoIds,
+        costs = detail?.let { listOf("Cọc dự kiến: ${rentalPriceLabel(it.advertisedDeposit)}", "Thời hạn thuê tối thiểu: ${it.minimumTermMonths} tháng") +
+            listOf("Điện" to it.electricityOffer, "Nước" to it.waterOffer, "Dịch vụ" to it.serviceOffer,
+                "Có thể nhận phòng từ" to it.availableFrom).filter { it.second.isNotBlank() }.map { "${it.first}: ${it.second}" }
+        } ?: emptyList(),
     )
 }
 

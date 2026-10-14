@@ -60,4 +60,7 @@ export class PublicListingSearchResultDto {
 
   @ApiProperty({ type: [String] })
   publicPhotoIds?: string[];
+
+  @ApiProperty({ type: [String] })
+  publicAmenityIds?: string[];
 }

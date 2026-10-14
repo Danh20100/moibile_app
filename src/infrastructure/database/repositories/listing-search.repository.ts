@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 
 import type { GeoPoint } from '../../../persistence/ports/geography';
+import { PUBLIC_LISTING_AMENITY_IDS } from '../../../persistence/ports/listing.repository';
 import type {
   ListingSearchRepository,
   PublishedListingSearchResult,
@@ -37,6 +38,14 @@ export class PostgresListingSearchRepository implements ListingSearchRepository 
           WHERE listing_id = listings.listing_id AND public_approved = true
           ORDER BY position
         ) AS "publicPhotoIds",
+        ARRAY(
+          SELECT amenity_id
+          FROM listing_asset_details,
+               unnest(amenity_ids) WITH ORDINALITY AS amenities(amenity_id, amenity_position)
+          WHERE listing_id = listings.listing_id
+            AND amenity_id = ANY(${[...PUBLIC_LISTING_AMENITY_IDS]}::text[])
+          ORDER BY amenity_position
+        ) AS "publicAmenityIds",
         ST_Distance(public_location_projection, ${point})::float8 AS "distanceMeters"
       FROM listings
       WHERE status = 'PUBLISHED'

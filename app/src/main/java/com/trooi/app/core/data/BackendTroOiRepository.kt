@@ -580,6 +580,7 @@ class BackendTroOiRepository @Inject constructor(
                 askingPriceLabel = listing.publicPriceProjection,
                 visibility = visibility,
                 publicPhotoIds = listing.publicPhotoIds,
+                amenities = listing.publicAmenityIds.map(AmenityCatalog::label),
             )
         }
 
@@ -592,6 +593,7 @@ class BackendTroOiRepository @Inject constructor(
         visibility = ListingVisibility.PUBLISHED,
         distanceMeters = value.distanceMeters,
         publicPhotoIds = value.publicPhotoIds,
+        amenities = value.publicAmenityIds.map(AmenityCatalog::label),
     )
 
     private fun mapRoom(room: RoomTransport) = OperationalRoomCard(

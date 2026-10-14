@@ -117,6 +117,7 @@ object BackendJsonCodec {
                 publicPriceProjection = obj.requiredString("publicPriceProjection"),
                 publicLocation = location.publicLocation(),
                 publicPhotoIds = obj.optionalStringList("publicPhotoIds"),
+                publicAmenityIds = obj.optionalStringList("publicAmenityIds"),
             )
         }
 
@@ -247,6 +248,7 @@ object BackendJsonCodec {
             publicLocation = location.publicLocation(),
             distanceMeters = obj.requiredDouble("distanceMeters"),
             publicPhotoIds = obj.optionalStringList("publicPhotoIds"),
+            publicAmenityIds = obj.optionalStringList("publicAmenityIds"),
         )
     }
 

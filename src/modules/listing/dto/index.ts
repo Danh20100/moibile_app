@@ -178,6 +178,9 @@ export class ListingProfileDto {
 
   @ApiProperty({ type: [String] })
   publicPhotoIds!: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Allowlisted public amenity catalog IDs' })
+  publicAmenityIds!: string[];
 }
 
 export class ListingStatusEventDto {

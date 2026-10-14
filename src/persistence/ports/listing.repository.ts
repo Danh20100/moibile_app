@@ -1,6 +1,11 @@
 import type { GeoPoint } from './geography';
 import type { DecimalString, JsonValue, TimestampString } from './repositories';
 
+export const PUBLIC_LISTING_AMENITY_IDS = [
+  'wifi', 'air_conditioning', 'washing_machine', 'kitchen', 'private_bathroom',
+  'balcony', 'parking', 'elevator', 'security_camera',
+] as const;
+
 export interface ListingRecord {
   listingId: string; roomId: string; status: string; publicTitle: string; publicDescription: string;
   publicPriceProjection: DecimalString; publicLocationProjection: GeoPoint;

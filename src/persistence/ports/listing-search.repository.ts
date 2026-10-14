@@ -10,6 +10,7 @@ export interface PublishedListingSearchResult {
   publicLocation: GeoPoint;
   distanceMeters: number;
   publicPhotoIds?: string[];
+  publicAmenityIds?: string[];
 }
 
 export interface ListingSearchRepository {

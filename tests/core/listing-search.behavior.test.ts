@@ -20,6 +20,7 @@ test('public Listing search forwards only public projection radius and exact pri
           publicPriceProjection: '3500000.00',
           publicLocation: { latitude: 10.776, longitude: 106.7 },
           distanceMeters: 842.5,
+          publicAmenityIds: ['wifi', 'private_bathroom'],
         },
       ];
     },
@@ -42,6 +43,7 @@ test('public Listing search forwards only public projection radius and exact pri
   ]);
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.listingId, 'listing-1');
+  assert.deepEqual(rows[0]?.publicAmenityIds, ['wifi', 'private_bathroom']);
   assert.equal('operationalAddressText' in (rows[0] as object), false);
   assert.equal('operationalLocation' in (rows[0] as object), false);
 });

@@ -39,3 +39,24 @@ test('unknown amenities are rejected instead of replaced or dropped', async () =
   const { service } = await setup();
   await assert.rejects(service.saveAssetDetails('listing-a', { ...draftDetails, amenityIds: ['unknown-label'] }), /Unknown amenity ID/);
 });
+
+test('public amenity projection exposes only the stable allowlisted IDs for published Listings', async () => {
+  const { transactions, service } = await setup();
+  await transactions.run(async ({ repositories }) => {
+    const listing = await repositories.listing.findListing('listing-a');
+    assert.ok(listing);
+    await repositories.listing.updateListing({ ...listing, status: 'PUBLISHED' });
+    await repositories.listing.saveAssetDetails({
+      listingId: 'listing-a', ...draftDetails, managementStatus: 'ACTIVE',
+      amenityIds: ['wifi', 'private_bathroom', 'legacy_unknown'],
+    });
+  });
+
+  assert.deepEqual(await service.findPublicAmenityIds('listing-a'), ['wifi', 'private_bathroom']);
+  await transactions.run(async ({ repositories }) => {
+    const listing = await repositories.listing.findListing('listing-a');
+    assert.ok(listing);
+    await repositories.listing.updateListing({ ...listing, status: 'UNPUBLISHED' });
+  });
+  assert.deepEqual(await service.findPublicAmenityIds('listing-a'), []);
+});
