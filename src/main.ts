@@ -29,7 +29,9 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup('docs', app, document);
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  const bindHost = process.env.TROOI_BIND_HOST?.trim();
+  if (bindHost) await app.listen(port, bindHost);
+  else await app.listen(port);
 }
 
 void bootstrap();
