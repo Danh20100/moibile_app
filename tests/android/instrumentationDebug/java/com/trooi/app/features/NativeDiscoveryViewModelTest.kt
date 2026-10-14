@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.trooi.app.core.auth.GoogleCredentialAuth
@@ -18,6 +19,7 @@ import com.trooi.app.core.data.AppDataSource
 import com.trooi.app.core.data.BackendTroOiRepository
 import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.demo.DemoData
+import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.network.BackendClient
 import com.trooi.app.core.network.InMemoryAuthTokenProvider
 import com.trooi.app.core.network.OkHttpBackendApi
@@ -45,6 +47,23 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class NativeDiscoveryViewModelTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun publicDiscoveryResultsTitleIsExposedAsHeading() {
+        compose.setContent {
+            TroOiTheme {
+                DiscoveryExperience(
+                    state = TroOiUiState(),
+                    onOpenListing = {},
+                    onOpenMap = {},
+                    allowDemoFallback = false,
+                )
+            }
+        }
+        assertTrue(
+            compose.onNodeWithText("Phòng đang cho thuê")
+                .fetchSemanticsNode().config.contains(SemanticsProperties.Heading),
+        )
+    }
 
     @Test fun backendTimeoutFlowsThroughViewModelToRetryAndEmptyUiWithoutFixtures() {
         val context = ApplicationProvider.getApplicationContext<Context>()

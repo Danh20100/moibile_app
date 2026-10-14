@@ -175,6 +175,7 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 ## P2 continuation — Discovery accessibility component
 
 - [x] Emulator test `NativeDiscoveryStatesTest.publicDiscoveryRetryRemainsReadableAt200PercentInBothThemes` passes `1/1`, exercising error recovery at 200% font scale in light and dark themes on a 320dp phone-width composition.
+- [x] Discovery results title exposes Compose heading semantics; `NativeDiscoveryViewModelTest` passes `2/2` on API 37, including the new heading assertion. The legacy `NativeDiscoveryStatesTest` suite failed `7/7` on this emulator because `UiAutomation.rootInActiveWindow` lookups could not find text; the failure cause is undetermined and no suite PASS is claimed.
 - [ ] `DIS-P2-01` remains `DEFERRED`: this is `PASS_ANDROID` for one component only; TalkBack focus/announcements, tablet/landscape, sharing, and long-list performance are not covered.
 
 ## P1 decisions — Ledger Terms billing
