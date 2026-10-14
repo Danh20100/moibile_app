@@ -1,6 +1,6 @@
 # Ledger Terms due-day policy draft — 2026-10-14
 
-**Status: DRAFT — NOT APPROVED.** This draft does not change Terms creation, billing, or Payment behavior.
+**Status: APPROVED FOR IMPLEMENTATION — 2026-10-15.** Product owner approved LED-P1-02 and LED-P1-03 as written. This approval authorizes implementation and testing; it does not change runtime Terms creation, billing, or Payment behavior until each slice is implemented and verified.
 
 ## Current contract observed in source
 
@@ -37,5 +37,5 @@ For a recurring monthly day `N` from 1 through 31, set the due date to the earli
 
 | Decision | Status | Approver / date | Notes |
 |---|---|---|---|
-| LED-P1-02 short-month rule | OPEN — not approved | — | Proposed: clamp to final day of month |
-| LED-P1-03 write schema/backward compatibility | OPEN — not approved | — | Strict new `{day}` shape only after writer inventory; preserve historical JSON reads |
+| LED-P1-02 short-month rule | APPROVED — implementation pending | Product owner / 2026-10-15 | Clamp recurring day to last date in each month; date-only Vietnam calendar semantics |
+| LED-P1-03 write schema/backward compatibility | APPROVED — implementation pending | Product owner / 2026-10-15 | Strict new `{day}` shape after writer inventory; preserve historical JSON reads and values |
