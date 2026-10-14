@@ -25,6 +25,8 @@ test('concurrent Google authentication preserves User references and never links
   const fixture = await rentalFixture(url);
   const userId = G.userFirst;
   const organizationId = L.ids.organization;
+  const legacyUnboundUserId = G.userSecond;
+  const legacyUnboundOrganizationId = L.ids.upgradeOrganization;
   const participantId = L.ids.participant;
   const unregisteredParticipantId = L.ids.unregisteredParticipant;
   const client = new Client({ connectionString: url });
@@ -32,10 +34,16 @@ test('concurrent Google authentication preserves User references and never links
   try {
     await fixture.manager.run(async ({ repositories }) => {
       await repositories.identity.ensureUser(userId);
+      await repositories.identity.ensureUser(legacyUnboundUserId);
       await repositories.organization.createOrganization({
         organizationId,
         primaryOwnerUserId: userId,
         name: L.organizationName,
+      });
+      await repositories.organization.createOrganization({
+        organizationId: legacyUnboundOrganizationId,
+        primaryOwnerUserId: legacyUnboundUserId,
+        name: L.upgradeOrganizationName,
       });
       await repositories.tenancy.createTenancy({
         tenancyId: fixture.ids.tenancy,
@@ -59,8 +67,15 @@ test('concurrent Google authentication preserves User references and never links
         });
       }
     });
+    // The legacy User is adopted only through an explicit, reviewed durable binding.
+    await client.query(
+      `INSERT INTO auth_identities (auth_identity_id, user_id, provider, issuer, subject, linked_at)
+       VALUES ($1, $2, 'google', $3, $4, $5)`,
+      ['ad000000-0000-4000-8000-000000000001', userId, F.values.canonicalIssuer, G.subjectFirst, L.joinedAt],
+    );
     const referencesBefore = await fixture.manager.run(async ({ repositories }) => ({
       organization: await repositories.organization.findOrganization(organizationId),
+      legacyUnboundOrganization: await repositories.organization.findOrganization(legacyUnboundOrganizationId),
       participants: await repositories.tenancy.findParticipantsByTenancy(fixture.ids.tenancy),
     }));
     const verifier = {
@@ -102,13 +117,14 @@ test('concurrent Google authentication preserves User references and never links
       service.authenticateWithGoogle({ idToken: G.subjectSecond }),
       ServiceUnavailableException,
     );
-    assert.equal(
+    assert.deepEqual(
       await fixture.db.selectFrom('users').select('user_id').where('user_id', '=', G.userSecond).executeTakeFirst(),
-      undefined,
+      { user_id: legacyUnboundUserId },
     );
     assert.deepEqual(
       await fixture.manager.run(async ({ repositories }) => ({
         organization: await repositories.organization.findOrganization(organizationId),
+        legacyUnboundOrganization: await repositories.organization.findOrganization(legacyUnboundOrganizationId),
         participants: await repositories.tenancy.findParticipantsByTenancy(fixture.ids.tenancy),
       })),
       referencesBefore,
@@ -196,9 +212,10 @@ test('frozen v1 snapshot upgrades without rekeying Users and media rollback guar
         kind + ' v1 entries preserved',
       );
 
-    // Rollback of the data-bearing media migration must remain guarded, even in integration setup.
+    // Empty additive media/avatar migrations may roll back, but the legacy Asset-media migration is frozen.
     await resetPublicSchema(url);
     await runMigrations('up', url);
+    await runMigrations('down', url); // 000015: no avatar data or intents
     await runMigrations('down', url); // 000014: no pending Messaging uploads
     await runMigrations('down', url); // 000013: no pending Listing intents
     await runMigrations('down', url); // 000012: no public-photo records

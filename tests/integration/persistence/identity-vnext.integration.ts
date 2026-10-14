@@ -155,6 +155,23 @@ test('real PostgreSQL identity persistence satisfies frozen compatibility and co
         1,
       );
     });
+    await t.test('a deterministic legacy User is not auto-bound without reviewed mapping', async () => {
+      const subject = 'legacy-without-reviewed-map';
+      const legacyUserId = googlePrincipalUserId(F.values.canonicalIssuer, subject);
+      await db.insertInto('users').values({ user_id: legacyUserId }).execute();
+      await assert.rejects(
+        run((repo) => repo.resolveGooglePrincipal(principal(subject))),
+        new RegExp(F.errors.legacyConflict),
+      );
+      assert.equal(
+        await db.selectFrom('auth_identities').selectAll().where('subject', '=', subject).executeTakeFirst(),
+        undefined,
+      );
+      assert.deepEqual(
+        await db.selectFrom('users').selectAll().where('user_id', '=', legacyUserId).executeTakeFirstOrThrow(),
+        { user_id: legacyUserId },
+      );
+    });
     await t.test(
       'legacy UUID and organization/nullable-participant references are preserved',
       async () => {
@@ -222,6 +239,18 @@ test('real PostgreSQL identity persistence satisfies frozen compatibility and co
               left_at: F.states.participantLeftAt,
             })
             .execute();
+        // A reviewed one-to-one legacy mapping must be explicit before resolution.
+        await db
+          .insertInto('auth_identities')
+          .values({
+            auth_identity_id: 'ad000000-0000-4000-8000-000000000002',
+            user_id: id,
+            provider: F.values.googleProvider,
+            issuer: F.values.canonicalIssuer,
+            subject: p.subject,
+            linked_at: now,
+          })
+          .execute();
         const participantsBefore = await db
           .selectFrom('tenancy_participants')
           .selectAll()
@@ -270,6 +299,10 @@ test('real PostgreSQL identity persistence satisfies frozen compatibility and co
       );
       const unrelated = F.ids.conflictUser;
       await db.insertInto('users').values({ user_id: unrelated }).execute();
+      await db
+        .insertInto('users')
+        .values({ user_id: googlePrincipalUserId(F.values.canonicalIssuer, F.values.badOwner) })
+        .execute();
       await db
         .insertInto('auth_identities')
         .values({

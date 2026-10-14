@@ -151,7 +151,7 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         .where('issuer', '=', canonicalIssuer)
         .where('subject', '=', principal.subject)
         .executeTakeFirst();
-      const candidates = await this.tx
+      const legacyCandidates = await this.tx
         .selectFrom('users')
         .select('user_id')
         .where('user_id', 'in', [
@@ -161,24 +161,14 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         .orderBy('user_id')
         .forUpdate()
         .execute();
-      if (candidates.length > 1) fail('legacy_conflict');
-      if (mapping && (candidates.length !== 1 || mapping.user_id !== candidates[0]!.user_id))
+      if (legacyCandidates.length > 1) fail('legacy_conflict');
+      if (mapping && legacyCandidates.length === 1 && mapping.user_id !== legacyCandidates[0]!.user_id)
         fail('principal_conflict');
       if (mapping) return { kind: 'resolved', userId: mapping.user_id };
-      if (!candidates.length) return { kind: 'unregistered' };
-      const userId = candidates[0]!.user_id;
-      await this.tx
-        .insertInto('auth_identities')
-        .values({
-          auth_identity_id: randomUUID(),
-          user_id: userId,
-          provider: 'google',
-          issuer: canonicalIssuer,
-          subject: principal.subject,
-          linked_at: new Date().toISOString(),
-        })
-        .execute();
-      return { kind: 'resolved', userId };
+      // Legacy ownership must be explicitly reviewed and materialized as an immutable
+      // auth_identities binding. A deterministic UUID or matching email is not proof.
+      if (legacyCandidates.length) fail('legacy_conflict');
+      return { kind: 'unregistered' };
     });
   }
 

@@ -1,8 +1,8 @@
 # Identity G1 policy draft — 2026-10-14
 
-**Status: DRAFT — NOT APPROVED. Runtime gate must remain OFF.**
+**Status: APPROVED FOR IMPLEMENTATION — runtime gate remains OFF.** Product/security owner approved G1-A, G1-E, and G1-S on 2026-10-15. Approval authorizes implementing and testing these policies; it does not authorize enabling `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED`, creating Users before the registration path is complete, claiming Organizations, or changing existing identity bindings.
 
-This draft proposes security decisions for G1-A (legacy cutover/collisions), G1-E (verified-email registration), and G1-S (sessions/audit/revocation). It does not authorize enabling `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED`, creating Users, claiming Organizations, or changing existing identity bindings. Frozen migration `000008_identity_foundation` and its ownership invariants remain unchanged.
+This approved policy defines the implementation requirements for G1-A (legacy cutover/collisions), G1-E (verified-email registration), and G1-S (sessions/audit/revocation). Frozen migration `000008_identity_foundation` and its ownership invariants remain unchanged.
 
 ## G1-A — Legacy cutover and collisions
 
@@ -79,10 +79,10 @@ This draft proposes security decisions for G1-A (legacy cutover/collisions), G1-
 
 ## Approval record
 
-Approval is required independently for G1-A, G1-E, and G1-S. Until recorded here by the product/security owner, all three remain **OPEN**, runtime Identity resolution remains **OFF**, new User registration remains unavailable, and Organization creation must continue to fail closed. No `PASS_FULLSTACK` status may be inferred from backend contract tests.
+Approval is recorded independently for G1-A, G1-E, and G1-S below. Runtime Identity resolution remains **OFF** until the full acceptance criteria are met and separately approved. New User registration remains unavailable until its implementation is complete, and Organization creation must continue to fail closed until reauthentication proof is enforced. No `PASS_FULLSTACK` status may be inferred from backend contract tests.
 
 | Decision | Status | Approver / date | Notes |
 |---|---|---|---|
-| G1-A legacy cutover/collisions | OPEN — not approved | — | This draft only |
-| G1-E verified-email registration | OPEN — not approved | — | This draft only |
-| G1-S session/audit/revocation | OPEN — not approved | — | This draft only |
+| G1-A legacy cutover/collisions | APPROVED — implementation pending | Product/security owner / 2026-10-15 | Exact policy above approved; runtime gate remains OFF until acceptance |
+| G1-E verified-email registration | APPROVED — implementation pending | Product/security owner / 2026-10-15 | Explicit registration only after implementation; email alone never links identities |
+| G1-S session/audit/revocation | APPROVED — implementation pending | Product/security owner / 2026-10-15 | Organization create remains fail-closed until operation-bound proof is enforced |
