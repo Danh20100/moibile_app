@@ -38,6 +38,11 @@ interface BackendApi {
     suspend fun getCurrentListing(roomId: String, expectedToken: String? = null): ApiOutcome<ListingTransport>
     suspend fun getListingAssetDetails(id: String, expectedToken: String? = null): ApiOutcome<ListingAssetDetailsTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun saveListingAssetDetails(id: String, details: ListingAssetDetailsTransport, expectedToken: String? = null): ApiOutcome<ListingAssetDetailsTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getListingAssetMedia(id: String, expectedToken: String? = null): ApiOutcome<List<ListingAssetMediaTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun uploadListingAssetMedia(id: String, mediaId: String, contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ListingAssetMediaTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getListingAssetMediaContent(id: String, mediaId: String, expectedToken: String? = null): ApiOutcome<ListingAssetMediaContentTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun reorderListingAssetMedia(id: String, mediaIds: List<String>, expectedToken: String? = null): ApiOutcome<List<ListingAssetMediaTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun removeListingAssetMedia(id: String, mediaId: String, expectedToken: String? = null): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun createListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<ListingTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun updateListing(id: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String? = null): ApiOutcome<ListingTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun publishListing(id: String, expectedToken: String? = null): ApiOutcome<ListingTransport>
@@ -215,6 +220,31 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun saveListingAssetDetails(id: String, details: ListingAssetDetailsTransport, expectedToken: String?) =
         client.putJson("listings/$id/asset-details", BackendJsonCodec.encodeListingAssetDetails(details), true, expectedToken).decode(BackendJsonCodec::listingAssetDetails)
+
+    override suspend fun getListingAssetMedia(id: String, expectedToken: String?) =
+        client.get("listings/$id/media", true, expectedToken = expectedToken).decode { messagingGson.fromJson(it, Array<ListingAssetMediaTransport>::class.java).toList() }
+
+    override suspend fun uploadListingAssetMedia(id: String, mediaId: String, contentType: String, bytes: ByteArray, expectedToken: String?) = run {
+        require(contentType in listOf("image/jpeg", "image/png") && bytes.size <= 5 * 1024 * 1024)
+        val payload = com.google.gson.JsonObject().apply {
+            addProperty("mediaId", mediaId); addProperty("contentType", contentType)
+            addProperty("base64", java.util.Base64.getEncoder().encodeToString(bytes))
+        }
+        client.postJson("listings/$id/media", payload.toString(), true, expectedToken = expectedToken)
+            .decode { messagingGson.fromJson(it, ListingAssetMediaTransport::class.java) }
+    }
+
+    override suspend fun getListingAssetMediaContent(id: String, mediaId: String, expectedToken: String?) =
+        client.get("listings/$id/media/$mediaId/content", true, expectedToken = expectedToken)
+            .decode { messagingGson.fromJson(it, ListingAssetMediaContentTransport::class.java) }
+
+    override suspend fun reorderListingAssetMedia(id: String, mediaIds: List<String>, expectedToken: String?) =
+        client.patchJson("listings/$id/media/order", com.google.gson.JsonObject().apply {
+            add("mediaIds", com.google.gson.JsonArray().apply { mediaIds.forEach(::add) })
+        }.toString(), true, expectedToken).decode { messagingGson.fromJson(it, Array<ListingAssetMediaTransport>::class.java).toList() }
+
+    override suspend fun removeListingAssetMedia(id: String, mediaId: String, expectedToken: String?) =
+        client.delete("listings/$id/media/$mediaId", true, expectedToken).decode { Unit }
 
     override suspend fun createListing(id: String, roomId: String, title: String, description: String, price: String, latitude: Double, longitude: Double, expectedToken: String?) =
         client.postJson("listings", BackendJsonCodec.encodeListing(id, roomId, title, description, price, latitude, longitude), true, expectedToken = expectedToken).decode(BackendJsonCodec::listing)

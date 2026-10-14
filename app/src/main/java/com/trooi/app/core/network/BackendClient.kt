@@ -83,6 +83,9 @@ class BackendClient(
             builder.post(ByteArray(0).toRequestBody(null))
         }
 
+    suspend fun delete(path: String, authenticated: Boolean = true, expectedToken: String? = null): TransportOutcome =
+        execute(path, authenticated, emptyMap(), retryOnIOException = false, expectedToken = expectedToken) { builder -> builder.delete() }
+
     private suspend fun execute(
         path: String,
         authenticated: Boolean,
@@ -129,8 +132,8 @@ class BackendClient(
                         else -> TransportOutcome.Success(
                             status,
                             TransportDocument(response.body?.let { body ->
-                                if (path.startsWith("messaging/")) {
-                                    val cap = 3_000_000L
+                                if (path.startsWith("messaging/") || path.contains("/media")) {
+                                    val cap = if (path.startsWith("messaging/")) 3_000_000L else 8_000_000L
                                     if (body.contentLength() > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)
                                     val source = body.source()
                                     if (source.request(cap + 1) && source.buffer.size > cap) return@use TransportOutcome.Failure(ErrorKind.INVALID_RESPONSE, status)

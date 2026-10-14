@@ -51,7 +51,7 @@ internal suspend fun copyRentalPhotos(context: Context, uris: List<Uri>): List<S
     val copied = mutableListOf<File>()
     try {
         uris.map { uri ->
-            require(context.contentResolver.getType(uri)?.startsWith("image/") == true)
+            require(context.contentResolver.getType(uri) in listOf("image/jpeg", "image/png")) { "Chỉ hỗ trợ ảnh JPEG hoặc PNG." }
             val file = File(directory, "${UUID.randomUUID()}.image")
             copied += file
             requireNotNull(context.contentResolver.openInputStream(uri)).use { input ->
@@ -62,7 +62,7 @@ internal suspend fun copyRentalPhotos(context: Context, uris: List<Uri>): List<S
                         val read = input.read(buffer)
                         if (read < 0) break
                         total += read
-                        require(total <= 20 * 1024 * 1024) { "Chọn ảnh nhỏ hơn 20 MB." }
+                        require(total <= 5 * 1024 * 1024) { "Chọn ảnh nhỏ hơn 5 MB." }
                         output.write(buffer, 0, read)
                     }
                 }
@@ -109,8 +109,11 @@ fun AssetWizard(
         if (uris.isNotEmpty()) scope.launch {
             busy = true
             runCatching { copyRentalPhotos(context, uris.take((10 - asset.photoUris.size).coerceAtLeast(0))) }
-                .onSuccess { asset = asset.copy(photoUris = asset.photoUris + it); error = null }
-                .onFailure { error = "Không lưu được ảnh. Hãy chọn ảnh hợp lệ, mỗi ảnh dưới 20 MB." }
+                .onSuccess {
+                    val ids = List(asset.photoUris.size) { asset.photoMediaIds.getOrElse(it) { "" } } + List(it.size) { "" }
+                    asset = asset.copy(photoUris = asset.photoUris + it, photoMediaIds = ids); error = null
+                }
+                .onFailure { error = it.message ?: "Không lưu được ảnh. Hãy chọn ảnh JPEG hoặc PNG nhỏ hơn 5 MB." }
             busy = false
         }
     }
@@ -249,11 +252,14 @@ fun AssetWizard(
                         asset.photoUris.forEachIndexed { index, uri -> item(key = uri) {
                             LocalRentalPhoto(uri, null, "Ảnh ${index + 1}", Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp)))
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TroOiButton(if (index == 0) "Ảnh bìa" else "Chọn làm bìa", { asset = asset.copy(photoUris = listOf(uri) + asset.photoUris.filterNot { it == uri }) },
+                                TroOiButton(if (index == 0) "Ảnh bìa" else "Chọn làm bìa", {
+                                    val order = listOf(index) + asset.photoUris.indices.filterNot { it == index }
+                                    asset = asset.copy(photoUris = order.map(asset.photoUris::get), photoMediaIds = order.map { asset.photoMediaIds.getOrElse(it) { "" } })
+                                },
                                     Modifier.weight(1f).testTag("asset-cover-$index"), style = TroOiButtonStyle.TERTIARY)
-                                IconButton({ val next = asset.photoUris.toMutableList(); java.util.Collections.swap(next, index, index - 1); asset = asset.copy(photoUris = next) }, enabled = index > 0,
+                                IconButton({ val order = asset.photoUris.indices.toMutableList(); java.util.Collections.swap(order, index, index - 1); asset = asset.copy(photoUris = order.map(asset.photoUris::get), photoMediaIds = order.map { asset.photoMediaIds.getOrElse(it) { "" } }) }, enabled = index > 0,
                                     modifier = Modifier.testTag("asset-photo-up-$index")) { Icon(Icons.Rounded.ArrowUpward, "Đưa ảnh lên trước") }
-                                IconButton({ asset = asset.copy(photoUris = asset.photoUris - uri) }, Modifier.testTag("asset-photo-remove-$index")) { Icon(Icons.Rounded.DeleteOutline, "Xóa ảnh ${index + 1}") }
+                                IconButton({ asset = asset.copy(photoUris = asset.photoUris.filterIndexed { i, _ -> i != index }, photoMediaIds = asset.photoMediaIds.filterIndexed { i, _ -> i != index }) }, Modifier.testTag("asset-photo-remove-$index")) { Icon(Icons.Rounded.DeleteOutline, "Xóa ảnh ${index + 1}") }
                             }
                         } }
                         asset.photoResources.forEach { resource -> item { LocalRentalPhoto(null, resource, asset.name, Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(16.dp))) } }

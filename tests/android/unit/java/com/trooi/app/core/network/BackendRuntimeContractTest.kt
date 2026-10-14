@@ -17,22 +17,30 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
-    @Test fun backendAssetSaveFailsBeforeWritingWhenLocalPhotosCannotBePersisted() = runBlocking {
+    @Test fun assetPhotoTransportUsesAuthenticatedUploadReadOrderAndRemoveRoutes() = runBlocking {
         MockWebServer().use { server ->
+            val id = "93000000-0000-4000-8000-000000000001"
+            val row = """{"id":"$id","contentType":"image/png","byteSize":4,"position":0,"createdAt":"2026-10-14T00:00:00.000Z"}"""
+            server.enqueue(MockResponse().setResponseCode(201).setBody("""{"success":true,"data":$row}"""))
+            server.enqueue(MockResponse().setBody("""{"success":true,"data":[$row]}"""))
+            server.enqueue(MockResponse().setBody("""{"success":true,"data":{"contentType":"image/png","base64":"AQIDBA=="}}"""))
+            server.enqueue(MockResponse().setBody("""{"success":true,"data":[$row]}"""))
+            server.enqueue(MockResponse().setBody("""{"success":true,"data":{"removed":true}}"""))
             server.start(InetAddress.getLoopbackAddress(), 0)
-            val tokens = InMemoryAuthTokenProvider().apply { setToken("account-a-token") }
-            val repository = BackendTroOiRepository(OkHttpBackendApi(BackendClient(localUrl(server), tokens, true)), tokens)
-            val asset = LocalRentalAsset(
-                id = "room-a", propertyId = "property-a", type = "Phòng trọ", name = "Room A",
-                operationalAddress = "Private address", publicArea = "District 1", area = "24",
-                monthlyRent = "3500000", advertisedDeposit = "3500000", operationalLatitude = "10.77",
-                operationalLongitude = "106.69", description = "Room description", photoUris = listOf("content://private/photo"),
-            )
-
-            val result = repository.saveLocalAsset(asset, activate = false, publish = false)
-            assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("Ảnh Ledger chưa thể lưu an toàn"))
-            assertEquals(0, server.requestCount)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("owner-token") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            assertEquals(id, api.uploadListingAssetMedia("listing-1", id, "image/png", byteArrayOf(1, 2, 3, 4)).requireData().id)
+            assertEquals(id, api.getListingAssetMedia("listing-1").requireData().single().id)
+            assertEquals("AQIDBA==", api.getListingAssetMediaContent("listing-1", id).requireData().base64)
+            assertEquals(id, api.reorderListingAssetMedia("listing-1", listOf(id)).requireData().single().id)
+            assertNotNull(api.removeListingAssetMedia("listing-1", id).requireData())
+            val upload = server.takeRequest()
+            assertEquals("POST", upload.method); assertEquals("/api/v1/listings/listing-1/media", upload.path)
+            assertEquals("Bearer owner-token", upload.getHeader("Authorization")); assertTrue(upload.body.readUtf8().contains("AQIDBA=="))
+            assertEquals("/api/v1/listings/listing-1/media", server.takeRequest().path)
+            assertEquals("/api/v1/listings/listing-1/media/$id/content", server.takeRequest().path)
+            val reorder = server.takeRequest(); assertEquals("PATCH", reorder.method); assertTrue(reorder.body.readUtf8().contains(id))
+            val remove = server.takeRequest(); assertEquals("DELETE", remove.method); assertEquals("/api/v1/listings/listing-1/media/$id", remove.path)
         }
     }
 
@@ -249,7 +257,7 @@ class BackendRuntimeContractTest {
             incidentRows = listOf(incident),
             incidentEventRows = mapOf("incident-1" to events),
         )
-        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider())
+        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider().apply { setToken("owner-token") })
 
         val read = repository.refreshAuthorizedRead(
             AccessCapabilities(operatedOrganizationIds = setOf("org-1")),
@@ -265,7 +273,7 @@ class BackendRuntimeContractTest {
 
     @Test fun financeFailuresRetainRoomAndTenancyReadbackWithVisibleRetryState() = runBlocking {
         val api = FakeRuntimeApi(financeFails = true)
-        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider())
+        val repository = BackendTroOiRepository(api, InMemoryAuthTokenProvider().apply { setToken("owner-token") })
         val read = repository.refreshAuthorizedRead(AccessCapabilities(
             linkedTenancyIds = setOf("tenancy-1"), operatedOrganizationIds = setOf("org-1"),
         )).getOrThrow()
@@ -307,6 +315,8 @@ class BackendRuntimeContractTest {
                 ?: ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
         override suspend fun getListingAssetDetails(id: String, expectedToken: String?) =
             ApiOutcome.Failure(ErrorKind.HTTP_ERROR, 404)
+        override suspend fun getListingAssetMedia(id: String, expectedToken: String?) =
+            ApiOutcome.Data(emptyList<ListingAssetMediaTransport>())
         override suspend fun publishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
         override suspend fun unpublishListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()
         override suspend fun archiveListing(id: String, expectedToken: String?) = unsupported<ListingTransport>()

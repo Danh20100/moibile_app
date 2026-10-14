@@ -1,15 +1,21 @@
 package com.trooi.app.core.data
 
+import android.content.Context
+import android.net.Uri
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.trooi.app.core.model.*
 import com.trooi.app.core.network.AuthTokenProvider
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.*
 import javax.inject.Inject
+import java.io.File
+import java.util.UUID
 
 /** Backend-backed repository. All authorization and canonical writes remain server-side. */
 class BackendTroOiRepository @Inject constructor(
     private val api: BackendApi,
     private val tokens: AuthTokenProvider,
+    @param:ApplicationContext private val context: Context? = null,
 ) : TroOiRepository {
     private val messageCacheLock = Any()
     private var messageCards: List<ConversationCard> = emptyList()
@@ -146,7 +152,8 @@ class BackendTroOiRepository @Inject constructor(
     }
 
     override suspend fun refreshAuthorizedRead(access: AccessCapabilities): Result<FrontendReadSnapshot> = try {
-        Result.success(loadAuthorizedRead(access))
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        Result.success(loadAuthorizedRead(access).also { check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." } })
     } catch (error: RuntimeException) {
         Result.failure(error)
     }
@@ -173,10 +180,7 @@ class BackendTroOiRepository @Inject constructor(
     }
 
     override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> = runCatching {
-        require(asset.photoUris.isEmpty() && asset.photoResources.isEmpty()) {
-            "Ảnh Ledger chưa thể lưu an toàn vào Backend. Bản nháp và nội dung đã nhập vẫn được giữ lại."
-        }
-        require(!publish) { "Đăng tin chưa khả dụng cho đến khi ảnh được tải lên và đọc lại từ kho riêng. Nội dung đã nhập vẫn được giữ lại." }
+        require(asset.photoResources.isEmpty()) { "Ảnh mẫu trong Debug không thể lưu vào tài khoản Backend. Hãy chọn ảnh JPEG hoặc PNG từ thiết bị." }
         require(asset.id.isNotBlank() && asset.propertyId.isNotBlank()) { "Thiếu ID ổn định của tài sản." }
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         val session = api.getSessionContext(credential).required("session context")
@@ -233,6 +237,28 @@ class BackendTroOiRepository @Inject constructor(
             maxOccupants = asset.maxOccupants, floorLabel = asset.floorLabel?.ifBlank { null },
         )
         val saved = api.saveListingAssetDetails(listingId, details, credential).required("save Asset details")
+        val currentMedia = api.getListingAssetMedia(listingId, credential).required("asset photos")
+        val desiredIds = asset.photoUris.mapIndexed { index, uri ->
+            val mediaId = asset.photoMediaIds.getOrElse(index) { "" }.ifBlank {
+                UUID.nameUUIDFromBytes("trooi-asset-photo:$listingId:$uri".toByteArray(Charsets.UTF_8)).toString()
+            }
+            if (currentMedia.none { it.id == mediaId }) {
+                val bytes = readAssetPhoto(uri)
+                val type = when {
+                    bytes.size >= 3 && bytes[0] == 0xff.toByte() && bytes[1] == 0xd8.toByte() && bytes[2] == 0xff.toByte() -> "image/jpeg"
+                    bytes.size >= 8 && bytes.take(8).toByteArray().contentEquals(byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)) -> "image/png"
+                    else -> error("Chỉ hỗ trợ ảnh JPEG hoặc PNG.")
+                }
+                api.uploadListingAssetMedia(listingId, mediaId, type, bytes, credential).required("upload asset photo")
+            }
+            mediaId
+        }
+        currentMedia.filterNot { it.id in desiredIds }.forEach { api.removeListingAssetMedia(listingId, it.id, credential).required("remove asset photo") }
+        if (desiredIds.isNotEmpty()) api.reorderListingAssetMedia(listingId, desiredIds, credential).required("order asset photos")
+        if (publish) {
+            require(asset.readyToPublish()) { "Hoàn tất mô tả, giá, ảnh và thông tin tài sản trước khi đăng." }
+            api.publishListing(listingId, credential).required("publish Listing")
+        }
         check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi; dữ liệu đã lưu dưới tài khoản ban đầu, hãy tải lại trước khi tiếp tục." }
         refreshAuthorizedRead(AccessCapabilities(
             linkedTenancyIds = session.linkedTenancyIds.toSet(), operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
@@ -259,6 +285,28 @@ class BackendTroOiRepository @Inject constructor(
         refreshAuthorizedRead(AccessCapabilities(
             linkedTenancyIds = session.linkedTenancyIds.toSet(), operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
         )).getOrThrow()
+    }
+
+    private fun readAssetPhoto(rawUri: String): ByteArray {
+        val uri = Uri.parse(rawUri)
+        require(uri.scheme == "file") { "Chọn lại ảnh từ thiết bị để tải ảnh lên." }
+        val file = File(requireNotNull(uri.path)).canonicalFile
+        val appContext = requireNotNull(context) { "Ảnh thiết bị không khả dụng trong kiểm thử JVM." }
+        val sourceDirectory = File(appContext.filesDir, "rental-media").canonicalFile
+        require(file.path.startsWith(sourceDirectory.path + File.separator) && file.isFile) { "Ảnh nháp không còn khả dụng. Hãy chọn lại ảnh." }
+        return file.inputStream().use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            var total = 0
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                total += count
+                require(total <= 5 * 1024 * 1024) { "Ảnh phải nhỏ hơn 5 MB." }
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
     }
 
     override suspend fun login(identifier: String, password: String): Result<UserSession> = unsupportedAuth()
@@ -309,6 +357,21 @@ class BackendTroOiRepository @Inject constructor(
                         ?.takeIf { it.roomId == room.id }
                     currentListing?.let { operatorListings += mapOperatorListing(it) }
                     val assetDetails = currentListing?.let { api.getListingAssetDetails(it.id).optionalNotFound("Asset details") }
+                    val media = currentListing?.let { api.getListingAssetMedia(it.id).optionalNotFound("asset photos") }.orEmpty()
+                    val downloadedPhotos = media.sortedBy { it.position }.map { item ->
+                        require(item.byteSize in 1..(5 * 1024 * 1024) && item.contentType in listOf("image/jpeg", "image/png"))
+                        val content = api.getListingAssetMediaContent(currentListing!!.id, item.id).required("asset photo")
+                        require(content.contentType == item.contentType)
+                        val bytes = java.util.Base64.getDecoder().decode(content.base64)
+                        require(bytes.size == item.byteSize)
+                        val suffix = if (item.contentType == "image/png") "png" else "jpg"
+                        val directory = File(requireNotNull(context) { "Ảnh Backend không khả dụng trong kiểm thử JVM." }.cacheDir, "rental-backend-media").apply { check(exists() || mkdirs()) }
+                        val file = File(directory, "${item.id}.$suffix")
+                        val temporary = File(directory, "${item.id}.$suffix.tmp")
+                        temporary.writeBytes(bytes)
+                        check(temporary.renameTo(file) || (temporary.delete() && file.exists()))
+                        "${Uri.fromFile(file)}"
+                    }
                     val point = property.operationalLocation
                     managedAssets += LocalRentalAsset(
                         id = room.id,
@@ -326,6 +389,8 @@ class BackendTroOiRepository @Inject constructor(
                         furnishing = assetDetails?.furnishing.orEmpty(),
                         amenities = assetDetails?.amenityIds.orEmpty(),
                         rules = assetDetails?.rules.orEmpty(),
+                        photoUris = downloadedPhotos,
+                        photoMediaIds = media.sortedBy { it.position }.map { it.id },
                         status = if (room.recordLifecycle == "archived" || property.lifecycleStatus == "archived") ManagedAssetStatus.ARCHIVED
                             else if (assetDetails?.managementStatus == "ACTIVE" || currentListing?.status == "published") ManagedAssetStatus.ACTIVE
                             else ManagedAssetStatus.DRAFT,

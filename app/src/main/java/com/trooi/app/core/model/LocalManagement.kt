@@ -21,6 +21,8 @@ data class LocalRentalAsset(
     val amenities: List<String> = emptyList(),
     val rules: List<String> = emptyList(),
     val photoUris: List<String> = emptyList(),
+    /** Durable Backend media IDs in the same order as photoUris; empty IDs are local upload drafts. */
+    val photoMediaIds: List<String> = emptyList(),
     val photoResources: List<Int> = emptyList(),
     val status: ManagedAssetStatus = ManagedAssetStatus.DRAFT,
     val listingStatus: ListingVisibility = ListingVisibility.DRAFT,
