@@ -212,9 +212,22 @@ test('frozen v1 snapshot upgrades without rekeying Users and media rollback guar
         kind + ' v1 entries preserved',
       );
 
-    // Empty additive media/avatar migrations may roll back, but the legacy Asset-media migration is frozen.
+    // Data-bearing Identity sessions/audit rows block rollback; empty additive migrations may roll back.
     await resetPublicSchema(url);
     await runMigrations('up', url);
+    await client.query('INSERT INTO users (user_id) VALUES ($1)', [G.userFirst]);
+    await client.query(
+      `INSERT INTO auth_sessions (session_id, family_id, user_id, access_token_sha256, access_expires_at,
+        refresh_token_sha256, created_at, last_seen_at, idle_expires_at, absolute_expires_at, authenticated_at)
+       VALUES ($1, $1, $2, $3, now() + interval '15 minutes', $4, now(), now(), now() + interval '30 days',
+        now() + interval '90 days', now())`,
+      ['af000000-0000-4000-8000-000000000001', G.userFirst, 'a'.repeat(64), 'b'.repeat(64)],
+    );
+    await assert.rejects(runMigrations('down', url), /Migration 000016 contains Identity session\/security data/);
+
+    await resetPublicSchema(url);
+    await runMigrations('up', url);
+    await runMigrations('down', url); // 000016: no session, challenge or audit data
     await runMigrations('down', url); // 000015: no avatar data or intents
     await runMigrations('down', url); // 000014: no pending Messaging uploads
     await runMigrations('down', url); // 000013: no pending Listing intents

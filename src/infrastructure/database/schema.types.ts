@@ -24,6 +24,10 @@ export interface Database {
   user_profiles: UserProfilesTable;
   user_profile_avatars: UserProfileAvatarsTable;
   user_profile_avatar_intents: UserProfileAvatarIntentsTable;
+  identity_auth_challenges: IdentityAuthChallengesTable;
+  auth_sessions: AuthSessionsTable;
+  auth_session_refresh_history: AuthSessionRefreshHistoryTable;
+  identity_security_events: IdentitySecurityEventsTable;
   password_credentials: PasswordCredentialsTable;
   organizations: OrganizationsTable;
   properties: PropertiesTable;
@@ -232,5 +236,26 @@ export interface UserProfileAvatarIntentsTable {
   user_id: string; operation: 'UPLOAD' | 'DELETE_PREVIOUS'; object_key: string; previous_object_key: string | null;
   content_type: 'image/jpeg' | 'image/png'; byte_size: number; sha256: string;
   created_at: TimestampString;
+}
+export interface IdentityAuthChallengesTable {
+  challenge_id: string; purpose: 'LOGIN' | 'REGISTER' | 'REAUTH_ORGANIZATION_CREATE';
+  nonce_sha256: string; user_id: string | null; session_id: string | null;
+  created_at: TimestampString; expires_at: TimestampString; consumed_at: TimestampString | null;
+}
+export interface AuthSessionsTable {
+  session_id: string; family_id: string; user_id: string; access_token_sha256: string;
+  access_expires_at: TimestampString; refresh_token_sha256: string; created_at: TimestampString;
+  last_seen_at: TimestampString; idle_expires_at: TimestampString; absolute_expires_at: TimestampString;
+  authenticated_at: TimestampString; revoked_at: TimestampString | null; revoke_reason: string | null;
+}
+export interface AuthSessionRefreshHistoryTable {
+  refresh_token_sha256: string; session_id: string; rotated_at: TimestampString;
+}
+export interface IdentitySecurityEventsTable {
+  event_id: string; user_id: string | null; session_id: string | null;
+  event_code: 'CHALLENGE_ISSUED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_SUCCEEDED' | 'REGISTRATION_REJECTED'
+    | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_LOGOUT'
+    | 'SESSION_REVOKED' | 'IDENTITY_COLLISION' | 'REAUTH_ISSUED' | 'REAUTH_REJECTED';
+  outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
 }
 export interface PasswordCredentialsTable { user_id: string; password_hash: string; credential_revision: string; created_at: TimestampString; password_changed_at: TimestampString }

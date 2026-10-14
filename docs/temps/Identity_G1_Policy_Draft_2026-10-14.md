@@ -49,7 +49,7 @@ This approved policy defines the implementation requirements for G1-A (legacy cu
 
 ### Schema, rollback, acceptance
 
-- No migration is proposed: migration `000008` already has the required unique principal/email constraints and verification source. If implementation reveals a missing invariant, stop and propose a new additive migration after `000015_user_profile_avatars`; do not alter `000008`.
+- Migration `000008` already has the required unique principal/email constraints and verification source. One-time nonce replay protection requires durable server-side challenge consumption, so additive migration `000016_identity_sessions` adds the challenge record; do not alter `000008`.
 - Rollback disables the registration endpoint/feature flag. Keep legitimately created User and immutable identity rows; do not delete data or free email/principal keys for reuse. Support account closure requires a separately approved retention policy.
 - Accept after backend tests pass on isolated PostgreSQL, security review confirms token/nonce handling, the production Google OAuth audience/config is verified, and live Google registration succeeds only for an explicitly registered account. Confirm no Organization or ownership is implicitly granted.
 
@@ -73,7 +73,7 @@ This approved policy defines the implementation requirements for G1-A (legacy cu
 
 ### Schema, rollback, acceptance
 
-- Additive migration only, tentatively `000016_identity_sessions` after avatar-storage `000015`: `auth_sessions` plus append-only `identity_security_events`, foreign keys to existing User rows, unique refresh-token hash, expiry/revocation indexes, and constraints preventing session ownership mutation. Do not put secrets or raw tokens in the event table. Freeze down migration when live session/audit rows exist; do not cascade-delete them.
+- Additive migration only, `000016_identity_sessions` after avatar-storage `000015`: one-time `identity_auth_challenges`, `auth_sessions`, immutable `auth_session_refresh_history`, and append-only `identity_security_events`, foreign keys to existing User rows, unique token hashes, expiry/revocation indexes, and constraints preventing session ownership mutation. Do not put secrets or raw tokens in these tables. Freeze down migration when live session/audit/challenge rows exist; do not cascade-delete them.
 - Rollback disables session exchange/refresh and forces session revocation or expiry before returning to any previously approved authentication path. Since the current Google resolver gate is OFF, there is no safe fallback to turn on automatically. Preserve audit history and identity ownership. Any deployment rollback leaves the Identity gate OFF.
 - Accept after migration up/down guards and repository tests pass; refresh/revoke/replay/race tests pass against isolated PostgreSQL; log redaction is verified; Android secure storage and logout/account-switch tests pass; and approved live Google owner/tenant accounts pass API and device verification. Only then may a separate explicit approval authorize enabling the runtime gate.
 
