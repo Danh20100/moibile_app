@@ -19,7 +19,7 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
-    @Test fun publicListingTimeoutRetriesOnceThenReturnsNetworkUnavailable() = runBlocking {
+    @Test fun publicListingTimeoutRetriesOnceThenRepositoryReturnsNetworkUnavailable() = runBlocking {
         MockWebServer().use { server ->
             repeat(2) { server.enqueue(MockResponse().setHeadersDelay(250, TimeUnit.MILLISECONDS).setBody("{}")) }
             server.start(InetAddress.getLoopbackAddress(), 0)
@@ -27,12 +27,14 @@ class BackendRuntimeContractTest {
                 .readTimeout(50, TimeUnit.MILLISECONDS)
                 .retryOnConnectionFailure(false)
                 .build()
-            val api = OkHttpBackendApi(BackendClient(localUrl(server), InMemoryAuthTokenProvider(), true, client))
+            val tokens = InMemoryAuthTokenProvider()
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true, client))
+            val repository = BackendTroOiRepository(api, tokens)
 
-            val outcome = api.getPublicListingsRaw()
+            val result = repository.refreshPublicListings()
 
-            assertTrue(outcome is TransportOutcome.Failure)
-            assertEquals(ErrorKind.NETWORK_UNAVAILABLE, (outcome as TransportOutcome.Failure).kind)
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("NETWORK_UNAVAILABLE"))
             assertEquals(2, server.requestCount)
         }
     }
