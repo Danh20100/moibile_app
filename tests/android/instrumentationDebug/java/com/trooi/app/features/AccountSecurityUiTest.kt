@@ -1,5 +1,6 @@
 package com.trooi.app.features
 
+import android.view.KeyEvent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -9,10 +10,12 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.features.profile.AccountSettingsFlow
 import com.trooi.app.ui.components.TroOiActionDialog
@@ -77,6 +80,16 @@ class AccountSecurityUiTest {
         compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
         compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
+    }
+
+    @Test fun backendLoginEmailGateCanBeActivatedByKeyboard() {
+        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") } }
+        val action = compose.onNodeWithText("Thay đổi email")
+        action.performSemanticsAction(SemanticsActions.RequestFocus)
+        action.assertIsFocused()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
+        compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
     }
 
     @Test fun languageHasOnlyTwoSections() {
