@@ -180,3 +180,8 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 ## P1 decisions — Ledger Terms billing
 
 - [x] `LED-P1-02/03` policy approved 2026-10-15 and implemented. New Terms writes require exact `{day: integer 1..31}`; historical JSON remains unmodified and is returned without inference (including legacy array/scalar shapes). Billing due dates clamp to month end as date-only Vietnam dates; isolated PostgreSQL tests cover projection and Terms JSON round-trip. No migration was added; see the integration gap register for current evidence and limits.
+
+## 2026-10-15 backend regression revalidation
+
+- [x] Identity cutover preflight (`1/1`) and Identity sessions (`1/1`) pass against the dedicated disposable PostgreSQL test database. The preflight verifies explicit binding, missing binding, and no writes; session coverage includes audit, expiry, rotation and revocation. This is `PASS_BACKEND` component evidence; manifest approval/live Google acceptance remain open and the gate stays OFF.
+- [x] `pnpm test:ledger:media-faults`, `pnpm test:ledger:due-date`, `pnpm test:discovery:postgis-search`, and `pnpm test:messaging:integration` each pass `1/1` using isolated local PostgreSQL/PostGIS and MinIO/S3. Messaging uses a test verifier. These are backend component checks only; no Android or `PASS_FULLSTACK` claim.
