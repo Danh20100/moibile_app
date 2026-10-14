@@ -111,3 +111,8 @@ Current acceptance, detailed API/migration mapping, test evidence, emulator bloc
 
 Latest continuation verification (2026-10-14): Backend typecheck/lint/build PASS; `pnpm test` 468/468; database-v1 conformance 58/58; PostgreSQL photo compensation 1/1; real MinIO reconnect/readback 1/1; authenticated photo HTTP 1/1; Android JVM 223/223; Debug/Release APK, lint, Android-test Kotlin compilation PASS; focused `ProtectedRentalSubmissionTest` 1/1 on emulator. Full Android rental workflow remains gated at Google sign-in and is not `PASS_FULLSTACK`.
 Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payment/gateway behavior and HTTP suite **81/81**; isolated PostgreSQL rental/checkout, Finance and Billing guards **4/4**; Messaging PostgreSQL/MinIO two-account test-verifier integration **1/1**. No live Google, production payment provider or actual transfer was exercised.
+
+## P0 continuation — integration preview branch
+
+- [x] `LED-P0-02`: Mock Ledger reads its explicitly historical debug finance fixture without calling DemoPay; Owner/Tenant Ledger stays available offline while checkout continues to fail closed when DemoPay is unavailable. Android debug unit test `FixtureCatalogTest.mockLedgerLoadsHistoricalFixtureWhenDemoPayIsOffline` passes. This is `PASS_ANDROID` only, not backend or full-stack acceptance.
+- [ ] Identity G1 cutover/session/audit decision and live Google acceptance remain security gates; runtime resolution stays disabled and no new User/Organization is fabricated.

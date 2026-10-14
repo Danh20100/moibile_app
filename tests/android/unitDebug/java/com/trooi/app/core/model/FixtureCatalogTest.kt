@@ -85,6 +85,23 @@ class FixtureCatalogTest {
         }
     }
 
+    @Test fun mockLedgerLoadsHistoricalFixtureWhenDemoPayIsOffline() = kotlinx.coroutines.runBlocking {
+        val repository = com.trooi.app.core.data.FixtureTroOiRepository(
+            null,
+            com.trooi.app.core.demo.DemoPaymentClient("http://127.0.0.1:1/api/v1"),
+        )
+        val tenant = repository.login("tenant@trooi.local", "TroOi2026!").getOrThrow()
+        val tenantRead = repository.refreshAuthorizedRead(tenant.access).getOrThrow()
+        assertTrue(tenantRead.tenancies.isNotEmpty())
+        assertEquals("fixture-charge-rent-oct", tenantRead.tenantFinanceByTenancy.getValue(DemoData.TENANCY).charges.first().chargeId)
+        assertTrue(repository.createDemoCheckout(DemoData.TENANCY, "5200000", "offline-checkout").isFailure)
+
+        val owner = repository.login("owner@trooi.local", "TroOi2026!").getOrThrow()
+        val ownerRead = repository.refreshAuthorizedRead(owner.access).getOrThrow()
+        assertTrue(ownerRead.operationalRooms.isNotEmpty())
+        assertEquals("fixture-charge-rent-oct", ownerRead.operatorFinanceByOrganization.getValue(DemoData.ORGANIZATION).charges.first().chargeId)
+    }
+
     @Test fun completeReadProjectionMatchesCapturedPreMigrationRuntime() {
         val expected = checkNotNull(javaClass.classLoader?.getResourceAsStream("fixtures/parity-v1.json"))
             .bufferedReader(Charsets.UTF_8).use { JsonParser.parseReader(it) }

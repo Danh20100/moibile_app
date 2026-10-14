@@ -23,7 +23,6 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
     private val gson = Gson()
     private val memoryManagement = mutableMapOf(DemoData.accounts[1].userId to DemoData.ownerManagement)
     private val memoryOrganizations = mutableMapOf<String, String>()
-    private var confirmedFinance: TenantFinanceProjection? = null
     private val memoryMessages = java.util.concurrent.ConcurrentHashMap<String, List<ConversationMessage>>()
     // ponytail: one local-write lock; use account locks only if concurrent local writes become frequent.
     private val messageWrites = Mutex()
@@ -91,17 +90,7 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
                 val asset = catalog?.assets?.firstOrNull { it.id == listing.roomId }
                 if (asset == null) listing else listing.copy(title = asset.name, visibility = asset.listingStatus)
             } + additional.map { OperatorListingCard(it.listingId, it.id, it.name, it.listingStatus) })
-        return if (payments == null) read else withFinance(read, access, confirmedFinance)
-    }
-    private fun withFinance(read: FrontendReadSnapshot, access: AccessCapabilities, finance: TenantFinanceProjection?): FrontendReadSnapshot {
-        val operator = finance?.let { OperatorFinanceProjection(it.charges, it.payments, deposits = it.deposits) }
-        return read.copy(
-            tenantFinanceByTenancy = if (DemoData.TENANCY in access.linkedTenancyIds && finance != null) mapOf(DemoData.TENANCY to finance) else emptyMap(),
-            operatorFinanceByOrganization = if (DemoData.ORGANIZATION in access.operatedOrganizationIds && operator != null) mapOf(DemoData.ORGANIZATION to operator) else emptyMap(),
-            operatorFinanceByRoom = if (DemoData.ORGANIZATION in access.operatedOrganizationIds && operator != null) mapOf(DemoData.ROOM to operator) else emptyMap(),
-            // No allocation read contract is available; never infer a balance from Payment.
-            dashboardByOrganization = read.dashboardByOrganization.mapValues { (_, dashboard) -> dashboard.copy(outstandingReceivableLabel = null, confirmedPaymentTotalLabel = null) },
-        )
+        return read
     }
     private fun validateCatalog(userId: String, next: LocalManagement) {
         check(next.assets.map { it.listingId }.distinct().size == next.assets.size) { "Tin đăng đã được liên kết với tài sản khác." }
@@ -167,7 +156,7 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
     }
     private fun currentSession() = (session ?: DemoData.accounts.firstOrNull { it.userId == prefs?.getString("userId", null) })?.let(::withLocalOperator)
     override fun initialSnapshot() = TroOiSnapshot(read = FrontendReadSnapshot(publicListings = publicListings()), demoPreview = true)
-    override fun clearSession() { session = null; confirmedFinance = null; prefs?.edit()?.remove("userId")?.apply() }
+    override fun clearSession() { session = null; prefs?.edit()?.remove("userId")?.apply() }
 
     override suspend fun refreshSessionContext(): Result<UserSession> = currentSession()?.let { Result.success(it) } ?: Result.failure(IllegalStateException("Vui lòng đăng nhập lại."))
 
@@ -189,13 +178,8 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
         runCatching {
             val account = currentSession() ?: error("Vui lòng đăng nhập lại.")
             check(account.access == access) { "Quyền truy cập không thuộc tài khoản hiện tại." }
-            if (payments != null && (DemoData.TENANCY in access.linkedTenancyIds || DemoData.ORGANIZATION in access.operatedOrganizationIds)) {
-                val finance = payments.finance(account.userId)
-                check(currentSession()?.userId == account.userId) { "Phiên đăng nhập đã thay đổi." }
-                confirmedFinance = finance
-                // Read local messages/catalog after network IO so a concurrent local save remains visible.
-                withFinance(authorizedRead(access), access, finance)
-            } else authorizedRead(access)
+            // Ledger history is a labeled debug fixture; only checkout actions require DemoPay.
+            authorizedRead(access)
         }
 
     override suspend fun createDemoCheckout(tenancyId: String, amount: String, key: String) = runCatching {
