@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { Module, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { NestFactory } from '@nestjs/core';
-import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import { CreateBucketCommand, DeleteBucketCommand, DeleteObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import {
   AuthGuard,
   applyHttpBodyParsers,
@@ -347,6 +347,17 @@ test('isolated HTTP two-account PostgreSQL/S3 round-trip and outsider denial', a
   } finally {
     await app?.close();
     await db.destroy();
+    let continuationToken: string | undefined;
+    do {
+      const page = await s3.send(new ListObjectsV2Command({
+        Bucket: process.env.OBJECT_STORAGE_BUCKET,
+        ContinuationToken: continuationToken,
+      }));
+      for (const object of page.Contents ?? [])
+        if (object.Key) await s3.send(new DeleteObjectCommand({ Bucket: process.env.OBJECT_STORAGE_BUCKET, Key: object.Key }));
+      continuationToken = page.NextContinuationToken;
+    } while (continuationToken);
+    await s3.send(new DeleteBucketCommand({ Bucket: process.env.OBJECT_STORAGE_BUCKET }));
     s3.destroy();
   }
 });

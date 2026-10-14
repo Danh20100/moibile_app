@@ -140,7 +140,7 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 
 - [x] Make read watermark updates atomic and monotonic with PostgreSQL `GREATEST`, so a delayed older request cannot move the stored timestamp backwards.
 - [x] Add concurrent newer/stale watermark regression assertions to `tests/integration/messaging.integration.ts`.
-- [ ] Run the Messaging PostgreSQL/MinIO integration on the isolated services before reporting `PASS_BACKEND`; unavailable services keep this acceptance `BLOCKED`.
+- [x] `MSG-P1-02` `PASS_BACKEND`: the isolated `messaging_test` PostgreSQL/MinIO HTTP integration asserts concurrent stale/new read-watermark updates preserve the greatest timestamp; fresh runs pass `1/1` twice. This does not imply live Google or `PASS_FULLSTACK`.
 
 ## P1 continuation — Messaging history pagination
 
