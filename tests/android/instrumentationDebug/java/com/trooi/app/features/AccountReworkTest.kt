@@ -221,9 +221,14 @@ class AccountReworkTest {
         compose.onNodeWithTag("account-page-personal").assertExists()
         compose.onNodeWithText("0901234567").assertExists()
         click("Số điện thoại", "account-page-personal")
+        passwordReauth()
+        compose.onNodeWithTag("account-page-edit:Số điện thoại").assertExists()
         compose.onNodeWithContentDescription("Quay lại").performClick()
         compose.onNodeWithText("Bỏ thay đổi chưa lưu?").assertDoesNotExist()
+        compose.onNodeWithTag("account-page-personal").assertExists()
         click("Số điện thoại", "account-page-personal")
+        passwordReauth()
+        compose.onNodeWithTag("account-page-edit:Số điện thoại").assertExists()
         compose.onNodeWithTag("verification-contact-input").performTextReplacement("0907654321")
         compose.onNodeWithText("Lưu thay đổi").assertIsEnabled()
         compose.runOnIdle { dispatcher!!.onBackPressed() }
@@ -239,6 +244,7 @@ class AccountReworkTest {
         compose.runOnIdle { dispatcher!!.onBackPressed() }
         compose.onNodeWithText("Bỏ thay đổi").performClick()
         click("Số điện thoại", "account-page-personal")
+        passwordReauth()
         compose.onNodeWithTag("verification-contact-input").assertTextContains("0901234567")
         compose.onNodeWithTag("email-otp-input").assertDoesNotExist()
         compose.onNodeWithText("Hủy").assertDoesNotExist()
