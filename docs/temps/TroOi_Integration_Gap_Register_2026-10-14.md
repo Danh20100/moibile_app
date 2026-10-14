@@ -28,7 +28,7 @@
 | **Hồ sơ (Profile/Identity)** | UI Profile/Settings/Onboarding; lưu tên hiển thị; Google token verifier + durable resolver đã code | Mở phiên Google cho User thật, đăng ký mới, session/audit, Organization onboarding, OTP có provider, avatar, preference, KYC, Android E2E | **`PASS_GATED` / `BLOCKED` — P0** |
 | **Tin nhắn (Messaging)** | Backend PostgreSQL, MinIO ảnh riêng tư, authorization A/B/C, Android Messages UI, Inquiry/Tenancy context | Hai Google account thật → gửi/nhận/ảnh → logout/restart; UI/device QA; một số reliability/scaling | **`PASS_BACKEND_ONLY` — E2E P0** |
 | **Sổ (Ledger)** | Property/Room/Listing, AssetWizard, ảnh riêng tư MinIO, Tenancy/Terms, Billing/Manual Payment/Deposit/Receipt, Incident/Checkout/History | Owner Organization thật; sửa Mock Sổ khi DemoPay offline; Asset/Payment E2E; public Listing photo pipeline; crash recovery / due day | **`PASS_BACKEND_ONLY` — E2E P0** |
-| **Discovery** | UI feed/search/filter/sort/compare/detail, Google Maps, radius query, Inquiry entry | Owner publish → Tenant thấy listing có ảnh công khai → Inquiry → Messaging; public-photo projection; map/device; favorites persistence; geocoding PR #10 chưa merge | **`PASS_UI_PARTIAL` — E2E P0** |
+| **Discovery** | UI feed/search/filter/sort/compare/detail, Google Maps, radius query, Inquiry entry; Android now loads owner-approved public photo covers/details | Owner publish → Tenant sees listing/photo → Inquiry → Messaging full flow; PostgreSQL/MinIO and device acceptance; map/device; favorites persistence; geocoding PR #10 chưa merge | **`PASS_UI_PARTIAL` — E2E P0** |
 
 ### Phụ thuộc trọng tâm
 
@@ -157,7 +157,7 @@ flowchart TD
 | ID | Ưu tiên | Vấn đề | DoD | Trạng thái |
 |---|---|---|---|---|
 | `DIS-P0-01` | **P0** | Owner Publish → Tenant thấy listing chưa được Android E2E test | Owner publish → API PUBLISHED → Tenant reload/feed/search/detail có đúng ID/giá/trạng thái và không có tin riêng tư | `BLOCKED` |
-| `DIS-P0-02` | **P0** | Không có public Listing photo pipeline từ ảnh Owner private | Ảnh được phép công bố hiển thị đúng ở public card/detail; unpublish/archive ẩn theo policy; private MinIO object không lộ | `NOT_IMPLEMENTED` |
+| `DIS-P0-02` | **P0** | Public Listing photo pipeline chưa được nghiệm thu end-to-end | Ảnh được phép công bố hiển thị đúng ở public card/detail; unpublish/archive ẩn theo policy; private MinIO object không lộ | `BLOCKED` — backend public opt-in/content route and Android owner consent/card/detail rendering implemented; PostgreSQL/MinIO and device runtime acceptance pending (see `LED-P0-07`) |
 | `DIS-P0-03` | **P0** | Inquiry → Messaging chưa có E2E hai Google User | Tenant Inquiry → Owner nhận context → A/B mở đúng conversation → history tồn tại sau restart | `BLOCKED` |
 | `DIS-P1-01` | P1 | Amenity public mapping với catalog Owner cần chứng minh | Persist stable IDs trong Owner → public projection đúng label/icon, không thêm tiện nghi không có | `OPEN` |
 | `DIS-P1-02` | P1 | Map API key/markers/location picker, lỗi và quyền vị trí chưa device accepted | Emulator có key test hợp lệ; marker/detail/camera center/bounds, no-permission và no-key states đúng | `BLOCKED` |
