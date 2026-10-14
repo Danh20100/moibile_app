@@ -1,10 +1,12 @@
 package com.trooi.app.features
 
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -18,6 +20,7 @@ import com.trooi.app.features.profile.AccountSettingsFlow
 import com.trooi.app.ui.theme.TroOiTheme
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 import org.junit.runner.RunWith
 
 /** Native accessibility automation avoids the Espresso InputManager incompatibility on API 37. */
@@ -54,6 +57,18 @@ class NativeAccountEntryTest {
         }
         error("Missing native input")
     }
+    private fun capture(name: String) {
+        instrumentation.waitForIdleSync()
+        Thread.sleep(500)
+        val bitmap = checkNotNull(automation.takeScreenshot())
+        val cropWidth = (320 * instrumentation.targetContext.resources.displayMetrics.density).toInt().coerceAtMost(bitmap.width)
+        val cropLeft = ((bitmap.width - cropWidth) / 2).coerceAtLeast(0)
+        val cropped = Bitmap.createBitmap(bitmap, cropLeft, 0, cropWidth, bitmap.height)
+        bitmap.recycle()
+        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round8-account-large-font").apply { mkdirs() }
+        File(directory, "$name.png").outputStream().use { cropped.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        cropped.recycle()
+    }
     private fun host(mock: Boolean, userId: String, dark: Boolean = false, page: String = "personal", fontScale: Float = 1.3f,
         test: () -> Unit) {
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
@@ -61,9 +76,11 @@ class NativeAccountEntryTest {
                 TroOiTheme(darkTheme = dark) {
                     val density = LocalDensity.current
                     CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
-                        Box(Modifier.width(320.dp).fillMaxHeight()) {
-                            AccountSettingsFlow(TroOiUiState(isAuthenticated = true, demoPreview = mock,
-                                backendUserId = userId), {}, page)
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.width(320.dp).fillMaxHeight()) {
+                                AccountSettingsFlow(TroOiUiState(isAuthenticated = true, demoPreview = mock,
+                                    backendUserId = userId), {}, page)
+                            }
                         }
                     }
                 }
@@ -86,7 +103,9 @@ class NativeAccountEntryTest {
         listOf(false, true).forEach { dark -> host(false, "fixture-user-ha", dark, page = "login-email", fontScale = 2f) {
             click("Thay đổi email"); waitFor("Email đăng nhập hiện chưa thể hoàn tất yêu cầu này. Vui lòng thử lại sau; thông tin của bạn chưa được thay đổi.")
             assertNull(matching("Xác thực bảo mật")); assertNull(matching("verification-contact-input"))
+            capture("email-change-blocked-font2-${if (dark) "dark" else "light"}")
             click("Đã hiểu"); waitFor("Email đăng nhập")
+            capture("email-settings-font2-${if (dark) "dark" else "light"}")
         } }
     }
     @Test fun wrongPasswordAndCancelKeepProtectedEditClosedThenCorrectPasswordOpensDraft() {
