@@ -351,9 +351,10 @@ fun AccountSettingsFlow(
             }
             page == "notifications" -> {
                 sectionItem { SettingsPreviewNotice("Chọn những thông báo bạn muốn theo dõi.") }
+                if (!state.demoPreview) sectionItem { Text("Tùy chọn thông báo chưa được tải từ tài khoản.") }
                 sectionItem { TabRow(tab) { listOf("Ưu đãi và cập nhật", "Tài khoản").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label) }) } } }
                 if (tab == 0) {
-                    listOf("Ưu đãi", "Cập nhật ứng dụng", "Nhắc việc thuê trọ", "Tin tức dịch vụ", "Phản hồi").forEach { label -> sectionItem { TroOiListRow(label, if (label in channelApps.split(',') || label in channelEmails.split(',')) "Kênh nhận thông báo" else "Đã tắt", { open("channel:$label") }, "Chỉnh sửa") } }
+                    listOf("Ưu đãi", "Cập nhật ứng dụng", "Nhắc việc thuê trọ", "Tin tức dịch vụ", "Phản hồi").forEach { label -> sectionItem { TroOiListRow(label, if (!state.demoPreview) "Chưa tải tùy chọn" else if (label in channelApps.split(',') || label in channelEmails.split(',')) "Kênh nhận thông báo" else "Đã tắt", { open("channel:$label") }, "Chỉnh sửa") } }
                     sectionItem { TroOiButton("Ngừng nhận tất cả ưu đãi và cập nhật", { protect() }, style = TroOiButtonStyle.TERTIARY); Text("Chỉ marketing. Cảnh báo bảo mật và giao dịch vẫn được giữ.") }
                 } else {
                     operationalNotificationGroups.forEach { label -> sectionItem { TroOiListRow(label, "Thông báo vận hành · không thuộc marketing", { open("channel:$label") }, "Chỉnh sửa") } }
@@ -364,14 +365,18 @@ fun AccountSettingsFlow(
                 }) }
             }
             page.startsWith("channel:") -> sectionItem {
-                Text("Chọn nơi bạn muốn nhận thông báo.")
                 val channel = page.removePrefix("channel:")
                 val critical = channel in operationalNotificationGroups
-                PreviewSwitch("Trong ứng dụng", if (critical) "Thông báo quan trọng được giữ bật" else "Nhận nội dung qua ứng dụng", channel in channelApps.split(',') || critical, enabled = !critical) { checked ->
-                    channelApps = (channelApps.split(',').filter { it.isNotBlank() && it != channel } + if (checked) listOf(channel) else emptyList()).joinToString(",")
-                }
-                PreviewSwitch("Email", "Nhận thông báo qua email", channel in channelEmails.split(',')) { checked ->
-                    channelEmails = (channelEmails.split(',').filter { it.isNotBlank() && it != channel } + if (checked) listOf(channel) else emptyList()).joinToString(",")
+                if (!state.demoPreview) {
+                    Text("Tùy chọn thông báo chưa được tải từ tài khoản.")
+                } else {
+                    Text("Chọn nơi bạn muốn nhận thông báo.")
+                    PreviewSwitch("Trong ứng dụng", if (critical) "Thông báo quan trọng được giữ bật" else "Nhận nội dung qua ứng dụng", channel in channelApps.split(',') || critical, enabled = canEdit && !critical) { checked ->
+                        channelApps = (channelApps.split(',').filter { it.isNotBlank() && it != channel } + if (checked) listOf(channel) else emptyList()).joinToString(",")
+                    }
+                    PreviewSwitch("Email", "Nhận thông báo qua email", channel in channelEmails.split(','), enabled = canEdit) { checked ->
+                        channelEmails = (channelEmails.split(',').filter { it.isNotBlank() && it != channel } + if (checked) listOf(channel) else emptyList()).joinToString(",")
+                    }
                 }
                 TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth())
             }
