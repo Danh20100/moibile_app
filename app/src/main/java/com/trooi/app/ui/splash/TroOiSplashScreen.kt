@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -180,7 +182,8 @@ fun TroOiBrandAssembly(
                 translationY = authTranslateY
                 scaleX = authScale
                 scaleY = authScale
-            },
+            }
+            .clearAndSetSemantics { contentDescription = "TrọƠi" },
         contentAlignment = Alignment.Center,
     ) {
         Column(

@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.features.auth.*
+import com.trooi.app.ui.splash.TroOiBrandAssembly
 import com.trooi.app.ui.components.TroOiScreenScaffold
 import com.trooi.app.ui.theme.TroOiTheme
 import org.junit.Assert.*
@@ -24,6 +25,38 @@ class NativeAuthLayoutTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private fun nodes(root: AccessibilityNodeInfo?): List<AccessibilityNodeInfo> = if (root == null) emptyList() else
         listOf(root) + (0 until root.childCount).flatMap { nodes(root.getChild(it)) }
+
+    @Test fun authBrandWordmarkExposesOneAccessibleName() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity -> activity.setContent { TroOiTheme { AuthBrandHero() } } }
+            for (attempt in 0 until 50) {
+                if (nodes(instrumentation.uiAutomation.rootInActiveWindow).any { it.text?.isNotEmpty() == true }) break
+                Thread.sleep(100)
+            }
+            instrumentation.waitForIdleSync()
+            val screenNodes = nodes(instrumentation.uiAutomation.rootInActiveWindow)
+            assertEquals(1, screenNodes.count { it.contentDescription?.toString() == "TrọƠi" })
+            assertFalse(screenNodes.any { it.text?.toString() in listOf("Trọ", "Ơi") })
+        }
+    }
+
+    @Test fun animatedBrandAssemblyExposesOneAccessibleName() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            scenario.onActivity { activity -> activity.setContent {
+                TroOiTheme {
+                    TroOiBrandAssembly(playProgress = 0.5f, containerWidthPx = 1080f, containerHeightPx = 2400f)
+                }
+            } }
+            for (attempt in 0 until 50) {
+                if (nodes(instrumentation.uiAutomation.rootInActiveWindow).any { it.contentDescription?.isNotEmpty() == true }) break
+                Thread.sleep(100)
+            }
+            instrumentation.waitForIdleSync()
+            val screenNodes = nodes(instrumentation.uiAutomation.rootInActiveWindow)
+            assertEquals(1, screenNodes.count { it.contentDescription?.toString() == "TrọƠi" })
+            assertFalse(screenNodes.any { it.text?.toString() in listOf("T", "r", "ọ", "Ơ", "i") })
+        }
+    }
 
     @Test fun compactAuthScreensRemainReadableAndRecoveryActionIsReachableInBothThemes() {
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round5-auth").apply { mkdirs() }

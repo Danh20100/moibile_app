@@ -32,6 +32,8 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +67,7 @@ fun AuthBrandHero(
     ) {
         // Hero Brand Wordmark (Strong scale ~56sp)
         Row(
+            modifier = Modifier.clearAndSetSemantics { contentDescription = "TrọƠi" },
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.Center,
         ) {
