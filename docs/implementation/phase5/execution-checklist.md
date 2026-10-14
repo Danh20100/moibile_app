@@ -50,14 +50,20 @@ P5.1 execution evidence and the feature-by-feature status matrix are in [profile
 
 ## P5.2 — Ledger Full-stack (after P5.1 P0)
 
-- [ ] Selectively port Ledger from source commit `d9f79b8`; do not replay entire divergent feature commit.
-- [ ] Map AssetWizard to actual Organization → Property → Room → Listing; preserve operational vs public data authorities.
-- [ ] Real create/update/archive with server lifecycle blockers and ownership checks.
-- [ ] Real Listing draft/publish flow, authorized visibility, and public/private asset image storage.
-- [ ] Persist/show operator and tenant records from real Tenancy/Finance/Incident/Notice source; no synthetic financial truth.
-- [ ] Finance read failure does not blank unrelated rental operational data; partial failure is visible.
-- [ ] Open Messaging with authorized `inquiry`/`tenancy` context ID, not the generic chat list.
-- [ ] Test full Owner/Room/Listing/Tenant cycle, restart, cross-account denial, image readback, finance failure and archive blockers.
+- [x] Review source commit `d9f79b8`; no UI files were ported because its AssetWizard removes several current data-entry steps and retains device-local images, while the current candidate already has amenity multi-select.
+- [x] Wire core AssetWizard save to real Property → Room → Listing APIs and read those records back from authorized PostgreSQL-backed projections.
+- [x] Add client-generated UUID retry keys to Property, Room and Listing creation; same-parent retries return the committed row, conflicting ownership rejects.
+- [x] Add authenticated Room and Property archive routes backed by the transaction coordinator. Room archive requires inactive state and rejects Tenancy history or open incidents; current Listing is soft-archived in the same database transaction.
+- [x] Preserve separate operational address/coordinates and public Listing projection; Android sends a two-decimal public coordinate projection, never the operational address or exact selected coordinates.
+- [x] Add a stable Ledger amenity ID/label/icon catalog; existing AssetWizard multi-select now stores IDs in its draft model and maps known IDs to labels in preview.
+- [ ] Complete the AssetWizard field contract. Current PostgreSQL entities do not store type, area, bedroom/bathroom counts, deposit offer, furnishing, amenities, rules, utility offers, minimum term, availability date, or image metadata; these cannot be reported as durable.
+- [ ] Upload asset images to private MinIO/S3 and persist owned metadata. Local photo URIs remain unsupported by Backend mode; publishing fails closed.
+- [ ] Make tenant/Operator finance reads partial-failure tolerant and expose a recoverable finance-only warning. Current full snapshot can fail as one operation.
+- [ ] Complete Ledger UI to authorized real Inquiry/Tenancy context actions, then verify against real Messaging and outsider denial.
+- [ ] Owner onboarding/Organization creation remains gated by the P5.1 identity/session/organization authorization contract; no owner or Organization is fabricated.
+- [ ] Run Android device-to-PostgreSQL Ledger acceptance. Current identity runtime gate is still off; instrumentation results are reported in `ledger-acceptance.md`.
+
+P5.2 verification (2026-10-14): `pnpm typecheck`, `pnpm lint`, `pnpm build`, backend tests **461/461**, Database v1 conformance **58/58**, isolated PostgreSQL restart/create-retry **1/1**, Identity/Profile/freeze **25/25**, Messaging HTTP + private MinIO **1/1** (test verifier), Android JVM **219/219**, Debug/Release assembly, Android lint, architecture and fixture-isolation gates pass. Connected instrumentation exceeded ten minutes without a finished report and was stopped; do not classify it as green. See [ledger-acceptance.md](ledger-acceptance.md) for the feature matrix, mappings, exact routes, historical instrumentation failures and remaining gates. Recommendation: **partial_with_gates**.
 
 ## P5.3 — Discovery integration
 
