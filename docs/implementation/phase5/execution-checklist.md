@@ -158,3 +158,8 @@ Follow-up regression: focused core Tenancy/Incident/archive/Finance/manual-payme
 - [x] Public Discovery exposes inline backend load/search errors and a retry action; retry repeats the latest spatial query or reloads the public feed. Empty state is suppressed while an error is active, and backend mode still has no demo fallback.
 - [x] Latest-request generation guards prevent a stale search response from overwriting a newer reset/feed request.
 - [x] Evidence: `PublicDiscoveryFiltersTest` passes; isolated PostgreSQL/PostGIS `pnpm test:discovery:postgis-search` passes `1/1`; emulator `NativeDiscoveryStatesTest.publicDiscoveryFailureHasInlineRetryWithoutFixtureFallback` and `searchPreservesLocalThenRemoteArgumentsAndResetAndClose` pass `1/1` each (`PASS_ANDROID` for component behavior). Live API timeout/fault injection has not run, so `DIS-P1-05` remains `BLOCKED`; no `PASS_FULLSTACK` claim.
+
+## P1 continuation — Discovery map configuration
+
+- [x] Emulator `NativeMapSmokeTest` passes `3/3`: no-key configuration renders a clear state, public markers/camera search stay on published public projections, and private location pinning does not populate the public pin.
+- [ ] `DIS-P1-02` remains `BLOCKED` pending a valid Maps test key, interactive map/marker bounds behavior, and location permission-denial device acceptance. The component results are `PASS_ANDROID` only for the tested helpers/config state.
