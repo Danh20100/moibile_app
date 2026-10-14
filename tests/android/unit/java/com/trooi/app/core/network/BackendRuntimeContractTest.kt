@@ -4,6 +4,7 @@ import com.trooi.app.core.data.BackendTroOiRepository
 import com.trooi.app.core.model.AccessCapabilities
 import com.trooi.app.core.model.IncidentLifecycle
 import com.trooi.app.core.model.ListingVisibility
+import com.trooi.app.core.model.LocalRentalAsset
 import com.trooi.app.core.network.dto.*
 import java.net.InetAddress
 import kotlinx.coroutines.runBlocking
@@ -15,6 +16,25 @@ import org.junit.Test
 class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
+
+    @Test fun backendAssetSaveFailsBeforeWritingWhenWizardFieldsHaveNoDurableContract() = runBlocking {
+        MockWebServer().use { server ->
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("account-a-token") }
+            val repository = BackendTroOiRepository(OkHttpBackendApi(BackendClient(localUrl(server), tokens, true)), tokens)
+            val asset = LocalRentalAsset(
+                id = "room-a", propertyId = "property-a", type = "Phòng trọ", name = "Room A",
+                operationalAddress = "Private address", publicArea = "District 1", area = "24",
+                monthlyRent = "3500000", advertisedDeposit = "3500000", operationalLatitude = "10.77",
+                operationalLongitude = "106.69", description = "Room description",
+            )
+
+            val result = repository.saveLocalAsset(asset, activate = false, publish = false)
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("chưa được lưu đầy đủ"))
+            assertEquals(0, server.requestCount)
+        }
+    }
 
     @Test fun publicListingMapsOnlyPublishedPublicProjection() = runBlocking {
         MockWebServer().use { server ->

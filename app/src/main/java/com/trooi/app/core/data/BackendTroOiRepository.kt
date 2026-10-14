@@ -172,40 +172,8 @@ class BackendTroOiRepository @Inject constructor(
         Result.failure(error)
     }
 
-    override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> = runCatching {
-        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
-        require(!publish) { "Đăng tin cần ảnh được tải lên kho riêng của TrọƠi; ảnh trên thiết bị chưa được lưu trên máy chủ." }
-        require(asset.valid()) { "Thông tin tài sản không hợp lệ." }
-        require(asset.description.isNotBlank()) { "Cần nhập mô tả trước khi tạo Listing nháp." }
-        val latitude = asset.operationalLatitude.toDoubleOrNull()?.takeIf { it in -90.0..90.0 }
-            ?: error("Hãy ghim vị trí tài sản trước khi lưu.")
-        val longitude = asset.operationalLongitude.toDoubleOrNull()?.takeIf { it in -180.0..180.0 }
-            ?: error("Hãy ghim vị trí tài sản trước khi lưu.")
-        val session = api.getSessionContext(credential).required("session context")
-        val organizationId = session.operatedOrganizationIds.singleOrNull()
-            ?: error("Cần chọn một Organization đã được Backend cấp quyền vận hành.")
-        val existingProperty = api.getProperties(organizationId, credential).required("properties")
-            .firstOrNull { it.id == asset.propertyId }
-        if (existingProperty == null) api.createProperty(asset.propertyId, organizationId, asset.name.trim(), asset.operationalAddress.trim(), latitude, longitude, credential).required("create property")
-        else api.updateProperty(asset.propertyId, asset.name.trim(), asset.operationalAddress.trim(), credential).required("update property")
-
-        val room = api.getRooms(asset.propertyId, credential).required("rooms").firstOrNull { it.id == asset.id }
-        if (room == null) api.createRoom(asset.id, asset.propertyId, asset.name.trim(), credential).required("create room")
-        else api.updateRoom(asset.id, asset.name.trim(), credential).required("update room")
-
-        val listingId = asset.publicListingId ?: java.util.UUID.nameUUIDFromBytes("trooi-listing:${asset.id}".toByteArray()).toString()
-        val listing = api.getCurrentListing(asset.id, credential).optionalNotFound("current listing")
-        if (listing == null) api.createListing(listingId, asset.id, asset.name.trim(), asset.description.trim(), asset.monthlyRent, latitude, longitude, credential).required("create draft listing")
-        else {
-            check(listing.id == listingId) { "Room is linked to a different Listing; refusing to replace it." }
-            api.updateListing(listingId, asset.name.trim(), asset.description.trim(), asset.monthlyRent, latitude, longitude, credential).required("update listing")
-        }
-        check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." }
-        val read = refreshAuthorizedRead(AccessCapabilities(
-            linkedTenancyIds = session.linkedTenancyIds.toSet(), operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
-        )).getOrThrow()
-        read
-    }
+    override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> =
+        Result.failure(IllegalStateException("Lưu bản nháp Ledger hiện chưa khả dụng: các trường AssetWizard chưa được lưu đầy đủ vào Backend. Dữ liệu đang nhập vẫn được giữ lại."))
 
     override suspend fun archiveLocalAsset(assetId: String): Result<FrontendReadSnapshot> = runCatching {
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
@@ -217,9 +185,6 @@ class BackendTroOiRepository @Inject constructor(
             if (room != null) break
         }
         val ownedRoom = room ?: error("Không tìm thấy Room thuộc Organization bạn được quyền quản lý.")
-        val current = api.getCurrentListing(assetId, credential).optionalNotFound("current listing")
-        if (current?.status == "published") api.unpublishListing(current.id, credential).required("unpublish listing")
-        if (ownedRoom.operationalState != "inactive") api.transitionRoomOperationalState(ownedRoom.id, "inactive", credential).required("set room inactive")
         api.archiveRoom(ownedRoom.id, credential).required("archive room")
         check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." }
         refreshAuthorizedRead(AccessCapabilities(
