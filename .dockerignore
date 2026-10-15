@@ -1,0 +1,27 @@
+# Exclude large/irrelevant paths from the NestJS backend image context.
+.git
+.gradle
+.idea
+.vscode
+.worktrees
+.docker
+.cursor
+node_modules
+**/node_modules
+app/
+coverage
+*.log
+logs
+.tmp
+tmp
+temp
+test-results
+*.junit.xml
+.env
+.env.*
+!.env.example
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore

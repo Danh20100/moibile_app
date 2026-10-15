@@ -1,0 +1,17 @@
+org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+org.gradle.caching=true
+android.nonTransitiveRClass=true
+android.useAndroidX=true
+android.overridePathCheck=true
+
+# Emulator reaches the host API. A physical device needs the host LAN address instead.
+trooiApiBaseUrl=http://10.0.2.2:3000
+# OAuth Web Client ID (....apps.googleusercontent.com). Leave empty until Google Cloud creates it.
+trooiGoogleWebClientId=
+# Debug SePay handoff origin: set only for a trusted local test endpoint. Release stays blank unless
+# trooiReleasePaymentPublicOrigin is a non-tunnel HTTPS origin.
+trooiPaymentPublicOrigin=
+
+# Enabled parallel sync for Gradle 9.4+
+org.gradle.tooling.parallel=true

@@ -1,0 +1,123 @@
+version: 2
+source: docs/backlogs/v1
+canonical: docs/database/v1/canonical.md
+features:
+  identity-access: [AUTH-01, AUTH-02, AUTH-03, AUTH-04]
+  discovery-inquiry: [DISC-01, DISC-02, DISC-03, DISC-04, INQ-01, INQ-02]
+  operator-setup:
+    [
+      ORG-01,
+      ORG-02,
+      ORG-03,
+      PROP-01,
+      PROP-02,
+      PROP-03,
+      ROOM-01,
+      ROOM-02,
+      ROOM-03,
+      ROOM-04,
+      ROOM-05,
+      ROOM-06,
+    ]
+  listing: [LIST-01, LIST-02, LIST-03, LIST-04, LIST-05, LIST-06]
+  rental:
+    [
+      TEN-01,
+      TEN-02,
+      TEN-03,
+      PART-01,
+      PART-02,
+      PART-03,
+      PART-04,
+      PART-05,
+      TERMS-01,
+      TERMS-02,
+      TERMS-03,
+      ACK-01,
+      ACK-02,
+      RENT-01,
+      RENT-02,
+      RENT-03,
+      RENT-04,
+    ]
+  finance:
+    [
+      BILL-01,
+      BILL-02,
+      BILL-03,
+      BILL-04,
+      PAY-01,
+      PAY-02,
+      PAY-03,
+      PAY-04,
+      PAY-05,
+      CLAIM-01,
+      CLAIM-02,
+      CLAIM-03,
+      DEP-01,
+      DEP-02,
+      REC-01,
+      REC-02,
+      REC-03,
+    ]
+  operations: [INC-01, INC-02, INC-03, INC-04, INC-05, NOTICE-01, NOTICE-02, NOTICE-03]
+  gateway-checkout: [GW-01]
+  trust-submission: [TR-01]
+  read-trust:
+    [
+      PORTAL-01,
+      PORTAL-02,
+      HIST-01,
+      DASH-01,
+      NOTIF-01,
+      NOTIF-02,
+      NOTIF-03,
+      NOTIF-04,
+      REVIEW-01,
+      REVIEW-02,
+      REVIEW-03,
+      TRUST-01,
+      TRUST-02,
+    ]
+
+execution_status:
+  executable_now:
+    - DISC-01
+    - DISC-02
+  requires_test_database:
+    - GW-01
+    - TR-01
+  requires_real_google_session:
+    - AUTH-01
+    - AUTH-02
+    - AUTH-03
+    - AUTH-04
+    - INQ-01
+    - PORTAL-01
+    - DASH-01
+  open_policy:
+    - DISC-03
+    - PART-05
+    - CLAIM-01
+    - CLAIM-02
+    - NOTIF-04
+    - REVIEW-01
+    - REVIEW-02
+    - REVIEW-03
+    - TRUST-01
+    - TRUST-02
+
+frozen_notification_use_cases:
+  - new-inquiry
+  - payment-due
+  - payment-confirmed
+  - new-incident
+  - incident-status-changed
+  - tenancy-notice-issued
+  - move-out
+  - review-or-report-moderation
+
+notes:
+  - Notification channels remain OPEN; cases assert recipient/source/delivery facts, not push/email/SMS/Zalo.
+  - Inquiry/Contact is V1. Appointment reservation or instant booking is not V1.
+  - DISC-02 taps clickable Listing card via testTag resource-id; consecutive Windows runs relaunch after clearState.

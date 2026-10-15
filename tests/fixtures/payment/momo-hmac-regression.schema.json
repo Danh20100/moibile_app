@@ -1,0 +1,47 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "accessKey": {
+          "type": "string"
+        },
+        "accessKey2": {
+          "type": "string"
+        },
+        "equalScenario": {
+          "type": "boolean"
+        },
+        "scenarioValue": {
+          "type": "string"
+        },
+        "equalScenario2": {
+          "type": "boolean"
+        },
+        "signaturesMatchScenario": {
+          "type": "string"
+        },
+        "equalScenario3": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "accessKey",
+        "accessKey2",
+        "equalScenario",
+        "scenarioValue",
+        "equalScenario2",
+        "signaturesMatchScenario",
+        "equalScenario3"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "values"],
+  "additionalProperties": false
+}

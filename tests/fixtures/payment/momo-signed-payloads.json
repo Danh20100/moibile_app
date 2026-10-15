@@ -1,0 +1,262 @@
+{
+  "metadata": {
+    "accessed": "2026-10-05",
+    "derivation": "Python stdlib hmac.new(secret.encode(), hand-transcribed raw UTF-8 literal, hashlib.sha256).hexdigest(); no production helper used",
+    "contract": "Strict English captureWallet response fields including message. payUrl=&payUrl interpreted as payUrl=$payUrl using generic provider key=value rules. VI omits message. Provider clarification and live acceptance UNVERIFIED; do not accept alternate signature.",
+    "sources": [
+      "https://developers.momo.vn/v3/docs/payment/api/wallet/onetime/",
+      "https://developers.momo.vn/v3/vi/docs/payment/api/other/signature/"
+    ],
+    "resultApplicability": "2019 concerns orderGroupId not sent by this integration: RECONCILE; refund codes 1080/1081/1088 excluded."
+  },
+  "secret": "secret-key-for-tests",
+  "request": {
+    "fields": {
+      "accessKey": "access",
+      "amount": "4470000",
+      "extraData": "eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9",
+      "ipnUrl": "https://example.test/ipn",
+      "orderId": "order-1",
+      "orderInfo": "TROOI P203 ABC",
+      "partnerCode": "TEST",
+      "redirectUrl": "trooi://payment/momo",
+      "requestId": "req-1",
+      "requestType": "captureWallet"
+    },
+    "raw": "accessKey=access&amount=4470000&extraData=eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9&ipnUrl=https://example.test/ipn&orderId=order-1&orderInfo=TROOI P203 ABC&partnerCode=TEST&redirectUrl=trooi://payment/momo&requestId=req-1&requestType=captureWallet",
+    "signature": "94cfdb008c92db4ee332e5bc1c23246566ee9846576622c53bf323da0a7f54fe"
+  },
+  "response": {
+    "fields": {
+      "partnerCode": "TEST",
+      "orderId": "order-1",
+      "requestId": "req-1",
+      "amount": 4470000,
+      "responseTime": 1721720619912,
+      "message": "Successful.",
+      "resultCode": 0,
+      "payUrl": "https://test-payment.momo.vn/v2/gateway/pay?t=fixture",
+      "deeplink": "evil://unsigned",
+      "signature": "d1b556d013a8da70729731b8f06d512d557cb7ad93982e8e462c2bc0b4d9d96e"
+    },
+    "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://test-payment.momo.vn/v2/gateway/pay?t=fixture&requestId=req-1&responseTime=1721720619912&resultCode=0",
+    "signature": "d1b556d013a8da70729731b8f06d512d557cb7ad93982e8e462c2bc0b4d9d96e"
+  },
+  "ipn": {
+    "fields": {
+      "partnerCode": "TEST",
+      "orderId": "order-1",
+      "requestId": "req-1",
+      "amount": 4470000,
+      "orderInfo": "TROOI P203 ABC",
+      "orderType": "momo_wallet",
+      "transId": 4088878653,
+      "resultCode": 0,
+      "message": "Successful.",
+      "payType": "qr",
+      "responseTime": 1721720663942,
+      "extraData": "eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9",
+      "signature": "6c6a5d73e0c98ef6f36e686e9e263029941233b03b818730a14540b8a550af7d"
+    },
+    "raw": "accessKey=access&amount=4470000&extraData=eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9&message=Successful.&orderId=order-1&orderInfo=TROOI P203 ABC&orderType=momo_wallet&partnerCode=TEST&payType=qr&requestId=req-1&responseTime=1721720663942&resultCode=0&transId=4088878653",
+    "signature": "6c6a5d73e0c98ef6f36e686e9e263029941233b03b818730a14540b8a550af7d"
+  },
+  "responseVariants": {
+    "url0": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "http://test-payment.momo.vn/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "83b8c128ec6ec53dfaed38e6fecd817fbf8c8c93f2ac3a4a0bde122f0b1c9003"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=http://test-payment.momo.vn/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url1": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://test-payment.momo.vn.evil.test/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "7b2a604fcf53079ee0324d870b0cf3563a679387352f0dec8f02a11b3372ec6d"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://test-payment.momo.vn.evil.test/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url2": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://evil.test/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "9fdfbe067d1d7736f30df6973780bc4ce43bd095444d627ca1931f218ff59384"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://evil.test/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url3": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://user@test-payment.momo.vn/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "c88cceab96bd204c6533e242990b0e04f07232e5595d21f57e7be12da979a812"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://user@test-payment.momo.vn/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url4": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://test-payment.momo.vn:444/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "1eb646b92171e04023f84f7fee955a1a9f19761a83f05eeec639010b63ff8f7c"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://test-payment.momo.vn:444/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url5": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://payment.momo.vn/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "a2c6305c84e7ed823d96726905268a774051549092268439a5c2d087bfddca22"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://payment.momo.vn/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url6": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "javascript:alert(1)",
+        "deeplink": "evil://unsigned",
+        "signature": "460bc00f1d1171da58d377b11c120e19c7fc30dae65db17bf73165c1bb344171"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=javascript:alert(1)&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "url7": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 0,
+        "payUrl": "https://test-payment.momo.vn/pay",
+        "deeplink": "evil://unsigned",
+        "signature": "b30c3f36389ecd077170309e14352f93313c8dc5a507c8d554fe744a3513c0ba"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=https://test-payment.momo.vn/pay&requestId=req-1&responseTime=1721720619912&resultCode=0"
+    },
+    "code98": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 98,
+        "payUrl": "",
+        "deeplink": "evil://unsigned",
+        "signature": "bf5789cfb7c3cc65ad387527c58358b172b588a96c6693bdd4f067028808d9f7"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=&requestId=req-1&responseTime=1721720619912&resultCode=98"
+    },
+    "code1000": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 1000,
+        "payUrl": "",
+        "deeplink": "evil://unsigned",
+        "signature": "a2839032bed63f1d3926c926be47f27dc0253d56d84d60040fec8a33fd5fa440"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=&requestId=req-1&responseTime=1721720619912&resultCode=1000"
+    },
+    "code9000": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 9000,
+        "payUrl": "",
+        "deeplink": "evil://unsigned",
+        "signature": "9d242d5aada55a371d51a5311564580f4cc9ad700294483c70d512e4cb35949b"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=&requestId=req-1&responseTime=1721720619912&resultCode=9000"
+    },
+    "code2019": {
+      "fields": {
+        "partnerCode": "TEST",
+        "orderId": "order-1",
+        "requestId": "req-1",
+        "amount": 4470000,
+        "responseTime": 1721720619912,
+        "message": "Successful.",
+        "resultCode": 2019,
+        "payUrl": "",
+        "deeplink": "evil://unsigned",
+        "signature": "b7e14409655a5c7e628c560fd0705f6d4f0acf98cf12db9ce097a78523b81eaa"
+      },
+      "raw": "accessKey=access&amount=4470000&message=Successful.&orderId=order-1&partnerCode=TEST&payUrl=&requestId=req-1&responseTime=1721720619912&resultCode=2019"
+    }
+  },
+  "ipnZeroTransaction": {
+    "partnerCode": "TEST",
+    "orderId": "order-1",
+    "requestId": "req-1",
+    "amount": 4470000,
+    "orderInfo": "TROOI P203 ABC",
+    "orderType": "momo_wallet",
+    "transId": 0,
+    "resultCode": 0,
+    "message": "Successful.",
+    "payType": "qr",
+    "responseTime": 1721720663942,
+    "extraData": "eyJjaGVja291dElkIjoiY2hlY2tvdXQtMSJ9",
+    "signature": "42ef595eb257cdfa72e832ee4781f72db257e7adc6e8106589ceb2a4dbe3f2ff"
+  },
+  "version": 1
+}

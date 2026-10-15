@@ -1,0 +1,16 @@
+feature: trust-submission
+flows:
+  - id: TR-01
+    name: authenticated-listing-report
+    actor: authenticated-user
+    status: requires_test_database
+    preconditions: [published-public-listing]
+    steps: [submit-listing-report]
+    assertions:
+      [
+        reporter-from-principal,
+        body-has-no-actor-or-status,
+        unpublished-target-not-found,
+        review-target-not-accepted,
+        no-listing-removal-or-public-score,
+      ]

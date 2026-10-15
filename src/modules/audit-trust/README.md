@@ -1,100 +1,22 @@
-# Audit & Trust
+# audit-trust
 
-Folder `audit-trust` chứa các chức năng liên quan đến **lưu vết thay đổi quan trọng và report nội bộ** trong TrọƠi.
+> Authority: Canonical v3.7 / frozen Database v1 override this module and current code.
 
-## Folder này dùng để làm gì?
+## Purpose
 
-Folder này giúp hệ thống biết **ai đã làm gì, với resource nào và vào thời điểm nào**.
+This pre-database-v1 module currently mixes generic audit history and internal reports. Under Database v1, trust/report semantics must align with explicit Review and TrustReport concepts without taking ownership of source-domain lifecycles.
 
-Nó chịu trách nhiệm cho:
+## Current Database v1 trust boundary
 
-- audit event;
-- actor/action/resource/timestamp metadata;
-- lịch sử thay đổi quan trọng;
-- internal report;
-- dữ liệu phục vụ tra cứu và đối chiếu.
+- `REVIEW` represents eligible rental-experience review facts.
+- `TRUST_REPORT` targets exactly one `LISTING` or `REVIEW`.
+- TrustReport is distinct from Incident.
+- no public personal landlord/user scoring contract is implied.
 
-```mermaid
-flowchart LR
-    Action["Domain Action"] --> Audit["audit-trust"]
-    Audit --> Event["Audit Event"]
-    Audit --> History["History"]
-    Audit --> Report["Internal Report"]
-```
+## OPEN policy discipline
 
-## Chức năng chính
+Login requirement, rate limiting, moderation/evidence handling and other Canonical `[OPEN]` policies remain unresolved. This module must not silently decide them through guards/defaults.
 
-### Audit Event
+## Known pre-database-v1 code drift
 
-Các thay đổi quan trọng từ module khác có thể tạo audit event.
-
-```mermaid
-flowchart TD
-    Actor["Actor"] --> Event["Audit Event"]
-    Action["Action"] --> Event
-    Resource["Resource"] --> Event
-    Time["Timestamp"] --> Event
-```
-
-Ví dụ nhóm dữ liệu cần lưu vết gồm:
-
-- thay đổi quyền truy cập;
-- tenancy terms;
-- deposit;
-- billing/công nợ;
-- receipt;
-- incident status;
-- import dữ liệu quan trọng.
-
-### History Lookup
-
-Audit history dùng để tra cứu lại quá trình thay đổi khi cần đối chiếu.
-
-```mermaid
-flowchart LR
-    Resource["Resource"] --> Events["Audit Events"] --> Timeline["History Timeline"]
-```
-
-### Internal Report
-
-Người dùng có thể gửi report nội bộ khi phát hiện thông tin hoặc hành vi cần được kiểm tra.
-
-```mermaid
-flowchart LR
-    User["User"] --> Report["Internal Report"] --> Review["Platform Review"] --> Result["Classification / Handling"]
-```
-
-Report nội bộ không đồng nghĩa với public rating hoặc kết luận ai đúng/sai.
-
-## Quan hệ với các module khác
-
-```mermaid
-flowchart TD
-    IA["identity-access"] --> Audit["audit-trust"]
-    Tenancy["tenancy"] --> Audit
-    Billing["billing"] --> Audit
-    Receipt["receipt"] --> Audit
-    Incident["incident"] --> Audit
-    Onboarding["onboarding"] --> Audit
-    Room["room"] --> Audit
-```
-
-`audit-trust` là cross-cutting module nhận các sự kiện cần lưu vết từ những bounded context khác.
-
-## Không thuộc folder này
-
-- public review/rating;
-- phán xử tranh chấp;
-- cưỡng chế owner/operator/tenant ngoài đời thực;
-- bảo đảm pháp lý;
-- business logic chính của các resource được audit.
-
-## Tóm tắt
-
-```mermaid
-flowchart LR
-    Action["Action"] --> Event["Audit Event"] --> History["History / Lookup"]
-    User["User"] --> Report["Internal Report"]
-```
-
-`audit-trust` tập trung vào: **audit event → lịch sử thay đổi → tra cứu/đối chiếu → report nội bộ**.
+Current report DTO accepts arbitrary target types such as user/property/receipt. That target model is superseded and scheduled to break.

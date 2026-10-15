@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "provenance": "Legacy synthetic core harness references, explicitly preserved as component-only fixtures; never production defaults.",
+  "tenancies": [
+    {
+      "tenancyId": "tenancy-a",
+      "roomId": "room-tenancy-a",
+      "status": "ACTIVE",
+      "startedAt": null,
+      "endedAt": null,
+      "endReason": null
+    },
+    {
+      "tenancyId": "tenancy-b",
+      "roomId": "room-tenancy-b",
+      "status": "ACTIVE",
+      "startedAt": null,
+      "endedAt": null,
+      "endReason": null
+    },
+    {
+      "tenancyId": "ten_1",
+      "roomId": "room-ten_1",
+      "status": "ACTIVE",
+      "startedAt": null,
+      "endedAt": null,
+      "endReason": null
+    },
+    {
+      "tenancyId": "tenancy_reference",
+      "roomId": "room-tenancy_reference",
+      "status": "ACTIVE",
+      "startedAt": null,
+      "endedAt": null,
+      "endReason": null
+    }
+  ],
+  "terms": [
+    {
+      "tenancyTermsId": "terms-1",
+      "tenancyId": "tenancy-a",
+      "version": 1,
+      "rentAmount": "1.00",
+      "agreedDepositRequirement": "1.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    {
+      "tenancyTermsId": "terms-a",
+      "tenancyId": "tenancy-a",
+      "version": 1,
+      "rentAmount": "1.00",
+      "agreedDepositRequirement": "1.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    {
+      "tenancyTermsId": "terms-b",
+      "tenancyId": "tenancy-b",
+      "version": 1,
+      "rentAmount": "1.00",
+      "agreedDepositRequirement": "1.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    {
+      "tenancyTermsId": "terms_1",
+      "tenancyId": "ten_1",
+      "version": 1,
+      "rentAmount": "1.00",
+      "agreedDepositRequirement": "1.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    {
+      "tenancyTermsId": "terms-reference",
+      "tenancyId": "tenancy_reference",
+      "version": 1,
+      "rentAmount": "1.00",
+      "agreedDepositRequirement": "1.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": {},
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    }
+  ]
+}

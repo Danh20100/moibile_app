@@ -1,0 +1,18 @@
+id: J03
+name: inquiry-to-active-tenancy
+status: spec_only
+flow_chain:
+  - INQ-01
+  - INQ-02
+  - TEN-01
+  - PART-01
+  - PART-03
+  - TERMS-01
+  - ACK-01
+  - RENT-01
+end_assertions:
+  - tenancy-active
+  - room-occupied
+  - listing-not-public
+  - exactly-one-active-primary
+  - linked-user-gains-tenant-capability

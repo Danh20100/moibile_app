@@ -1,0 +1,138 @@
+feature: discovery-contact
+sources:
+  - docs/backlogs/v1/listing.md
+  - docs/backlogs/v1/search-map.md
+  - docs/backlogs/v1/inquiry.md
+cases:
+  - id: DISC-01-H01
+    flow: DISC-01
+    kind: happy
+    scenario: guest sees PUBLISHED Listing feed
+    expect: [published-listing-visible, public-price-visible, public-location-projection-visible]
+  - id: DISC-01-S01
+    flow: DISC-01
+    kind: state-guard
+    scenario: DRAFT UNPUBLISHED and ARCHIVED Listings exist beside PUBLISHED Listing
+    expect: [only-published-visible]
+  - id: DISC-01-P01
+    flow: DISC-01
+    kind: privacy
+    scenario: public feed is returned
+    expect: [public-location-only]
+    must_not: [expose-operational-address, expose-exact-private-location]
+  - id: DISC-01-H02
+    flow: DISC-01
+    kind: empty-state
+    scenario: database has no PUBLISHED Listings
+    expect: [empty-state-visible, http-200]
+  - id: DISC-01-F01
+    flow: DISC-01
+    kind: failure
+    scenario: public Listing API fails
+    expect: [failure-ui-not-fake-data]
+    must_not: [fallback-to-demo-listings]
+  - id: DISC-02-H01
+    flow: DISC-02
+    kind: happy
+    scenario: guest opens one PUBLISHED Listing
+    expect: [matching-title, matching-price, public-location-only, contact-panel-visible]
+  - id: DISC-02-H02
+    flow: DISC-02
+    kind: navigation
+    scenario: user returns from Listing detail
+    expect: [returns-to-discovery, public-feed-remains-readable]
+  - id: DISC-02-P01
+    flow: DISC-02
+    kind: privacy
+    scenario: Listing detail renders
+    must_not: [show-operational-address, show-private-operational-location]
+  - id: DISC-02-S01
+    flow: DISC-02
+    kind: state-guard
+    scenario: Listing becomes non-public before detail is resolved
+    expect: [listing-unavailable-state]
+    must_not: [render-stale-private-data]
+  - id: DISC-02-I01
+    flow: DISC-02
+    kind: invariant
+    scenario: guest only views Listing detail
+    must_not: [create-inquiry, create-tenancy, change-room-state, change-listing-state]
+  - id: DISC-03-H01
+    flow: DISC-03
+    kind: filter
+    scenario: filter by location
+    expect: [only-matching-published-listings]
+  - id: DISC-03-H02
+    flow: DISC-03
+    kind: filter
+    scenario: filter by price range
+    expect: [only-matching-published-listings]
+  - id: DISC-03-H03
+    flow: DISC-03
+    kind: filter
+    scenario: filter by availability
+    expect: [published-availability-contract-respected]
+  - id: DISC-03-O01
+    flow: DISC-03
+    kind: open-policy
+    scenario: room or property type filter
+    expect: [test-only-authoritative-contract-when-vocabulary-is-frozen]
+    must_not: [invent-room-type-vocabulary]
+  - id: INQ-01-H01
+    flow: INQ-01
+    kind: happy
+    scenario: authenticated searcher chooses Tôi quan tâm or Liên hệ and submits contact intent
+    expect: [http-201, inquiry-row-created, sender-derived-from-authenticated-user, success-ui]
+  - id: INQ-01-X01
+    flow: INQ-01
+    kind: cross-actor
+    scenario: new Inquiry is recorded for operator-owned Listing
+    expect:
+      [operator-notification-created, notification-references-inquiry, operator-can-open-inquiry]
+    must_not: [create-booking, create-reservation, create-tenancy, change-room-state]
+  - id: INQ-01-N01
+    flow: INQ-01
+    kind: negative
+    scenario: create Inquiry for invalid Listing reference
+    expect: [request-rejected, no-inquiry-row, no-notification]
+  - id: INQ-01-N02
+    flow: INQ-01
+    kind: negative
+    scenario: unauthenticated backend-backed user attempts protected Inquiry write
+    expect: [http-401, no-inquiry-row]
+  - id: INQ-01-H02
+    flow: INQ-01
+    kind: cardinality
+    scenario: multiple users contact the same Listing
+    expect: [multiple-independent-inquiries-allowed]
+  - id: INQ-01-I01
+    flow: INQ-01
+    kind: invariant
+    scenario: Inquiry succeeds
+    must_not: [mark-room-occupied, unpublish-listing, create-draft-tenancy]
+  - id: INQ-02-H01
+    flow: INQ-02
+    kind: happy
+    scenario: Listing operator opens inquiry list and detail
+    expect: [only-related-inquiries-visible, inquiry-detail-readable]
+  - id: INQ-02-N01
+    flow: INQ-02
+    kind: authorization
+    scenario: unrelated operator requests another Listing inquiries
+    expect: [access-denied]
+  - id: INQ-02-H02
+    flow: INQ-02
+    kind: transition-context
+    scenario: operator uses Inquiry as optional context before creating Tenancy
+    expect: [tenancy-flow-may-start]
+    must_not: [require-inquiry-for-tenancy]
+  - id: DISC-04-H01
+    flow: DISC-04
+    kind: map-list
+    scenario: guest switches between list and map
+    expect: [same-published-source-set, public-projection-location-only]
+  - id: DISC-04-P01
+    flow: DISC-04
+    kind: privacy
+    scenario: map markers render
+    must_not: [use-operational-exact-location]

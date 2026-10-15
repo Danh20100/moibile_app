@@ -1,0 +1,207 @@
+feature: finance
+sources:
+  - docs/backlogs/v1/billing.md
+  - docs/backlogs/v1/payment.md
+  - docs/backlogs/v1/payment-claim.md
+  - docs/backlogs/v1/deposit.md
+  - docs/backlogs/v1/receipt.md
+cases:
+  - id: BILL-01-H01
+    flow: BILL-01
+    kind: happy
+    scenario: operator creates Billing Cycle from applicable Terms
+    expect: [cycle-created, tenancy-linked, terms-version-linked, period-persisted]
+  - id: BILL-01-N01
+    flow: BILL-01
+    kind: invariant
+    scenario: same Tenancy receives overlapping Billing Cycle
+    expect: [rejected]
+  - id: BILL-01-N02
+    flow: BILL-01
+    kind: invariant
+    scenario: period end precedes period start
+    expect: [rejected]
+  - id: BILL-01-S01
+    flow: BILL-01
+    kind: scope
+    scenario: charges are generated for MVP
+    expect: [rent-electricity-water-only]
+    must_not: [service-charge, wifi-charge, parking-charge, generic-other-charge]
+  - id: BILL-02-H01
+    flow: BILL-02
+    kind: tenant-read
+    scenario: linked tenant opens Billing
+    expect: [linked-tenancy-charges-visible, charge-type-and-amount-visible]
+  - id: BILL-02-N01
+    flow: BILL-02
+    kind: authorization
+    scenario: tenant opens unrelated Tenancy Billing
+    expect: [access-denied]
+  - id: BILL-03-H01
+    flow: BILL-03
+    kind: utility
+    scenario: operator records supported electricity or water inputs
+    expect: [utility-provenance-retained, readings-linked-to-connection]
+  - id: BILL-03-N01
+    flow: BILL-03
+    kind: scope
+    scenario: unsupported utility or fee type is submitted
+    expect: [rejected-or-not-offered]
+  - id: BILL-04-H01
+    flow: BILL-04
+    kind: derived-state
+    scenario: charge has partial Payment Allocation
+    expect: [outstanding-derived-from-charge-and-allocations]
+    must_not: [editable-paid-boolean-as-source-of-truth]
+  - id: BILL-04-X01
+    flow: BILL-04
+    kind: cross-actor
+    scenario: receivable reaches due condition
+    expect: [eligible-tenant-receives-payment-due-notification, notification-references-source]
+    must_not: [notification-change-charge-or-payment-state]
+  - id: PAY-01-H01
+    flow: PAY-01
+    kind: happy
+    scenario: operator records actual confirmed money inflow
+    expect:
+      [
+        payment-created,
+        exact-amount,
+        source-persisted,
+        verification-persisted,
+        confirmed-at-persisted,
+      ]
+  - id: PAY-01-X01
+    flow: PAY-01
+    kind: cross-actor
+    scenario: Payment becomes confirmed
+    expect: [linked-tenant-notification-created, notification-references-payment]
+    must_not: [notification-create-payment]
+  - id: PAY-01-I01
+    flow: PAY-01
+    kind: semantic
+    scenario: unconfirmed evidence or claim exists
+    must_not: [represent-as-confirmed-payment, reduce-debt-as-confirmed-money]
+  - id: PAY-02-H01
+    flow: PAY-02
+    kind: allocation
+    scenario: confirmed Payment is allocated to Charge in same Tenancy
+    expect: [allocation-created, outstanding-recalculated]
+  - id: PAY-02-N01
+    flow: PAY-02
+    kind: cross-tenancy-guard
+    scenario: Payment allocation targets Charge from another Tenancy
+    expect: [rejected]
+  - id: PAY-02-N02
+    flow: PAY-02
+    kind: capacity
+    scenario: total allocations and deposit applications exceed Payment amount
+    expect: [rejected-even-under-concurrency]
+  - id: PAY-02-O01
+    flow: PAY-02
+    kind: open-policy
+    scenario: multiple Payments would over-allocate one Charge
+    expect: [do-not-freeze-policy-until-authority-resolves-charge-overallocation]
+  - id: PAY-03-H01
+    flow: PAY-03
+    kind: deposit-application
+    scenario: confirmed Payment is applied to Deposit in same Tenancy
+    expect: [deposit-application-created, deposit-received-provenance-traceable]
+  - id: PAY-03-N01
+    flow: PAY-03
+    kind: cross-tenancy-guard
+    scenario: Payment is applied to Deposit of another Tenancy
+    expect: [rejected]
+  - id: PAY-04-H01
+    flow: PAY-04
+    kind: correction
+    scenario: confirmed Payment was recorded incorrectly
+    expect: [original-voided-or-reversed, replacement-created, predecessor-history-preserved]
+    must_not: [destructively-edit-confirmed-payment]
+  - id: PAY-05-H01
+    flow: PAY-05
+    kind: tenant-read
+    scenario: linked tenant views confirmed Payments
+    expect: [only-linked-tenancy-payments-visible, confirmation-facts-visible]
+  - id: CLAIM-01-O01
+    flow: CLAIM-01
+    kind: open-policy
+    scenario: tenant submits external payment evidence
+    expect: [claim-created-only-under-authoritative-evidence-format]
+    must_not: [create-payment-immediately, auto-clear-debt]
+  - id: CLAIM-01-N01
+    flow: CLAIM-01
+    kind: authorization
+    scenario: user submits claim for unlinked Tenancy
+    expect: [rejected]
+  - id: CLAIM-02-O01
+    flow: CLAIM-02
+    kind: open-policy
+    scenario: authorized reviewer confirms valid Claim
+    expect: [payment-created-or-confirmed, claim-to-payment-provenance-kept]
+  - id: CLAIM-02-O02
+    flow: CLAIM-02
+    kind: open-policy
+    scenario: reviewer rejects Claim
+    expect: [claim-rejected, no-payment-created]
+  - id: CLAIM-03-H01
+    flow: CLAIM-03
+    kind: read
+    scenario: submitting tenant views Claim status
+    expect: [claim-status-visible, claim-distinct-from-payment]
+  - id: DEP-01-H01
+    flow: DEP-01
+    kind: read
+    scenario: tenant views Deposit
+    expect:
+      [
+        requirement-derived-from-terms,
+        funded-derived-from-applications,
+        settlement-derived-from-events,
+      ]
+  - id: DEP-01-O01
+    flow: DEP-01
+    kind: open-policy
+    scenario: deposit requirement changes after partial funding
+    expect: [do-not-freeze-behavior-until-authority-resolves-policy]
+  - id: DEP-02-H01
+    flow: DEP-02
+    kind: settlement
+    scenario: operator settles held Deposit
+    expect:
+      [refund-and-retained-amounts-recorded, reason-or-note-recorded, settlement-events-appended]
+  - id: DEP-02-N01
+    flow: DEP-02
+    kind: capacity
+    scenario: settlement exceeds funded or held amount
+    expect: [rejected-even-under-concurrency]
+  - id: DEP-02-I01
+    flow: DEP-02
+    kind: semantic
+    scenario: Deposit refund or retention is recorded
+    must_not: [create-negative-inbound-payment, claim-platform-adjudication]
+  - id: REC-01-H01
+    flow: REC-01
+    kind: issue
+    scenario: eligible confirmed Payment gets Receipt
+    expect: [receipt-issued, payment-linked, issued-at-persisted]
+  - id: REC-01-N01
+    flow: REC-01
+    kind: guard
+    scenario: non-confirmed Payment attempts Receipt issue
+    expect: [rejected]
+  - id: REC-01-N02
+    flow: REC-01
+    kind: cardinality
+    scenario: second current non-voided Receipt is issued for same Payment
+    expect: [rejected]
+  - id: REC-02-H01
+    flow: REC-02
+    kind: correction
+    scenario: Receipt needs correction
+    expect: [old-receipt-voided, replacement-issued, old-history-preserved]
+  - id: REC-03-H01
+    flow: REC-03
+    kind: tenant-read
+    scenario: linked tenant opens Receipt history
+    expect: [issued-and-voided-history-visible, payment-provenance-visible]

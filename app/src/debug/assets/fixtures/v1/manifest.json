@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "trooi-debug-rental-v1",
+  "scenario": "small-rental-lifecycle",
+  "sources": {
+    "accounts": "accounts.json",
+    "references": "references.json",
+    "conversations": "conversations.json",
+    "rentals": "rentals.json",
+    "finance": "finance.json",
+    "operations": "operations.json"
+  }
+}

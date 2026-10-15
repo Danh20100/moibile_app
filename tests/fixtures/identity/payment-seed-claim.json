@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "principal": {
+    "issuer": "https://accounts.google.com",
+    "subject": "payer-1"
+  },
+  "idToken": "token",
+  "expectedUserId": "09b513ab-4ca4-5470-b614-d39140b993ce",
+  "organization": {
+    "organizationId": "00000000-0000-4000-8000-000000000002",
+    "primaryOwnerUserId": "00000000-0000-4000-8000-000000000001",
+    "name": "TrọƠi Synthetic Development Organization"
+  },
+  "participant": {
+    "tenancyParticipantId": "00000000-0000-4000-8000-000000000102",
+    "tenancyId": "00000000-0000-4000-8000-000000000101",
+    "userId": "00000000-0000-4000-8000-000000000001",
+    "role": "PRIMARY",
+    "joinedAt": "2026-10-01T00:00:00.000Z",
+    "leftAt": null
+  },
+  "missingParticipant": null,
+  "userExists": true,
+  "environment": "development",
+  "productionEnvironment": "production",
+  "claimUserId": "09b513ab-4ca4-5470-b614-d39140b993ce",
+  "expectedEnsuredUsers": ["09b513ab-4ca4-5470-b614-d39140b993ce"],
+  "expectedNoUpdates": [],
+  "deniedCases": {
+    "missingAllowlist": {
+      "environment": "development"
+    },
+    "mismatchedAllowlist": {
+      "environment": "development",
+      "claimUserId": "ffffffff-ffff-4fff-8fff-ffffffffffff"
+    },
+    "missingEnvironment": {
+      "claimUserId": "09b513ab-4ca4-5470-b614-d39140b993ce"
+    },
+    "production": {
+      "environment": "production",
+      "claimUserId": "09b513ab-4ca4-5470-b614-d39140b993ce"
+    },
+    "staging": {
+      "environment": "staging",
+      "claimUserId": "09b513ab-4ca4-5470-b614-d39140b993ce"
+    },
+    "test": {
+      "environment": "test",
+      "claimUserId": "09b513ab-4ca4-5470-b614-d39140b993ce"
+    }
+  }
+}

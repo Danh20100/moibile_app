@@ -1,0 +1,188 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "tenancyId": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "string"
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "firstKey": {
+      "type": "string"
+    },
+    "secondKey": {
+      "type": "string"
+    },
+    "newKey": {
+      "type": "string"
+    },
+    "retryKey": {
+      "type": "string"
+    },
+    "otherKey": {
+      "type": "string"
+    },
+    "paymentId": {
+      "type": "string"
+    },
+    "checkoutId": {
+      "type": "string"
+    },
+    "changedAmount": {
+      "type": "string"
+    },
+    "succeededStatus": {
+      "type": "string"
+    },
+    "createdStatus": {
+      "type": "string"
+    },
+    "failedStatus": {
+      "type": "string"
+    },
+    "initiatedStatus": {
+      "type": "string"
+    },
+    "unknownStatus": {
+      "type": "string"
+    },
+    "providerDisabledReason": {
+      "type": "string"
+    },
+    "forgedId": {
+      "type": "string"
+    },
+    "resultCode": {
+      "type": "string"
+    },
+    "evilHost": {
+      "type": "string"
+    },
+    "momoPayUrl": {
+      "type": "string"
+    },
+    "appPayUrl": {
+      "type": "string"
+    },
+    "evilPayUrl": {
+      "type": "string"
+    },
+    "httpPayUrl": {
+      "type": "string"
+    },
+    "handoffUrl": {
+      "type": "string"
+    },
+    "paymentOrigin": {
+      "type": "string"
+    },
+    "tunnelOrigin": {
+      "type": "string"
+    },
+    "emulatorOrigin": {
+      "type": "string"
+    },
+    "localhostOrigin": {
+      "type": "string"
+    },
+    "trailingSlashOrigin": {
+      "type": "string"
+    },
+    "rejectedOrigin": {
+      "type": "string"
+    },
+    "demoPayUrl": {
+      "type": "string"
+    },
+    "invalidDemoUrls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "wholeAmount": {
+      "type": "string"
+    },
+    "activeTenancyStatus": {
+      "type": "string"
+    },
+    "endingTenancyStatus": {
+      "type": "string"
+    },
+    "endedTenancyStatus": {
+      "type": "string"
+    },
+    "cancelledTenancyStatus": {
+      "type": "string"
+    },
+    "fractionalAmount": {
+      "type": "string"
+    },
+    "minimumAmount": {
+      "type": "string"
+    },
+    "referenceCode": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "tenancyId",
+    "amount",
+    "idempotencyKey",
+    "firstKey",
+    "secondKey",
+    "newKey",
+    "retryKey",
+    "otherKey",
+    "paymentId",
+    "checkoutId",
+    "changedAmount",
+    "succeededStatus",
+    "createdStatus",
+    "failedStatus",
+    "initiatedStatus",
+    "unknownStatus",
+    "providerDisabledReason",
+    "forgedId",
+    "resultCode",
+    "evilHost",
+    "momoPayUrl",
+    "appPayUrl",
+    "evilPayUrl",
+    "httpPayUrl",
+    "handoffUrl",
+    "paymentOrigin",
+    "tunnelOrigin",
+    "emulatorOrigin",
+    "localhostOrigin",
+    "trailingSlashOrigin",
+    "rejectedOrigin",
+    "demoPayUrl",
+    "invalidDemoUrls",
+    "wholeAmount",
+    "activeTenancyStatus",
+    "endingTenancyStatus",
+    "endedTenancyStatus",
+    "cancelledTenancyStatus",
+    "fractionalAmount",
+    "minimumAmount",
+    "referenceCode",
+    "provider",
+    "createdAt"
+  ],
+  "additionalProperties": false
+}

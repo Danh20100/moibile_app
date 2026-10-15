@@ -1,0 +1,24 @@
+appId: com.trooi.app.backenddev
+---
+- launchApp:
+    clearState: true
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible:
+      id: 'v1-discovery-list'
+    timeout: 20000
+- scrollUntilVisible:
+    element:
+      id: 'public-listing-10000000-0000-4000-8000-000000000005'
+    direction: DOWN
+    timeout: 20000
+    visibilityPercentage: 50
+- tapOn:
+    id: 'public-listing-10000000-0000-4000-8000-000000000005'
+- assertVisible: 'Thông tin công khai'
+- assertVisible: 'Giá đề xuất của tin đăng'
+- assertVisible: '3500000.00'
+- assertVisible: 'Liên hệ về tin đăng'
+- assertVisible: 'Đăng nhập để liên hệ'
+- assertNotVisible: 'Synthetic E2E address - not a real rental property'

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "locale": "vi-VN",
+  "legal": [
+    {
+      "id": "terms",
+      "title": "Điều khoản sử dụng",
+      "route": "legal:terms",
+      "asset": "legal/terms-of-use.vi.md"
+    },
+    {
+      "id": "privacy",
+      "title": "Chính sách quyền riêng tư",
+      "route": "legal:privacy",
+      "asset": "legal/privacy-policy.vi.md"
+    }
+  ],
+  "help": [
+    {
+      "id": "discovery",
+      "title": "Tìm phòng và liên hệ",
+      "summary": "Tìm phòng và gửi yêu cầu",
+      "paragraphs": [
+        "Mở Khám phá để xem các phòng đang đăng cho thuê. Bạn có thể lọc theo vị trí, khoảng giá và loại phòng.",
+        "Gửi yêu cầu quan tâm không đồng nghĩa với đặt cọc hoặc giữ phòng. Hãy kiểm tra thông tin trước khi trao đổi."
+      ]
+    },
+    {
+      "id": "rentals",
+      "title": "Quản lý lượt thuê",
+      "summary": "Thông tin thuê và sự cố",
+      "paragraphs": [
+        "Mở Sổ để xem phòng và lượt thuê được liên kết với tài khoản của bạn.",
+        "Chi phí, điều khoản và sự cố được ghi nhận theo từng phòng. Đối chiếu trực tiếp với bên cho thuê nếu có sai lệch."
+      ]
+    },
+    {
+      "id": "payments",
+      "title": "Thanh toán và biên nhận",
+      "summary": "Kiểm tra khoản phải thu và biên nhận",
+      "paragraphs": [
+        "Kiểm tra khoản phải thu, kỳ thanh toán và tài khoản nhận trước khi chuyển tiền.",
+        "Chỉ khoản thanh toán được xác nhận mới được ghi nhận là đã nhận. Ảnh chuyển khoản và trang thông báo thành công không thay thế biên nhận."
+      ]
+    },
+    {
+      "id": "account",
+      "title": "Bảo vệ tài khoản",
+      "summary": "Mật khẩu và phương thức đăng nhập",
+      "paragraphs": [
+        "Không chia sẻ mật khẩu, OTP hoặc giấy tờ tùy thân qua tin nhắn.",
+        "Vào Cài đặt tài khoản → Đăng nhập và bảo mật để xem phương thức đăng nhập và các tùy chọn bảo vệ tài khoản."
+      ]
+    }
+  ]
+}

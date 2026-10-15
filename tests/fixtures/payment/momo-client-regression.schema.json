@@ -1,0 +1,510 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "partnerCode": {
+          "type": "string"
+        },
+        "accessKey": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "ipnUrl": {
+          "type": "string"
+        },
+        "redirectUrl": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "amountVnd": {
+          "type": "integer"
+        },
+        "orderInfo": {
+          "type": "string"
+        },
+        "checkoutId": {
+          "type": "string"
+        },
+        "tenancyId": {
+          "type": "string"
+        },
+        "roomId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "null"
+        },
+        "endedAt": {
+          "type": "null"
+        },
+        "endReason": {
+          "type": "null"
+        },
+        "tenancyParticipantId": {
+          "type": "string"
+        },
+        "tenancyId2": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "joinedAt": {
+          "type": "string"
+        },
+        "leftAt": {
+          "type": "null"
+        },
+        "checkoutIdentity": {
+          "type": "string"
+        },
+        "equalScenario": {
+          "type": "integer"
+        },
+        "resultCode": {
+          "type": "integer"
+        },
+        "message": {
+          "type": "string"
+        },
+        "payUrl": {
+          "type": "string"
+        },
+        "deeplink": {
+          "type": "null"
+        },
+        "tenancyId3": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "createCheckoutScenario": {
+          "type": "string"
+        },
+        "scenarioValue": {
+          "type": "string"
+        },
+        "scenarioValue2": {
+          "type": "string"
+        },
+        "scenarioValue3": {
+          "type": "string"
+        },
+        "scenarioValue4": {
+          "type": "string"
+        },
+        "tenancyId4": {
+          "type": "string"
+        },
+        "createCheckoutScenario2": {
+          "type": "string"
+        },
+        "equalScenario2": {
+          "type": "integer"
+        },
+        "equalScenario3": {
+          "type": "null"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "partnerCode2": {
+          "type": "string"
+        },
+        "orderId2": {
+          "type": "string"
+        },
+        "requestId2": {
+          "type": "string"
+        },
+        "amount2": {
+          "type": "integer"
+        },
+        "resultCode2": {
+          "type": "string"
+        },
+        "scenarioValue5": {
+          "type": "string"
+        },
+        "amount3": {
+          "type": "string"
+        },
+        "partnerCode3": {
+          "type": "string"
+        },
+        "orderId3": {
+          "type": "string"
+        },
+        "requestId3": {
+          "type": "string"
+        },
+        "amountVnd2": {
+          "type": "integer"
+        },
+        "equalScenario4": {
+          "type": "boolean"
+        },
+        "equalScenario5": {
+          "type": "boolean"
+        },
+        "partnerCode4": {
+          "type": "string"
+        },
+        "orderId4": {
+          "type": "string"
+        },
+        "requestId4": {
+          "type": "string"
+        },
+        "amountVnd3": {
+          "type": "integer"
+        },
+        "extraData": {
+          "type": "string"
+        },
+        "equalScenario6": {
+          "type": "boolean"
+        },
+        "signature2": {
+          "type": "string"
+        },
+        "amount4": {
+          "type": "boolean"
+        },
+        "equalScenario7": {
+          "type": "boolean"
+        },
+        "scenarioValue6": {
+          "type": "string",
+          "enum": ["url0"]
+        },
+        "scenarioValue7": {
+          "type": "string",
+          "enum": ["url1"]
+        },
+        "scenarioValue8": {
+          "type": "string",
+          "enum": ["url2"]
+        },
+        "scenarioValue9": {
+          "type": "string",
+          "enum": ["url3"]
+        },
+        "scenarioValue10": {
+          "type": "string",
+          "enum": ["url4"]
+        },
+        "scenarioValue11": {
+          "type": "string",
+          "enum": ["url5"]
+        },
+        "scenarioValue12": {
+          "type": "string",
+          "enum": ["url6"]
+        },
+        "endpoint2": {
+          "type": "string"
+        },
+        "equalScenario8": {
+          "type": "string"
+        },
+        "equalScenario9": {
+          "type": "null"
+        },
+        "equalScenario10": {
+          "type": "null"
+        },
+        "equalScenario11": {
+          "type": "string"
+        },
+        "equalScenario12": {
+          "type": "string"
+        },
+        "scenarioValue13": {
+          "type": "string"
+        },
+        "scenarioValue14": {
+          "type": "string"
+        },
+        "scenarioValue15": {
+          "type": "string"
+        },
+        "scenarioValue16": {
+          "type": "string"
+        },
+        "scenarioValue17": {
+          "type": "string"
+        },
+        "equalScenario13": {
+          "type": "integer"
+        },
+        "equalScenario14": {
+          "type": "boolean"
+        },
+        "amountVnd4": {
+          "type": "string"
+        },
+        "equalScenario15": {
+          "type": "integer"
+        },
+        "scenarioValue18": {
+          "type": "string"
+        },
+        "scenarioValue19": {
+          "type": "string"
+        },
+        "scenarioValue20": {
+          "type": "string"
+        },
+        "scenarioValue21": {
+          "type": "string"
+        },
+        "scenarioValue22": {
+          "type": "string"
+        },
+        "scenarioValue23": {
+          "type": "string"
+        },
+        "scenarioValue24": {
+          "type": "string"
+        },
+        "equalScenario16": {
+          "type": "integer"
+        },
+        "scenarioValue25": {
+          "type": "string"
+        },
+        "scenarioValue26": {
+          "type": "string"
+        },
+        "equalScenario17": {
+          "type": "integer"
+        },
+        "partnerCode5": {
+          "type": "string"
+        },
+        "accessKey2": {
+          "type": "string"
+        },
+        "secretKey": {
+          "type": "string"
+        },
+        "ipnUrl2": {
+          "type": "string"
+        },
+        "ipnUrl3": {
+          "type": "string"
+        },
+        "endpoint3": {
+          "type": "string"
+        },
+        "endpoint4": {
+          "type": "string"
+        },
+        "endpoint5": {
+          "type": "string"
+        },
+        "endpoint6": {
+          "type": "string"
+        },
+        "redirectUrl2": {
+          "type": "string"
+        },
+        "scenarioValue27": {
+          "type": "string"
+        },
+        "scenarioValue28": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "scenarioValue29": {
+          "type": "string"
+        },
+        "scenarioValue30": {
+          "type": "string"
+        },
+        "scenarioValue31": {
+          "type": "string"
+        },
+        "name2": {
+          "type": "string"
+        },
+        "equalScenario18": {
+          "type": "boolean"
+        },
+        "scenarioValue32": {
+          "type": "string"
+        },
+        "status2": {
+          "type": "integer"
+        },
+        "ipnUrl4": {
+          "type": "string"
+        },
+        "redirectUrl3": {
+          "type": "string"
+        },
+        "equalScenario19": {
+          "type": "boolean"
+        },
+        "failScenario": {
+          "type": "string"
+        },
+        "partnerCode6": {
+          "type": "string"
+        },
+        "endpoint7": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "partnerCode",
+        "accessKey",
+        "endpoint",
+        "ipnUrl",
+        "redirectUrl",
+        "orderId",
+        "requestId",
+        "amountVnd",
+        "orderInfo",
+        "checkoutId",
+        "tenancyId",
+        "roomId",
+        "status",
+        "startedAt",
+        "endedAt",
+        "endReason",
+        "tenancyParticipantId",
+        "tenancyId2",
+        "userId",
+        "role",
+        "joinedAt",
+        "leftAt",
+        "checkoutIdentity",
+        "equalScenario",
+        "resultCode",
+        "message",
+        "payUrl",
+        "deeplink",
+        "tenancyId3",
+        "amount",
+        "createCheckoutScenario",
+        "scenarioValue",
+        "scenarioValue2",
+        "scenarioValue3",
+        "scenarioValue4",
+        "tenancyId4",
+        "createCheckoutScenario2",
+        "equalScenario2",
+        "equalScenario3",
+        "signature",
+        "partnerCode2",
+        "orderId2",
+        "requestId2",
+        "amount2",
+        "resultCode2",
+        "scenarioValue5",
+        "amount3",
+        "partnerCode3",
+        "orderId3",
+        "requestId3",
+        "amountVnd2",
+        "equalScenario4",
+        "equalScenario5",
+        "partnerCode4",
+        "orderId4",
+        "requestId4",
+        "amountVnd3",
+        "extraData",
+        "equalScenario6",
+        "signature2",
+        "amount4",
+        "equalScenario7",
+        "scenarioValue6",
+        "scenarioValue7",
+        "scenarioValue8",
+        "scenarioValue9",
+        "scenarioValue10",
+        "scenarioValue11",
+        "scenarioValue12",
+        "endpoint2",
+        "equalScenario8",
+        "equalScenario9",
+        "equalScenario10",
+        "equalScenario11",
+        "equalScenario12",
+        "scenarioValue13",
+        "scenarioValue14",
+        "scenarioValue15",
+        "scenarioValue16",
+        "scenarioValue17",
+        "equalScenario13",
+        "equalScenario14",
+        "amountVnd4",
+        "equalScenario15",
+        "scenarioValue18",
+        "scenarioValue19",
+        "scenarioValue20",
+        "scenarioValue21",
+        "scenarioValue22",
+        "scenarioValue23",
+        "scenarioValue24",
+        "equalScenario16",
+        "scenarioValue25",
+        "scenarioValue26",
+        "equalScenario17",
+        "partnerCode5",
+        "accessKey2",
+        "secretKey",
+        "ipnUrl2",
+        "ipnUrl3",
+        "endpoint3",
+        "endpoint4",
+        "endpoint5",
+        "endpoint6",
+        "redirectUrl2",
+        "scenarioValue27",
+        "scenarioValue28",
+        "name",
+        "scenarioValue29",
+        "scenarioValue30",
+        "scenarioValue31",
+        "name2",
+        "equalScenario18",
+        "scenarioValue32",
+        "status2",
+        "ipnUrl4",
+        "redirectUrl3",
+        "equalScenario19",
+        "failScenario",
+        "partnerCode6",
+        "endpoint7"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "values"],
+  "additionalProperties": false
+}

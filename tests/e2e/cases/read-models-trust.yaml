@@ -1,0 +1,107 @@
+feature: read-models-trust
+sources:
+  - docs/backlogs/v1/tenant-portal.md
+  - docs/backlogs/v1/operational-history.md
+  - docs/backlogs/v1/dashboard.md
+  - docs/backlogs/v1/review.md
+  - docs/backlogs/v1/trust-report.md
+cases:
+  - id: PORTAL-01-H01
+    flow: PORTAL-01
+    kind: tenant-read
+    scenario: linked tenant opens My Rental
+    expect: [only-linked-current-tenancies-visible]
+  - id: PORTAL-01-H02
+    flow: PORTAL-01
+    kind: tenant-read
+    scenario: linked tenant opens Terms Deposit Billing Payment Receipts Tickets Notices Move-out History
+    expect: [each-section-scoped-to-linked-tenancy, backend-facts-only]
+  - id: PORTAL-01-H03
+    flow: PORTAL-01
+    kind: discovery
+    scenario: active tenant chooses Find Rooms
+    expect: [public-discovery-still-available]
+  - id: PORTAL-01-N01
+    flow: PORTAL-01
+    kind: authorization
+    scenario: authenticated user lacks Participant link
+    expect: [tenant-portal-hidden-or-denied]
+  - id: PORTAL-02-H01
+    flow: PORTAL-02
+    kind: former-tenant
+    scenario: former tenant opens ended rental history
+    expect: [historical-data-readable, participant-history-retained]
+    must_not: [show-current-tenancy-mutation-actions]
+  - id: HIST-01-H01
+    flow: HIST-01
+    kind: read-model
+    scenario: authorized user views operational history
+    expect: [chronological-room-listing-tenancy-incident-events, source-record-navigation]
+  - id: HIST-01-I01
+    flow: HIST-01
+    kind: invariant
+    scenario: history projection is read
+    must_not: [mutate-source-state, become-second-source-of-truth]
+  - id: DASH-01-H01
+    flow: DASH-01
+    kind: read-model
+    scenario: operator opens Dashboard
+    expect:
+      [
+        room-counts,
+        active-tenancies,
+        outstanding,
+        recorded-money,
+        open-incidents,
+        expiry-moveout-activity-when-supported,
+      ]
+  - id: DASH-01-I01
+    flow: DASH-01
+    kind: invariant
+    scenario: dashboard values are displayed
+    expect: [values-traceable-to-source-facts]
+    must_not: [edit-business-state-via-dashboard-number]
+  - id: REVIEW-01-O01
+    flow: REVIEW-01
+    kind: open-policy
+    scenario: eligible former tenant submits Review
+    expect:
+      [tenancy-ended, user-linked-to-eligible-participant, overall-rating-and-comment-recorded]
+    must_not: [use-end-reason-alone-to-block, create-public-personal-rating]
+  - id: REVIEW-01-N01
+    flow: REVIEW-01
+    kind: eligibility
+    scenario: active or unrelated user attempts Review
+    expect: [rejected]
+  - id: REVIEW-02-O01
+    flow: REVIEW-02
+    kind: open-policy
+    scenario: operator responds to related Review
+    expect: [response-linked-to-review, at-most-one-operator-response]
+  - id: REVIEW-03-O01
+    flow: REVIEW-03
+    kind: open-policy
+    scenario: user views Review under authoritative visibility policy
+    expect: [review-traceable-to-rental-history]
+    must_not: [expose-personal-landlord-or-tenant-score]
+  - id: TRUST-01-O01
+    flow: TRUST-01
+    kind: open-policy
+    scenario: user reports Listing or Review with supported reason
+    expect: [report-created, exactly-one-target, valid-reason]
+    must_not: [auto-hide-or-delete-target]
+  - id: TRUST-01-N01
+    flow: TRUST-01
+    kind: invariant
+    scenario: Trust Report targets both Listing and Review or neither
+    expect: [rejected]
+  - id: TRUST-02-O01
+    flow: TRUST-02
+    kind: open-policy
+    scenario: authorized moderation moves SUBMITTED to UNDER_REVIEW then RESOLVED
+    expect: [valid-lifecycle, report-history-preserved]
+  - id: TRUST-02-O02
+    flow: TRUST-02
+    kind: open-policy
+    scenario: authorized moderation rejects Report
+    expect: [status-rejected, target-not-implicitly-removed]

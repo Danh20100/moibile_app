@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "vnext.identity-foundation.1",
+  "title": "Minimal Identity Foundation logical addendum",
+  "level": "LV2_LOGICAL_ADDENDUM",
+  "status": "REVIEWED_FROZEN",
+  "source": {
+    "canonical": {
+      "path": "docs/database/v1/canonical.md",
+      "version": "v3.7",
+      "status": "REVIEWED_FROZEN"
+    },
+    "basePhysical": "docs/database/v1/erd/physical.json",
+    "decisions": "docs/superpowers/specs/2026-10-12-profile-identity-decision-register.md",
+    "ownerApproval": "2026-10-13 Minimal Physical Contract Approval & Freeze Preparation instruction",
+    "profileHead": "079047bc986e71a2993959c0e7c22cc6834deaeb"
+  },
+  "entities": [
+    {
+      "id": "auth_identities",
+      "name": "AUTH_IDENTITY",
+      "attributes": [
+        {
+          "name": "auth_identity_id",
+          "presence": "required"
+        },
+        {
+          "name": "user_id",
+          "presence": "required"
+        },
+        {
+          "name": "provider",
+          "presence": "required"
+        },
+        {
+          "name": "issuer",
+          "presence": "required"
+        },
+        {
+          "name": "subject",
+          "presence": "required"
+        },
+        {
+          "name": "linked_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "user_emails",
+      "name": "USER_EMAIL",
+      "attributes": [
+        {
+          "name": "user_email_id",
+          "presence": "required"
+        },
+        {
+          "name": "user_id",
+          "presence": "required"
+        },
+        {
+          "name": "email_address",
+          "presence": "required"
+        },
+        {
+          "name": "normalized_email",
+          "presence": "required"
+        },
+        {
+          "name": "verified_at",
+          "presence": "required"
+        },
+        {
+          "name": "verification_source",
+          "presence": "required"
+        },
+        {
+          "name": "email_revision",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "user_profiles",
+      "name": "USER_PROFILE",
+      "attributes": [
+        {
+          "name": "user_id",
+          "presence": "required"
+        },
+        {
+          "name": "display_name",
+          "presence": "optional"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        },
+        {
+          "name": "updated_at",
+          "presence": "required"
+        }
+      ]
+    },
+    {
+      "id": "password_credentials",
+      "name": "PASSWORD_CREDENTIAL",
+      "attributes": [
+        {
+          "name": "user_id",
+          "presence": "required"
+        },
+        {
+          "name": "password_hash",
+          "presence": "required"
+        },
+        {
+          "name": "credential_revision",
+          "presence": "required"
+        },
+        {
+          "name": "created_at",
+          "presence": "required"
+        },
+        {
+          "name": "password_changed_at",
+          "presence": "required"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "users (frozen external root)",
+      "to": "auth_identities",
+      "cardinality": "0..N",
+      "owner": "User",
+      "deleteDisposition": "NO ACTION"
+    },
+    {
+      "from": "users (frozen external root)",
+      "to": "user_emails",
+      "cardinality": "0..1",
+      "owner": "User",
+      "deleteDisposition": "NO ACTION"
+    },
+    {
+      "from": "users (frozen external root)",
+      "to": "user_profiles",
+      "cardinality": "0..1",
+      "owner": "User",
+      "deleteDisposition": "NO ACTION"
+    },
+    {
+      "from": "users (frozen external root)",
+      "to": "password_credentials",
+      "cardinality": "0..1",
+      "owner": "User",
+      "deleteDisposition": "NO ACTION"
+    }
+  ],
+  "invariants": [
+    "Provider principal and owner immutable; no email-based merge/rekey",
+    "Exactly one verified primary email at new registration completion; legacy Users may have no row",
+    "Stable email row; positive monotonic CAS revision; no delete/reinsert during change",
+    "Argon2id salted encoded hash only; library/parser validation is a runtime trust boundary, not proven by nonempty SQL CHECK",
+    "Credential optional; revision starts at 1 and increases for replacement/rehash; no removal/delete/reinsert in MVP",
+    "Profile insert once; self-edit only; never Google overwrite or public projection",
+    "Sensitive mutation requires accepted same-transaction audit/revocation collaborator before activation; missing collaborator disables operation"
+  ],
+  "completion": "New Google registration atomically creates User, immutable principal binding, verified current email and Profile. Credential optional; legacy uninitialized Users remain valid.",
+  "freezeVersion": "vnext.identity-foundation.1",
+  "freezeSourceCommit": "079047bc986e71a2993959c0e7c22cc6834deaeb",
+  "acceptance": {
+    "date": "2026-10-13",
+    "decision": "ACCEPTED_WITH_NON_SCHEMA_CONDITIONS",
+    "authority": "Account Verification review confirmed by owner; formal freeze and Task 2 explicitly authorized",
+    "runtimeActivation": "BLOCKED"
+  }
+}

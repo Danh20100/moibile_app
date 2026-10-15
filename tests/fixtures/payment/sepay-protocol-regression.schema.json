@@ -1,0 +1,436 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "values": {
+      "type": "object",
+      "properties": {
+        "SEPAYENABLED": {
+          "type": "string"
+        },
+        "SEPAYENVIRONMENT": {
+          "type": "string",
+          "enum": ["sandbox"]
+        },
+        "NODEENV": {
+          "type": "string"
+        },
+        "DATABASEURL": {
+          "type": "string"
+        },
+        "SEPAYMERCHANTID": {
+          "type": "string"
+        },
+        "SEPAYSECRETKEY": {
+          "type": "string"
+        },
+        "SEPAYIPNSECRETKEY": {
+          "type": "string"
+        },
+        "SEPAYHANDOFFSIGNINGKEY": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL": {
+          "type": "string"
+        },
+        "partnerCode": {
+          "type": "string"
+        },
+        "accessKey": {
+          "type": "string"
+        },
+        "secretKey": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "ipnUrl": {
+          "type": "string"
+        },
+        "redirectUrl": {
+          "type": "string"
+        },
+        "customdata": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "providerSettlementId": {
+          "type": "string"
+        },
+        "ignorednull": {
+          "type": "null"
+        },
+        "signSepayFieldsScenario": {
+          "type": "string"
+        },
+        "customdata2": {
+          "type": "null"
+        },
+        "env": {
+          "type": "string"
+        },
+        "customdata3": {
+          "type": "null"
+        },
+        "equalScenario": {
+          "type": "string"
+        },
+        "equalScenario2": {
+          "type": "null"
+        },
+        "SEPAYENABLED2": {
+          "type": "string"
+        },
+        "DATABASEURL2": {
+          "type": "string"
+        },
+        "equalScenario3": {
+          "type": "null"
+        },
+        "SEPAYENABLED3": {
+          "type": "string"
+        },
+        "equalScenario4": {
+          "type": "null"
+        },
+        "equalScenario5": {
+          "type": "string"
+        },
+        "equalScenario6": {
+          "type": "string"
+        },
+        "equalScenario7": {
+          "type": "string"
+        },
+        "DATABASEURL3": {
+          "type": "string"
+        },
+        "NODEENV2": {
+          "type": "string"
+        },
+        "DATABASEURL4": {
+          "type": "string"
+        },
+        "NODEENV3": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "SEPAYENVIRONMENT2": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "SEPAYENABLED4": {
+          "type": "string"
+        },
+        "DATABASEURL5": {
+          "type": "string"
+        },
+        "DATABASEURL6": {
+          "type": "string"
+        },
+        "DATABASEURL7": {
+          "type": "string"
+        },
+        "DATABASEURL8": {
+          "type": "string"
+        },
+        "DATABASEURL9": {
+          "type": "string"
+        },
+        "SEPAYMERCHANTID2": {
+          "type": "string"
+        },
+        "SEPAYSECRETKEY2": {
+          "type": "string"
+        },
+        "SEPAYIPNSECRETKEY2": {
+          "type": "string"
+        },
+        "SEPAYHANDOFFSIGNINGKEY2": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL2": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL3": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL4": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL5": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL6": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL7": {
+          "type": "string"
+        },
+        "SEPAYPUBLICBASEURL8": {
+          "type": "string"
+        },
+        "equalScenario8": {
+          "type": "null"
+        },
+        "findScenario": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "equalScenario9": {
+          "type": "null"
+        },
+        "findScenario2": {
+          "type": "string",
+          "enum": ["MOMO"]
+        },
+        "scenarioValue": {
+          "type": "string"
+        },
+        "scenarioValue2": {
+          "type": "string"
+        },
+        "scenarioValue3": {
+          "type": "string"
+        },
+        "scenarioValue4": {
+          "type": "string"
+        },
+        "scenarioValue5": {
+          "type": "string"
+        },
+        "scenarioValue6": {
+          "type": "string"
+        },
+        "scenarioValue7": {
+          "type": "string"
+        },
+        "scenarioValue8": {
+          "type": "string"
+        },
+        "requireScenario": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "event": {
+          "type": "string"
+        },
+        "orderstatus": {
+          "type": "string"
+        },
+        "customdata4": {
+          "type": "string"
+        },
+        "providerSettlementId2": {
+          "type": "string"
+        },
+        "equalScenario10": {
+          "type": "boolean"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "tenancyId": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "propertyId": {
+          "type": "string"
+        },
+        "organizationId2": {
+          "type": "string"
+        },
+        "name2": {
+          "type": "string"
+        },
+        "lifecycleStatus": {
+          "type": "string"
+        },
+        "operationalAddressText": {
+          "type": "string"
+        },
+        "longitude": {
+          "type": "integer"
+        },
+        "latitude": {
+          "type": "integer"
+        },
+        "longitude2": {
+          "type": "integer"
+        },
+        "latitude2": {
+          "type": "integer"
+        },
+        "roomId": {
+          "type": "string"
+        },
+        "propertyId2": {
+          "type": "string"
+        },
+        "nameOrLabel": {
+          "type": "string"
+        },
+        "operationalState": {
+          "type": "string"
+        },
+        "recordLifecycle": {
+          "type": "string"
+        },
+        "roomId2": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "endedAt": {
+          "type": "null"
+        },
+        "endReason": {
+          "type": "null"
+        },
+        "methodScenario": {
+          "type": "string",
+          "enum": ["settle"]
+        },
+        "key": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "provider2": {
+          "type": "string",
+          "enum": ["SEPAY"]
+        },
+        "equalScenario11": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "SEPAYENABLED",
+        "SEPAYENVIRONMENT",
+        "NODEENV",
+        "DATABASEURL",
+        "SEPAYMERCHANTID",
+        "SEPAYSECRETKEY",
+        "SEPAYIPNSECRETKEY",
+        "SEPAYHANDOFFSIGNINGKEY",
+        "SEPAYPUBLICBASEURL",
+        "partnerCode",
+        "accessKey",
+        "secretKey",
+        "endpoint",
+        "ipnUrl",
+        "redirectUrl",
+        "customdata",
+        "signature",
+        "providerSettlementId",
+        "ignorednull",
+        "signSepayFieldsScenario",
+        "customdata2",
+        "env",
+        "customdata3",
+        "equalScenario",
+        "equalScenario2",
+        "SEPAYENABLED2",
+        "DATABASEURL2",
+        "equalScenario3",
+        "SEPAYENABLED3",
+        "equalScenario4",
+        "equalScenario5",
+        "equalScenario6",
+        "equalScenario7",
+        "DATABASEURL3",
+        "NODEENV2",
+        "DATABASEURL4",
+        "NODEENV3",
+        "SEPAYENVIRONMENT2",
+        "SEPAYENABLED4",
+        "DATABASEURL5",
+        "DATABASEURL6",
+        "DATABASEURL7",
+        "DATABASEURL8",
+        "DATABASEURL9",
+        "SEPAYMERCHANTID2",
+        "SEPAYSECRETKEY2",
+        "SEPAYIPNSECRETKEY2",
+        "SEPAYHANDOFFSIGNINGKEY2",
+        "SEPAYPUBLICBASEURL2",
+        "SEPAYPUBLICBASEURL3",
+        "SEPAYPUBLICBASEURL4",
+        "SEPAYPUBLICBASEURL5",
+        "SEPAYPUBLICBASEURL6",
+        "SEPAYPUBLICBASEURL7",
+        "SEPAYPUBLICBASEURL8",
+        "equalScenario8",
+        "findScenario",
+        "equalScenario9",
+        "findScenario2",
+        "scenarioValue",
+        "scenarioValue2",
+        "scenarioValue3",
+        "scenarioValue4",
+        "scenarioValue5",
+        "scenarioValue6",
+        "scenarioValue7",
+        "scenarioValue8",
+        "requireScenario",
+        "provider",
+        "event",
+        "orderstatus",
+        "customdata4",
+        "providerSettlementId2",
+        "equalScenario10",
+        "userId",
+        "tenancyId",
+        "organizationId",
+        "name",
+        "propertyId",
+        "organizationId2",
+        "name2",
+        "lifecycleStatus",
+        "operationalAddressText",
+        "longitude",
+        "latitude",
+        "longitude2",
+        "latitude2",
+        "roomId",
+        "propertyId2",
+        "nameOrLabel",
+        "operationalState",
+        "recordLifecycle",
+        "roomId2",
+        "status",
+        "startedAt",
+        "endedAt",
+        "endReason",
+        "methodScenario",
+        "key",
+        "amount",
+        "provider2",
+        "equalScenario11"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": ["version", "values"],
+  "additionalProperties": false
+}

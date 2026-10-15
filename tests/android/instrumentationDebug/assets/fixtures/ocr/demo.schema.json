@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "required": [
+    "version",
+    "text",
+    "expectedWords",
+    "width",
+    "height",
+    "textSize",
+    "textX",
+    "firstBaseline",
+    "lineHeight"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "text": {
+      "type": "string"
+    },
+    "expectedWords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "width": {
+      "type": "integer"
+    },
+    "height": {
+      "type": "integer"
+    },
+    "textSize": {
+      "type": "integer"
+    },
+    "textX": {
+      "type": "integer"
+    },
+    "firstBaseline": {
+      "type": "integer"
+    },
+    "lineHeight": {
+      "type": "integer"
+    }
+  }
+}

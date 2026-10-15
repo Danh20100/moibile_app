@@ -1,0 +1,65 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "subjectFirst": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subjectSecond": {
+      "type": "string",
+      "minLength": 1
+    },
+    "userFirst": {
+      "type": "string",
+      "minLength": 1
+    },
+    "userBare": {
+      "type": "string",
+      "minLength": 1
+    },
+    "userSecond": {
+      "type": "string",
+      "minLength": 1
+    },
+    "whitespaceIssuer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "whitespaceSubject": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mockEmail": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mockToken": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expectedUserExists": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "version",
+    "subjectFirst",
+    "subjectSecond",
+    "userFirst",
+    "userBare",
+    "userSecond",
+    "whitespaceIssuer",
+    "whitespaceSubject",
+    "mockEmail",
+    "mockToken",
+    "expectedUserExists"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

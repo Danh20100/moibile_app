@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrọƠi · Android Screen Atlas</title>
+<style>:root{color-scheme:light;--canvas:#eeeae2;--paper:#fffdf8;--surface:#f4f1e9;--ink:#242d2a;--muted:#606b64;--line:#d8dcd3;--primary:#235a46;--on-primary:#fff;--selected:#dce9df;--clay:#a95034;--clay-soft:#f3e4d9;--warning:#7d5318;--warning-soft:#f8edd7;--error:#a23631;--error-soft:#fae7e2;--success:#286145;--water:#d4e5e6;--media:#e7d4bd;--radius:12px;--phone-width:390px}
+*{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font-family:Roboto,"Segoe UI","Noto Sans",Arial,sans-serif;font-size:14px;line-height:1.45}button,input,select,textarea{font:inherit}button{cursor:pointer;color:inherit}a{color:var(--primary)}button:disabled{cursor:not-allowed;opacity:.55}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--clay);outline-offset:3px}button:active:not(:disabled){filter:brightness(.94)}::selection{background:var(--selected)}svg.icon{width:22px;height:22px;display:block;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}h1,h2,h3,h4,p{margin:0}button{border:0}small{font-size:12px}button,input,textarea,select{caret-color:var(--primary)}
+/* Architecture and atlas workbench. */
+.workbench-head{padding:20px 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:var(--paper);border-bottom:1px solid var(--line)}.brand-lockup{display:flex;align-items:center;gap:12px}.brand-symbol{width:40px;height:44px;display:grid;place-items:center;background:var(--primary);color:var(--on-primary);border-radius:4px 4px 12px 4px}.brand-symbol .icon{width:26px;height:26px}.brand-lockup h1{font-size:20px;font-weight:750}.brand-lockup p{color:var(--muted);font-size:12px}.workbench-tabs{display:flex;gap:4px}.workbench-tabs button{min-height:48px;padding:0 18px;border-radius:8px;background:transparent;font-weight:650}.workbench-tabs button[aria-selected=true]{background:var(--selected);color:var(--primary)}.workbench-tools{display:flex;align-items:center;gap:12px}.theme-toggle{min-height:48px;display:flex;gap:8px;align-items:center;background:var(--surface);padding:0 12px;border-radius:8px}.sheet{max-width:1480px;margin:auto;padding:32px}.page-intro{display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:30px}.page-intro h2{font-size:30px;letter-spacing:-.02em;font-weight:700}.page-intro p{max-width:610px;margin-top:8px;color:var(--muted)}.scope-counts{display:flex;gap:24px}.scope-counts span{display:block;color:var(--muted);font-size:12px}.scope-counts b{font-size:24px;font-variant-numeric:tabular-nums}.architecture-board{background:var(--paper);padding:28px;border:1px solid var(--line);border-radius:16px}.architecture-label{font-weight:650;margin-bottom:16px}.entry-node{min-height:64px;padding:12px 16px;display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;width:min(440px,100%);text-align:left}.entry-node b{display:block;font-size:16px}.entry-node small{display:block;color:var(--muted)}.architecture-trunk{height:26px;width:1px;background:var(--line);margin-left:27px}.workspace-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.workspace-column{padding-top:20px;border-top:2px solid var(--primary)}.workspace-column header{display:flex;gap:12px;align-items:start;margin-bottom:18px}.workspace-column h3{font-size:20px}.workspace-column header p{font-size:13px;color:var(--muted);margin-top:5px}.map-links{display:grid;gap:4px}.map-link{min-height:48px;background:transparent;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;text-align:left;border-bottom:1px solid var(--line)}.map-link .icon{width:16px;height:16px}.map-link:hover{color:var(--primary)}.shared-layer{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}.shared-links{display:flex;gap:8px;flex-wrap:wrap}.shared-links button{min-height:48px;padding:8px 14px;background:var(--surface);border-radius:8px;font-size:13px}.lifecycle-path{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}.lifecycle-step{display:flex;align-items:center;gap:8px;min-height:48px;background:var(--paper);padding:8px 12px;border-radius:6px}.lifecycle-step .icon{width:16px;height:16px;color:var(--muted)}.scope-note{display:flex;gap:12px;color:var(--muted);padding:16px 0;border-top:1px solid var(--line)}.scope-note .icon{color:var(--clay)}.atlas-toolbar{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:16px;align-items:center;margin:20px 0}.atlas-search{min-height:48px;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:12px 16px;width:100%}.atlas-filters{display:flex;gap:6px;flex-wrap:wrap}.atlas-filters button{min-height:48px;padding:8px 12px;background:var(--paper);border-radius:8px;border:1px solid var(--line)}.atlas-filters button[aria-pressed=true]{background:var(--primary);color:var(--on-primary);border-color:var(--primary)}.atlas-heading{display:flex;align-items:center;justify-content:space-between;margin:32px 0 18px}.atlas-heading h3{font-size:22px}.atlas-heading p{color:var(--muted)}.atlas-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px}.atlas-card{min-width:0;padding:14px;background:var(--paper);border:1px solid var(--line);border-radius:12px;transition:border-color .18s}.atlas-card:hover{border-color:var(--primary)}.atlas-open{display:block;padding:0;background:transparent;width:100%;text-align:left}.atlas-card header{min-height:65px;display:flex;justify-content:space-between;gap:12px;align-items:start}.atlas-card h4{font-size:14px;line-height:1.3;font-weight:700}.atlas-card header small{display:block;color:var(--muted);margin-top:5px}.scope-mark{font-size:11px;font-weight:750;letter-spacing:.02em;display:inline-block;padding:4px 6px;border-radius:4px;background:var(--selected);color:var(--primary)}.scope-mark.open{background:var(--warning-soft);color:var(--warning)}.scope-mark.future{background:var(--surface);color:var(--muted)}.atlas-caption{font-size:12px;color:var(--muted);margin-top:12px;min-height:50px}.preview-window{height:348px;position:relative;overflow:hidden;pointer-events:none;border-radius:10px;background:var(--canvas);contain:layout paint}.preview-window .android-device{position:absolute;left:50%;top:0;transform:translateX(-50%) scale(.405);transform-origin:top center}.preview-window .screen-scroll{overflow:hidden}.preview-window button{pointer-events:none}.preview-window .gesture-bar{background:var(--paper)}
+/* Screen viewer: the app is primary, documentation remains a separate column. */
+.screen-viewer{position:fixed;inset:0;z-index:10;background:var(--canvas);overflow:auto;display:none}.screen-viewer.is-open{display:block}.viewer-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:10px 24px;min-height:68px;background:var(--paper);border-bottom:1px solid var(--line);gap:16px}.viewer-head>div{display:flex;gap:12px;align-items:center}.viewer-head h2{font-size:16px}.viewer-head small{color:var(--muted)}.viewer-close{display:flex;gap:8px;align-items:center;min-height:48px;background:var(--surface);padding:8px 14px;border-radius:8px}.viewer-body{display:grid;grid-template-columns:minmax(460px,1fr) minmax(300px,520px);max-width:1260px;margin:auto;min-height:calc(100dvh - 69px)}.device-stage{padding:24px;display:flex;align-items:start;justify-content:center;min-width:0}.documentation{padding:36px 32px;background:var(--paper);border-left:1px solid var(--line)}.documentation h2{font-size:27px;letter-spacing:-.02em;line-height:1.15;margin:16px 0}.documentation>p{color:var(--muted);line-height:1.65}.documentation dl{margin:24px 0}.documentation dt{font-size:12px;color:var(--muted);margin-top:20px}.documentation dd{margin:5px 0 0;font-weight:600;font-size:14px;overflow-wrap:anywhere}.documentation h3{font-size:15px;margin:26px 0 14px}.flow-document{margin:0;padding:0 0 0 21px;color:var(--muted)}.flow-document li{padding:0 0 12px 5px}.flow-document li::marker{color:var(--clay);font-weight:700}.related-screens{display:grid;gap:6px}.related-screens button{min-height:48px;background:var(--surface);display:flex;align-items:center;justify-content:space-between;text-align:left;padding:10px 12px;border-radius:8px;gap:10px}.related-screens .icon{width:18px;height:18px}.documentation .sample-disclaimer{font-size:12px;line-height:1.6;padding-top:20px;margin-top:26px;border-top:1px solid var(--line)}.contract-boundary{font-size:13px;padding:14px;background:var(--warning-soft);color:var(--warning);border-radius:8px;margin-top:20px}
+/* One new app component family. All measurements describe a 390dp compact canvas. */
+.android-device{width:406px;height:864px;flex:none;padding:8px;background:#272d2a;border-radius:24px;overflow:hidden}.android-screen{height:100%;border-radius:17px;overflow:hidden;display:flex;flex-direction:column;background:var(--paper);color:var(--ink);position:relative}.system-status{height:28px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:12px;font-weight:650;background:var(--paper)}.system-indicators{display:flex;align-items:center;gap:6px}.system-indicators svg{width:14px;height:14px}.screen-scroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent;position:relative}.screen-body{padding:0 20px 24px}.app-bar{min-height:64px;padding:6px 12px 6px 20px;display:flex;align-items:center;gap:10px;background:var(--paper);position:sticky;top:0;z-index:2}.app-bar-title{flex:1;min-width:0}.app-bar h1{font-size:19px;letter-spacing:-.015em;font-weight:700;line-height:1.2}.app-bar p{font-size:12px;color:var(--muted);margin-top:4px}.app-bar .icon-button{margin-left:-8px}.icon-button{width:48px;height:48px;border-radius:12px;background:transparent;display:grid;place-items:center;flex:none}.icon-button:hover{background:var(--surface)}.context-action{display:flex;gap:7px;align-items:center;background:transparent;min-height:48px;padding:0;color:var(--muted);font-size:12px;text-align:left}.context-action .icon{width:16px;height:16px}.navigation-bar{display:grid;min-height:76px;flex:none;background:var(--paper);border-top:1px solid var(--line);padding:4px 8px}.navigation-bar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:64px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;padding:4px 1px;line-height:1.2}.navigation-bar .nav-symbol{display:grid;place-items:center;width:48px;height:30px;border-radius:10px}.navigation-bar button[aria-current=page]{color:var(--primary)}.navigation-bar button[aria-current=page] .nav-symbol{background:var(--selected)}.navigation-bar .icon{width:22px;height:22px}.gesture-bar{height:19px;display:grid;place-items:center;flex:none;background:var(--paper)}.gesture-bar:after{content:"";height:4px;width:108px;border-radius:4px;background:var(--ink)}.button{min-height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:650;font-size:14px;padding:12px 16px;background:var(--primary);color:var(--on-primary);width:100%;text-decoration:none}.button.secondary{background:var(--selected);color:var(--primary)}.button.outline{background:transparent;color:var(--primary);border:1px solid var(--line)}.button.destructive{background:var(--error);color:#fff}.button.text{background:transparent;color:var(--primary);justify-content:start;padding-left:0}.button+.button{margin-top:10px}.button .icon{width:20px;height:20px}.action-dock{position:sticky;bottom:0;background:var(--paper);padding:14px 20px;border-top:1px solid var(--line);z-index:2}.action-dock small{display:block;margin:8px 0 0;text-align:center;color:var(--muted)}.section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:28px 0 12px}.section-title h2{font-size:17px;letter-spacing:-.015em;font-weight:700}.section-title button{min-height:48px;padding:5px 0 5px 10px;background:transparent;color:var(--primary);font-size:12px;font-weight:650}.lead-title{font-size:28px;letter-spacing:-.025em;line-height:1.13;font-weight:700;margin:15px 0 12px}.body-copy{color:var(--muted);font-size:14px;line-height:1.65}.state-label{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:650;color:var(--muted)}.state-label:before{content:"";width:6px;height:6px;flex:none;border-radius:50%;background:currentColor}.state-label.success{color:var(--success)}.state-label.warning{color:var(--warning)}.state-label.error{color:var(--error)}.data-line{display:flex;justify-content:space-between;gap:18px;padding:13px 0;border-bottom:1px solid var(--line);font-size:14px}.data-line span{color:var(--muted)}.data-line b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}.data-line:last-child{border-bottom:0}.state-panel{padding:15px;background:var(--surface);border-radius:10px;margin:16px 0}.state-panel.warning{background:var(--warning-soft);color:var(--warning)}.state-panel.error{background:var(--error-soft);color:var(--error)}.state-panel h3{font-size:14px;margin-bottom:6px}.state-panel p{font-size:13px;line-height:1.55;color:inherit}.field{display:grid;gap:7px;margin:18px 0}.field>span{font-size:13px;font-weight:650}.field small{font-size:12px;color:var(--muted)}.field input,.field textarea,.field select{width:100%;min-height:52px;border:1px solid var(--line);border-radius:8px;padding:13px 12px;background:var(--paper);color:var(--ink)}.field textarea{min-height:110px;resize:vertical}.field input:disabled,.field textarea:disabled,.field select:disabled{background:var(--surface);opacity:.7}.field.invalid input,.field.invalid textarea{border-color:var(--error)}.field.invalid small{color:var(--error)}.choice-group{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.choice-group button{min-height:48px;min-width:48px;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}.choice-group button[aria-pressed=true]{background:var(--selected);border-color:var(--primary);color:var(--primary)}.choice-group button:disabled{color:var(--muted)}.identity-monogram{display:grid;place-items:center;width:48px;height:48px;background:var(--selected);color:var(--primary);border-radius:14px;font-size:17px;font-weight:700;flex:none}
+/* Discovery: space/media leads, facts sit underneath. */
+.location-entry{width:100%;min-height:72px;padding:13px 15px;border-radius:12px;background:var(--selected);display:flex;align-items:center;gap:12px;text-align:left;margin:18px 0}.location-entry span{flex:1}.location-entry b{display:block;font-size:17px}.location-entry small{display:block;color:var(--primary);margin-top:4px}.location-entry>.icon:last-child{width:18px;height:18px}.listing-media-card{margin:16px 0 22px;width:100%;text-align:left;display:block;background:transparent;padding:0}.room-media{height:194px;position:relative;border-radius:14px;overflow:hidden;background:var(--media);display:flex;align-items:center;justify-content:center}.room-media svg.plan{height:90%;width:83%;stroke:var(--clay);fill:none;stroke-width:2;opacity:.75}.room-media .media-caption{position:absolute;bottom:10px;left:12px;right:12px;font-size:11px;color:#573b29;background:#fff5e8;padding:4px 7px;border-radius:4px;width:max-content;max-width:calc(100% - 24px)}.room-media.cool{background:#d9e4dc}.room-media.cool svg.plan{stroke:#436750}.room-media .photo-count{position:absolute;right:12px;top:12px;background:#fff9ef;color:#573b29;border-radius:4px;padding:4px 7px;font-size:12px}.listing-facts{display:flex;justify-content:space-between;gap:12px;margin:12px 0 5px}.listing-facts h3{font-size:17px;line-height:1.25}.listing-facts .rent{font-size:17px;font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}.listing-media-card p{color:var(--muted);font-size:13px}.listing-media-card .listing-meta{margin-top:5px;font-size:12px}.listing-compact-row{display:flex;align-items:center;gap:12px;width:100%;padding:14px 0;text-align:left;background:transparent;border-top:1px solid var(--line)}.listing-compact-row .room-media{width:90px;height:86px;flex:none;border-radius:8px}.listing-compact-row .media-caption{display:none}.listing-compact-row>span{flex:1;min-width:0}.listing-compact-row b{display:block;font-size:14px;margin-bottom:4px}.listing-compact-row small{display:block;color:var(--muted)}.listing-compact-row strong{display:block;font-size:14px;margin-top:5px;font-variant-numeric:tabular-nums}.map-entry{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;min-height:60px;background:var(--surface);padding:12px;border-radius:10px;margin:16px 0}.map-entry .icon{color:var(--primary)}.map-entry span{flex:1;text-align:left}.map-entry small{display:block;color:var(--muted)}.listing-detail-media{margin-bottom:20px}.listing-detail-media .room-media{height:255px;border-radius:0}.listing-detail-title{font-size:28px;line-height:1.12;letter-spacing:-.025em;margin-bottom:9px}.rent-line{font-size:24px;font-weight:750;font-variant-numeric:tabular-nums;margin:16px 0 5px}.rent-line small{font-size:13px;font-weight:400;color:var(--muted)}.amenity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px}.amenity-grid>div{display:flex;gap:10px;align-items:center;padding:8px 0}.amenity-grid .icon{width:20px;height:20px;color:var(--primary)}
+/* Rental and operational register. */
+.room-hero{padding:18px 0 21px;display:flex;gap:18px;align-items:center;border-bottom:1px solid var(--line)}.room-number{min-width:94px;height:104px;padding:13px 10px;background:var(--primary);color:var(--on-primary);border-radius:4px 4px 16px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center}.room-number small{font-size:12px}.room-number b{font-size:38px;letter-spacing:-.02em;font-weight:700;line-height:1.1}.room-hero h2{font-size:19px;margin-bottom:5px}.room-hero p{font-size:13px;color:var(--muted);margin-bottom:7px}.rental-summary{padding:18px 0;display:grid;grid-template-columns:1fr auto;gap:5px 16px;border-bottom:1px solid var(--line)}.rental-summary b{font-size:16px}.rental-summary small{color:var(--muted)}.rental-summary .state-label{grid-column:2;grid-row:1/3;align-self:center}.attention-item{display:grid;grid-template-columns:32px 1fr 18px;gap:12px;text-align:left;padding:16px 0;border-bottom:1px solid var(--line);background:transparent;width:100%;min-height:76px}.attention-item .attention-icon{width:32px;height:32px;display:grid;place-items:center;color:var(--clay)}.attention-item .attention-icon .icon{width:22px;height:22px}.attention-item b{display:block;font-size:14px;line-height:1.35;margin-bottom:5px}.attention-item small{display:block;color:var(--muted);font-size:12px;line-height:1.4}.attention-item>.icon{width:16px;height:16px;align-self:center;color:var(--muted)}.attention-item .attention-amount{display:block;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);margin:5px 0}.notice-card{background:var(--surface);padding:16px;border-radius:10px;margin:15px 0}.notice-card .notice-date{font-size:12px;color:var(--muted)}.notice-card h3{font-size:15px;margin:8px 0}.notice-card p{font-size:13px;color:var(--muted);line-height:1.6}.notice-card button{margin-top:10px}.operator-heading{display:flex;align-items:center;justify-content:space-between;margin:10px 0 0}.operator-heading h2{font-size:25px;letter-spacing:-.025em}.operator-heading p{font-size:12px;color:var(--muted);margin-top:5px}.operator-heading .queue-count{font-size:28px;font-weight:700;color:var(--clay)}.room-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.room-summary-grid>div{padding:14px 0;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);font-size:13px}.room-summary-grid b{font-size:18px;line-height:1}.room-register{display:grid;gap:0}.room-register-item{display:grid;grid-template-columns:46px 1fr auto;gap:12px;padding:16px 0;border-bottom:1px solid var(--line);align-items:center;text-align:left;background:transparent;min-height:76px}.room-register-item .door-label{width:46px;height:48px;display:grid;place-items:center;border:1px solid var(--line);border-radius:4px;font-size:16px;font-weight:700}.room-register-item b{display:block;font-size:14px}.room-register-item small{display:block;color:var(--muted);font-size:12px;margin-top:4px}.room-register-item .state-label{font-size:11px;max-width:100px}.ledger-navigation{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:20px 0;border-block:1px solid var(--line)}.ledger-navigation button{min-height:56px;padding:8px 4px;display:flex;flex-direction:column;gap:5px;align-items:center;justify-content:center;background:transparent;font-size:12px}.ledger-navigation .icon{width:20px;height:20px;color:var(--primary)}.ledger-navigation button[aria-current=page]{background:var(--selected);color:var(--primary);font-weight:650}.ledger-section{margin:24px 0}.ledger-section>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px}.ledger-section h2{font-size:16px}.ledger-section>header small{color:var(--muted)}.ledger-section .ledger-provenance{font-size:11px;color:var(--muted);margin-top:10px}.history-event{display:grid;grid-template-columns:47px 12px 1fr;gap:10px;position:relative;padding-bottom:23px}.history-event time{font-size:12px;color:var(--muted);line-height:1.3;padding-top:2px;font-variant-numeric:tabular-nums}.history-event .history-spine{position:relative;display:flex;justify-content:center}.history-event .history-spine:before{content:"";width:8px;height:8px;border-radius:50%;background:var(--clay);margin-top:5px;z-index:1}.history-event .history-spine:after{content:"";position:absolute;top:12px;bottom:-7px;width:1px;background:var(--line)}.history-event:last-child .history-spine:after{display:none}.history-event b{font-size:14px;display:block;margin-bottom:5px}.history-event p{font-size:12px;color:var(--muted);line-height:1.55}.history-event .event-source{font-size:11px;color:var(--primary);display:block;margin-top:5px}.history-event button{min-height:48px;padding:8px 0;background:transparent;color:var(--primary);font-size:12px;text-align:left}.context-workspace{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid var(--line);min-height:88px;text-align:left;width:100%;background:transparent}.context-workspace>span:not(.identity-monogram){flex:1}.context-workspace b{display:block;font-size:16px}.context-workspace small{display:block;color:var(--muted);font-size:12px;margin-top:5px}.context-workspace>.icon{width:18px;height:18px;color:var(--muted)}.context-section-label{font-size:13px;font-weight:650;color:var(--muted);margin-top:26px}.account-identity{display:flex;gap:14px;align-items:center;margin:20px 0}.account-identity h2{font-size:23px}.account-identity p{font-size:13px;color:var(--muted)}
+/* Money has separate visual and business lanes. */
+.billing-summary{padding:22px 0 20px;border-bottom:1px solid var(--line)}.billing-summary .bill-period{font-size:14px;color:var(--muted)}.billing-summary .bill-total{display:flex;align-items:baseline;gap:7px;margin:9px 0 10px;font-variant-numeric:tabular-nums}.billing-summary .bill-total b{font-size:33px;line-height:1.15;font-weight:750;letter-spacing:-.025em}.billing-summary .bill-total span{font-size:14px;color:var(--muted)}.bill-deadline{display:flex;gap:12px;justify-content:space-between;margin-top:13px;font-size:13px;color:var(--muted)}.charge-row{display:grid;grid-template-columns:1fr auto;gap:5px 16px;padding:15px 0;border-bottom:1px solid var(--line);font-size:14px}.charge-row b{font-variant-numeric:tabular-nums;font-weight:650;white-space:nowrap}.charge-row small{font-size:12px;color:var(--muted);grid-column:1}.charge-row.total{border-top:1px solid var(--ink);border-bottom:0;margin-top:8px;font-weight:700}.payment-status{padding:18px 16px;background:var(--selected);border-radius:12px;margin:16px 0}.payment-status.warning{background:var(--warning-soft)}.payment-status .payment-money{font-size:27px;font-weight:700;font-variant-numeric:tabular-nums;margin:8px 0}.payment-status p{font-size:12px;color:var(--muted)}.payment-record{display:block;background:transparent;width:100%;text-align:left;padding:17px 0;border-bottom:1px solid var(--line)}.payment-record>div{display:flex;justify-content:space-between;gap:14px;align-items:center}.payment-record b{font-size:16px;font-variant-numeric:tabular-nums}.payment-record p{font-size:12px;color:var(--muted);margin-top:6px}.deposit-summary{background:var(--surface);padding:20px 16px;border-radius:12px;margin:16px 0}.deposit-summary>h2{font-size:15px;color:var(--muted);font-weight:500}.deposit-summary>.held-amount{font-size:30px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:8px 0}.deposit-summary>.state-label{margin-bottom:12px}.deposit-fulfillment{display:flex;gap:4px;margin-top:15px}.deposit-fulfillment span{height:5px;flex:1;border-radius:2px;background:var(--selected)}.deposit-fulfillment span.funded{background:var(--primary)}.finance-lane{padding:18px 0;border-bottom:1px solid var(--line)}.finance-lane header{display:flex;align-items:center;justify-content:space-between;gap:12px}.finance-lane h2{font-size:15px}.finance-lane .lane-total{font-size:27px;font-weight:750;font-variant-numeric:tabular-nums;margin:6px 0}.finance-lane p{font-size:12px;color:var(--muted)}.finance-lane .button{margin-top:12px}.receipt-sheet{background:var(--paper);border:1px dashed var(--line);border-radius:2px;margin:20px 0;padding:24px 18px}.receipt-sheet header{text-align:center;border-bottom:1px dashed var(--line);padding-bottom:20px}.receipt-sheet h2{font-size:23px;font-weight:700;letter-spacing:-.02em}.receipt-sheet header p{font-size:12px;color:var(--muted);margin-top:7px}.receipt-sheet .receipt-amount{font-size:28px;text-align:center;font-weight:750;margin:22px 0 10px;font-variant-numeric:tabular-nums}.receipt-sheet .receipt-confirmation{text-align:center;margin-bottom:17px}.receipt-sheet footer{border-top:1px dashed var(--line);padding-top:16px;font-size:12px;color:var(--muted);margin-top:16px;text-align:center}.incident-summary{padding:16px 0 20px;border-bottom:1px solid var(--line)}.incident-summary h2{font-size:27px;line-height:1.18;letter-spacing:-.02em;margin:12px 0}.incident-summary p{font-size:13px;color:var(--muted)}.incident-current{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:16px}.incident-current small{color:var(--muted);font-size:12px}.incident-timeline{margin:20px 0}.incident-timeline .history-event .history-spine:before{background:var(--primary)}.incident-note{padding:14px 0;color:var(--muted);font-size:13px;line-height:1.65}.attachment-placeholder{height:110px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:13px;margin:14px 0}
+/* Pre-shell, scope, and recoverable states. */
+.session-screen{min-height:750px;display:flex;flex-direction:column;padding:64px 30px 26px}.session-brand{display:flex;gap:14px;align-items:center;margin-top:72px}.session-brand h1{font-size:36px;letter-spacing:-.03em}.session-screen h2{font-size:22px;margin:38px 0 12px}.session-screen p{font-size:14px;line-height:1.6;color:var(--muted)}.session-screen .session-process{display:grid;gap:18px;margin:30px 0}.session-step{display:flex;gap:12px;font-size:13px;align-items:center}.session-step .icon{width:18px;height:18px;color:var(--primary)}.session-step .progress-dot{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--primary);border-radius:50%}.session-screen .session-fallback{margin-top:auto;padding-top:36px}.loading-skeleton{display:grid;gap:12px;margin:20px 0}.loading-skeleton span{height:12px;background:var(--surface);border-radius:4px;width:80%}.loading-skeleton span:first-child{width:100%;height:18px}.loading-skeleton span:last-child{width:56%}.empty-state{padding:40px 8px;text-align:left;min-height:260px}.empty-state>.icon{width:40px;height:40px;color:var(--clay);margin-bottom:20px}.empty-state h2{font-size:23px;line-height:1.2;margin-bottom:12px;letter-spacing:-.02em}.empty-state p{color:var(--muted);font-size:14px;line-height:1.6}.empty-state .button{margin-top:22px}.prototype-state-tabs{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap}.prototype-state-tabs button{min-height:48px;padding:8px 10px;background:var(--surface);border-radius:6px;color:var(--muted);font-size:12px}.prototype-state-tabs button[aria-pressed=true]{background:var(--selected);color:var(--primary)}.snackbar{position:absolute;z-index:7;bottom:32px;left:14px;right:14px;padding:15px;background:var(--ink);color:var(--paper);border-radius:8px;font-size:13px;display:none}.snackbar.visible{display:block}.app-sheet{position:absolute;inset:0;z-index:6;background:#242d2a70;display:flex;align-items:end}.app-sheet section{width:100%;padding:20px;background:var(--paper);border-radius:20px 20px 0 0;max-height:85%;overflow:auto}.app-sheet h2{font-size:22px;margin-bottom:12px}.app-sheet p{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px}.app-sheet .sheet-handle{width:40px;height:4px;background:var(--line);border-radius:4px;margin:0 auto 20px}
+[data-theme=dark]{color-scheme:dark;--canvas:#171d1a;--paper:#202823;--surface:#2c352e;--ink:#ecede5;--muted:#bbc5bc;--line:#4b594e;--primary:#a9d0b4;--on-primary:#163827;--selected:#314c3a;--clay:#efb18e;--clay-soft:#503d31;--warning:#f3cc85;--warning-soft:#423822;--error:#ffb6a8;--error-soft:#4a302c;--success:#b0d8b8;--water:#344c4c;--media:#594a3b}.room-media.cool{background:var(--selected)}[data-theme=dark] .room-media .media-caption,[data-theme=dark] .room-media .photo-count{background:#30281f;color:#efdbc7}[data-theme=dark] .room-media svg.plan{stroke:#d1ac88}[data-theme=dark] .room-media.cool svg.plan{stroke:#a8c1ac}.button.destructive{color:var(--paper)}
+@media(max-width:1200px){.atlas-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.viewer-body{grid-template-columns:minmax(445px,1fr) minmax(300px,440px)}.scope-counts{gap:14px}}
+@media(max-width:900px){.atlas-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet{padding:24px 20px}.viewer-body{grid-template-columns:1fr}.documentation{border-left:0;border-top:1px solid var(--line);padding:28px;max-width:600px;width:100%;margin:auto}.workspace-columns{gap:18px}.page-intro{align-items:start;flex-direction:column}.atlas-toolbar{grid-template-columns:1fr}.viewer-head small{display:none}.workbench-head{padding:12px 20px}}
+@media(max-width:600px){.workbench-head{flex-wrap:wrap;padding:12px 16px;gap:12px}.brand-lockup p{display:none}.brand-lockup h1{font-size:18px}.workbench-tabs button{padding:0 12px}.workbench-tools{width:100%;justify-content:space-between}.workbench-tabs{order:2}.sheet{padding:24px 16px}.page-intro h2{font-size:26px}.architecture-board{padding:18px}.workspace-columns{grid-template-columns:1fr}.workspace-column{margin-top:14px}.scope-counts{gap:24px}.atlas-grid{grid-template-columns:1fr}.preview-window{height:425px}.preview-window .android-device{transform:translateX(-50%) scale(.49)}.atlas-card{display:block}.atlas-card header{min-height:55px}.atlas-caption{min-height:0}.viewer-head{padding:8px 12px;gap:8px}.viewer-head h2{font-size:13px}.viewer-close{padding:8px;min-width:48px}.viewer-close span{display:none}.device-stage{padding:16px 0}.android-device{width:min(406px,100vw);height:min(864px,214vw);border-radius:20px;padding:6px}.android-screen{border-radius:14px}.screen-body{padding-inline:18px}.app-bar{padding-left:18px}.navigation-bar button{font-size:11px}.documentation{padding:28px 20px}.viewer-body{display:block}.session-screen{min-height:min(750px,186vw);padding-top:30px}.session-brand{margin-top:40px}.room-hero{gap:12px}.room-number{min-width:84px}.billing-summary .bill-total b{font-size:31px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+</style>
+</head>
+<body>
+<header class="workbench-head">
+ <div class="brand-lockup"><div class="brand-symbol" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M5 21V3h14v18M9 21V5l8 2v14M13 13h.01M3 21h18"/></svg></div><div><h1>TrọƠi</h1><p>Android · Product Universe</p></div></div>
+ <div class="workbench-tools"><nav class="workbench-tabs" aria-label="Công cụ thiết kế"><button data-workbench="master" aria-selected="true">Master Map</button><button data-workbench="atlas" aria-selected="false">Screen Atlas</button></nav><button class="theme-toggle" data-action="switch-theme" aria-label="Đổi giao diện sáng và tối">Sáng / Tối</button></div>
+</header>
+<main class="sheet">
+ <section id="masterMap">
+  <div class="page-intro"><div><h2>Một tài khoản.<br>Nhiều không gian sống.</h2><p>Bản đồ sản phẩm nối ba POV với một vòng đời thuê trọ. Mỗi phòng giữ lịch sử; mỗi thao tác quay về đúng bản ghi nguồn.</p></div><div class="scope-counts" id="scopeCounts"></div></div>
+  <div class="architecture-board"><h3 class="architecture-label">App Entry → Context</h3><div id="entryMap"></div></div>
+  <div class="lifecycle-path" id="lifecyclePath" aria-label="Vòng đời thuê trọ"></div>
+  <div class="scope-note"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 7v6M12 17h.01"/></svg><p>V1 giữ chức năng hiện tại. OPEN giữ policy chưa chốt. FUTURE nằm riêng trong roadmap, ngoài điều hướng ứng dụng. Shared là lớp dùng chung, không phải POV thứ tư.</p></div>
+ </section>
+ <section id="screenAtlas" hidden>
+  <div class="page-intro"><div><h2>Screen Atlas</h2><p>Mỗi bản thu nhỏ được dựng từ cùng renderer với màn hình đầy đủ. Mở một màn để xem thiết kế, trạng thái và các liên kết.</p></div><p id="atlasCount"></p></div>
+  <div class="atlas-toolbar"><input type="search" class="atlas-search" id="atlasQuery" aria-label="Tìm màn hình" placeholder="Tìm màn hình, ngữ cảnh hoặc nguồn dữ liệu…"><div class="atlas-filters" aria-label="Lọc atlas"><button data-filter="ALL" aria-pressed="true">Tất cả</button><button data-filter="V1" aria-pressed="false">V1</button><button data-filter="OPEN" aria-pressed="false">OPEN</button><button data-filter="FUTURE" aria-pressed="false">FUTURE</button><button data-filter="Guest" aria-pressed="false">Guest</button><button data-filter="Tenant" aria-pressed="false">Tenant</button><button data-filter="Landlord" aria-pressed="false">Landlord</button><button data-filter="Shared" aria-pressed="false">Shared</button></div></div><div id="atlasContent"></div>
+ </section>
+</main>
+<section id="viewer" class="screen-viewer" role="dialog" aria-modal="true" aria-labelledby="viewerTitle" aria-hidden="true">
+ <header class="viewer-head"><div><button id="viewerClose" class="viewer-close" aria-label="Đóng màn hình"><svg class="icon" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg><span>Atlas</span></button><div><h2 id="viewerTitle"></h2><small id="viewerSub"></small></div></div><small>Thiết kế Android · Dữ liệu minh họa</small></header>
+ <div class="viewer-body"><div class="device-stage" id="deviceStage"></div><aside class="documentation" id="screenDocumentation"></aside></div>
+</section>
+<script>
+const screens = [
+  {
+    "id": "shared-session",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Foundation",
+    "icon": "spark",
+    "title": "Khởi động & Session",
+    "desc": "Màn pre-shell V1: reacquire Google credential → verified /me → non-secret user-scoped context hints → capability validation → route. Google ID token chỉ trong memory; không có bottom navigation.",
+    "entry": "App launch",
+    "action": "Điều hướng vào app",
+    "data": "Reacquired Google credential + verified /identity-access/me + user-scoped hints",
+    "flow": [
+      "Launch / process restart",
+      "Reacquire credential; keep ID token in memory",
+      "Verify /me; recover non-secret hints for backend user",
+      "Validate tenancy/org capabilities",
+      "Route to allowed context or safe discovery"
+    ],
+    "related": [
+      "shared-auth",
+      "guest-home",
+      "tenant-home",
+      "landlord-dashboard",
+      "shared-context"
+    ]
+  },
+  {
+    "id": "shared-auth",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Identity",
+    "icon": "user",
+    "title": "Đăng nhập / Xác thực",
+    "desc": "Đăng nhập account; business capability không được gắn cứng vào USER.role.",
+    "entry": "Auth gate / Account",
+    "action": "Tiếp tục với Google",
+    "data": "Verified principal",
+    "flow": [
+      "Auth gate",
+      "Google sign-in",
+      "Verify principal",
+      "Refresh capabilities"
+    ],
+    "related": [
+      "shared-session",
+      "shared-context"
+    ]
+  },
+  {
+    "id": "shared-context",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Navigation",
+    "icon": "switch",
+    "title": "Context Switcher",
+    "desc": "Chuyển giữa Khám phá, phòng đang thuê và workspace đang vận hành mà không đổi account.",
+    "entry": "Avatar / Workspace chip",
+    "action": "Chọn không gian",
+    "data": "linkedTenancyIds + operatedOrganizationIds",
+    "flow": [
+      "Open switcher",
+      "Choose context",
+      "Reload navigation",
+      "Open home"
+    ],
+    "related": [
+      "guest-home",
+      "tenant-home",
+      "landlord-dashboard"
+    ]
+  },
+  {
+    "id": "shared-notifications",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Notification",
+    "icon": "bell",
+    "title": "Trung tâm thông báo",
+    "desc": "Danh sách delivery projection, mark read và điều hướng bằng sourceType/sourceId.",
+    "entry": "Bell",
+    "action": "Mở nguồn",
+    "data": "Notification projection",
+    "flow": [
+      "Notification list",
+      "Open detail",
+      "Mark read",
+      "Navigate source"
+    ],
+    "related": [
+      "tenant-notices",
+      "landlord-inquiries",
+      "tenant-incident-detail"
+    ]
+  },
+  {
+    "id": "shared-account",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Account",
+    "icon": "user",
+    "title": "Tài khoản",
+    "desc": "Thông tin account, context hiện có và các điểm vào cài đặt/hỗ trợ.",
+    "entry": "Bottom nav / Avatar",
+    "action": "Quản lý tài khoản",
+    "data": "User profile",
+    "flow": [
+      "Account",
+      "Profile",
+      "Contexts",
+      "Settings"
+    ],
+    "related": [
+      "shared-settings",
+      "shared-context"
+    ]
+  },
+  {
+    "id": "shared-settings",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Account",
+    "icon": "settings",
+    "title": "Cài đặt & Bảo mật",
+    "desc": "Phiên đăng nhập, quyền riêng tư, preference và đăng xuất.",
+    "entry": "Account",
+    "action": "Lưu thay đổi",
+    "data": "Client preferences + account session",
+    "flow": [
+      "Settings",
+      "Security",
+      "Privacy",
+      "Save"
+    ],
+    "related": [
+      "shared-account",
+      "shared-help"
+    ]
+  },
+  {
+    "id": "shared-help",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Support",
+    "icon": "help",
+    "title": "Trợ giúp & Hỗ trợ",
+    "desc": "FAQ, hướng dẫn và đường dẫn hỗ trợ mà không biến support thành business source.",
+    "entry": "Account / Error",
+    "action": "Liên hệ hỗ trợ",
+    "data": "Support content",
+    "flow": [
+      "Help",
+      "Choose topic",
+      "Self-help",
+      "Contact"
+    ],
+    "related": [
+      "shared-account"
+    ]
+  },
+  {
+    "id": "shared-trust-report",
+    "pov": "Shared",
+    "status": "V1",
+    "category": "Trust",
+    "icon": "shield",
+    "title": "Trust Report",
+    "desc": "Authenticated V1 submission cho Listing công khai; reporter identity do server derive. Domain target chỉ Listing hoặc Review, không có Property. Review entry và report listing/moderation vẫn gated.",
+    "entry": "Published Listing / authenticated principal",
+    "action": "Gửi báo cáo",
+    "data": "Listing Trust Report + server-derived reporter",
+    "flow": [
+      "Select published Listing",
+      "Require verified identity",
+      "Choose reason and safe note",
+      "Submit; server derives reporter",
+      "Show submission outcome; no automatic removal"
+    ],
+    "related": [
+      "guest-listing-detail",
+      "tenant-review",
+      "landlord-review-response"
+    ]
+  },
+  {
+    "id": "guest-home",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Home",
+    "icon": "home",
+    "title": "Trang chủ tìm trọ",
+    "desc": "Home của POV Tìm trọ sau khi Session route vào Guest context: bắt đầu tìm kiếm, mở bản đồ, xem phòng gợi ý và theo dõi hoạt động liên hệ.",
+    "entry": "Khởi động & Session → Guest context",
+    "action": "Bắt đầu tìm phòng",
+    "data": "Published Listing projection + public discovery read models",
+    "flow": [
+      "Guest Home",
+      "Search / Map",
+      "Open Listing",
+      "Inquiry / Activity"
+    ],
+    "related": [
+      "guest-search",
+      "guest-map",
+      "guest-results",
+      "guest-listing-detail",
+      "guest-inquiry-activity"
+    ]
+  },
+  {
+    "id": "guest-search",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Discovery",
+    "icon": "filter",
+    "title": "Tìm kiếm & Bộ lọc",
+    "desc": "Tìm theo vị trí công khai/radius và khoảng giá; không dùng operational address.",
+    "entry": "Guest Home",
+    "action": "Áp dụng bộ lọc",
+    "data": "Public Listing search",
+    "flow": [
+      "Enter query",
+      "Set radius",
+      "Set price",
+      "Results"
+    ],
+    "related": [
+      "guest-results",
+      "guest-map"
+    ]
+  },
+  {
+    "id": "guest-map",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Discovery",
+    "icon": "map",
+    "title": "Bản đồ",
+    "desc": "Hiển thị Listing PUBLISHED bằng public location projection và khoảng cách.",
+    "entry": "Guest Home / Search",
+    "action": "Xem phòng trên bản đồ",
+    "data": "publicLocationProjection",
+    "flow": [
+      "Map",
+      "Move viewport",
+      "Select marker",
+      "Open listing"
+    ],
+    "related": [
+      "guest-search",
+      "guest-listing-detail"
+    ]
+  },
+  {
+    "id": "guest-results",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Discovery",
+    "icon": "grid",
+    "title": "Kết quả tìm trọ",
+    "desc": "Danh sách listing công khai, giá, khoảng cách và trust signals.",
+    "entry": "Search",
+    "action": "Mở tin đăng",
+    "data": "Published Listing projection",
+    "flow": [
+      "Results",
+      "Sort/view",
+      "Select",
+      "Detail"
+    ],
+    "related": [
+      "guest-listing-detail",
+      "guest-map"
+    ]
+  },
+  {
+    "id": "guest-listing-detail",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Listing",
+    "icon": "home",
+    "title": "Chi tiết phòng",
+    "desc": "Thông tin public của Listing, giá, mô tả, ảnh, vị trí công khai và CTA Inquiry.",
+    "entry": "Results / Map",
+    "action": "Quan tâm phòng này",
+    "data": "Listing public projection",
+    "flow": [
+      "Listing detail",
+      "Review public facts",
+      "Trust signals",
+      "Create inquiry"
+    ],
+    "related": [
+      "guest-inquiry-compose",
+      "shared-trust-report"
+    ]
+  },
+  {
+    "id": "guest-inquiry-compose",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Inquiry",
+    "icon": "message",
+    "title": "Gửi yêu cầu liên hệ",
+    "desc": "Bridge Discovery → rental relationship; không phải booking/reservation.",
+    "entry": "Listing Detail",
+    "action": "Gửi yêu cầu",
+    "data": "Inquiry",
+    "flow": [
+      "Choose intent",
+      "Write note",
+      "Auth if needed",
+      "Submit"
+    ],
+    "related": [
+      "guest-inquiry-activity",
+      "landlord-inquiries"
+    ]
+  },
+  {
+    "id": "guest-inquiry-activity",
+    "pov": "Guest",
+    "status": "V1",
+    "category": "Inquiry",
+    "icon": "clock",
+    "title": "Hoạt động liên hệ",
+    "desc": "Theo dõi các Inquiry đã gửi và phản hồi ở mức V1 contact workflow.",
+    "entry": "Activity",
+    "action": "Xem yêu cầu",
+    "data": "Inquiry history",
+    "flow": [
+      "Inquiry list",
+      "Open inquiry",
+      "See status",
+      "Continue contact"
+    ],
+    "related": [
+      "guest-inquiry-compose",
+      "landlord-inquiry-detail"
+    ]
+  },
+  {
+    "id": "guest-area-label",
+    "pov": "Guest",
+    "status": "OPEN",
+    "category": "Discovery",
+    "icon": "pin",
+    "title": "Nhãn khu vực công khai",
+    "desc": "Textual area/geocoder chưa có authority cố định. UI chỉ placeholder/neutral copy cho tới khi policy/provider được freeze.",
+    "entry": "Search / Listing",
+    "action": "Chưa khả dụng",
+    "data": "OPEN: textual area/geocoder",
+    "flow": [
+      "Coordinate exists",
+      "Policy open",
+      "Do not invent district",
+      "Future resolver"
+    ],
+    "related": [
+      "guest-search",
+      "guest-map"
+    ]
+  },
+  {
+    "id": "guest-availability",
+    "pov": "Guest",
+    "status": "OPEN",
+    "category": "Discovery",
+    "icon": "calendar",
+    "title": "Availability Filter",
+    "desc": "Không tạo independent AVAILABLE/UNAVAILABLE/date semantics khi canonical chưa freeze vocabulary.",
+    "entry": "Search filters",
+    "action": "Đang chờ policy",
+    "data": "OPEN availability semantics",
+    "flow": [
+      "Published implies VACANT",
+      "Independent availability open",
+      "No local enum"
+    ],
+    "related": [
+      "guest-search"
+    ]
+  },
+  {
+    "id": "guest-type-filter",
+    "pov": "Guest",
+    "status": "OPEN",
+    "category": "Discovery",
+    "icon": "tag",
+    "title": "Loại phòng / Loại property",
+    "desc": "Owner và vocabulary của room/property type còn OPEN; chỉ giữ shell UI.",
+    "entry": "Search filters",
+    "action": "Đang chờ policy",
+    "data": "OPEN type vocabulary",
+    "flow": [
+      "UI shell",
+      "Await vocabulary",
+      "Map authority",
+      "Enable filter"
+    ],
+    "related": [
+      "guest-search"
+    ]
+  },
+  {
+    "id": "tenant-home",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Home",
+    "icon": "home",
+    "title": "Nhà của tôi",
+    "desc": "Tổng quan rental hiện tại: tenancy state, khoản cần xử lý, deposit và incident.",
+    "entry": "Tenant context",
+    "action": "Xem rental",
+    "data": "Tenancy + read models",
+    "flow": [
+      "Tenant Home",
+      "Current rental",
+      "Priority actions",
+      "Drill down"
+    ],
+    "related": [
+      "tenant-rental",
+      "tenant-billing",
+      "tenant-incidents"
+    ]
+  },
+  {
+    "id": "tenant-rental",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Rental",
+    "icon": "key",
+    "title": "Tổng quan hợp thuê",
+    "desc": "Tenancy, room, property projection và participant hiện tại.",
+    "entry": "Tenant Home",
+    "action": "Xem chi tiết",
+    "data": "Tenancy",
+    "flow": [
+      "Overview",
+      "Terms",
+      "Finance",
+      "Operations"
+    ],
+    "related": [
+      "tenant-terms",
+      "tenant-participants",
+      "tenant-history"
+    ]
+  },
+  {
+    "id": "tenant-participants",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Rental",
+    "icon": "users",
+    "title": "Người cùng thuê",
+    "desc": "Hiển thị participant relationship, PRIMARY/OCCUPANT theo tenancy.",
+    "entry": "Rental Overview",
+    "action": "Xem participant",
+    "data": "TenancyParticipant",
+    "flow": [
+      "Participants",
+      "View relationship",
+      "Linked user if any"
+    ],
+    "related": [
+      "tenant-rental"
+    ]
+  },
+  {
+    "id": "tenant-terms",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Terms",
+    "icon": "doc",
+    "title": "Điều khoản thuê",
+    "desc": "Xem Terms version hiện tại và lịch sử version; structured object chưa được tự giải nghĩa quá authority.",
+    "entry": "Rental Overview",
+    "action": "Xem điều khoản",
+    "data": "TenancyTerms versions",
+    "flow": [
+      "Current terms",
+      "Version history",
+      "Acknowledge"
+    ],
+    "related": [
+      "tenant-terms-ack"
+    ]
+  },
+  {
+    "id": "tenant-terms-ack",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Terms",
+    "icon": "check",
+    "title": "Xác nhận điều khoản",
+    "desc": "Participant xác nhận version Terms; user identity do server derive.",
+    "entry": "Terms",
+    "action": "Xác nhận",
+    "data": "Terms acknowledgement",
+    "flow": [
+      "Open version",
+      "Read",
+      "Acknowledge",
+      "Persist evidence"
+    ],
+    "related": [
+      "tenant-terms"
+    ]
+  },
+  {
+    "id": "tenant-deposit",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "wallet",
+    "title": "Tiền cọc",
+    "desc": "Server projection của requirement, funded, held, settled và derived state.",
+    "entry": "Tenant Home / Finance",
+    "action": "Xem lịch sử cọc",
+    "data": "Deposit projection + events",
+    "flow": [
+      "Requirement",
+      "Funding",
+      "Held",
+      "Settlement"
+    ],
+    "related": [
+      "tenant-payment",
+      "tenant-history"
+    ]
+  },
+  {
+    "id": "tenant-billing",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "bill",
+    "title": "Kỳ thanh toán",
+    "desc": "BillingCycle và Charges RENT/ELECTRICITY/WATER — obligation, không phải Payment.",
+    "entry": "Tenant Home / Finance",
+    "action": "Xem kỳ",
+    "data": "BillingCycle + Charge",
+    "flow": [
+      "Billing list",
+      "Open cycle",
+      "Charges",
+      "Payment path"
+    ],
+    "related": [
+      "tenant-charge",
+      "tenant-payment"
+    ]
+  },
+  {
+    "id": "tenant-charge",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "receipt",
+    "title": "Chi tiết khoản phải trả",
+    "desc": "Chi tiết Charge trong một Billing Cycle và số liệu source-backed.",
+    "entry": "Billing Cycle",
+    "action": "Xem thanh toán",
+    "data": "Charge",
+    "flow": [
+      "Charge",
+      "Context",
+      "Choose payment/claim",
+      "History"
+    ],
+    "related": [
+      "tenant-payment",
+      "tenant-payment-claim"
+    ]
+  },
+  {
+    "id": "tenant-payment",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "card",
+    "title": "Lịch sử thanh toán",
+    "desc": "Danh sách Payment thực nhận/confirmed theo Tenancy; tách Receipt và Allocation.",
+    "entry": "Finance",
+    "action": "Xem giao dịch",
+    "data": "Payment",
+    "flow": [
+      "Payments",
+      "Payment detail",
+      "Allocation",
+      "Receipt"
+    ],
+    "related": [
+      "tenant-receipt",
+      "tenant-payment-claim"
+    ]
+  },
+  {
+    "id": "tenant-payment-claim",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "upload",
+    "title": "Gửi bằng chứng thanh toán",
+    "desc": "Payment Claim cho thanh toán ngoài hệ thống; claim không đồng nghĩa Payment confirmed.",
+    "entry": "Charge / Finance",
+    "action": "Gửi bằng chứng",
+    "data": "PaymentClaim",
+    "flow": [
+      "Select charge/context",
+      "Evidence",
+      "Submit claim",
+      "Await verification"
+    ],
+    "related": [
+      "tenant-payment",
+      "landlord-payment-claims"
+    ]
+  },
+  {
+    "id": "tenant-receipt",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "receipt",
+    "title": "Biên nhận",
+    "desc": "Receipt chỉ sinh từ confirmed Payment; void/reissue không phá lịch sử.",
+    "entry": "Payment detail",
+    "action": "Xem biên nhận",
+    "data": "Receipt history",
+    "flow": [
+      "Confirmed payment",
+      "Issued receipt",
+      "View/share",
+      "History"
+    ],
+    "related": [
+      "tenant-payment"
+    ]
+  },
+  {
+    "id": "tenant-incidents",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Incident",
+    "icon": "tool",
+    "title": "Sự cố",
+    "desc": "Danh sách Incident của Room và trạng thái vận hành hiện tại.",
+    "entry": "Bottom nav / Home",
+    "action": "Báo sự cố",
+    "data": "Incident",
+    "flow": [
+      "Incident list",
+      "Create",
+      "Track",
+      "Close"
+    ],
+    "related": [
+      "tenant-incident-create",
+      "tenant-incident-detail"
+    ]
+  },
+  {
+    "id": "tenant-incident-create",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Incident",
+    "icon": "plus",
+    "title": "Báo sự cố mới",
+    "desc": "Category, mô tả, evidence và room context; submit tạo REPORTED.",
+    "entry": "Incident list",
+    "action": "Gửi báo cáo",
+    "data": "Incident command",
+    "flow": [
+      "Choose category",
+      "Describe",
+      "Attach evidence",
+      "Submit"
+    ],
+    "related": [
+      "tenant-incident-detail",
+      "landlord-incidents"
+    ]
+  },
+  {
+    "id": "tenant-incident-detail",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Incident",
+    "icon": "timeline",
+    "title": "Chi tiết & Timeline sự cố",
+    "desc": "Current Incident + append-only IncidentEvent timeline từ backend.",
+    "entry": "Incident list",
+    "action": "Theo dõi cập nhật",
+    "data": "Incident + IncidentEvent",
+    "flow": [
+      "REPORTED",
+      "ACKNOWLEDGED",
+      "IN_PROGRESS",
+      "RESOLVED",
+      "CLOSED"
+    ],
+    "related": [
+      "landlord-incident-detail"
+    ]
+  },
+  {
+    "id": "tenant-notices",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Notice",
+    "icon": "bell",
+    "title": "Thông báo thuê / Notice",
+    "desc": "Notice thuộc Tenancy và acknowledgement; khác Notification delivery projection.",
+    "entry": "Rental / Notification source",
+    "action": "Xác nhận đã đọc",
+    "data": "TenancyNotice",
+    "flow": [
+      "Notice issued",
+      "Tenant opens",
+      "Acknowledge",
+      "History"
+    ],
+    "related": [
+      "tenant-moveout",
+      "landlord-notices"
+    ]
+  },
+  {
+    "id": "tenant-moveout",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Lifecycle",
+    "icon": "exit",
+    "title": "Trả phòng / Move-out",
+    "desc": "Tenant request/indicate move-out nhưng không tự xác nhận Room đã vacant.",
+    "entry": "Rental Overview",
+    "action": "Bắt đầu trả phòng",
+    "data": "Notice + Tenancy lifecycle",
+    "flow": [
+      "Request/Notice",
+      "ACTIVE→ENDING",
+      "Preparation",
+      "Operator checkout",
+      "ENDED"
+    ],
+    "related": [
+      "tenant-history",
+      "landlord-checkout"
+    ]
+  },
+  {
+    "id": "tenant-history",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "History",
+    "icon": "history",
+    "title": "Lịch sử thuê",
+    "desc": "Read model cho current/former tenant: terms, payment, receipts, notices, incidents, deposit.",
+    "entry": "Rental / Former rental",
+    "action": "Xem lịch sử",
+    "data": "Rental history projection",
+    "flow": [
+      "Tenancy",
+      "Terms",
+      "Finance",
+      "Incidents",
+      "Deposit"
+    ],
+    "related": [
+      "tenant-review"
+    ]
+  },
+  {
+    "id": "tenant-review",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Trust",
+    "icon": "star",
+    "title": "Đánh giá trải nghiệm thuê",
+    "desc": "Verified review dựa trên rental history; target là Property/Rental Experience, không phải public personal landlord rating.",
+    "entry": "Ended rental",
+    "action": "Viết đánh giá",
+    "data": "Verified Review",
+    "flow": [
+      "Eligibility",
+      "Compose",
+      "Submit",
+      "Moderation/response"
+    ],
+    "related": [
+      "landlord-review-response",
+      "shared-trust-report"
+    ]
+  },
+  {
+    "id": "tenant-terms-schema",
+    "pov": "Tenant",
+    "status": "OPEN",
+    "category": "Terms",
+    "icon": "code",
+    "title": "Chi tiết cấu trúc Terms",
+    "desc": "billingDayOrDueDateRule/electricityArrangement/waterArrangement/minimalRentalConditions chưa có inner schema freeze.",
+    "entry": "Terms",
+    "action": "Chờ policy/schema",
+    "data": "OPEN nested Terms schema",
+    "flow": [
+      "Opaque structured fact",
+      "Await schema",
+      "Design details later"
+    ],
+    "related": [
+      "tenant-terms",
+      "landlord-terms-editor"
+    ]
+  },
+  {
+    "id": "tenant-momo",
+    "pov": "Tenant",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "phone",
+    "title": "MoMo · Thanh toán tùy chọn",
+    "desc": "Optional MoMo V1: checkout intent khác Payment. Signed create response chỉ mở handoff; redirect không xác nhận tiền. Chỉ verified payment-success IPN tạo GATEWAY / PROVIDER_VERIFIED Payment.",
+    "entry": "Charge / Payment",
+    "action": "Mở MoMo",
+    "data": "GatewayCheckout + server-authoritative Payment",
+    "flow": [
+      "Create durable checkout with Idempotency-Key",
+      "Verify signed create response; launch allowed payUrl",
+      "Return / reacquire identity; read checkout from backend",
+      "Wait for verified payment-success IPN",
+      "Show confirmed Payment; allocation, Deposit and Receipt remain explicit"
+    ],
+    "related": [
+      "tenant-billing",
+      "tenant-payment",
+      "tenant-payment-claim",
+      "future-payment-gateway"
+    ]
+  },
+  {
+    "id": "landlord-dashboard",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Dashboard",
+    "icon": "dashboard",
+    "title": "Tổng quan vận hành",
+    "desc": "Organization read model: roomsByState, active tenancy, open incident và nullable finance aggregates.",
+    "entry": "Landlord context",
+    "action": "Xem việc cần xử lý",
+    "data": "Dashboard projection",
+    "flow": [
+      "Dashboard",
+      "KPI",
+      "Attention queue",
+      "Open source domain"
+    ],
+    "related": [
+      "landlord-rooms",
+      "landlord-incidents",
+      "landlord-finance-home"
+    ]
+  },
+  {
+    "id": "landlord-organizations",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Workspace",
+    "icon": "building",
+    "title": "Workspace / Organization",
+    "desc": "Danh sách organization được vận hành và chọn workspace hiện tại.",
+    "entry": "Context switcher",
+    "action": "Mở workspace",
+    "data": "Organization",
+    "flow": [
+      "Organizations",
+      "Select",
+      "Dashboard"
+    ],
+    "related": [
+      "landlord-properties",
+      "shared-context"
+    ]
+  },
+  {
+    "id": "landlord-property-create",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Property",
+    "icon": "plus",
+    "title": "Tạo khu trọ",
+    "desc": "Tạo Property với operational address/location và public projection tách biệt.",
+    "entry": "Property list",
+    "action": "Tạo khu trọ",
+    "data": "Property",
+    "flow": [
+      "Basic info",
+      "Operational location",
+      "Public projection",
+      "Create"
+    ],
+    "related": [
+      "landlord-properties"
+    ]
+  },
+  {
+    "id": "landlord-properties",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Property",
+    "icon": "building",
+    "title": "Danh sách khu trọ",
+    "desc": "Inventory Property theo Organization với trạng thái active/archive guards.",
+    "entry": "Dashboard / Bottom nav",
+    "action": "Mở khu trọ",
+    "data": "Property",
+    "flow": [
+      "Property list",
+      "Status",
+      "Select",
+      "Detail"
+    ],
+    "related": [
+      "landlord-property-detail",
+      "landlord-property-create"
+    ]
+  },
+  {
+    "id": "landlord-property-detail",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Property",
+    "icon": "building",
+    "title": "Chi tiết khu trọ",
+    "desc": "Property detail, Room inventory và archive guard summary.",
+    "entry": "Property list",
+    "action": "Quản lý phòng",
+    "data": "Property + Rooms",
+    "flow": [
+      "Property detail",
+      "Rooms",
+      "Issues",
+      "Archive guard"
+    ],
+    "related": [
+      "landlord-rooms"
+    ]
+  },
+  {
+    "id": "landlord-rooms",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Room",
+    "icon": "door",
+    "title": "Danh sách phòng",
+    "desc": "Room inventory theo operational state và record lifecycle.",
+    "entry": "Dashboard / Property",
+    "action": "Mở phòng",
+    "data": "Room",
+    "flow": [
+      "Room list",
+      "Filter state",
+      "Select",
+      "Room ledger"
+    ],
+    "related": [
+      "landlord-room-detail"
+    ]
+  },
+  {
+    "id": "landlord-room-detail",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Room",
+    "icon": "ledger",
+    "title": "Sổ vận hành phòng",
+    "desc": "Hub của một Room: Overview, Listing, Rental, Finance, Incident, History.",
+    "entry": "Room inventory",
+    "action": "Mở tác vụ",
+    "data": "Room + related source facts",
+    "flow": [
+      "Room ledger",
+      "Listing",
+      "Rental",
+      "Finance",
+      "Incident",
+      "History"
+    ],
+    "related": [
+      "landlord-listing-editor",
+      "landlord-tenancy-overview",
+      "landlord-room-history"
+    ]
+  },
+  {
+    "id": "landlord-room-state",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Room",
+    "icon": "switch",
+    "title": "Trạng thái vận hành phòng",
+    "desc": "Manual transition chỉ VACANT/MAINTENANCE/INACTIVE; OCCUPIED do Tenancy activation sở hữu.",
+    "entry": "Room ledger",
+    "action": "Đổi trạng thái hợp lệ",
+    "data": "Room operational state",
+    "flow": [
+      "Current state",
+      "Choose legal transition",
+      "Confirm",
+      "Server validates"
+    ],
+    "related": [
+      "landlord-room-detail"
+    ]
+  },
+  {
+    "id": "landlord-listing-editor",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Listing",
+    "icon": "edit",
+    "title": "Soạn tin đăng",
+    "desc": "Create/edit current non-archived Listing của Room; không tạo song song nhiều current Listing.",
+    "entry": "VACANT Room",
+    "action": "Lưu nháp",
+    "data": "Listing DRAFT",
+    "flow": [
+      "Draft",
+      "Content",
+      "Public projection",
+      "Preview",
+      "Publish"
+    ],
+    "related": [
+      "landlord-listing-preview",
+      "landlord-listing-status"
+    ]
+  },
+  {
+    "id": "landlord-listing-preview",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Listing",
+    "icon": "eye",
+    "title": "Xem trước tin đăng",
+    "desc": "Preview đúng public projection trước khi publish.",
+    "entry": "Listing editor",
+    "action": "Đăng tin",
+    "data": "Listing projection",
+    "flow": [
+      "Preview",
+      "Validate",
+      "Publish"
+    ],
+    "related": [
+      "landlord-listing-status",
+      "guest-listing-detail"
+    ]
+  },
+  {
+    "id": "landlord-listing-status",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Listing",
+    "icon": "timeline",
+    "title": "Trạng thái & lịch sử tin đăng",
+    "desc": "DRAFT → PUBLISHED → UNPUBLISHED → ARCHIVED và ListingStatusEvents.",
+    "entry": "Room ledger / Listing",
+    "action": "Publish / Unpublish / Archive",
+    "data": "Listing + ListingStatusEvent",
+    "flow": [
+      "DRAFT",
+      "PUBLISHED",
+      "UNPUBLISHED",
+      "ARCHIVED"
+    ],
+    "related": [
+      "landlord-listing-editor",
+      "landlord-room-history"
+    ]
+  },
+  {
+    "id": "landlord-inquiries",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Inquiry",
+    "icon": "inbox",
+    "title": "Hộp thư người quan tâm",
+    "desc": "Inquiry từ Listing; không giữ chỗ và không phải prerequisite của Tenancy.",
+    "entry": "Dashboard / Listing",
+    "action": "Mở yêu cầu",
+    "data": "Inquiry",
+    "flow": [
+      "Inbox",
+      "Open inquiry",
+      "Respond/contact",
+      "Create tenancy if agreed"
+    ],
+    "related": [
+      "landlord-inquiry-detail",
+      "landlord-tenancy-create"
+    ]
+  },
+  {
+    "id": "landlord-inquiry-detail",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Inquiry",
+    "icon": "message",
+    "title": "Chi tiết Inquiry",
+    "desc": "Intent, note, Listing context và contact action trong giới hạn V1.",
+    "entry": "Inquiry inbox",
+    "action": "Liên hệ",
+    "data": "Inquiry",
+    "flow": [
+      "Inquiry detail",
+      "Review context",
+      "Contact",
+      "Rental decision"
+    ],
+    "related": [
+      "landlord-tenancy-create",
+      "guest-inquiry-activity"
+    ]
+  },
+  {
+    "id": "landlord-tenancy-create",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Tenancy",
+    "icon": "plus",
+    "title": "Tạo hợp thuê",
+    "desc": "Tạo DRAFT Tenancy trực tiếp từ Room hoặc sau Inquiry; không bắt buộc Inquiry trước.",
+    "entry": "Room / Inquiry",
+    "action": "Tạo hợp thuê",
+    "data": "Tenancy DRAFT",
+    "flow": [
+      "Select room",
+      "Create tenancy",
+      "Add PRIMARY",
+      "Terms",
+      "Activate"
+    ],
+    "related": [
+      "landlord-participants",
+      "landlord-terms-editor",
+      "landlord-tenancy-overview"
+    ]
+  },
+  {
+    "id": "landlord-tenancy-overview",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Tenancy",
+    "icon": "key",
+    "title": "Quản lý hợp thuê",
+    "desc": "Lifecycle DRAFT/ACTIVE/ENDING/ENDED/CANCELLED và operational actions hợp lệ.",
+    "entry": "Room ledger",
+    "action": "Quản lý tenancy",
+    "data": "Tenancy",
+    "flow": [
+      "DRAFT",
+      "ACTIVE",
+      "ENDING",
+      "ENDED"
+    ],
+    "related": [
+      "landlord-participants",
+      "landlord-terms-editor",
+      "landlord-checkout"
+    ]
+  },
+  {
+    "id": "landlord-participants",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Tenancy",
+    "icon": "users",
+    "title": "Quản lý người thuê",
+    "desc": "PRIMARY/OCCUPANT participant; participant có thể chưa linked User account.",
+    "entry": "Tenancy",
+    "action": "Thêm participant",
+    "data": "TenancyParticipant",
+    "flow": [
+      "Add participant",
+      "Role in tenancy",
+      "Optional user link",
+      "History"
+    ],
+    "related": [
+      "landlord-tenancy-overview"
+    ]
+  },
+  {
+    "id": "landlord-terms-editor",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Terms",
+    "icon": "doc",
+    "title": "Thiết lập điều khoản",
+    "desc": "Versioned Terms, rent, deposit requirement và opaque structured arrangements.",
+    "entry": "Tenancy",
+    "action": "Tạo version",
+    "data": "TenancyTerms",
+    "flow": [
+      "Terms draft",
+      "Effective boundary",
+      "Save version",
+      "Tenant acknowledgement"
+    ],
+    "related": [
+      "tenant-terms",
+      "tenant-terms-schema"
+    ]
+  },
+  {
+    "id": "landlord-finance-home",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "wallet",
+    "title": "Tài chính",
+    "desc": "Hub tách Billing, Payment, Deposit, Receipt thay vì một paid boolean.",
+    "entry": "Bottom nav / Dashboard",
+    "action": "Mở tài chính",
+    "data": "Finance read models",
+    "flow": [
+      "Finance",
+      "Billing",
+      "Payments",
+      "Deposits",
+      "Receipts"
+    ],
+    "related": [
+      "landlord-billing",
+      "landlord-payments",
+      "landlord-deposits"
+    ]
+  },
+  {
+    "id": "landlord-billing",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "bill",
+    "title": "Lập kỳ & khoản phải thu",
+    "desc": "BillingCycle không overlap và Charge V1 chỉ RENT/ELECTRICITY/WATER.",
+    "entry": "Finance / Tenancy",
+    "action": "Tạo kỳ",
+    "data": "BillingCycle + Charge",
+    "flow": [
+      "Choose tenancy",
+      "Create cycle",
+      "Add charges",
+      "Issue obligation"
+    ],
+    "related": [
+      "landlord-payments"
+    ]
+  },
+  {
+    "id": "landlord-payments",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "card",
+    "title": "Thanh toán đã ghi nhận",
+    "desc": "Payment thuộc đúng một Tenancy; confirmed payment không destructive edit.",
+    "entry": "Finance",
+    "action": "Xem payment",
+    "data": "Payment + Allocation",
+    "flow": [
+      "Payment list",
+      "Confirm/source",
+      "Allocate",
+      "Receipt"
+    ],
+    "related": [
+      "landlord-payment-claims",
+      "landlord-receipts"
+    ]
+  },
+  {
+    "id": "landlord-payment-claims",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "shield",
+    "title": "Xử lý Payment Claim",
+    "desc": "Review evidence của tenant theo policy hiện tại; Claim ≠ Payment.",
+    "entry": "Finance / Notification",
+    "action": "Xem claim",
+    "data": "PaymentClaim",
+    "flow": [
+      "Claim received",
+      "Evidence",
+      "Verify per policy",
+      "Confirmed payment or reject"
+    ],
+    "related": [
+      "tenant-payment-claim",
+      "landlord-payments"
+    ]
+  },
+  {
+    "id": "landlord-receipts",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "receipt",
+    "title": "Biên nhận",
+    "desc": "Receipt từ confirmed Payment; hỗ trợ void/reissue mà giữ history.",
+    "entry": "Payment detail",
+    "action": "Xem / Reissue",
+    "data": "Receipt",
+    "flow": [
+      "Issue",
+      "View",
+      "Void if correction",
+      "Reissue"
+    ],
+    "related": [
+      "tenant-receipt"
+    ]
+  },
+  {
+    "id": "landlord-deposits",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Finance",
+    "icon": "wallet",
+    "title": "Quản lý tiền cọc",
+    "desc": "Requirement từ Terms, inflow qua Payment+Application, settlement qua Deposit events.",
+    "entry": "Finance / Tenancy",
+    "action": "Xem cọc",
+    "data": "Deposit projection + events",
+    "flow": [
+      "EXPECTED",
+      "PARTIALLY_HELD",
+      "HELD",
+      "PENDING_SETTLEMENT",
+      "SETTLED"
+    ],
+    "related": [
+      "tenant-deposit"
+    ]
+  },
+  {
+    "id": "landlord-incidents",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Incident",
+    "icon": "tool",
+    "title": "Bảng sự cố",
+    "desc": "Incident queue theo Room/status, ưu tiên vận hành.",
+    "entry": "Dashboard / Bottom nav",
+    "action": "Xử lý sự cố",
+    "data": "Incident",
+    "flow": [
+      "Open incidents",
+      "Prioritize",
+      "Open detail",
+      "Transition"
+    ],
+    "related": [
+      "landlord-incident-detail"
+    ]
+  },
+  {
+    "id": "landlord-incident-detail",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Incident",
+    "icon": "timeline",
+    "title": "Xử lý sự cố",
+    "desc": "Update Incident lifecycle và append IncidentEvent, không destructive rewrite history.",
+    "entry": "Incident board",
+    "action": "Cập nhật trạng thái",
+    "data": "Incident + IncidentEvent",
+    "flow": [
+      "REPORTED",
+      "ACKNOWLEDGED",
+      "IN_PROGRESS",
+      "RESOLVED",
+      "CLOSED"
+    ],
+    "related": [
+      "tenant-incident-detail"
+    ]
+  },
+  {
+    "id": "landlord-notices",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Notice",
+    "icon": "bell",
+    "title": "Gửi Notice",
+    "desc": "Issue notice thuộc Tenancy; issuedBy do server derive.",
+    "entry": "Tenancy",
+    "action": "Gửi notice",
+    "data": "TenancyNotice",
+    "flow": [
+      "Compose",
+      "Issue",
+      "Tenant receives",
+      "Acknowledgement"
+    ],
+    "related": [
+      "tenant-notices",
+      "landlord-checkout"
+    ]
+  },
+  {
+    "id": "landlord-checkout",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Lifecycle",
+    "icon": "exit",
+    "title": "Checkout / Kết thúc thuê",
+    "desc": "Operator xác nhận ENDING → ENDED; Room mới trở lại VACANT theo lifecycle.",
+    "entry": "Tenancy ENDING",
+    "action": "Xác nhận checkout",
+    "data": "Tenancy lifecycle",
+    "flow": [
+      "ENDING",
+      "Check obligations",
+      "Deposit settlement",
+      "Confirm checkout",
+      "ENDED",
+      "Room VACANT"
+    ],
+    "related": [
+      "tenant-moveout",
+      "landlord-room-history"
+    ]
+  },
+  {
+    "id": "landlord-room-history",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "History",
+    "icon": "history",
+    "title": "Lịch sử vận hành phòng",
+    "desc": "Read model gồm Listing events, Tenancies, Billing, Payments/Receipts, Deposit, Incidents.",
+    "entry": "Room ledger",
+    "action": "Xem lịch sử",
+    "data": "Room operational history projection",
+    "flow": [
+      "Room",
+      "Listings",
+      "Rentals",
+      "Finance",
+      "Incidents"
+    ],
+    "related": [
+      "landlord-room-detail",
+      "tenant-history"
+    ]
+  },
+  {
+    "id": "landlord-review-response",
+    "pov": "Landlord",
+    "status": "V1",
+    "category": "Trust",
+    "icon": "star",
+    "title": "Đánh giá & phản hồi",
+    "desc": "Xem verified review và tối đa một operator response theo policy.",
+    "entry": "Property / Trust",
+    "action": "Phản hồi",
+    "data": "Review + response",
+    "flow": [
+      "Review",
+      "Eligibility/source",
+      "Respond",
+      "Public trust surface"
+    ],
+    "related": [
+      "tenant-review",
+      "shared-trust-report"
+    ]
+  },
+  {
+    "id": "landlord-dashboard-finance",
+    "pov": "Landlord",
+    "status": "OPEN",
+    "category": "Dashboard",
+    "icon": "chart",
+    "title": "Dashboard finance totals",
+    "desc": "Outstanding receivable/confirmed payment total chưa có đủ frozen aggregation semantics; client không tự cộng.",
+    "entry": "Dashboard",
+    "action": "Chờ authority",
+    "data": "OPEN aggregate semantics",
+    "flow": [
+      "Source facts exist",
+      "Aggregate policy open",
+      "Nullable projection"
+    ],
+    "related": [
+      "landlord-dashboard",
+      "landlord-finance-home"
+    ]
+  },
+  {
+    "id": "future-subscription",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Business",
+    "icon": "crown",
+    "title": "Subscription / Pricing / Quota",
+    "desc": "Plan, entitlement, quota gating, renewal và billing SaaS.",
+    "entry": "Account / Landlord",
+    "action": "Nâng cấp",
+    "data": "Future subscription domain",
+    "flow": [
+      "Plans",
+      "Compare",
+      "Checkout",
+      "Entitlements",
+      "Renewal"
+    ],
+    "related": []
+  },
+  {
+    "id": "future-import",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Onboarding",
+    "icon": "upload",
+    "title": "CSV / Excel Import",
+    "desc": "Upload → map columns → preview → validate → import dữ liệu vận hành.",
+    "entry": "Landlord onboarding",
+    "action": "Nhập dữ liệu",
+    "data": "Future import job",
+    "flow": [
+      "Upload",
+      "Map columns",
+      "Preview",
+      "Validate",
+      "Import"
+    ],
+    "related": [
+      "future-ocr"
+    ]
+  },
+  {
+    "id": "future-team",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Workspace",
+    "icon": "users",
+    "title": "Team / Staff Delegation",
+    "desc": "Membership, permission theo property/room và revoke access.",
+    "entry": "Organization settings",
+    "action": "Mời thành viên",
+    "data": "Future membership/delegation",
+    "flow": [
+      "Invite",
+      "Accept",
+      "Assign scope",
+      "Operate",
+      "Revoke"
+    ],
+    "related": []
+  },
+  {
+    "id": "future-assets",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Room",
+    "icon": "box",
+    "title": "Room Asset Inventory",
+    "desc": "Tài sản trong phòng, condition, maintenance history và evidence.",
+    "entry": "Room ledger",
+    "action": "Thêm tài sản",
+    "data": "Future asset domain",
+    "flow": [
+      "Assets",
+      "Add",
+      "Condition",
+      "Maintenance",
+      "History"
+    ],
+    "related": [
+      "future-marketplace"
+    ]
+  },
+  {
+    "id": "future-extra-charges",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Finance",
+    "icon": "plus",
+    "title": "Service / WiFi / Parking / Other Charges",
+    "desc": "Mở rộng charge vocabulary ngoài RENT/ELECTRICITY/WATER.",
+    "entry": "Billing",
+    "action": "Thêm loại phí",
+    "data": "Future charge types",
+    "flow": [
+      "Define catalog",
+      "Attach charge",
+      "Bill",
+      "Report"
+    ],
+    "related": []
+  },
+  {
+    "id": "future-marketplace",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Partner",
+    "icon": "store",
+    "title": "Partner Marketplace",
+    "desc": "Tìm/đề xuất đối tác dịch vụ vận hành phòng trọ theo verified network.",
+    "entry": "Incident / Partner",
+    "action": "Tìm đối tác",
+    "data": "Future partner marketplace",
+    "flow": [
+      "Need service",
+      "Browse partner",
+      "Quote",
+      "Accept",
+      "Dispatch"
+    ],
+    "related": [
+      "future-dispatch"
+    ]
+  },
+  {
+    "id": "future-dispatch",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Partner",
+    "icon": "truck",
+    "title": "Worker Dispatch & Commission",
+    "desc": "Dispatch job, trạng thái thực hiện, completion evidence và commission.",
+    "entry": "Marketplace",
+    "action": "Điều phối",
+    "data": "Future service job",
+    "flow": [
+      "Request",
+      "Assign",
+      "On the way",
+      "Work",
+      "Complete",
+      "Commission"
+    ],
+    "related": [
+      "future-marketplace"
+    ]
+  },
+  {
+    "id": "future-ocr",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "AI",
+    "icon": "scan",
+    "title": "AI / OCR Assistant",
+    "desc": "OCR tạo draft từ tài liệu/biên nhận rồi người dùng review trước khi thành source fact.",
+    "entry": "Import / Finance",
+    "action": "Quét tài liệu",
+    "data": "Future AI extraction draft",
+    "flow": [
+      "Capture",
+      "Extract",
+      "Draft",
+      "Human review",
+      "Confirm"
+    ],
+    "related": [
+      "future-import",
+      "future-ai-insights"
+    ]
+  },
+  {
+    "id": "future-ai-insights",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "AI",
+    "icon": "spark",
+    "title": "Predictive / AI Insights",
+    "desc": "Gợi ý vận hành, anomaly và assistance nhưng không tự thay business authority.",
+    "entry": "Dashboard",
+    "action": "Xem gợi ý",
+    "data": "Future AI projection",
+    "flow": [
+      "Signals",
+      "Model insight",
+      "Explain",
+      "Human action"
+    ],
+    "related": [
+      "future-ocr"
+    ]
+  },
+  {
+    "id": "future-chat",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Communication",
+    "icon": "message",
+    "title": "Realtime Messaging",
+    "desc": "Conversation thread đầy đủ cho Inquiry/Tenancy; không phải V1 requirement.",
+    "entry": "Inquiry / Tenancy",
+    "action": "Nhắn tin",
+    "data": "Future realtime conversation",
+    "flow": [
+      "Thread",
+      "Realtime messages",
+      "Attachments",
+      "Read state"
+    ],
+    "related": []
+  },
+  {
+    "id": "future-saved-search",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Discovery",
+    "icon": "heart",
+    "title": "Saved Search & Advanced Favorites",
+    "desc": "Lưu điều kiện tìm kiếm, favorites nâng cao và notification khi có match.",
+    "entry": "Discovery",
+    "action": "Lưu tìm kiếm",
+    "data": "Future search preference",
+    "flow": [
+      "Search",
+      "Save",
+      "Match",
+      "Notify",
+      "Reopen"
+    ],
+    "related": [
+      "future-ai-matching"
+    ]
+  },
+  {
+    "id": "future-ai-matching",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Discovery",
+    "icon": "spark",
+    "title": "AI Matching",
+    "desc": "Ranking/matching nâng cao trên public listing data và preference đã consent.",
+    "entry": "Discovery",
+    "action": "Gợi ý cho tôi",
+    "data": "Future recommendation",
+    "flow": [
+      "Preferences",
+      "Candidate set",
+      "Rank",
+      "Explain",
+      "Open listing"
+    ],
+    "related": [
+      "future-saved-search"
+    ]
+  },
+  {
+    "id": "future-payment-gateway",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Finance",
+    "icon": "card",
+    "title": "Mở rộng provider / nền tảng thanh toán",
+    "desc": "General provider/platform expansion ngoài optional MoMo V1. Canonical vẫn giữ payment gateway as MVP dependency = FUTURE; manual finance không phụ thuộc provider.",
+    "entry": "Roadmap ngoài optional MoMo V1",
+    "action": "Thanh toán online",
+    "data": "Future provider/platform expansion",
+    "flow": [
+      "Agree provider/platform scope",
+      "Define trusted adapter contract",
+      "Verify provider event",
+      "Confirmed Payment only from trusted success",
+      "Explicit authorized allocation / Receipt"
+    ],
+    "related": [
+      "tenant-momo"
+    ]
+  },
+  {
+    "id": "future-ota",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Discovery",
+    "icon": "calendar",
+    "title": "OTA / Instant Booking",
+    "desc": "Reservation model riêng cho booking; không được dùng Inquiry hiện tại làm booking.",
+    "entry": "Listing",
+    "action": "Đặt chỗ",
+    "data": "Future reservation domain",
+    "flow": [
+      "Availability",
+      "Reserve",
+      "Confirm",
+      "Manage stay"
+    ],
+    "related": [
+      "future-nightly"
+    ]
+  },
+  {
+    "id": "future-nightly",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Pricing",
+    "icon": "calendar",
+    "title": "Nightly Calendar & Dynamic Pricing",
+    "desc": "Calendar theo đêm và dynamic rate — ngoài rental V1 hiện tại.",
+    "entry": "Future booking",
+    "action": "Quản lý lịch",
+    "data": "Future availability/pricing",
+    "flow": [
+      "Calendar",
+      "Inventory",
+      "Rate rules",
+      "Publish"
+    ],
+    "related": [
+      "future-ota",
+      "future-proration"
+    ]
+  },
+  {
+    "id": "future-proration",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Finance",
+    "icon": "calc",
+    "title": "Proration Engine",
+    "desc": "Tính phần kỳ khi Terms thay đổi giữa boundary theo policy tương lai.",
+    "entry": "Terms/Billing",
+    "action": "Tính prorate",
+    "data": "Future proration rules",
+    "flow": [
+      "Terms change",
+      "Detect partial period",
+      "Compute",
+      "Review",
+      "Apply"
+    ],
+    "related": [
+      "future-nightly"
+    ]
+  },
+  {
+    "id": "future-public-ratings",
+    "pov": "Future",
+    "status": "FUTURE",
+    "category": "Trust",
+    "icon": "star",
+    "title": "Public Personal Ratings",
+    "desc": "Public tenant/personal-landlord rating được canonical để FUTURE; không dùng thay Verified Rental Review V1.",
+    "entry": "Trust",
+    "action": "Future",
+    "data": "Future rating domains",
+    "flow": [
+      "Policy",
+      "Eligibility",
+      "Rating",
+      "Moderation",
+      "Public surface"
+    ],
+    "related": [
+      "tenant-review",
+      "landlord-review-response"
+    ]
+  }
+];
+const byId = Object.fromEntries(screens.map(s => [s.id,s]));
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const glyphs = {
+ home:'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',door:'M5 21V3h14v18M9 21V5l8 2v14M13 13h.01M3 21h18',back:'m14 5-7 7 7 7M7 12h14',chevron:'m9 5 7 7-7 7',close:'m6 6 12 12M18 6 6 18',pin:'M12 21s7-7 7-12a7 7 0 1 0-14 0c0 5 7 12 7 12Z M12 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6',map:'m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16M15 5v16',search:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14M15 15l6 6',bell:'M5 17h14l-2-3V9a5 5 0 0 0-10 0v5ZM10 21h4',person:'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21v-2a8 8 0 0 1 16 0v2',people:'M9 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6M2 20v-2a7 7 0 0 1 14 0v2M16 4a3 3 0 0 1 0 6M19 13c2 1 3 3 3 5v2',book:'M4 3h7c2 0 3 1 3 3v15c-1-2-3-2-5-2H4ZM14 6c0-2 1-3 3-3h4v16h-4c-2 0-3 0-3 2',document:'M6 2h8l4 4v16H6ZM14 2v5h4M9 11h6M9 15h6M9 19h4',bill:'M5 3h14v18l-3-2-4 2-4-2-3 2ZM8 7h8M8 11h5M8 15h8',wallet:'M3 6h18v15H3ZM3 6V3h14v3M16 11h5v5h-5ZM17 13h.01',receipt:'M5 2h14v20l-3-2-4 2-4-2-3 2ZM8 6h8M8 10h8M8 14h5',tool:'M14 3a6 6 0 0 0-7 8l-5 6a3 3 0 0 0 4 4l6-5a6 6 0 0 0 8-7l-4 4-4-4Z',history:'M3 12a9 9 0 1 0 2-6M3 3v5h5M12 7v5l3 2',check:'m5 12 4 4 10-10',calendar:'M4 5h16v16H4ZM8 2v6M16 2v6M4 10h16M8 14h.01M12 14h.01M16 14h.01',send:'m3 3 19 9-19 9 4-9ZM7 12h15',grid:'M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7',switch:'M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4',settings:'M10 3h4l1 4 4-1 2 4-3 2 3 2-2 4-4-1-1 4h-4l-1-4-4 1-2-4 3-2-3-2 2-4 4 1ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6',shield:'m12 2 9 4v6c0 6-9 10-9 10S3 18 3 12V6ZM8 12l3 3 5-6',help:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M9 8a3 3 0 0 1 6 0c0 2-3 2-3 5M12 17h.01',photo:'M3 4h18v16H3ZM3 17l5-6 4 4 3-3 6 5M16 7h.01',light:'M12 3v2M12 19v2M3 12h2M19 12h2M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10',target:'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 1v4M12 19v4M1 12h4M19 12h4',plus:'M12 4v16M4 12h16',edit:'m4 16 12-12 4 4L8 20H4ZM13 7l4 4',exit:'M10 3H4v18h6M10 12h11m-5-5 5 5-5 5',building:'M4 21V3h16v18M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3',water:'M12 2s7 9 7 14a7 7 0 0 1-14 0c0-5 7-14 7-14ZM9 16c0 2 1 3 3 3',bolt:'m13 2-9 12h7l-1 8 10-13h-7Z',clock:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6v6l4 2',archive:'M3 3h18v5H3ZM5 8v13h14V8M9 12h6',signal:'M4 19v-3M9 19v-7M14 19V8M19 19V4',battery:'M3 7h17v11H3ZM20 10h2v5M6 10h10v5H6'
+};
+function Icon(name){return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${glyphs[name]||glyphs.document}"/></svg>`}
+function link(label,target,kind='button',ico='',extra=''){return `<button type="button" class="${kind}" data-route="${target}" ${extra}>${ico?Icon(ico):''}${label}</button>`}
+function command(label,action='preview',kind='button',extra=''){return `<button type="button" class="${kind}" data-action="${action}" ${extra}>${label}</button>`}
+function ScopeMark(status){return `<span class="scope-mark ${status.toLowerCase()}">${status}</span>`}
+function State(label,tone=''){return `<span class="state-label ${tone}">${label}</span>`}
+function AppBar(title,context='',nested=true,action='bell'){return `<header class="app-bar">${nested?'<button class="icon-button" type="button" data-back aria-label="Quay lại">'+Icon('back')+'</button>':''}<div class="app-bar-title"><h1>${title}</h1>${context?`<p>${context}</p>`:''}</div>${action?link('',action==='switch'?'shared-context':'shared-notifications','icon-button',action,`aria-label="${action==='switch'?'Chọn không gian':'Thông báo'}"`):''}</header>`}
+function Section(title,body,more='',target=''){return `<section><div class="section-title"><h2>${title}</h2>${more&&target?link(more,target,''):''}</div>${body}</section>`}
+function DataLine(label,value){return `<div class="data-line"><span>${label}</span><b>${value}</b></div>`}
+function Field(label,name,value='',type='text',help='',disabled=false){return `<label class="field"><span>${label}</span>${type==='textarea'?`<textarea name="${name}" ${disabled?'disabled':''}>${value}</textarea>`:`<input name="${name}" type="${type}" value="${value}" ${disabled?'disabled':''}>`}${help?`<small>${help}</small>`:''}</label>`}
+function Select(label,name,options,disabled=false){return `<label class="field"><span>${label}</span><select name="${name}" ${disabled?'disabled':''}>${options.map(v=>`<option>${v}</option>`).join('')}</select></label>`}
+function StatePanel(title,copy,tone=''){return `<div class="state-panel ${tone}"><h3>${title}</h3><p>${copy}</p></div>`}
+function RoomHero(number='203',name='Trọ Cô Lan',stateLabel='Đang có người thuê',tone='success'){return `<section class="room-hero"><div class="room-number"><small>Phòng</small><b>${number}</b></div><div><h2>${name}</h2><p>Green House · Tầng 2</p>${State(stateLabel,tone)}</div></section>`}
+function RentalSummary(){return `<div class="rental-summary"><b>Minh Anh · Người thuê chính</b><small>01/09/2026 – 31/08/2027</small>${State('Đang thuê','success')}</div>`}
+function RoomMedia(cool=false,large=false){return `<div class="room-media ${cool?'cool':''}"><svg class="plan" viewBox="0 0 280 160" role="img" aria-label="Sơ đồ không gian minh họa, không phải mặt bằng thực tế"><path d="M34 20h210v118h-72M142 138H34V20M244 62H187V20M244 96h-57V62M142 138v-28a28 28 0 0 1 28 28M78 20v48h70V20M78 58h70M45 102h56v25H45ZM208 109h24v17h-24Z"/><path d="M39 14h62M39 26h62M132 14h48M132 26h48" stroke-width="4"/><path d="M187 62h20m-20 0a20 20 0 0 0 20-20"/></svg><span class="media-caption">Không gian minh họa · Chưa có ảnh phòng</span>${large?'<span class="photo-count">20 m²</span>':''}</div>`}
+function ListingMediaCard(){return `<button type="button" class="listing-media-card" data-route="guest-listing-detail">${RoomMedia(false,true)}<div class="listing-facts"><h3>Phòng sáng, có cửa sổ</h3><div class="rent">4 triệu <small>/ tháng</small></div></div><p>Phòng 204 · Green House</p><p class="listing-meta">Khu vực công khai · 20 m² · Máy lạnh</p></button>`}
+function ListingCompactRow(){return `<button type="button" class="listing-compact-row" data-route="guest-listing-detail">${RoomMedia(true)}<span><b>Phòng 204 · Green House</b><small>20 m² · Cửa sổ · Máy lạnh</small><strong>4.000.000đ / tháng</strong></span>${Icon('chevron')}</button>`}
+function AttentionItem(title,description,target,ico='bell',amount=''){return `<button type="button" class="attention-item" data-route="${target}"><span class="attention-icon">${Icon(ico)}</span><span><b>${title}</b>${amount?`<span class="attention-amount">${amount}</span>`:''}<small>${description}</small></span>${Icon('chevron')}</button>`}
+function NoticeCard(title,copy,target='tenant-notices'){return `<article class="notice-card"><span class="notice-date">03 tháng 10 · Trọ Cô Lan</span><h3>${title}</h3><p>${copy}</p>${link('Đọc thông báo',target,'button text')}</article>`}
+function BillingSummary(total='4.540.000',label='Tháng 10 · 01/10 – 31/10',stateLabel='Chưa thanh toán đủ'){return `<section class="billing-summary"><p class="bill-period">${label}</p><div class="bill-total"><b>${total}</b><span>đ</span></div>${State(stateLabel,'warning')}<div class="bill-deadline"><span>Hạn thanh toán</span><b>05/10/2026</b></div></section>`}
+function ChargeRow(label,amount,note='',total=false){return `<div class="charge-row ${total?'total':''}"><span>${label}</span><b>${amount}đ</b>${note?`<small>${note}</small>`:''}</div>`}
+function BillLines(){return ChargeRow('Tiền thuê','4.000.000','Điều khoản phiên bản 2')+ChargeRow('Điện','420.000','120 kWh × 3.500đ')+ChargeRow('Nước','120.000','8 m³ × 15.000đ')+ChargeRow('Tổng phải trả','4.540.000','',true)}
+function PaymentStatus(amount='4.540.000',confirmed=true){return `<section class="payment-status ${confirmed?'':'warning'}">${State(confirmed?'Tiền đã được ghi nhận':'Chưa được xác nhận',confirmed?'success':'warning')}<div class="payment-money">${amount}đ</div><p>${confirmed?'Chuyển khoản · Người vận hành ghi nhận':'Thông tin báo đã chuyển chưa tạo thành Payment'}</p></section>`}
+function DepositSummary(){return `<section class="deposit-summary"><h2>Tiền cọc đang giữ</h2><div class="held-amount">4.000.000đ</div>${State('Đã giữ đủ','success')}${DataLine('Yêu cầu theo điều khoản','4.000.000đ')}${DataLine('Đã phân bổ từ tiền nhận','4.000.000đ')}<div class="deposit-fulfillment" aria-label="Cọc đã được ghi nhận đủ"><span class="funded"></span><span class="funded"></span><span class="funded"></span><span class="funded"></span></div></section>`}
+function HistoryEvent(date,title,copy,source='',target=''){return `<article class="history-event"><time>${date}</time><span class="history-spine"></span><div><b>${title}</b><p>${copy}</p>${source?`<span class="event-source">${source}</span>`:''}${target?link('Mở bản ghi',target,''):''}</div></article>`}
+function IncidentTimeline(){return `<section class="incident-timeline">${HistoryEvent('04/10<br>09:20','Đang xử lý','Cô Lan đã bắt đầu kiểm tra máy lạnh.','Sự cố')}${HistoryEvent('04/10<br>08:45','Đã tiếp nhận','Người vận hành đã tiếp nhận sự cố.','Sự cố')}${HistoryEvent('03/10<br>22:16','Minh Anh báo sự cố','Máy lạnh chạy nhưng không mát. Phòng 203.','Sự cố')}</section>`}
+function RoomLedgerSection(title,body,provenance=''){return `<section class="ledger-section"><header><h2>${title}</h2></header>${body}${provenance?`<p class="ledger-provenance">${provenance}</p>`:''}</section>`}
+function ReceiptSheet(){return `<article class="receipt-sheet"><header><h2>Biên nhận</h2><p>Trọ Cô Lan · RC-2026-09203</p></header><div class="receipt-amount">4.540.000đ</div><div class="receipt-confirmation">${State('Đã phát hành','success')}</div>${DataLine('Người nộp','Minh Anh')}${DataLine('Phòng / lượt thuê','203 · 01/09/2026')}${DataLine('Tiền đã nhận','PAY-09203')}${DataLine('Ghi nhận lúc','01/09/2026 · 10:30')}${DataLine('Nguồn tiền','Chuyển khoản')}<footer>Phát hành từ khoản tiền đã được ghi nhận.<br>Trọ Cô Lan · Người vận hành</footer></article>`}
+function EmptyState(title,copy,target='',label='Quay lại',ico='search'){return `<section class="empty-state">${Icon(ico)}<h2>${title}</h2><p>${copy}</p>${target?link(label,target):''}</section>`}
+function ErrorState(){return StatePanel('Chưa tải được thông tin','Kiểm tra kết nối rồi thử lại. Thông tin đã nhập vẫn được giữ.','error')+command('Thử tải lại','retry','button outline')}
+function LoadingSkeleton(){return '<div class="loading-skeleton" role="status" aria-label="Đang tải"><span></span><span></span><span></span></div>'}
+function page(title,context,body,options={}){return AppBar(title,context,options.nested!==false,options.action===undefined?'bell':options.action)+`<div class="screen-body">${body}</div>`+(options.dock?`<div class="action-dock">${options.dock}</div>`:'')}
+const renderers = {
+ 'shared-session':()=>`<section class="session-screen"><div class="session-brand"><div class="brand-symbol">${Icon('door')}</div><h1>TrọƠi</h1></div><h2>Mở lại không gian của bạn</h2><p>Thông tin đăng nhập và quyền truy cập đang được kiểm tra lại.</p>${LoadingSkeleton()}<div class="session-process"><div class="session-step">${Icon('check')}Lấy lại thông tin đăng nhập</div><div class="session-step"><span class="progress-dot"></span>Xác định không gian được truy cập</div></div><div class="session-fallback">${link('Tiếp tục khám phá phòng','guest-home','button secondary')}${link('Đăng nhập lại','shared-auth','button text')}</div></section>`,
+ 'guest-home':()=>page('TrọƠi','Khám phá phòng',`<button class="context-action" data-route="shared-context">${Icon('switch')}Không gian khám phá</button><h2 class="lead-title">Tìm phòng<br>quanh bạn.</h2>${link('<span><b>Bạn muốn ở đâu?</b><small>Chọn vị trí trên bản đồ</small></span>'+Icon('chevron'),'guest-search','location-entry','pin')}${Section('Quanh vị trí đã chọn',ListingMediaCard(),'Xem tất cả','guest-results')}${link('<span><b>Khám phá trên bản đồ</b><small>Vị trí công khai của các tin đăng</small></span>'+Icon('chevron'),'guest-map','map-entry','map')}${Section('Liên hệ gần đây',AttentionItem('Phòng 204 · Green House','Bạn đã gửi lời quan tâm.','guest-inquiry-activity','send'))}`,{nested:false}),
+ 'guest-listing-detail':()=>AppBar('Chi tiết phòng','Green House',true,'')+`<div class="listing-detail-media">${RoomMedia(false,true)}</div><div class="screen-body"><h2 class="listing-detail-title">Phòng 204<br>có cửa sổ</h2><p class="body-copy">Phòng 204 · Khu vực công khai</p><div class="rent-line">4.000.000đ <small>/ tháng</small></div><p class="body-copy">20 m² · Green House</p>${Section('Không gian & tiện nghi',`<div class="amenity-grid"><div>${Icon('home')}20 m²</div><div>${Icon('light')}Cửa sổ</div><div>${Icon('bolt')}Máy lạnh</div><div>${Icon('water')}WC riêng</div></div>`)}${Section('Khu vực',`<p class="body-copy">Bản đồ hiển thị khu vực được công khai. Địa chỉ phòng cụ thể được trao đổi khi liên hệ.</p>${link('Xem khu vực trên bản đồ','guest-map','button outline','map')}`)}${link('Báo thông tin không phù hợp','shared-trust-report','button text','shield')}</div><div class="action-dock">${link('Tôi quan tâm','guest-inquiry-compose','button','send')}<small>Liên hệ với người đăng tin</small></div>`,
+ 'tenant-home':()=>page('Nhà của tôi','Green House',`<button class="context-action" data-route="shared-context">${Icon('switch')}Phòng 203 · Trọ Cô Lan</button>${RoomHero('203','Trọ Cô Lan','Lượt thuê đang hoạt động')}${Section('Hôm nay cần chú ý',BillingSummary()+link('Xem khoản phải trả','tenant-billing','button secondary'))}${AttentionItem('Máy lạnh chưa mát','Đang xử lý · cập nhật lúc 09:20','tenant-incident-detail','tool')}${NoticeCard('Kiểm tra đường nước ngày 06/10','Thời gian dự kiến 09:00–11:00. Bạn có một thông báo mới.')}${Section('Thanh toán gần nhất',`<button class="payment-record" data-route="tenant-payment"><div><b>4.540.000đ</b>${State('Đã ghi nhận','success')}</div><p>01/09 · Chuyển khoản · Kỳ tháng 9</p></button>`)}`,{nested:false}),
+ 'tenant-billing':()=>page('Kỳ thanh toán','Phòng 203 · Tháng 10',BillingSummary()+Section('Các khoản trong kỳ',BillLines())+Section('Thông tin kỳ',DataLine('Thời gian','01/10 – 31/10/2026')+DataLine('Điều khoản áp dụng','Phiên bản 2'))+link('Xem riêng tiền thuê','tenant-charge','button text'),{nested:false,dock:link('Các cách thanh toán','tenant-momo','button','wallet')}),
+ 'tenant-charge':()=>page('Tiền thuê tháng 10','Phòng 203 · Khoản phải trả',BillingSummary('4.000.000','Tiền thuê · Tháng 10')+Section('Chi tiết khoản phải trả',ChargeRow('Tiền thuê','4.000.000','RENT · Kỳ 01/10–31/10')+DataLine('Điều khoản nguồn','Phiên bản 2')+DataLine('Đã phân bổ từ tiền nhận','0đ')+DataLine('Còn phải trả','4.000.000đ')),{dock:link('Các cách thanh toán','tenant-momo','button','wallet')}),
+ 'tenant-payment':()=>page('Tiền đã thanh toán','Phòng 203',PaymentStatus()+DataLine('Ghi nhận lúc','01/09/2026 · 10:30')+DataLine('Người ghi nhận','Cô Lan')+DataLine('Nguồn','Chuyển khoản')+Section('Đã phân bổ',ChargeRow('Tiền thuê tháng 9','4.000.000')+ChargeRow('Điện tháng 9','420.000')+ChargeRow('Nước tháng 9','120.000'))+link('Xem biên nhận','tenant-receipt','button outline','receipt')),
+ 'tenant-incident-detail':()=>page('Chi tiết sự cố','Phòng 203',`<section class="incident-summary"><p>Trọ Cô Lan · Phòng 203</p><h2>Máy lạnh chạy<br>nhưng không mát</h2><p>Minh Anh gửi lúc 22:16 · 03/10</p><div class="incident-current">${State('Đang xử lý','warning')}<small>Cô Lan phụ trách</small></div></section><div class="attachment-placeholder">${Icon('photo')}Ảnh đính kèm sự cố</div>${Section('Diễn biến xử lý',IncidentTimeline())}<p class="incident-note">Sau khi người vận hành báo đã xử lý xong, bạn có thể xem lại và phản hồi.</p>`,{dock:command('Bổ sung thông tin','incident-note','button outline')}),
+ 'landlord-dashboard':()=>page('Trọ Cô Lan','Không gian vận hành',`<button class="context-action" data-route="shared-context">${Icon('switch')}Trọ Cô Lan · 2 khu trọ</button><div class="operator-heading"><div><h2>3 việc cần xử lý</h2><p>Hôm nay · 04 tháng 10</p></div><span class="queue-count">3</span></div>${AttentionItem('Phòng 203 · Tiền tháng 10','Hạn 05/10 · Chưa nhận đủ tiền','landlord-billing','bill','4.540.000đ')}${AttentionItem('Phòng 203 · Máy lạnh không mát','Đang xử lý · cần cập nhật tiến độ','landlord-incident-detail','tool')}${AttentionItem('Phòng 105 · Đang trả phòng','Chờ xác nhận bàn giao','landlord-checkout','exit')}${Section('Phòng đang vận hành',`<div class="room-summary-grid"><div><span>Đang có người thuê</span><b>6</b></div><div><span>Còn trống</span><b>1</b></div><div><span>Bảo trì</span><b>1</b></div><div><span>Ngừng sử dụng</span><b>0</b></div></div>`,'Xem phòng','landlord-rooms')}${Section('Mới nhất',HistoryEvent('04/10','Máy lạnh đang được xử lý','Cô Lan cập nhật sự cố Phòng 203.','Sự cố','landlord-incident-detail'))}`,{nested:false}),
+ 'landlord-room-detail':()=>page('Sổ phòng 203','Trọ Cô Lan',RoomHero()+RentalSummary()+`<nav class="ledger-navigation" aria-label="Các phần trong sổ phòng">${link('Tổng quan','landlord-room-detail','','door','aria-current="page"')}${command(Icon('document')+'Tin đăng','room-listing','')}${link('Lượt thuê','landlord-tenancy-overview','','people')}${link('Tài chính','landlord-billing','','wallet')}${link('Sự cố','landlord-incident-detail','','tool')}${link('Lịch sử','landlord-room-history','','history')}</nav>`+RoomLedgerSection('Lượt thuê hiện tại',DataLine('Người thuê chính','Minh Anh')+DataLine('Tiền thuê theo điều khoản','4.000.000đ / tháng')+DataLine('Điều khoản','Phiên bản 2'),'Nguồn: lượt thuê và điều khoản hiện tại')+RoomLedgerSection('Phòng qua thời gian',HistoryEvent('04/10','Máy lạnh · Đang xử lý','Cô Lan bắt đầu kiểm tra.','Sự cố','landlord-incident-detail')+HistoryEvent('01/10','Mở kỳ tính tiền tháng 10','Tiền thuê, điện và nước theo điều khoản phiên bản 2.','Kỳ tính tiền','landlord-billing')+HistoryEvent('01/09','Minh Anh bắt đầu thuê','Lượt thuê hoạt động. Phòng chuyển sang có người thuê.','Lượt thuê'))+link('Mở lịch sử đầy đủ','landlord-room-history','button outline','history')),
+ 'landlord-finance-home':()=>page('Tài chính','Trọ Cô Lan · Tháng 10',`<section class="finance-lane"><header><h2>Khoản cần thu</h2>${State('Đến hạn','warning')}</header><div class="lane-total">4.540.000đ</div><p>Phòng 203 · Kỳ tháng 10 · Hạn 05/10</p>${link('Xem kỳ & khoản phải thu','landlord-billing','button secondary')}</section><section class="finance-lane"><header><h2>Tiền đã ghi nhận</h2>${State('Đã xác nhận','success')}</header><div class="lane-total">4.540.000đ</div><p>Khoản nhận ngày 01/09 · Người vận hành ghi nhận</p>${link('Xem tiền nhận & phân bổ','landlord-payments','button outline')}</section><section class="finance-lane"><header><h2>Tiền cọc đang giữ</h2>${State('Đã giữ đủ','success')}</header><div class="lane-total">4.000.000đ</div><p>Phòng 203 · Theo điều khoản phiên bản 2</p>${link('Xem sổ tiền cọc','landlord-deposits','button outline')}</section>${Section('Đối chiếu & bằng chứng',AttentionItem('Báo đã chuyển tiền','Chờ quy định về bằng chứng và quyền xác nhận','landlord-payment-claims','clock')+AttentionItem('Biên nhận đã phát hành','Từ khoản tiền đã được ghi nhận','landlord-receipts','receipt'))}`,{nested:false}),
+ 'shared-context':()=>page('Chọn không gian','Minh Anh · Một tài khoản',`<div class="account-identity"><span class="identity-monogram">MA</span><div><h2>Minh Anh</h2><p>minhanh@example.com</p></div></div><p class="body-copy">Bạn muốn mở không gian nào?</p><button class="context-workspace" data-route="guest-home"><span class="identity-monogram">${Icon('search')}</span><span><b>Khám phá</b><small>Tìm phòng đang công khai</small></span>${Icon('chevron')}</button><p class="context-section-label">Nhà của tôi</p><button class="context-workspace" data-route="tenant-home"><span class="identity-monogram">203</span><span><b>Green House · Phòng 203</b><small>Đang thuê · từ 01/09/2026</small></span>${Icon('chevron')}</button><button class="context-workspace" data-route="tenant-history" data-room="105"><span class="identity-monogram">105</span><span><b>Lượt thuê trước đây</b><small>Đã kết thúc · xem lại lịch sử</small></span>${Icon('chevron')}</button><p class="context-section-label">Không gian vận hành</p><button class="context-workspace" data-route="landlord-dashboard"><span class="identity-monogram">${Icon('building')}</span><span><b>Trọ Cô Lan</b><small>2 khu trọ · Không gian được cấp quyền</small></span>${Icon('chevron')}</button>`,{action:''})
+};
+
+function MapSurface(){return `<div class="map-surface" aria-label="Bản đồ khu vực công khai minh họa"><svg viewBox="0 0 350 330" role="img" aria-label="Vị trí công khai của phòng quanh vùng đã chọn"><rect width="350" height="330" fill="#e9eadc"/><path d="M0 90 350 180M85 0 185 330M300 0 230 330M0 275 350 235" stroke="#fffdf8" stroke-width="20"/><path d="M0 45Q160 110 350 30" stroke="#c2d8cf" stroke-width="34" fill="none"/><circle cx="177" cy="174" r="95" fill="#235a46" fill-opacity=".06" stroke="#235a46" stroke-dasharray="4 5"/><circle cx="177" cy="174" r="7" fill="#235a46"/><rect x="205" y="94" width="93" height="36" rx="6" fill="#235a46"/><text x="251" y="117" text-anchor="middle" fill="white" font-size="14">4 triệu / tháng</text><text x="27" y="311" fill="#536458" font-size="12">Bản đồ minh họa · vị trí công khai</text></svg></div>`}
+function TermsContent(){return Section('Chi phí & thời hạn',DataLine('Tiền thuê','4.000.000đ / tháng')+DataLine('Tiền cọc yêu cầu','4.000.000đ')+DataLine('Điện','3.500đ / kWh')+DataLine('Nước','15.000đ / m³')+DataLine('Hạn thanh toán','Ngày 05 mỗi tháng'))+Section('Thời gian áp dụng',DataLine('Có hiệu lực từ','01/09/2026')+DataLine('Phiên bản','2'))}
+function Participants(){return Section('Người thuê chính',`<div class="account-identity"><span class="identity-monogram">MA</span><div><h2>Minh Anh</h2><p>Đã liên kết tài khoản · Đang tham gia</p></div></div>`)+Section('Người cùng ở',DataLine('Tuấn','Chưa liên kết tài khoản')+`<p class="body-copy">Người cùng ở thuộc lượt thuê này. Quyền truy cập ứng dụng chỉ có sau khi liên kết tài khoản hợp lệ.</p>`)}
+function ClaimBody(){return PaymentStatus('4.540.000',false)+StatePanel('Báo đã chuyển — đang chờ quy định','Chưa có quy trình xác nhận được chốt. Không tính số tiền này vào tiền đã nhận.','warning')+DataLine('Lượt thuê','Phòng 203 · Minh Anh')+DataLine('Khoản được báo','Kỳ tháng 10')+Field('Số tiền đã chuyển','claimAmount','4540000','number','Mẫu nhập, chưa gửi để duyệt',true)+Field('Thông tin chuyển tiền','claimNote','Chuyển khoản ngày 04/10','textarea','Chờ chính sách bằng chứng',true)+command('Gửi báo đã chuyển','preview','button','disabled')}
+function HistoryBody(pov='Tenant',room='203'){if(room==='105')return State('Đã kết thúc')+HistoryEvent('31/08','Đã bàn giao Phòng 105','Lượt thuê trước đã kết thúc. Phòng trở về trạng thái trống.','Lượt thuê')+HistoryEvent('01/09<br>2025','Bắt đầu thuê Phòng 105','Lượt thuê 01/09/2025–31/08/2026.','Lượt thuê');const ids=pov==='Landlord'?['landlord-incident-detail','landlord-billing','landlord-terms-editor']:['tenant-incident-detail','tenant-billing','tenant-terms'];return HistoryEvent('04/10','Máy lạnh đang xử lý','Người vận hành cập nhật tiến độ.','Sự cố',ids[0])+HistoryEvent('01/10','Kỳ tháng 10 được mở','Tiền thuê, điện, nước theo điều khoản phiên bản 2.','Kỳ thanh toán',ids[1])+HistoryEvent('01/09','Bắt đầu lượt thuê','Minh Anh trở thành người thuê chính.','Lượt thuê')+HistoryEvent('01/09','Điều khoản phiên bản 2','Giữ bản nguồn dùng cho các khoản phát sinh.','Điều khoản',ids[2])}
+function RoomRow(number,name,state,target,tone=''){return link(`<span class="door-label">${number}</span><span><b>${name}</b><small>Green House · Tầng ${number[0]}</small></span>${State(state,tone)}`,target,'room-register-item')}
+Object.assign(renderers,{
+ 'shared-auth':()=>page('Đăng nhập','TrọƠi',`<h2 class="lead-title">Mở không gian<br>của bạn</h2><p class="body-copy">Dùng tài khoản để xem nơi đang thuê hoặc khu trọ được cấp quyền.</p>${Field('Email','email','','email')}${Field('Mật khẩu','password','','password')}${command('Đăng nhập','submit-preview')}${link('Tiếp tục khám phá','guest-home','button text')}`,{action:''}),
+ 'shared-notifications':()=>page('Thông báo','Minh Anh',Section('Hôm nay',AttentionItem('Sự cố máy lạnh được cập nhật','Phòng 203 · 09:20 · Mở bản ghi để xem trạng thái hiện tại','tenant-incident-detail','tool')+AttentionItem('Kỳ thanh toán tháng 10','Phòng 203 · Hạn 05/10','tenant-billing','bill'))+Section('Trước đó',AttentionItem('Thông báo kiểm tra đường nước','Trọ Cô Lan · 03/10','tenant-notices','bell'))),
+ 'shared-account':()=>page('Tài khoản','Minh Anh',`<div class="account-identity"><span class="identity-monogram">MA</span><div><h2>Minh Anh</h2><p>minhanh@example.com</p></div></div>${AttentionItem('Không gian của tôi','Khám phá · Nhà của tôi · Trọ Cô Lan','shared-context','switch')}${AttentionItem('Cài đặt','Giao diện và thông báo','shared-settings','settings')}${AttentionItem('Trợ giúp','Hướng dẫn và hỗ trợ','shared-help','help')}${command('Đăng xuất','preview','button text')}`,{nested:false,action:''}),
+ 'shared-settings':()=>page('Cài đặt','Ứng dụng',Section('Giao diện',command('Đổi sáng / tối','switch-theme','button outline'))+Section('Thông báo',Select('Nhận thông báo','notificationPreference',['Trong ứng dụng','Trong ứng dụng và đẩy']))+StatePanel('Quyền hệ thống','Quyền vị trí và thông báo được hỏi khi cần sử dụng.')),
+ 'shared-help':()=>page('Trợ giúp','TrọƠi',Section('Hướng dẫn',AttentionItem('Tìm phòng và liên hệ','Gửi lời quan tâm cho tin đăng','guest-inquiry-compose','search')+AttentionItem('Xem tiền phải trả','Khoản phải trả và tiền đã ghi nhận','tenant-billing','wallet')+AttentionItem('Báo sự cố tại phòng','Theo dõi các mốc xử lý','tenant-incident-create','tool'))+Section('Hỗ trợ',Field('Nội dung cần hỗ trợ','support','','textarea')+command('Chuẩn bị yêu cầu hỗ trợ','submit-preview','button outline'))),
+ 'shared-trust-report':()=>page('Báo nội dung','Tin đăng · Phòng 204',StatePanel('Báo tin đăng sau khi đăng nhập','Người gửi được xác định từ tài khoản đã xác thực. Báo cáo không tự ẩn tin đăng; bản xem trước không gửi dữ liệu.')+Select('Lý do','reportReason',['Thông tin không chính xác','Giá gây hiểu nhầm','Vị trí không đúng','Tin đăng trùng lặp','Nội dung không phù hợp','Nghi ngờ lừa đảo','Vi phạm riêng tư','Spam','Khác'])+Field('Thông tin bổ sung','reportText','','textarea','Không gửi thông tin nhạy cảm; bản xem trước không gửi dữ liệu')+command('Xem trước báo cáo','submit-preview','button'),{action:''}),
+ 'guest-search':()=>page('Bạn muốn ở đâu?','Chọn vùng tìm phòng',MapSurface()+command('Chọn vị trí trên bản đồ','location','button secondary')+command('Dùng vị trí hiện tại','device-location','button text')+Section('Khoảng cách',`<div class="choice-group">${[1,3,5].map(n=>`<button data-choice="radius" aria-pressed="${n===3}">${n} km</button>`).join('')}</div>`)+Section('Giá thuê mỗi tháng',Field('Từ','minPrice','2000000','number')+Field('Đến','maxPrice','5000000','number')),{dock:command('Xem phòng quanh đây','apply-filters')}),
+ 'guest-map':()=>AppBar('Phòng quanh đây','Vùng đã chọn · 3 km',false)+MapSurface()+`<div class="screen-body">${link('Đổi vùng & giá thuê','guest-search','button outline','search')}${ListingCompactRow()}${link('Xem dạng danh sách','guest-results','button text')}</div>`,
+ 'guest-results':()=>page('Phòng quanh đây','Vùng đã chọn · 3 km',link('2–5 triệu / tháng · Đổi bộ lọc','guest-search','button outline','search')+ListingMediaCard()+Section('Chuyển cách xem',link('Mở bản đồ','guest-map','button text','map'))),
+ 'guest-inquiry-compose':()=>page('Tôi quan tâm','Phòng 204 · Green House',ListingCompactRow()+Field('Tên để liên hệ','contactName','Minh Anh')+Field('Số điện thoại','contactPhone','','tel')+Field('Lời nhắn','inquiryMessage','Tôi muốn hỏi thêm về phòng và hẹn xem phòng.','textarea')+StatePanel('Gửi lời quan tâm','Người đăng tin sẽ nhận thông tin để liên hệ. Chưa tạo lượt thuê hay giữ phòng.'),{dock:command('Gửi lời quan tâm','submit-preview','button')}),
+ 'guest-inquiry-activity':()=>page('Hoạt động','Lời quan tâm đã gửi',StatePanel('Chưa mở lịch sử liên hệ','Lịch sử chỉ mở khi hệ thống có hợp đồng dữ liệu và quyền truy cập theo người gửi. Bản xem trước không hiển thị lịch sử thật.','warning')+link('Khám phá tin đăng','guest-results','button outline'),{nested:false}),
+ 'guest-area-label':()=>page('Khu vực tìm phòng','Vùng công khai',MapSurface()+StatePanel('Tên khu vực đang được chốt','Tạm chọn vị trí trên bản đồ. Chưa có tìm địa chỉ bằng văn bản.','warning')+Field('Tên khu vực','areaLabel','','text','Chưa có dữ liệu nhãn vùng đã chốt',true)+link('Chọn trên bản đồ','guest-search','button')),
+ 'guest-availability':()=>page('Tình trạng phòng','Bộ lọc chưa được chốt',StatePanel('Chưa mở lọc tình trạng','Tin đang công khai không thay thế trạng thái vận hành của phòng.','warning')+Select('Tình trạng muốn xem','availability',['Chờ chính sách hiển thị'],true)+link('Xem tin đang công khai','guest-results','button outline')),
+ 'guest-type-filter':()=>page('Loại phòng','Bộ lọc chưa được chốt',StatePanel('Chưa mở lọc loại phòng','Danh mục loại phòng và hợp đồng tìm kiếm chưa hỗ trợ bộ lọc này.','warning')+Select('Loại phòng','roomType',['Chờ danh mục chính thức'],true)+link('Tìm theo vùng & giá','guest-search','button outline')),
+ 'tenant-rental':()=>page('Nhà của tôi','Lượt thuê hiện tại',RoomHero()+RentalSummary()+Section('Hồ sơ lượt thuê',AttentionItem('Người ở cùng','Người thuê chính và người tham gia','tenant-participants','people')+AttentionItem('Điều khoản hiện tại','Phiên bản 2 · Có hiệu lực từ 01/09','tenant-terms','document')+AttentionItem('Tiền cọc','4.000.000đ đang giữ','tenant-deposit','wallet'))+Section('Cuối lượt thuê',link('Yêu cầu trả phòng','tenant-moveout','button outline','exit')+link('Lịch sử lượt thuê','tenant-history','button text','history')),{nested:false}),
+ 'tenant-participants':()=>page('Người trong lượt thuê','Phòng 203',Participants()),
+ 'tenant-terms':()=>page('Điều khoản thuê','Phòng 203 · Phiên bản 2',State('Có hiệu lực','success')+TermsContent()+link('Xem xác nhận đã đọc','tenant-terms-ack','button outline','check')),
+ 'tenant-terms-ack':()=>page('Xác nhận đã đọc','Điều khoản phiên bản 2',TermsContent()+StatePanel('Bạn chưa xác nhận đã đọc','Xác nhận này ghi nhận việc đã đọc phiên bản điều khoản, không thay thế chữ ký pháp lý.'),{dock:command('Tôi đã đọc phiên bản 2','submit-preview')}),
+ 'tenant-terms-schema':()=>page('Chi tiết điều khoản','Phiên bản 2',TermsContent()+StatePanel('Nội dung bổ sung đang được chốt','Chưa thể cấu hình các trường và quy tắc điều khoản mở rộng.','warning')),
+ 'tenant-deposit':()=>page('Tiền cọc','Phòng 203',DepositSummary()+Section('Các mốc tiền cọc',HistoryEvent('01/09','Đã giữ đủ tiền cọc','4.000.000đ được phân bổ từ khoản tiền đã nhận.','Tiền cọc')+HistoryEvent('01/09','Yêu cầu cọc','4.000.000đ theo điều khoản phiên bản 2.','Điều khoản'))+StatePanel('Cuối lượt thuê','Hoàn, khấu trừ và quyết toán cọc là các mốc riêng. Không cộng cọc vào khoản thuê phải trả.')),
+ 'tenant-payment-claim':()=>page('Báo đã chuyển tiền','Phòng 203',ClaimBody()),
+ 'tenant-receipt':()=>page('Biên nhận','Phòng 203',ReceiptSheet()+link('Xem tiền đã ghi nhận','tenant-payment','button text','wallet')),
+ 'tenant-momo':()=>page('Cách thanh toán','Kỳ tháng 10 · 4.540.000đ',StatePanel('MoMo là cách thanh toán tùy chọn','Tạo yêu cầu rồi mở trang thanh toán đã xác minh. Khi quay lại, chờ hệ thống xác nhận tiền; bản xem trước không kết nối MoMo.')+command('Xem trước bước mở MoMo','preview','button')+Section('Nếu đã chuyển bên ngoài',`<p class="body-copy">Khoản chuyển chỉ được ghi nhận sau khi người vận hành hoặc hệ thống xác minh.</p>${link('Xem báo đã chuyển tiền','tenant-payment-claim','button outline')}`)),
+ 'tenant-incidents':()=>page('Sự cố','Phòng 203',Section('Đang xử lý',AttentionItem('Máy lạnh chạy nhưng không mát','Đang xử lý · Cô Lan · Cập nhật 04/10','tenant-incident-detail','tool'))+Section('Gửi sự cố mới',link('Báo sự cố tại phòng','tenant-incident-create','button','plus')),{nested:false}),
+ 'tenant-incident-create':()=>page('Báo sự cố','Phòng 203',Field('Tiêu đề','incidentTitle','','text')+Field('Mô tả sự cố','incidentDescription','','textarea')+Select('Mức độ','incidentPriority',['Thông thường','Cần xử lý sớm'])+command('Thêm ảnh minh họa','preview','button outline')+StatePanel('Người tiếp nhận','Gửi đến người vận hành Trọ Cô Lan. Các cập nhật được lưu theo thời gian.'),{dock:command('Gửi sự cố','submit-preview')}),
+ 'tenant-notices':()=>page('Thông báo lượt thuê','Phòng 203 · Trọ Cô Lan',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Vui lòng chuẩn bị nước dùng trong thời gian kiểm tra.')+DataLine('Đối tượng','Người tham gia lượt thuê Phòng 203')+DataLine('Phiên bản nội dung','1')+command('Xác nhận đã đọc thông báo','submit-preview','button outline')),
+ 'tenant-moveout':()=>page('Trả phòng','Phòng 203 · Lượt thuê đang hoạt động',RoomHero()+Field('Ngày muốn trả phòng','moveoutDate','2026-10-31','date')+Field('Lời nhắn cho người vận hành','moveoutReason','','textarea')+StatePanel('Sau khi gửi yêu cầu','Lượt thuê chuyển sang đang kết thúc. Phòng vẫn có người thuê cho đến khi hoàn tất bàn giao.'),{dock:command('Gửi yêu cầu trả phòng','submit-preview')}),
+ 'tenant-history':(room='203')=>page('Lịch sử lượt thuê',`Phòng ${room} · Chỉ xem`,HistoryBody('Tenant',room)),
+ 'tenant-review':()=>page('Đánh giá trải nghiệm thuê','Lượt thuê đã kết thúc · Phòng 105',StatePanel('Chưa mở gửi đánh giá','Điều kiện, thời hạn và cách hiển thị đánh giá trải nghiệm thuê đang được chốt.','warning')+Select('Trải nghiệm ở đây','reviewRating',['Chọn mức đánh giá'],true)+Field('Chia sẻ trải nghiệm tại khu trọ','reviewBody','','textarea','Không đánh giá cá nhân',true)+command('Gửi đánh giá','preview','button','disabled')),
+ 'landlord-organizations':()=>page('Không gian vận hành','Minh Anh',AttentionItem('Trọ Cô Lan','2 khu trọ · Quyền vận hành','landlord-dashboard','building')+link('Chọn không gian khác','shared-context','button outline','switch')),
+ 'landlord-properties':()=>page('Khu trọ','Trọ Cô Lan',AttentionItem('Green House','8 phòng · Địa chỉ vận hành chỉ người có quyền xem','landlord-property-detail','building')+AttentionItem('Nhà Hoa','Hồ sơ khu trọ','landlord-property-detail','building')+link('Tạo khu trọ','landlord-property-create','button outline','plus')),
+ 'landlord-property-create':()=>page('Tạo khu trọ','Trọ Cô Lan',Field('Tên khu trọ','propertyName','','text')+Field('Địa chỉ vận hành','propertyAddress','','textarea')+Field('Ghi chú','propertyNote','','textarea')+StatePanel('Địa chỉ riêng','Thông tin vận hành không tự động trở thành vị trí công khai của tin đăng.'),{dock:command('Tạo hồ sơ khu trọ','submit-preview')}),
+ 'landlord-property-detail':()=>page('Green House','Trọ Cô Lan',`<div class="operator-heading"><div><h2>Green House</h2><p>Khu trọ · 8 phòng</p></div>${Icon('building')}</div>`+Section('Vận hành',AttentionItem('Sổ phòng','6 có người thuê · 1 trống · 1 bảo trì','landlord-rooms','door')+AttentionItem('Thông báo lượt thuê','Phòng 203 · Nội dung và xác nhận đã đọc','landlord-notices','bell'))+Section('Thông tin riêng',DataLine('Địa chỉ vận hành','Địa chỉ mẫu · Chỉ trong không gian vận hành'))),
+ 'landlord-rooms':()=>page('Phòng','Green House',`<div class="room-register">${RoomRow('203','Minh Anh · Đang thuê','Có người thuê','landlord-room-detail','success')}${RoomRow('105','Đang bàn giao','Có người thuê','landlord-checkout','warning')}${RoomRow('204','Chưa có lượt thuê','Trống','landlord-listing-editor')}${RoomRow('102','Sửa đường nước','Bảo trì','landlord-room-state','warning')}</div>`+Section('Khu trọ',link('Xem Green House','landlord-property-detail','button text','building')),{nested:false}),
+ 'landlord-room-state':()=>page('Trạng thái phòng','Green House · Phòng 102',RoomHero('102','Trọ Cô Lan','Đang bảo trì','warning')+Select('Trạng thái phòng','roomState',['Bảo trì','Trống','Ngừng sử dụng'])+StatePanel('Phòng đang có người thuê','Trạng thái có người thuê được xác định từ lượt thuê. Không thể bật hoặc tắt thủ công.')+command('Lưu trạng thái được phép','submit-preview','button outline')),
+ 'landlord-listing-editor':()=>page('Soạn tin đăng','Phòng 204 · Bản nháp',RoomMedia()+command('Thêm ảnh phòng','preview','button outline')+Field('Tiêu đề','listingTitle','Phòng sáng, có cửa sổ')+Field('Giá thuê công khai','listingPrice','4000000','number')+Field('Diện tích công khai (m²)','listingArea','20','number')+Field('Mô tả không gian','listingDescription','Phòng có cửa sổ, máy lạnh và WC riêng.','textarea')+command('Chọn vị trí công khai','location','button outline')+link('Xem trước tin đăng','landlord-listing-preview','button secondary'),{dock:command('Lưu bản nháp','submit-preview')}),
+ 'landlord-listing-preview':()=>page('Xem trước tin đăng','Phòng 204 · Chưa công khai',RoomMedia(false,true)+`<h2 class="listing-detail-title">Phòng sáng, có cửa sổ</h2><div class="rent-line">4.000.000đ <small>/ tháng</small></div>`+DataLine('Diện tích','20 m²')+DataLine('Tiện nghi','Máy lạnh · WC riêng')+link('Quản lý xuất bản','landlord-listing-status','button secondary')),
+ 'landlord-listing-status':()=>page('Tin đăng của phòng','Phòng 204',State('Bản nháp')+Section('Xuất bản',StatePanel('Kiểm tra nội dung trước khi công khai','Tin đăng dùng giá, tiện nghi và vị trí công khai. Trạng thái phòng vẫn thuộc sổ phòng.')+command('Công khai tin đăng','preview','button'))+Section('Vòng đời tin đăng',`<div class="data-line">Bản nháp → Công khai → Ngừng công khai</div><p class="body-copy">Lưu trữ tin khi không dùng nữa; không sửa lịch sử phòng.</p>`)+link('Sửa bản nháp','landlord-listing-editor','button outline')),
+ 'landlord-inquiries':()=>page('Lời quan tâm','Tin đăng công khai',AttentionItem('Minh Anh · Phòng 204','Muốn hỏi thêm và hẹn xem phòng · 03/10','landlord-inquiry-detail','send')),
+ 'landlord-inquiry-detail':()=>page('Lời quan tâm','Phòng 204 · Green House',Section('Người liên hệ',DataLine('Tên','Minh Anh')+DataLine('Thông tin liên hệ','Số điện thoại mẫu'))+NoticeCard('Muốn tìm hiểu thêm về phòng','Tôi muốn hỏi thêm về phòng và hẹn xem phòng.','landlord-inquiries')+StatePanel('Chưa có lượt thuê','Lời quan tâm không giữ phòng. Tạo lượt thuê khi đã thống nhất với người thuê.')+link('Chuẩn bị lượt thuê','landlord-tenancy-create','button')),
+ 'landlord-tenancy-create':()=>page('Tạo lượt thuê','Phòng 204 · Đang trống',State('Bản nháp')+Field('Người thuê chính','primaryTenant','','text')+Field('Ngày bắt đầu','tenancyStart','2026-11-01','date')+Field('Ngày kết thúc dự kiến','tenancyEnd','2027-10-31','date')+Field('Tiền thuê mỗi tháng','rentAmount','4000000','number')+StatePanel('Trước khi kích hoạt','Cần người thuê chính và điều khoản hợp lệ. Phòng không được có lượt thuê đang hoạt động hoặc đang kết thúc.'),{dock:command('Tạo bản nháp lượt thuê','submit-preview')}),
+ 'landlord-tenancy-overview':()=>page('Lượt thuê hiện tại','Phòng 203',RoomHero()+RentalSummary()+Section('Hồ sơ thuê',AttentionItem('Người tham gia','Minh Anh là người thuê chính','landlord-participants','people')+AttentionItem('Điều khoản','Phiên bản 2 · Có hiệu lực','landlord-terms-editor','document')+AttentionItem('Tài chính lượt thuê','Kỳ thanh toán · Tiền nhận · Tiền cọc','landlord-finance-home','wallet'))+command('Yêu cầu kết thúc lượt thuê','tenancy-ending','button outline')),
+ 'landlord-participants':()=>page('Người tham gia','Lượt thuê Phòng 203',Participants()+Field('Tên người cùng ở','participantName','','text')+command('Thêm vào lượt thuê','submit-preview','button outline')+StatePanel('Người thuê chính','Một lượt thuê có đúng một người thuê chính đang hoạt động. Không thay đổi vai trò toàn cục của tài khoản.')),
+ 'landlord-terms-editor':()=>page('Điều khoản thuê','Phòng 203 · Phiên bản 2',TermsContent()+Section('Chuẩn bị phiên bản mới',Field('Tiền thuê mỗi tháng','newRent','4000000','number')+Field('Ngày áp dụng','termsEffective','2026-11-01','date')+command('Chuẩn bị bản điều khoản mới','submit-preview','button outline'))+StatePanel('Bảo toàn bản nguồn','Các khoản đã phát sinh vẫn tham chiếu phiên bản điều khoản gốc.')),
+ 'landlord-billing':()=>page('Kỳ thanh toán','Phòng 203 · Tháng 10',BillingSummary()+Section('Khoản phải thu',BillLines())+DataLine('Điều khoản nguồn','Phiên bản 2')+Section('Ghi nhận tiền',link('Xem tiền đã nhận & phân bổ','landlord-payments','button secondary')+link('Xem báo đã chuyển','landlord-payment-claims','button text'))),
+ 'landlord-payments':()=>page('Tiền nhận & phân bổ','Phòng 203',PaymentStatus()+Section('Phân bổ kỳ tháng 9',ChargeRow('Tiền thuê','4.000.000')+ChargeRow('Điện','420.000')+ChargeRow('Nước','120.000'))+Section('Ghi nhận khoản mới',Field('Tiền thực nhận','receivedAmount','','number')+Select('Nguồn nhận','paymentSource',['Chuyển khoản','Tiền mặt'])+Field('Ngày nhận','receivedAt','2026-10-04','date')+command('Chuẩn bị ghi nhận khoản nhận','submit-preview','button outline'))+link('Xem biên nhận','landlord-receipts','button text')),
+ 'landlord-payment-claims':()=>page('Báo đã chuyển','Phòng 203',ClaimBody()),
+ 'landlord-receipts':()=>page('Biên nhận','Phòng 203',ReceiptSheet()+Section('Quản lý bằng chứng',StatePanel('Không sửa tiền từ biên nhận','Hủy biên nhận chỉ thay đổi bằng chứng, không xóa hoặc hoàn khoản tiền đã nhận.')+command('Xem bước hủy biên nhận','preview','button outline'))),
+ 'landlord-deposits':()=>page('Sổ tiền cọc','Phòng 203',DepositSummary()+Section('Nguồn & mốc',HistoryEvent('01/09','Giữ đủ 4.000.000đ','Phân bổ từ khoản tiền nhận cho tiền cọc.','Tiền cọc'))+Section('Quyết toán cuối lượt thuê',StatePanel('Phòng 203 đang có lượt thuê hoạt động','Quyết toán cọc được mở khi lượt thuê này đến bước bàn giao. Không chuyển sang hồ sơ của phòng khác.'))),
+ 'landlord-incidents':()=>page('Sự cố cần xử lý','Trọ Cô Lan',Section('Đang xử lý',AttentionItem('203 · Máy lạnh không mát','Cô Lan phụ trách · Cập nhật 09:20','landlord-incident-detail','tool'))+Section('Theo phòng',link('Mở sổ phòng 203','landlord-room-detail','button text','door')),{nested:false}),
+ 'landlord-incident-detail':()=>page('Xử lý sự cố','Phòng 203 · Minh Anh',`<section class="incident-summary"><h2>Máy lạnh chạy<br>nhưng không mát</h2><p>Minh Anh gửi · 03/10 lúc 22:16</p>${State('Đang xử lý','warning')}</section>`+Section('Diễn biến',IncidentTimeline())+Field('Ghi nhận kết quả xử lý','incidentResolution','','textarea')+command('Bổ sung diễn biến','incident-note','button outline')+command('Chuẩn bị báo đã xử lý xong','preview','button')+StatePanel('Sau khi xử lý','Người thuê có thể xem và phản hồi. Đóng khi xử lý xong hoặc theo lý do đóng hợp lệ.')),
+ 'landlord-notices':()=>page('Thông báo lượt thuê','Phòng 203 · Green House',NoticeCard('Kiểm tra đường nước ngày 06/10','Dự kiến 09:00–11:00. Nội dung phiên bản 1.','landlord-notices')+Section('Soạn thông báo',Field('Tiêu đề','noticeTitle','','text')+Field('Nội dung','noticeBody','','textarea')+Select('Lượt thuê nhận','noticeAudience',['Phòng 203 · Lượt thuê hiện tại'])+command('Chuẩn bị phát thông báo','submit-preview','button outline'))+Section('Xác nhận đã đọc',DataLine('Minh Anh','Chưa xác nhận phiên bản 1'))),
+ 'landlord-checkout':()=>page('Bàn giao & kết thúc','Phòng 105 · Lượt thuê đang kết thúc',RoomHero('105','Trọ Cô Lan','Vẫn có người thuê','warning')+State('Đang kết thúc','warning')+Section('Trước khi hoàn tất',DataLine('Ngày dự kiến','31/10/2026')+DataLine('Khoản phải trả còn lại','0đ')+DataLine('Tiền cọc đang giữ','4.000.000đ')+Field('Ghi nhận bàn giao','checkoutNote','','textarea'))+StatePanel('Hoàn tất bàn giao','Kết thúc lượt thuê và chuyển phòng sang trống trong cùng một bước xác nhận. Quyết toán tiền cọc được ghi nhận riêng.'),{dock:command('Xem bước xác nhận hoàn tất','preview')}),
+ 'landlord-room-history':()=>page('Lịch sử phòng 203','Green House · Chỉ xem',RoomLedgerSection('Bản ghi theo thời gian',HistoryBody('Landlord'),'Các sự kiện liên kết bản nguồn. Không chỉnh sửa từ lịch sử.')),
+ 'landlord-review-response':()=>page('Phản hồi đánh giá','Trải nghiệm thuê · Phòng 105',StatePanel('Phản hồi chưa mở','Quy định hiển thị đánh giá và phản hồi người vận hành chưa được chốt.','warning')+Field('Phản hồi trải nghiệm tại khu trọ','reviewResponse','','textarea','Không dùng để đánh giá cá nhân',true)+command('Đăng phản hồi','preview','button','disabled')),
+ 'landlord-dashboard-finance':()=>page('Tổng hợp tài chính','Trọ Cô Lan',StatePanel('Cách tổng hợp đang được chốt','Không cộng khoản báo đã chuyển vào tiền đã nhận. Tiền cọc được giữ riêng.','warning')+Section('Mở bản nguồn',AttentionItem('Khoản cần thu','Kỳ và khoản phải trả','landlord-billing','bill')+AttentionItem('Tiền đã nhận','Khoản nhận và phân bổ','landlord-payments','wallet')+AttentionItem('Tiền cọc','Mốc giữ và quyết toán','landlord-deposits','book')))
+});
+function FutureScreen(s){return page(s.title,'Lộ trình · Chưa triển khai',`<section class="empty-state">${Icon(s.icon)}<p>FUTURE</p><h2>${escapeHtml(s.title)}</h2><p>${escapeHtml(s.desc)}</p></section>`+StatePanel('Chưa thuộc ứng dụng hiện tại','Khả năng này cần hợp đồng dữ liệu và chính sách trước khi đưa vào điều hướng.')+command('Chưa khả dụng','preview','button outline','disabled'),{action:''})}
+
+const navigation = {
+ Guest:[['Trang chủ','home','guest-home'],['Bản đồ','map','guest-map'],['Hoạt động','send','guest-inquiry-activity'],['Tài khoản','person','shared-account']],
+ Tenant:[['Trang chủ','home','tenant-home'],['Nhà của tôi','door','tenant-rental'],['Thanh toán','wallet','tenant-billing'],['Sự cố','tool','tenant-incidents'],['Tài khoản','person','shared-account']],
+ Landlord:[['Tổng quan','grid','landlord-dashboard'],['Phòng','door','landlord-rooms'],['Tài chính','wallet','landlord-finance-home'],['Sự cố','tool','landlord-incidents'],['Tài khoản','person','shared-account']]
+};
+const rootIds = new Set(Object.values(navigation).flat().map(v=>v[2]));
+function navFor(s,context='Guest'){return rootIds.has(s.id)?navigation[s.pov==='Shared'?context:s.pov]||[]:[]}
+function NavigationBar(s,context='Guest'){const nav=navFor(s,context);return nav.length?`<nav class="navigation-bar" style="grid-template-columns:repeat(${nav.length},minmax(0,1fr))" aria-label="Điều hướng chính">${nav.map(([label,ico,id])=>link(`<span class="nav-symbol">${Icon(ico)}</span><span>${label}</span>`,id,'','',s.id===id?'aria-current="page"':'')).join('')}</nav>`:''}
+function renderApp(s,room='203'){if(s.status==='FUTURE')return FutureScreen(s);if(!renderers[s.id])throw new Error('Missing screen renderer: '+s.id);return renderers[s.id](room);}
+function Device(s,context='Guest',room='203'){return `<div class="android-device"><div class="android-screen"><div class="system-status"><span>9:41</span><span class="system-indicators">5G${Icon('signal')}${Icon('battery')}</span></div><div class="screen-scroll">${renderApp(s,room)}</div>${NavigationBar(s,context)}<div class="gesture-bar" aria-hidden="true"></div></div></div>`}
+function renderPreview(s){return `<div class="preview-window" aria-hidden="true" inert>${Device(s,s.pov==='Shared'?'Guest':s.pov)}</div>`}
+const atlasGroups=['Shared','Guest','Tenant','Landlord','Future'];
+const master={Guest:['guest-home','guest-search','guest-map','guest-listing-detail','guest-inquiry-compose','guest-inquiry-activity'],Tenant:['tenant-home','tenant-rental','tenant-terms','tenant-billing','tenant-payment','tenant-deposit','tenant-incidents','tenant-notices','tenant-moveout','tenant-history','tenant-review'],Landlord:['landlord-dashboard','landlord-organizations','landlord-properties','landlord-rooms','landlord-room-detail','landlord-listing-editor','landlord-inquiries','landlord-tenancy-overview','landlord-finance-home','landlord-incidents','landlord-checkout','landlord-room-history']};
+const lifecycle=[['Find','guest-home'],['Contact','guest-inquiry-compose'],['Rent','landlord-tenancy-create'],['Operate','landlord-room-detail'],['Pay','tenant-billing'],['Repair','tenant-incident-detail'],['Leave','tenant-moveout'],['Review','tenant-review'],['Find again','guest-home']];
+let currentRecordRoom='203',currentContext='Guest',currentScreen=null,currentFilter='ALL',previewState='normal',returnFocus=null;
+const savedInputs = new Map();
+function buildMaster(){document.getElementById('scopeCounts').innerHTML=['V1','OPEN','FUTURE'].map(status=>`<div><b>${screens.filter(s=>s.status===status).length}</b><span>${status} screens</span></div>`).join('');document.getElementById('entryMap').innerHTML=link(`<span>${Icon('door')}</span><span><b>Khởi động & Session</b><small>Khôi phục phiên → xác định context → mở không gian</small></span>`,'shared-session','entry-node')+'<div class="architecture-trunk"></div><div class="workspace-columns">'+['Guest','Tenant','Landlord'].map(pov=>`<section class="workspace-column"><header>${Icon(pov==='Guest'?'search':pov==='Tenant'?'home':'building')}<div><h3>${pov==='Guest'?'Khám phá':pov==='Tenant'?'Nhà của tôi':'Không gian vận hành'}</h3><p>${pov==='Guest'?'Tìm một nơi để ở':pov==='Tenant'?'Theo dõi lượt thuê và việc cần chú ý':'Xử lý công việc theo phòng'}</p></div></header><div class="map-links">${master[pov].map(id=>link(`<span>${escapeHtml(byId[id].title)}</span>${Icon('chevron')}`,id,'map-link')).join('')}</div></section>`).join('')+'</div><section class="shared-layer"><h3 class="architecture-label">Lớp dùng chung</h3><div class="shared-links">'+screens.filter(s=>s.pov==='Shared').map(s=>link(escapeHtml(s.title),s.id,'')).join('')+'</div></section>';document.getElementById('lifecyclePath').innerHTML=lifecycle.map(([label,id],i)=>link(label+(i<8?Icon('chevron'):''),id,'lifecycle-step')).join('')}
+function buildAtlas(){const query=document.getElementById('atlasQuery').value.trim().toLocaleLowerCase('vi');const matches=screens.filter(s=>(currentFilter==='ALL'||s.status===currentFilter||s.pov===currentFilter)&&(!query||[s.id,s.title,s.desc,s.pov,s.category,s.data].join(' ').toLocaleLowerCase('vi').includes(query)));document.getElementById('atlasCount').textContent=`${matches.length} màn hình`;document.getElementById('atlasContent').innerHTML=atlasGroups.map(pov=>{const group=matches.filter(s=>s.pov===pov);return group.length?`<section><div class="atlas-heading"><h3>${({Shared:'Lớp dùng chung',Guest:'Guest · Khám phá',Tenant:'Tenant · Nhà của tôi',Landlord:'Landlord · Vận hành',Future:'Roadmap · FUTURE'})[pov]}</h3><p>${group.length} màn</p></div><div class="atlas-grid">${group.map(s=>`<article class="atlas-card" data-route="${s.id}" tabindex="0" role="button" aria-label="Mở ${escapeHtml(s.title)}"><div class="atlas-open"><header><div><h4>${escapeHtml(s.title)}</h4><small>${escapeHtml(s.category)}</small></div>${ScopeMark(s.status)}</header>${renderPreview(s)}</div><p class="atlas-caption">${escapeHtml(s.desc)}</p></article>`).join('')}</div></section>`:''}).join('')||'<p class="body-copy">Không tìm thấy màn hình phù hợp. Thử tên khác hoặc xóa bộ lọc.</p>'}
+function showWorkbench(view){document.querySelectorAll('[data-workbench]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.workbench===view)));document.getElementById('masterMap').hidden=view!=='master';document.getElementById('screenAtlas').hidden=view!=='atlas';if(view==='atlas')buildAtlas()}
+const boundaries={
+ 'shared-session':'V1 acceptance: reacquire credential → verified /me → non-secret backend-user-scoped context hints → capability validation → route. Google ID token chỉ trong memory. Bản thiết kế không chứng minh process-restart runtime.',
+ 'guest-map':'Native map/picker là acceptance V1, chưa được chứng minh bởi bản đồ HTML minh họa. Chỉ dùng public projection; không fallback exact operational pin hoặc raw lat/lng UX. Geocoder/type/availability vẫn OPEN.',
+ 'tenant-notices':'Notice và acknowledgement thuộc đúng Tenancy; không phải Property broadcast hoặc Notification delivery fact. Không tự tạo legal effect.',
+ 'landlord-notices':'Issue Notice cho Tenancy; issuedBy do server derive. Ack theo participant và phiên bản nội dung, không phát broadcast Property.',
+ 'guest-inquiry-activity':'Inquiry Activity cần contract/authorization trước khi mở history thật. Dữ liệu ở đây chỉ minh họa; Inquiry không giữ phòng hoặc tạo Tenancy.',
+ 'tenant-payment-claim':'Payment Claim là V1 capability. Evidence và quyền xác nhận vẫn OPEN; chưa có endpoint trong OpenAPI. Không gửi, duyệt hoặc tạo Payment từ bản xem trước.',
+ 'landlord-payment-claims':'Payment Claim khác Payment. Không có Claim API hoặc policy về người duyệt; Confirm/Reject không được giả lập thành công.',
+ 'shared-trust-report':'Authenticated Listing-only submission là V1; reporter do server derive, không nhận client identity. Domain target chỉ Listing hoặc Review, không có Property. Review entry, report listing/moderation và anonymous policy vẫn gated; không tự xóa nội dung.',
+ 'tenant-review':'Eligibility candidate cần ENDED và linked eligible Participant. Minimum stay, multiplicity, edit, dimensions và moderation vẫn OPEN; chưa có Review API.',
+ 'landlord-review-response':'Tối đa một response trên một Review. Review/moderation contract chưa đủ để gửi phản hồi thật.',
+ 'tenant-momo':'Optional MoMo là V1, không phải MVP dependency. Billing/Charge ≠ Payment ≠ Claim ≠ Deposit ≠ Receipt ≠ GatewayCheckout. Chỉ verified payment-success IPN tạo GATEWAY / PROVIDER_VERIFIED Payment; create response/redirect không xác nhận tiền. Không auto allocation, funding Deposit hay issue Receipt. Runtime/sandbox evidence vẫn UNVERIFIED.',
+ 'tenant-terms-schema':'Terms thuộc mô hình versioned; màn OPEN kế thừa inventory. Shape transport không tự quyết policy chưa freeze.',
+ 'landlord-dashboard-finance':'Aggregate semantics giữ OPEN; tài chính phải đọc từ source records theo quyền.',
+ 'guest-area-label':'Chưa có textual geocoder/area contract. Location radius search lấy center từ map/device; không cho nhập raw tọa độ.',
+ 'guest-availability':'Availability filter chưa có transport semantics. Không tự chọn date/window hoặc enum.',
+ 'guest-type-filter':'Type owner/vocabulary còn OPEN, không invent property/room type enum.'
+};
+function presentScreen(id,room='203'){currentRecordRoom=room;const s=byId[id];if(!s)return;currentScreen=s;previewState='normal';if(navigation[s.pov])currentContext=s.pov;const viewer=document.getElementById('viewer');viewer.classList.add('is-open');viewer.setAttribute('aria-hidden','false');document.getElementById('viewerTitle').textContent=s.title;document.getElementById('viewerSub').textContent=s.id;document.getElementById('deviceStage').innerHTML=Device(s,currentContext,room);document.getElementById('screenDocumentation').innerHTML=ScopeMark(s.status)+`<h2>${escapeHtml(s.title)}</h2><p>${escapeHtml(s.desc)}</p><dl><dt>Context / POV</dt><dd>${escapeHtml(s.pov)} · ${escapeHtml(s.category)}</dd><dt>Điểm vào</dt><dd>${escapeHtml(s.entry)}</dd><dt>Hành động chính</dt><dd>${escapeHtml(s.action)}</dd><dt>Nguồn dữ liệu</dt><dd>${escapeHtml(s.data)}</dd></dl>`+(boundaries[id]?`<p class="contract-boundary">${escapeHtml(boundaries[id])}</p>`:'')+`<h3>Luồng của màn hình</h3><ol class="flow-document">${s.flow.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol><h3>Màn hình liên quan</h3><div class="related-screens">${s.related.map(x=>link(`<span>${escapeHtml(byId[x].title)}</span>${Icon('chevron')}`,x,'')).join('')}</div>`+`<h3>Kiểm tra trạng thái hiển thị</h3><div class="prototype-state-tabs">${[['normal','Nội dung'],['loading','Đang tải'],['empty','Trống'],['error','Lỗi'],['forbidden','Không có quyền']].map(([state,label])=>`<button data-preview-state="${state}" aria-pressed="${state==='normal'}">${label}</button>`).join('')}</div><p class="sample-disclaimer">Bản thiết kế tương tác dùng dữ liệu minh họa. Không gọi API, không ghi nhận tiền, không thay đổi trạng thái nghiệp vụ. Các thao tác gửi được kiểm tra và dừng ở bản xem trước. Master Map và phân loại lấy từ inventory hiện hữu; runtime coverage vẫn theo checklist và contract.</p>`;restoreInputs();document.body.style.overflow='hidden';viewer.scrollTop=0}
+function openScreen(id,push=true,room='203'){if(!byId[id])return;const hash=`#${id}${room==='203'?'':'/'+room}`;if(push&&location.hash!==hash)history.pushState({screen:id,room},'',hash);if(!currentScreen)returnFocus=document.activeElement;presentScreen(id,room);document.getElementById('viewerClose').focus({preventScroll:true})}
+function closeViewer(){history.pushState({},'',location.pathname+location.search);hideViewer()}
+function hideViewer(){document.getElementById('viewer').classList.remove('is-open');document.getElementById('viewer').setAttribute('aria-hidden','true');document.body.style.overflow='';currentScreen=null;returnFocus?.focus({preventScroll:true})}
+function restoreInputs(){const values=savedInputs.get(currentScreen?.id);if(!values)return;document.querySelectorAll('#deviceStage [name]').forEach(el=>{if(values[el.name]!==undefined)el.value=values[el.name]})}
+function changePreviewState(state){previewState=state;document.querySelectorAll('[data-preview-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.previewState===state)));const scroll=document.querySelector('#deviceStage .screen-scroll');scroll.innerHTML=state==='normal'?renderApp(currentScreen,currentRecordRoom):AppBar(currentScreen.title,'',true,'')+`<div class="screen-body">${state==='loading'?LoadingSkeleton()+LoadingSkeleton():state==='error'?ErrorState():state==='forbidden'?EmptyState('Bạn chưa có quyền xem','Mở không gian được cấp quyền hoặc quay lại màn trước.','shared-context','Chọn không gian','shield'):EmptyState('Chưa có thông tin ở đây','Khi có bản ghi phù hợp, thông tin sẽ xuất hiện trong không gian này.',rootFor(currentScreen),'Về trang chủ','document')}</div>`;restoreInputs()}
+function rootFor(s){return s.pov==='Tenant'?'tenant-home':s.pov==='Landlord'?'landlord-dashboard':'guest-home'}
+function Snackbar(message){const device=document.querySelector('#deviceStage .android-screen');device.querySelector('.snackbar')?.remove();const el=document.createElement('div');el.className='snackbar visible';el.setAttribute('role','status');el.textContent=message;device.append(el);setTimeout(()=>el.remove(),4500)}
+function ActionSheet(title,body){const device=document.querySelector('#deviceStage .android-screen');device.querySelector('.app-sheet')?.remove();device.insertAdjacentHTML('beforeend',`<div class="app-sheet"><section role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}"><div class="sheet-handle"></div><h2>${title}</h2>${body}${command('Đóng','close-sheet','button outline')}</section></div>`);device.querySelector('.app-sheet button')?.focus()}
+function ConfirmationDialog(title,copy){ActionSheet(title,`<p>${copy}</p>${command('Gửi yêu cầu · bản xem trước','submit-preview')}`)}
+document.addEventListener('click',event=>{
+ const route=event.target.closest('[data-route]');if(route&&!route.disabled){openScreen(route.dataset.route,true,route.dataset.room||'203');return}
+ const tab=event.target.closest('[data-workbench]');if(tab){showWorkbench(tab.dataset.workbench);return}
+ const filter=event.target.closest('[data-filter]');if(filter){currentFilter=filter.dataset.filter;document.querySelectorAll('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b===filter)));buildAtlas();return}
+ const state=event.target.closest('[data-preview-state]');if(state){changePreviewState(state.dataset.previewState);return}
+ if(event.target.closest('[data-back]')){const fallback=rootFor(currentScreen);if(history.state?.screen&&location.hash)history.back();else openScreen(fallback);return}
+ const choice=event.target.closest('[data-choice]');if(choice){choice.parentElement.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===choice)));return}
+ const action=event.target.closest('[data-action]');if(!action||action.disabled)return;
+ switch(action.dataset.action){
+  case 'room-listing':ActionSheet('Tin đăng · Phòng 203',State('Ngừng công khai')+StatePanel('Tin của lượt thuê hiện tại','Tin đăng trước đây của Phòng 203 không còn công khai. Lịch sử tin được giữ trong sổ phòng.'));break;
+  case 'tenancy-ending':ActionSheet('Kết thúc lượt thuê · Phòng 203',Field('Ngày bàn giao dự kiến','endingDate','2026-10-31','date')+StatePanel('Chuyển sang đang kết thúc','Phòng 203 vẫn có người thuê cho đến khi bàn giao được xác nhận.')+command('Chuẩn bị yêu cầu kết thúc','submit-preview'));break;
+  case 'close-sheet':document.querySelector('#deviceStage .app-sheet')?.remove();break;
+  case 'retry':changePreviewState('normal');Snackbar('Đã mở lại nội dung mẫu.');break;
+  case 'submit-preview':{const scope=document.querySelector('#deviceStage .app-sheet')||document.querySelector('#deviceStage');const fields=[...scope.querySelectorAll('input:not(:disabled),textarea:not(:disabled)')];const invalid=fields.find(el=>!el.value.trim()||!el.checkValidity());if(invalid){invalid.focus();Snackbar('Vui lòng nhập đầy đủ thông tin hợp lệ trước khi tiếp tục.');break;}document.querySelector('#deviceStage .app-sheet')?.remove();Snackbar('Bản xem trước: chưa gửi yêu cầu hoặc thay đổi dữ liệu.');break;}
+  case 'incident-note':ActionSheet('Bổ sung thông tin',Field('Thông tin cập nhật','incident-note','','textarea')+command('Gửi cập nhật','submit-preview'));break;
+  case 'location':ActionSheet('Chọn vị trí tìm phòng',`<p>Chọn tâm tìm kiếm trên bản đồ hoặc dùng vị trí thiết bị.</p>${link('Chọn trên bản đồ','guest-map','button','map')}${command('Dùng vị trí hiện tại','device-location','button secondary')}`);break;
+  case 'device-location':document.querySelector('#deviceStage .app-sheet')?.remove();Snackbar('Bản xem trước không truy cập vị trí thiết bị. Bạn có thể chọn tâm trên bản đồ.');break;
+  case 'apply-filters':openScreen('guest-results');break;
+  case 'switch-theme':document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';break;
+  default:ConfirmationDialog('Xem trước thao tác',`Màn hình này minh họa bước “${escapeHtml(action.textContent.trim())}”. Yêu cầu chỉ hoàn tất sau khi hệ thống xác nhận.`);
+ }
+});
+document.addEventListener('input',event=>{if(event.target.id==='atlasQuery'){buildAtlas();return}if(currentScreen&&event.target.closest('#deviceStage')&&event.target.name){const values=savedInputs.get(currentScreen.id)||{};values[event.target.name]=event.target.value;savedInputs.set(currentScreen.id,values)}});
+document.addEventListener('keydown',event=>{if(event.target.matches('.atlas-card')&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openScreen(event.target.dataset.route);return}if(!currentScreen)return;if(event.key==='Escape'){if(document.querySelector('#deviceStage .app-sheet'))document.querySelector('#deviceStage .app-sheet').remove();else closeViewer()}if(event.key==='Tab'){const focusable=[...(document.querySelector('#deviceStage .app-sheet')||document.querySelector('#viewer')).querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')].filter(el=>el.getClientRects().length);const first=focusable[0],last=focusable.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}}});
+window.addEventListener('popstate',()=>{const [id,room='203']=decodeURIComponent(location.hash.slice(1)).split('/');if(byId[id])presentScreen(id,room);else hideViewer()});
+document.getElementById('viewerClose').addEventListener('click',closeViewer);
+buildMaster();buildAtlas();const [initialId,initialRoom='203']=decodeURIComponent(location.hash.slice(1)).split('/');if(byId[initialId])openScreen(initialId,false,initialRoom);
+function verifyAtlas(){const errors=[];const seen=new Set();for(const s of screens){if(seen.has(s.id))errors.push('Duplicate ID '+s.id);seen.add(s.id);for(const id of s.related)if(!byId[id])errors.push('Unknown relation '+id);try{const html=renderApp(s);const doc=new DOMParser().parseFromString(html,'text/html');for(const b of doc.querySelectorAll('[data-route]'))if(!byId[b.dataset.route])errors.push('Unknown target '+b.dataset.route);}catch(e){errors.push(e.message)}}for(const items of Object.values(navigation))for(const item of items)if(!byId[item[2]])errors.push('Unknown nav '+item[2]);return {screens:screens.length,errors};}
+window.TroOiAtlas={screens,renderers,renderApp,renderPreview,navFor,navigation,master,openScreen,boundaries,verify:verifyAtlas};
+
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+name: Backend Database v1 Conformance
+
+on:
+  push:
+    branches:
+      - backend/database-v1-integration
+      - backend/full-stack-contract-support
+      - integration/full-stack-sync-runtime-staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: trooi
+          POSTGRES_PASSWORD: trooi_local
+          POSTGRES_DB: trooi_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U trooi -d trooi_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://trooi:trooi_local@localhost:5432/trooi_dev
+      TEST_DATABASE_URL: postgresql://trooi:trooi_local@localhost:5432/trooi_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Core Foundation hard gate
+        run: pnpm test:core-foundation
+
+      - name: Database validators
+        run: python -m unittest discover -s tests/database -p 'test_*.py'
+
+      - name: Google identity verifier regression
+        run: pnpm exec tsx --test src/integrations/google-identity/google-id-token-verifier.spec.ts
+
+      - name: Provision test database
+        run: pnpm exec tsx scripts/database/bootstrap-test-db.ts
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+
+      - name: Run database seed
+        run: pnpm db:seed
+
+      - name: Persistence migration parity
+        run: pnpm test:persistence:migration
+
+      - name: Domain-contract suite (JUnit)
+        id: domain_contract
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm test:domain-contract:junit
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Domain-contract exact baseline classification
+        run: >-
+          node scripts/verify-test-baseline.mjs
+          --junit domain-contract.junit.xml
+          --baseline tests/conformance/database-v1/expected-failures.json
+          --suite domain-contract
+          --exit-code "${{ steps.domain_contract.outputs.exit_code }}"
+
+      - name: Full repository suite (JUnit)
+        id: full_test
+        continue-on-error: true
+        run: |
+          set +e
+          pnpm test:full:junit
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit $code
+
+      - name: Full repository exact baseline classification
+        run: >-
+          node scripts/verify-test-baseline.mjs
+          --junit full-test.junit.xml
+          --baseline tests/conformance/database-v1/expected-failures.json
+          --suite full-repository
+          --exit-code "${{ steps.full_test.outputs.exit_code }}"
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-foundation-runtime-evidence-${{ github.sha }}
+          path: |
+            domain-contract.junit.xml
+            full-test.junit.xml
+          if-no-files-found: error

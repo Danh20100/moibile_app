@@ -1,0 +1,424 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "expected", "provenance", "actors", "values"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["initialOutstanding", "remainingOutstanding", "paymentVerification", "tenancyStatusAfterActivation", "listingStatusAfterActivation"],
+      "properties": {
+        "initialOutstanding": {
+          "type": "string",
+          "enum": ["3500000.00"]
+        },
+        "remainingOutstanding": {
+          "type": "string",
+          "enum": ["2500000.00"]
+        },
+        "paymentVerification": {
+          "type": "string",
+          "enum": ["USER_RECORDED"]
+        },
+        "tenancyStatusAfterActivation": {
+          "type": "string",
+          "enum": ["active"]
+        },
+        "listingStatusAfterActivation": {
+          "type": "string",
+          "enum": ["unpublished"]
+        }
+      }
+    },
+    "provenance": {
+      "type": "string",
+      "enum": [
+        "Synthetic application restart scenarios for isolated PostgreSQL; outstanding amounts follow active allocations."
+      ]
+    },
+    "actors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ownerToken", "ownerSubject", "tenantToken", "tenantSubject", "outsiderToken", "outsiderSubject"],
+      "properties": {
+        "ownerToken": { "type": "string", "enum": ["j04-owner"] },
+        "ownerSubject": { "type": "string", "enum": ["j04-owner-subject"] },
+        "tenantToken": { "type": "string", "enum": ["j04-tenant"] },
+        "tenantSubject": { "type": "string", "enum": ["j04-tenant-subject"] },
+        "outsiderToken": { "type": "string", "enum": ["j04-outsider"] },
+        "outsiderSubject": { "type": "string", "enum": ["j04-outsider-subject"] }
+      }
+    },
+    "values": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "propertyId",
+        "roomId",
+        "listingId",
+        "organizationName",
+        "propertyName",
+        "operationalAddress",
+        "operationalLocation",
+        "propertyPublicLocation",
+        "roomLabel",
+        "listingTitle",
+        "listingDescription",
+        "listingPrice",
+        "listingPublicLocation",
+        "inquiryMessage",
+        "inquiryStatus",
+        "participantRole",
+        "activeAssetManagementStatus",
+        "tenancyActivatedAt",
+        "joinedAt",
+        "termsVersion",
+        "rentAmount",
+        "depositRequirement",
+        "termStart",
+        "termEnd",
+        "billingDayRule",
+        "electricityArrangement",
+        "waterArrangement",
+        "rentalConditions",
+        "effectiveBoundary",
+        "acknowledgedAt",
+        "noticeType",
+        "noticeContent",
+        "noticeIssuedAt",
+        "cycleStart",
+        "cycleEnd",
+        "charges",
+        "paymentAmount",
+        "paymentSource",
+        "paymentConfirmedAt",
+        "billingAllocationAmount",
+        "depositApplicationAmount",
+        "incidentCategory",
+        "acknowledgedIncidentStatus",
+        "unauthorizedIncidentUpdate",
+        "expectedIncidentStatusBeforeRestart",
+        "publishedListingStatus",
+        "publishReason",
+        "publishActorType",
+        "publishTrigger",
+        "trustReportReason",
+        "expectedDepositEvents",
+        "expectedIncidentStatusAfterRestart",
+        "expectedIncidentEvents",
+        "expectedTrustReportCount"
+      ],
+      "properties": {
+        "propertyId": { "type": "string", "format": "uuid" },
+        "roomId": { "type": "string", "format": "uuid" },
+        "listingId": { "type": "string", "format": "uuid" },
+        "organizationName": {
+          "type": "string",
+          "enum": ["Restart Workspace"]
+        },
+        "propertyName": {
+          "type": "string",
+          "enum": ["Restart Property"]
+        },
+        "operationalAddress": {
+          "type": "string",
+          "enum": ["Private address"]
+        },
+        "operationalLocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["longitude", "latitude"],
+          "properties": {
+            "longitude": {
+              "type": "number",
+              "enum": [106.7]
+            },
+            "latitude": {
+              "type": "number",
+              "enum": [10.7]
+            }
+          }
+        },
+        "propertyPublicLocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["longitude", "latitude"],
+          "properties": {
+            "longitude": {
+              "type": "number",
+              "enum": [106.701]
+            },
+            "latitude": {
+              "type": "number",
+              "enum": [10.701]
+            }
+          }
+        },
+        "roomLabel": {
+          "type": "string",
+          "enum": ["A-01"]
+        },
+        "listingTitle": {
+          "type": "string",
+          "enum": ["Restart Listing"]
+        },
+        "listingDescription": {
+          "type": "string",
+          "enum": ["Persisted public content"]
+        },
+        "listingPrice": {
+          "type": "string",
+          "enum": ["3500000.00"]
+        },
+        "listingPublicLocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["longitude", "latitude"],
+          "properties": {
+            "longitude": {
+              "type": "number",
+              "enum": [106.701]
+            },
+            "latitude": {
+              "type": "number",
+              "enum": [10.701]
+            }
+          }
+        },
+        "inquiryMessage": {
+          "type": "string",
+          "enum": ["Interested"]
+        },
+        "inquiryStatus": {
+          "type": "string",
+          "enum": ["NEW"]
+        },
+        "participantRole": {
+          "type": "string",
+          "enum": ["PRIMARY"]
+        },
+        "activeAssetManagementStatus": {
+          "type": "string",
+          "enum": ["ACTIVE"]
+        },
+        "tenancyActivatedAt": {
+          "type": "string",
+          "enum": ["2026-10-01T00:00:00.000Z"]
+        },
+        "joinedAt": {
+          "type": "string",
+          "enum": ["2026-09-29T00:00:00.000Z"]
+        },
+        "termsVersion": {
+          "type": "integer",
+          "enum": [1]
+        },
+        "rentAmount": {
+          "type": "string",
+          "enum": ["3500000.00"]
+        },
+        "depositRequirement": {
+          "type": "string",
+          "enum": ["3500000.00"]
+        },
+        "termStart": {
+          "type": "string",
+          "enum": ["2026-10-01"]
+        },
+        "termEnd": {
+          "type": "string",
+          "enum": ["2027-09-30"]
+        },
+        "billingDayRule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["day"],
+          "properties": {
+            "day": {
+              "type": "integer",
+              "enum": [1]
+            }
+          }
+        },
+        "electricityArrangement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["metered"]
+            }
+          }
+        },
+        "waterArrangement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["metered"]
+            }
+          }
+        },
+        "rentalConditions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["occupants"],
+          "properties": {
+            "occupants": {
+              "type": "integer",
+              "enum": [1]
+            }
+          }
+        },
+        "effectiveBoundary": {
+          "type": "string",
+          "enum": ["2026-10-01"]
+        },
+        "acknowledgedAt": {
+          "type": "string",
+          "enum": ["2026-09-29T00:01:00.000Z"]
+        },
+        "noticeType": {
+          "type": "string",
+          "enum": ["GENERAL"]
+        },
+        "noticeContent": {
+          "type": "string",
+          "enum": ["Persisted notice"]
+        },
+        "noticeIssuedAt": {
+          "type": "string",
+          "enum": ["2026-09-29T00:02:00.000Z"]
+        },
+        "cycleStart": {
+          "type": "string",
+          "enum": ["2026-10-01"]
+        },
+        "cycleEnd": {
+          "type": "string",
+          "enum": ["2026-10-31"]
+        },
+        "charges": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "amount"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["RENT"]
+              },
+              "amount": {
+                "type": "string",
+                "enum": ["3500000.00"]
+              }
+            }
+          }
+        },
+        "paymentAmount": {
+          "type": "string",
+          "enum": ["3500000.00"]
+        },
+        "paymentSource": {
+          "type": "string",
+          "enum": ["MANUAL_TRANSFER"]
+        },
+        "paymentConfirmedAt": {
+          "type": "string",
+          "enum": ["2026-10-01T00:00:00.000Z"]
+        },
+        "billingAllocationAmount": {
+          "type": "string",
+          "enum": ["1000000.00"]
+        },
+        "depositApplicationAmount": {
+          "type": "string",
+          "enum": ["2500000.00"]
+        },
+        "incidentCategory": {
+          "type": "string",
+          "enum": ["PLUMBING"]
+        },
+        "acknowledgedIncidentStatus": {
+          "type": "string",
+          "enum": ["ACKNOWLEDGED"]
+        },
+        "unauthorizedIncidentUpdate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "actorUserId"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["IN_PROGRESS"]
+            },
+            "actorUserId": {
+              "type": "string",
+              "enum": ["ffffffff-ffff-4fff-8fff-ffffffffffff"]
+            }
+          }
+        },
+        "expectedIncidentStatusBeforeRestart": {
+          "type": "string",
+          "enum": ["ACKNOWLEDGED"]
+        },
+        "publishedListingStatus": {
+          "type": "string",
+          "enum": ["published"]
+        },
+        "publishReason": {
+          "type": "string",
+          "enum": ["PUBLISH"]
+        },
+        "publishActorType": {
+          "type": "string",
+          "enum": ["USER"]
+        },
+        "publishTrigger": {
+          "type": "string",
+          "enum": ["TEST"]
+        },
+        "trustReportReason": {
+          "type": "string",
+          "enum": ["INCORRECT_INFORMATION"]
+        },
+        "expectedDepositEvents": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["RECEIVED"]
+          }
+        },
+        "expectedIncidentStatusAfterRestart": {
+          "type": "string",
+          "enum": ["ACKNOWLEDGED"]
+        },
+        "expectedIncidentEvents": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "string",
+            "enum": ["REPORTED", "ACKNOWLEDGED"]
+          }
+        },
+        "expectedTrustReportCount": {
+          "type": "integer",
+          "enum": [1]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "token": "verified-id-token",
+  "authorization": "Bearer verified-id-token",
+  "hijackedAuthorization": "Bearer hijacked",
+  "tenancyId": "t-1",
+  "amount": "50000.00",
+  "wholeAmount": "50000",
+  "createKey": "22222222-2222-4222-8222-222222222222",
+  "headerKey": "33333333-3333-4333-8333-333333333333",
+  "disconnectKey": "44444444-4444-4444-8444-444444444444",
+  "unconfiguredKey": "55555555-5555-4555-8555-555555555555",
+  "unconfiguredToken": "token",
+  "provider": "SEPAY",
+  "demoProvider": "DEMO",
+  "createResponseCode": 201,
+  "singleRequestCount": 1,
+  "retryRequestCount": 2,
+  "checkout": {
+    "id": "chk-1",
+    "tenancyId": "t-1",
+    "amount": "50000.00",
+    "referenceCode": "ref-1",
+    "provider": "MOMO",
+    "status": "CREATED",
+    "createdAt": "2026-10-05T00:00:00Z",
+    "replayAllowed": true,
+    "payUrl": "https://test-payment.momo.vn/v2/gateway/pay"
+  },
+  "payment": {
+    "id": "pay-1",
+    "tenancyId": "t-1",
+    "amount": "5000.00",
+    "source": "MANUAL_CASH",
+    "verification": "USER_RECORDED",
+    "confirmedAt": "2026-10-02T01:00:00Z"
+  },
+  "publicResponse": {
+    "success": true,
+    "data": []
+  }
+}

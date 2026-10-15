@@ -1,0 +1,11 @@
+appId: com.trooi.app.backenddev
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Tìm phòng'
+- scrollUntilVisible:
+    element:
+      text: 'Phong E2E - Thu Duc'
+    direction: DOWN
+    timeout: 10000
+- assertVisible: 'Phong E2E - Thu Duc'

@@ -1,0 +1,94 @@
+version: 1
+name: v1-cross-actor-effects
+description: Cross-user journeys where one actor action must become visible to another actor without turning notifications into business state.
+journeys:
+  - id: CX-01
+    name: searcher-contact-to-operator-inquiry
+    status: requires_google
+    actors: [searcher, operator]
+    sequence:
+      - searcher: open PUBLISHED Listing
+      - searcher: submit Inquiry / contact intent
+      - backend: persist Inquiry
+      - delivery: create Notification for Listing Organization primary owner
+      - operator: open Notification
+      - operator: open Inquiry detail
+    assertions:
+      - inquiry belongs to selected Listing
+      - notification recipient operates the Listing
+      - notification routes to the same Inquiry
+      - Room state does not change
+      - Listing state does not change
+      - no Booking Reservation or Tenancy is created
+  - id: CX-02
+    name: tenant-incident-to-operator-and-back
+    status: spec_only
+    actors: [tenant, operator]
+    sequence:
+      - tenant: report Incident
+      - backend: persist REPORTED Incident plus first IncidentEvent
+      - delivery: notify responsible operator
+      - operator: acknowledge and move Incident through valid transitions
+      - delivery: notify affected authorized user after status changes
+      - tenant: reopen source Incident from Notification
+    assertions:
+      - every status change has an append-only event
+      - notification does not perform the transition
+      - tenant sees only authorized Room/Tenancy incident data
+  - id: CX-03
+    name: billing-due-to-payment-confirmation
+    status: spec_only
+    actors: [operator, tenant]
+    sequence:
+      - operator: create Billing Cycle and Charges
+      - delivery: notify linked tenant when receivable reaches due condition
+      - tenant: open Billing source from Notification
+      - operator: record confirmed Payment
+      - delivery: notify linked tenant of confirmed Payment
+      - operator: allocate Payment and optionally issue Receipt
+      - tenant: open Payment or Receipt
+    assertions:
+      - Charge Payment and Receipt remain separate source facts
+      - payment-due Notification never marks Charge paid
+      - payment-confirmed Notification is emitted only after confirmed Payment exists
+  - id: CX-04
+    name: operator-notice-to-tenant-acknowledgement
+    status: spec_only
+    actors: [operator, tenant]
+    sequence:
+      - operator: issue Tenancy Notice
+      - delivery: notify authorized linked participant user
+      - tenant: open Notice from Notification
+      - tenant: acknowledge Notice
+    assertions:
+      - Notice exists before Notification
+      - acknowledgement records user and timestamp
+      - delivery or acknowledgement does not create legal effect
+  - id: CX-05
+    name: move-out-request-to-checkout
+    status: spec_only
+    actors: [tenant-or-authorized-user, operator]
+    sequence:
+      - tenant-or-authorized-user: start move-out
+      - backend: Tenancy ACTIVE to ENDING
+      - delivery: notify relevant counterparty
+      - operator: inspect move-out context
+      - operator: confirm checkout
+      - backend: atomically set Tenancy ENDED and Room VACANT
+    assertions:
+      - ENDING never means Room VACANT
+      - Notification never performs checkout
+      - direct ACTIVE to ENDED is rejected
+  - id: CX-06
+    name: trust-moderation-to-affected-user
+    status: open_policy
+    actors: [reporter-or-review-author, authorized-moderator]
+    sequence:
+      - user: create Review or Trust Report under authoritative policy
+      - moderator: process moderation lifecycle
+      - delivery: notify affected user when authoritative policy allows
+      - user: open original Review or Report context
+    assertions:
+      - open moderation permissions remain OPEN until frozen
+      - one Trust Report does not auto-remove content
+      - Notification does not resolve moderation state

@@ -1,0 +1,17 @@
+id: J02
+name: operator-setup-to-published-listing
+status: spec_only
+flow_chain:
+  - AUTH-01
+  - ORG-01
+  - PROP-01
+  - ROOM-01
+  - LIST-01
+  - LIST-02
+  - LIST-03
+  - DISC-01
+end_assertions:
+  - organization-owned-by-current-user
+  - room-active-and-vacant
+  - exactly-one-current-listing
+  - listing-published-and-visible-publicly

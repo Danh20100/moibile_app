@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "values": {
+    "accessKey": "access",
+    "accessKey2": "access",
+    "equalScenario": true,
+    "scenarioValue": "00",
+    "equalScenario2": false,
+    "signaturesMatchScenario": "",
+    "equalScenario3": false
+  }
+}

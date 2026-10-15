@@ -1,0 +1,469 @@
+{
+  "type": "object",
+  "required": [
+    "version",
+    "ids",
+    "organization",
+    "property",
+    "room",
+    "listing",
+    "tenancy",
+    "participant",
+    "incident",
+    "incidentClosure",
+    "checkout",
+    "secondTenancyId",
+    "expected"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "ids": {
+      "type": "object",
+      "required": ["user", "org", "property", "room", "listing", "tenancy", "eligibleArchiveRoom", "eligibleArchiveListing"],
+      "additionalProperties": false,
+      "properties": {
+        "user": {
+          "type": "string",
+          "enum": ["10000000-0000-4000-8000-000000000001"]
+        },
+        "org": {
+          "type": "string",
+          "enum": ["20000000-0000-4000-8000-000000000001"]
+        },
+        "property": {
+          "type": "string",
+          "enum": ["30000000-0000-4000-8000-000000000001"]
+        },
+        "room": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000001"]
+        },
+        "listing": {
+          "type": "string",
+          "enum": ["50000000-0000-4000-8000-000000000001"]
+        },
+        "tenancy": {
+          "type": "string",
+          "enum": ["80000000-0000-4000-8000-000000000001"]
+        },
+        "eligibleArchiveRoom": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000002"]
+        },
+        "eligibleArchiveListing": {
+          "type": "string",
+          "enum": ["50000000-0000-4000-8000-000000000002"]
+        }
+      }
+    },
+    "organization": {
+      "type": "object",
+      "required": ["organizationId", "primaryOwnerUserId", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "organizationId": {
+          "type": "string",
+          "enum": ["20000000-0000-4000-8000-000000000001"]
+        },
+        "primaryOwnerUserId": {
+          "type": "string",
+          "enum": ["10000000-0000-4000-8000-000000000001"]
+        },
+        "name": {
+          "type": "string",
+          "enum": ["Org"]
+        }
+      }
+    },
+    "property": {
+      "type": "object",
+      "required": [
+        "propertyId",
+        "organizationId",
+        "name",
+        "lifecycleStatus",
+        "operationalAddressText",
+        "operationalLocation",
+        "publicLocationProjection"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "propertyId": {
+          "type": "string",
+          "enum": ["30000000-0000-4000-8000-000000000001"]
+        },
+        "organizationId": {
+          "type": "string",
+          "enum": ["20000000-0000-4000-8000-000000000001"]
+        },
+        "name": {
+          "type": "string",
+          "enum": ["P"]
+        },
+        "lifecycleStatus": {
+          "type": "string",
+          "enum": ["ACTIVE"]
+        },
+        "operationalAddressText": {
+          "type": "string",
+          "enum": ["Private"]
+        },
+        "operationalLocation": {
+          "type": "object",
+          "required": ["longitude", "latitude"],
+          "additionalProperties": false,
+          "properties": {
+            "longitude": {
+              "type": "integer",
+              "enum": [106]
+            },
+            "latitude": {
+              "type": "integer",
+              "enum": [10]
+            }
+          }
+        },
+        "publicLocationProjection": {
+          "type": "object",
+          "required": ["longitude", "latitude"],
+          "additionalProperties": false,
+          "properties": {
+            "longitude": {
+              "type": "integer",
+              "enum": [106]
+            },
+            "latitude": {
+              "type": "integer",
+              "enum": [10]
+            }
+          }
+        }
+      }
+    },
+    "room": {
+      "type": "object",
+      "required": ["roomId", "propertyId", "nameOrLabel", "operationalState", "recordLifecycle"],
+      "additionalProperties": false,
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000001"]
+        },
+        "propertyId": {
+          "type": "string",
+          "enum": ["30000000-0000-4000-8000-000000000001"]
+        },
+        "nameOrLabel": {
+          "type": "string",
+          "enum": ["R"]
+        },
+        "operationalState": {
+          "type": "string",
+          "enum": ["VACANT"]
+        },
+        "recordLifecycle": {
+          "type": "string",
+          "enum": ["ACTIVE"]
+        }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "required": [
+        "listingId",
+        "roomId",
+        "status",
+        "publicTitle",
+        "publicDescription",
+        "publicPriceProjection",
+        "publicLocationProjection"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "listingId": {
+          "type": "string",
+          "enum": ["50000000-0000-4000-8000-000000000001"]
+        },
+        "roomId": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000001"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT"]
+        },
+        "publicTitle": {
+          "type": "string",
+          "enum": ["T"]
+        },
+        "publicDescription": {
+          "type": "string",
+          "enum": ["D"]
+        },
+        "publicPriceProjection": {
+          "type": "string",
+          "enum": ["1.00"]
+        },
+        "publicLocationProjection": {
+          "type": "object",
+          "required": ["longitude", "latitude"],
+          "additionalProperties": false,
+          "properties": {
+            "longitude": {
+              "type": "integer",
+              "enum": [106]
+            },
+            "latitude": {
+              "type": "integer",
+              "enum": [10]
+            }
+          }
+        }
+      }
+    },
+    "tenancy": {
+      "type": "object",
+      "required": ["tenancyId", "roomId", "status", "startedAt", "endedAt", "endReason"],
+      "additionalProperties": false,
+      "properties": {
+        "tenancyId": {
+          "type": "string",
+          "enum": ["80000000-0000-4000-8000-000000000001"]
+        },
+        "roomId": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000001"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT"]
+        },
+        "startedAt": {
+          "type": "string",
+          "enum": ["2026-01-01T00:00:00.000Z"]
+        },
+        "endedAt": {
+          "type": "null"
+        },
+        "endReason": {
+          "type": "null"
+        }
+      }
+    },
+    "participant": {
+      "type": "object",
+      "required": ["tenancyParticipantId", "tenancyId", "userId", "role", "joinedAt", "leftAt"],
+      "additionalProperties": false,
+      "properties": {
+        "tenancyParticipantId": {
+          "type": "string",
+          "enum": ["82000000-0000-4000-8000-000000000001"]
+        },
+        "tenancyId": {
+          "type": "string",
+          "enum": ["80000000-0000-4000-8000-000000000001"]
+        },
+        "userId": {
+          "type": "string",
+          "enum": ["10000000-0000-4000-8000-000000000001"]
+        },
+        "role": {
+          "type": "string",
+          "enum": ["PRIMARY"]
+        },
+        "joinedAt": {
+          "type": "string",
+          "enum": ["2026-01-01T00:00:00.000Z"]
+        },
+        "leftAt": {
+          "type": "null"
+        }
+      }
+    },
+    "incident": {
+      "type": "object",
+      "required": [
+        "incidentId",
+        "roomId",
+        "reportedByUserId",
+        "category",
+        "status",
+        "closureReason",
+        "createdAt",
+        "closedAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "incidentId": {
+          "type": "string",
+          "enum": ["a0000000-0000-4000-8000-000000000001"]
+        },
+        "roomId": {
+          "type": "string",
+          "enum": ["40000000-0000-4000-8000-000000000001"]
+        },
+        "reportedByUserId": {
+          "type": "string",
+          "enum": ["10000000-0000-4000-8000-000000000001"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["OTHER"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["REPORTED"]
+        },
+        "closureReason": {
+          "type": "null"
+        },
+        "createdAt": {
+          "type": "string",
+          "enum": ["2026-10-02T00:00:00.000Z"]
+        },
+        "closedAt": {
+          "type": "null"
+        }
+      }
+    },
+    "incidentClosure": {
+      "type": "object",
+      "required": ["status", "closureReason", "closedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["CLOSED"]
+        },
+        "closureReason": {
+          "type": "string",
+          "enum": ["ROOM_RETIRED"]
+        },
+        "closedAt": {
+          "type": "string",
+          "enum": ["2026-10-03T00:00:00.000Z"]
+        }
+      }
+    },
+    "checkout": {
+      "type": "object",
+      "required": ["endReason", "endedAt", "invalidEndedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "endReason": {
+          "type": "string",
+          "enum": ["TERM_ENDED"]
+        },
+        "endedAt": {
+          "type": "string",
+          "enum": ["2026-10-01T00:00:00.000Z"]
+        },
+        "invalidEndedAt": {
+          "type": "string",
+          "enum": ["2025-12-31T00:00:00.000Z"]
+        }
+      }
+    },
+    "secondTenancyId": {
+      "type": "string",
+      "enum": ["80000000-0000-4000-8000-000000000002"]
+    },
+    "expected": {
+      "type": "object",
+      "required": [
+        "published",
+        "unpublished",
+        "occupied",
+        "vacant",
+        "inactive",
+        "maintenance",
+        "ending",
+        "ended",
+        "archived",
+        "singleCommit",
+        "singleRejection",
+        "activationGuard",
+        "publishGuard",
+        "transitionGuard",
+        "archiveGuard",
+        "archiveBlocker",
+        "timeOrderError"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "published": {
+          "type": "string",
+          "enum": ["PUBLISHED"]
+        },
+        "unpublished": {
+          "type": "string",
+          "enum": ["UNPUBLISHED"]
+        },
+        "occupied": {
+          "type": "string",
+          "enum": ["OCCUPIED"]
+        },
+        "vacant": {
+          "type": "string",
+          "enum": ["VACANT"]
+        },
+        "inactive": {
+          "type": "string",
+          "enum": ["INACTIVE"]
+        },
+        "maintenance": {
+          "type": "string",
+          "enum": ["MAINTENANCE"]
+        },
+        "ending": {
+          "type": "string",
+          "enum": ["ENDING"]
+        },
+        "ended": {
+          "type": "string",
+          "enum": ["ENDED"]
+        },
+        "archived": {
+          "type": "string",
+          "enum": ["ARCHIVED"]
+        },
+        "singleCommit": {
+          "type": "integer",
+          "enum": [1]
+        },
+        "singleRejection": {
+          "type": "integer",
+          "enum": [1]
+        },
+        "activationGuard": {
+          "type": "string",
+          "enum": ["tenancy_activation"]
+        },
+        "publishGuard": {
+          "type": "string",
+          "enum": ["listing_publish_eligibility"]
+        },
+        "transitionGuard": {
+          "type": "string",
+          "enum": ["room_leave_vacant_unpublish"]
+        },
+        "archiveGuard": {
+          "type": "string",
+          "enum": ["property_archive_guard"]
+        },
+        "archiveBlocker": {
+          "type": "string",
+          "enum": ["open_incident_archive_blocker"]
+        },
+        "timeOrderError": {
+          "type": "string",
+          "enum": ["PersistenceCheckViolation"]
+        }
+      }
+    }
+  }
+}

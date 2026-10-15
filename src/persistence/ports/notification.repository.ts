@@ -1,0 +1,3 @@
+import type { TimestampString } from './repositories';
+export interface NotificationRecord { notificationId:string; recipientUserId:string; category:string; messageOrPayloadReference:string; deliveryStatus:string; createdAt:TimestampString; deliveredAt:TimestampString|null; readAt:TimestampString|null }
+export interface NotificationRepository { createNotification(input:NotificationRecord):Promise<void>; findNotification(id:string):Promise<NotificationRecord|undefined>; findNotificationsByRecipient(userId:string):Promise<NotificationRecord[]>; updateNotification(input:NotificationRecord):Promise<void> }

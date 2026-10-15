@@ -1,0 +1,899 @@
+{
+  "type": "object",
+  "required": ["version", "ids", "values", "numbers", "states", "flow"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "ids": {
+      "type": "array",
+      "minItems": 256,
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "values": {
+      "type": "object",
+      "required": [
+        "sandbox",
+        "TEST",
+        "https_pay_sandbox_sepay_vn_v1_checkout_init",
+        "https_pgapi_sandbox_sepay_vn",
+        "PURCHASE",
+        "BANK_TRANSFER",
+        "VND",
+        "https_merchant_example_success",
+        "https_merchant_example_error",
+        "https_merchant_example_cancel",
+        "trooi_test",
+        "localhost",
+        "v_127_0_0_1",
+        "v_55433",
+        "DEMO",
+        "CREATED",
+        "demo_local",
+        "MOMO",
+        "sandbox_TEST",
+        "d0000000_0000_4000_8000_000000000001",
+        "DEMO_CONFIRMATION",
+        "DEMO_d0000000000040008000000000000001",
+        "CREATE",
+        "demo",
+        "PAYMENT_IPN",
+        "RECONCILIATION",
+        "OTHER",
+        "DEMO_arbitrary",
+        "v_123",
+        "empty",
+        "opaque",
+        "SEPAY",
+        "LEGACY_RECONCILIATION_REQUIRED",
+        "momo",
+        "sandbox_OTHER",
+        "x",
+        "INITIATED",
+        "SUCCEEDED",
+        "v_1000_00",
+        "GATEWAY",
+        "PROVIDER_VERIFIED",
+        "v_2026_10_07T00_00_00_000Z",
+        "preserved",
+        "v_42",
+        "opaque_settlement",
+        "database_migrations_sql_000006_demo_gateway_down_sql",
+        "production",
+        "MERCHANT",
+        "https_pay_sepay_vn_v1_checkout_init",
+        "https_pgapi_sepay_vn",
+        "production_MERCHANT",
+        "changed_invoice",
+        "sandbox_MERCHANT",
+        "hidden",
+        "test",
+        "https_test_payment_momo_vn",
+        "https_example_test_ipn",
+        "trooi_payment_momo",
+        "order",
+        "request",
+        "v_6dedce75fb7bd88a7a40c3f7e473f29548994272dc47fe79b13ab2e17adbfdd4",
+        "opaque_remote",
+        "v_2026_10_07T01_00_00_000Z",
+        "v_2026_10_07T02_00_00_000Z",
+        "handoff_claimed_at_NULL",
+        "FAILED",
+        "provider_remote_order_id",
+        "v_11",
+        "storage_test",
+        "bad_momo",
+        "bad_sepay",
+        "bad_trans",
+        "same_local",
+        "ready_invoice",
+        "invoice_a",
+        "opaque_transaction",
+        "invoice_b",
+        "invoice_c",
+        "invoice_d",
+        "unscoped",
+        "UNKNOWN",
+        "v_2026_10_07T01_01_00_000Z",
+        "trooi_dev",
+        "postgres",
+        "trooi_test_extra",
+        "ACTIVE",
+        "v_92000000_0000_4000_8000_000000000001",
+        "v_2026_10_05T00_00_00_000Z",
+        "v_93000000_0000_4000_8000_000000000001",
+        "v_93000000_0000_4000_8000_000000000002",
+        "legacy_order_0",
+        "legacy_request_0",
+        "ok",
+        "https_test_payment_momo_vn_pay",
+        "v_1000",
+        "changed",
+        "v_1000_50",
+        "INSERT",
+        "AFTER_LEASE",
+        "DISPATCH_IN_PROGRESS",
+        "empty_2",
+        "momo_wallet",
+        "Successful",
+        "qr",
+        "v_10000000_0000_4000_8000_000000000002",
+        "v_82000000_0000_4000_8000_000000000001",
+        "v_83000000_0000_4000_8000_000000000001",
+        "v_90000000_0000_4000_8000_000000000001",
+        "v_91000000_0000_4000_8000_000000000001",
+        "v_2026_01_01T00_00_00_000Z",
+        "PRIMARY",
+        "v_2026_01_01",
+        "v_2026_12_31",
+        "v_2026_01_31",
+        "RENT",
+        "v_2026_10_07T03_00_00_000Z",
+        "storage_fixture",
+        "momo_preserved",
+        "handoff_storage",
+        "storage_test_2",
+        "storage_fingerprint",
+        "again",
+        "other_invoice",
+        "other_request",
+        "legacy",
+        "legacy_order",
+        "legacy_request",
+        "momo_invoice",
+        "momo_request",
+        "other_momo_invoice",
+        "other_momo_request",
+        "handoff_invoice",
+        "handoff_request",
+        "PROVIDER_RESUME_CONTRACT_REQUIRED",
+        "unscoped_legacy",
+        "unscoped_request",
+        "empty_3"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sandbox": {
+          "type": "string",
+          "minLength": 1
+        },
+        "TEST": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_pay_sandbox_sepay_vn_v1_checkout_init": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_pgapi_sandbox_sepay_vn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PURCHASE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "BANK_TRANSFER": {
+          "type": "string",
+          "minLength": 1
+        },
+        "VND": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_merchant_example_success": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_merchant_example_error": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_merchant_example_cancel": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trooi_test": {
+          "type": "string",
+          "minLength": 1
+        },
+        "localhost": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_127_0_0_1": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_55433": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DEMO": {
+          "type": "string",
+          "minLength": 1
+        },
+        "CREATED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "demo_local": {
+          "type": "string",
+          "minLength": 1
+        },
+        "MOMO": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sandbox_TEST": {
+          "type": "string",
+          "minLength": 1
+        },
+        "d0000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DEMO_CONFIRMATION": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DEMO_d0000000000040008000000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "CREATE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "demo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PAYMENT_IPN": {
+          "type": "string",
+          "minLength": 1
+        },
+        "RECONCILIATION": {
+          "type": "string",
+          "minLength": 1
+        },
+        "OTHER": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DEMO_arbitrary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_123": {
+          "type": "string",
+          "minLength": 1
+        },
+        "empty": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opaque": {
+          "type": "string",
+          "minLength": 1
+        },
+        "SEPAY": {
+          "type": "string",
+          "minLength": 1
+        },
+        "LEGACY_RECONCILIATION_REQUIRED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "momo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sandbox_OTHER": {
+          "type": "string",
+          "minLength": 1
+        },
+        "x": {
+          "type": "string",
+          "minLength": 1
+        },
+        "INITIATED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "SUCCEEDED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_1000_00": {
+          "type": "string",
+          "minLength": 1
+        },
+        "GATEWAY": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PROVIDER_VERIFIED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_07T00_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "preserved": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_42": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opaque_settlement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "database_migrations_sql_000006_demo_gateway_down_sql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "production": {
+          "type": "string",
+          "minLength": 1
+        },
+        "MERCHANT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_pay_sepay_vn_v1_checkout_init": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_pgapi_sepay_vn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "production_MERCHANT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "changed_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sandbox_MERCHANT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hidden": {
+          "type": "string",
+          "minLength": 1
+        },
+        "test": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_test_payment_momo_vn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_example_test_ipn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trooi_payment_momo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_6dedce75fb7bd88a7a40c3f7e473f29548994272dc47fe79b13ab2e17adbfdd4": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opaque_remote": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_07T01_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_07T02_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoff_claimed_at_NULL": {
+          "type": "string",
+          "minLength": 1
+        },
+        "FAILED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_remote_order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_11": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_test": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bad_momo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bad_sepay": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bad_trans": {
+          "type": "string",
+          "minLength": 1
+        },
+        "same_local": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ready_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invoice_a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opaque_transaction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invoice_b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invoice_c": {
+          "type": "string",
+          "minLength": 1
+        },
+        "invoice_d": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unscoped": {
+          "type": "string",
+          "minLength": 1
+        },
+        "UNKNOWN": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_07T01_01_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trooi_dev": {
+          "type": "string",
+          "minLength": 1
+        },
+        "postgres": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trooi_test_extra": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ACTIVE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_92000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_05T00_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_93000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_93000000_0000_4000_8000_000000000002": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy_order_0": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy_request_0": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ok": {
+          "type": "string",
+          "minLength": 1
+        },
+        "https_test_payment_momo_vn_pay": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_1000": {
+          "type": "string",
+          "minLength": 1
+        },
+        "changed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_1000_50": {
+          "type": "string",
+          "minLength": 1
+        },
+        "INSERT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "AFTER_LEASE": {
+          "type": "string",
+          "minLength": 1
+        },
+        "DISPATCH_IN_PROGRESS": {
+          "type": "string",
+          "minLength": 1
+        },
+        "empty_2": {
+          "type": "string",
+          "minLength": 1
+        },
+        "momo_wallet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "Successful": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_10000000_0000_4000_8000_000000000002": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_82000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_83000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_90000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_91000000_0000_4000_8000_000000000001": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_01_01T00_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PRIMARY": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_01_01": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_12_31": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_01_31": {
+          "type": "string",
+          "minLength": 1
+        },
+        "RENT": {
+          "type": "string",
+          "minLength": 1
+        },
+        "v_2026_10_07T03_00_00_000Z": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "momo_preserved": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoff_storage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_test_2": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_fingerprint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "again": {
+          "type": "string",
+          "minLength": 1
+        },
+        "other_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "other_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy_order": {
+          "type": "string",
+          "minLength": 1
+        },
+        "legacy_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "momo_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "momo_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "other_momo_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "other_momo_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoff_invoice": {
+          "type": "string",
+          "minLength": 1
+        },
+        "handoff_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "PROVIDER_RESUME_CONTRACT_REQUIRED": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unscoped_legacy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unscoped_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "empty_3": {
+          "type": "string",
+          "minLength": 0
+        }
+      }
+    },
+    "numbers": {
+      "type": "object",
+      "required": [
+        "amountVnd",
+        "leaseRecoveryMs",
+        "ipnTransactionId",
+        "ipnResultCode",
+        "ipnResponseTime",
+        "invalidLength",
+        "lockObservationTimeoutMs",
+        "frozenV1TableCount",
+        "expectedCount8",
+        "expectedCount1",
+        "expectedCount4",
+        "expectedCount0",
+        "expectedCount3",
+        "scenarioCount8",
+        "expectedCount2",
+        "scenarioCount7",
+        "scenarioCount1"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amountVnd": {
+          "type": "integer"
+        },
+        "leaseRecoveryMs": {
+          "type": "integer"
+        },
+        "ipnTransactionId": {
+          "type": "integer"
+        },
+        "ipnResultCode": {
+          "type": "integer"
+        },
+        "ipnResponseTime": {
+          "type": "integer"
+        },
+        "invalidLength": {
+          "type": "integer"
+        },
+        "lockObservationTimeoutMs": {
+          "type": "integer"
+        },
+        "frozenV1TableCount": {
+          "type": "integer"
+        },
+        "expectedCount8": {
+          "type": "integer"
+        },
+        "expectedCount1": {
+          "type": "integer"
+        },
+        "expectedCount4": {
+          "type": "integer"
+        },
+        "expectedCount0": {
+          "type": "integer"
+        },
+        "expectedCount3": {
+          "type": "integer"
+        },
+        "scenarioCount8": {
+          "type": "integer"
+        },
+        "expectedCount2": {
+          "type": "integer"
+        },
+        "scenarioCount7": {
+          "type": "integer"
+        },
+        "scenarioCount1": {
+          "type": "integer"
+        }
+      }
+    },
+    "states": {
+      "type": "object",
+      "properties": {
+        "absent": {
+          "type": "null"
+        },
+        "emptyPayload": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "emptyProviderField": {
+          "type": "string"
+        },
+        "userExists": {
+          "type": "boolean"
+        },
+        "providerSignatureAccepted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "absent",
+        "emptyPayload",
+        "emptyProviderField",
+        "userExists",
+        "providerSignatureAccepted"
+      ],
+      "additionalProperties": false
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "successfulReply": {
+          "type": "object",
+          "properties": {
+            "resultCode": {
+              "type": "integer"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payUrl": {
+              "type": "string",
+              "minLength": 1
+            },
+            "deeplink": {
+              "type": "null"
+            }
+          },
+          "required": ["resultCode", "message", "payUrl", "deeplink"],
+          "additionalProperties": false
+        },
+        "checkoutAmount": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lateTransactionId": {
+          "type": "integer"
+        },
+        "lateTransactionText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "concurrentTransactionId": {
+          "type": "integer"
+        },
+        "rollbackTransactionId": {
+          "type": "integer"
+        },
+        "failureTransactionId": {
+          "type": "integer"
+        },
+        "successTransactionId": {
+          "type": "integer"
+        },
+        "successTransactionText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "failureCode": {
+          "type": "integer"
+        },
+        "failureEvidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rollbackError": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "successfulReply",
+        "checkoutAmount",
+        "lateTransactionId",
+        "lateTransactionText",
+        "concurrentTransactionId",
+        "rollbackTransactionId",
+        "failureTransactionId",
+        "successTransactionId",
+        "successTransactionText",
+        "failureCode",
+        "failureEvidence",
+        "rollbackError"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

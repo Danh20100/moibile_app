@@ -1,7 +1,11 @@
-﻿export interface GoogleIdentity {
+export interface GoogleIdentity {
+  issuer: string;
   subject: string;
   email?: string;
   emailVerified?: boolean;
+  nonce?: string;
+  authTime?: number;
+  issuedAt?: number;
   name?: string;
   pictureUrl?: string;
 }

@@ -1,0 +1,67 @@
+feature: identity-access
+source: docs/backlogs/v1/identity-access.md
+cases:
+  - id: AUTH-01-H01
+    flow: AUTH-01
+    kind: happy
+    scenario: first Google authentication provisions digital USER
+    expect: [google-token-verified, one-user-row-created, session-context-returned]
+    must_not: [assign-global-landlord-role, assign-global-tenant-role]
+  - id: AUTH-01-N01
+    flow: AUTH-01
+    kind: negative
+    scenario: invalid Google ID Token
+    expect: [http-401, no-user-created, no-session-created]
+  - id: AUTH-01-N02
+    flow: AUTH-01
+    kind: negative
+    scenario: expired or wrong-audience Google ID Token
+    expect: [http-401, no-user-created]
+  - id: AUTH-02-H01
+    flow: AUTH-02
+    kind: happy
+    scenario: returning Google user signs in again
+    expect: [same-user-id, no-duplicate-user, fresh-session-context]
+  - id: AUTH-02-I01
+    flow: AUTH-02
+    kind: invariant
+    scenario: repeated authentication is idempotent for USER identity
+    expect: [exactly-one-user-row-for-principal]
+  - id: AUTH-03-H01
+    flow: AUTH-03
+    kind: capability
+    scenario: user with no Organization and no Participant links
+    expect: [discovery-available, operations-hidden, tenant-portal-hidden]
+  - id: AUTH-03-H02
+    flow: AUTH-03
+    kind: capability
+    scenario: user is primary owner of Organization
+    expect: [operations-capability-present, tenant-capability-only-if-linked-tenancy]
+  - id: AUTH-03-H03
+    flow: AUTH-03
+    kind: capability
+    scenario: user linked to Tenancy Participant
+    expect: [tenant-portal-capability-present, only-linked-tenancy-ids-returned]
+  - id: AUTH-03-H04
+    flow: AUTH-03
+    kind: capability
+    scenario: same user is both operator and tenant
+    expect: [operations-and-tenant-capabilities-coexist]
+    must_not: [collapse-to-single-global-role]
+  - id: AUTH-03-N01
+    flow: AUTH-03
+    kind: authorization
+    scenario: authenticated user requests unrelated protected resource
+    expect: [access-denied]
+  - id: AUTH-04-H01
+    flow: AUTH-04
+    kind: happy
+    scenario: user logs out on Android
+    expect:
+      [local-auth-state-cleared, protected-navigation-hidden, public-discovery-still-available]
+  - id: AUTH-04-I01
+    flow: AUTH-04
+    kind: invariant
+    scenario: logout does not delete USER or relationship history
+    expect:
+      [user-row-preserved, tenancy-participant-links-preserved, organization-ownership-preserved]

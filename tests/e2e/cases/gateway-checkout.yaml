@@ -1,0 +1,15 @@
+feature: gateway-checkout
+sources:
+  - docs/backlogs/v1/payment.md
+cases:
+  - id: GW-01-H01
+    flow: GW-01
+    kind: happy
+    scenario: authenticated caller creates a checkout and a verified success records one Payment
+    expect: [checkout-persisted, single-confirmed-payment]
+    must_not: [payment-from-return-uri, allocation, deposit-funding, receipt]
+  - id: GW-01-E01
+    flow: GW-01
+    kind: error
+    scenario: missing signature, amount mismatch, or replay after terminal failure
+    expect: [rejected-or-unchanged-checkout, no-payment]

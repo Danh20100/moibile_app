@@ -1,0 +1,90 @@
+feature: operator-setup
+flows:
+  - id: ORG-01
+    name: create-organization
+    actor: authenticated-user
+    status: spec_only
+    preconditions: [authenticated-session]
+    steps: [open-operations, create-organization, submit]
+    assertions:
+      [organization-row-created, primary-owner-is-current-user, organization-visible-to-owner]
+  - id: ORG-02
+    name: organization-scope-authorization
+    actor: operator
+    status: spec_only
+    preconditions: [owned-organization, foreign-organization]
+    steps: [list-organizations, open-owned-organization, attempt-foreign-resource]
+    assertions: [owned-visible, foreign-resource-denied]
+  - id: PROP-01
+    name: create-property
+    actor: operator
+    status: spec_only
+    preconditions: [owned-organization]
+    steps: [open-organization, create-property, submit]
+    assertions:
+      [property-row-created, property-linked-to-organization, private-and-public-location-separated]
+  - id: ROOM-01
+    name: create-room
+    actor: operator
+    status: spec_only
+    preconditions: [active-property]
+    steps: [open-property, add-room]
+    assertions: [room-row-created, operational-state-vacant, record-lifecycle-active]
+  - id: ROOM-02
+    name: maintenance-roundtrip
+    actor: operator
+    status: spec_only
+    preconditions: [active-vacant-room]
+    steps: [set-maintenance, set-vacant]
+    assertions: [valid-state-transitions, published-listing-unpublished-if-required]
+  - id: ROOM-03
+    name: inactive-reactivate
+    actor: operator
+    status: spec_only
+    preconditions: [active-vacant-or-maintenance-room, active-property]
+    steps: [set-inactive, reactivate-to-vacant]
+    assertions: [state-history-preserved, no-illegal-occupied-transition]
+  - id: ROOM-04
+    name: archive-guards
+    actor: operator
+    status: spec_only
+    preconditions: [room-with-blocking-and-nonblocking-scenarios]
+    steps: [attempt-archive]
+    assertions:
+      [open-tenancy-blocks, open-incident-blocks, current-listing-handled, valid-archive-succeeds]
+  - id: ORG-03
+    name: update-organization-profile
+    actor: operator
+    status: spec_only
+    preconditions: [owned-organization]
+    steps: [open-organization, edit-supported-fields, save]
+    assertions: [changes-persisted, ownership-unchanged]
+  - id: PROP-02
+    name: read-update-property
+    actor: operator
+    status: spec_only
+    preconditions: [owned-active-property]
+    steps: [open-property, edit-supported-operational-fields, save]
+    assertions: [changes-persisted, private-public-location-boundary-preserved]
+  - id: PROP-03
+    name: archive-property
+    actor: operator
+    status: spec_only
+    preconditions: [property-archive-scenarios]
+    steps: [attempt-archive-property]
+    assertions: [all-frozen-archive-guards-enforced, eligible-property-archived]
+  - id: ROOM-05
+    name: read-update-room
+    actor: operator
+    status: spec_only
+    preconditions: [owned-room]
+    steps: [open-room, edit-supported-fields, save]
+    assertions: [changes-persisted, lifecycle-state-not-invented-by-ui]
+  - id: ROOM-06
+    name: correct-room-property-assignment
+    actor: operator
+    status: spec_only
+    preconditions: [same-physical-room, correction-scenario]
+    steps: [correct-property-relation]
+    assertions:
+      [history-appended, published-listing-unpublished-before-correction, manual-republish-required]

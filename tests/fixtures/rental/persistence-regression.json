@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "ids": {
+    "user": "10000000-0000-4000-8000-000000000001",
+    "org": "20000000-0000-4000-8000-000000000001",
+    "property": "30000000-0000-4000-8000-000000000001",
+    "room": "40000000-0000-4000-8000-000000000001",
+    "listing": "50000000-0000-4000-8000-000000000001",
+    "tenancy": "80000000-0000-4000-8000-000000000001",
+    "eligibleArchiveRoom": "40000000-0000-4000-8000-000000000002",
+    "eligibleArchiveListing": "50000000-0000-4000-8000-000000000002"
+  },
+  "organization": {
+    "organizationId": "20000000-0000-4000-8000-000000000001",
+    "primaryOwnerUserId": "10000000-0000-4000-8000-000000000001",
+    "name": "Org"
+  },
+  "property": {
+    "propertyId": "30000000-0000-4000-8000-000000000001",
+    "organizationId": "20000000-0000-4000-8000-000000000001",
+    "name": "P",
+    "lifecycleStatus": "ACTIVE",
+    "operationalAddressText": "Private",
+    "operationalLocation": {
+      "longitude": 106,
+      "latitude": 10
+    },
+    "publicLocationProjection": {
+      "longitude": 106,
+      "latitude": 10
+    }
+  },
+  "room": {
+    "roomId": "40000000-0000-4000-8000-000000000001",
+    "propertyId": "30000000-0000-4000-8000-000000000001",
+    "nameOrLabel": "R",
+    "operationalState": "VACANT",
+    "recordLifecycle": "ACTIVE"
+  },
+  "listing": {
+    "listingId": "50000000-0000-4000-8000-000000000001",
+    "roomId": "40000000-0000-4000-8000-000000000001",
+    "status": "DRAFT",
+    "publicTitle": "T",
+    "publicDescription": "D",
+    "publicPriceProjection": "1.00",
+    "publicLocationProjection": {
+      "longitude": 106,
+      "latitude": 10
+    }
+  },
+  "tenancy": {
+    "tenancyId": "80000000-0000-4000-8000-000000000001",
+    "roomId": "40000000-0000-4000-8000-000000000001",
+    "status": "DRAFT",
+    "startedAt": "2026-01-01T00:00:00.000Z",
+    "endedAt": null,
+    "endReason": null
+  },
+  "participant": {
+    "tenancyParticipantId": "82000000-0000-4000-8000-000000000001",
+    "tenancyId": "80000000-0000-4000-8000-000000000001",
+    "userId": "10000000-0000-4000-8000-000000000001",
+    "role": "PRIMARY",
+    "joinedAt": "2026-01-01T00:00:00.000Z",
+    "leftAt": null
+  },
+  "incident": {
+    "incidentId": "a0000000-0000-4000-8000-000000000001",
+    "roomId": "40000000-0000-4000-8000-000000000001",
+    "reportedByUserId": "10000000-0000-4000-8000-000000000001",
+    "category": "OTHER",
+    "status": "REPORTED",
+    "closureReason": null,
+    "createdAt": "2026-10-02T00:00:00.000Z",
+    "closedAt": null
+  },
+  "incidentClosure": {
+    "status": "CLOSED",
+    "closureReason": "ROOM_RETIRED",
+    "closedAt": "2026-10-03T00:00:00.000Z"
+  },
+  "checkout": {
+    "endReason": "TERM_ENDED",
+    "endedAt": "2026-10-01T00:00:00.000Z",
+    "invalidEndedAt": "2025-12-31T00:00:00.000Z"
+  },
+  "secondTenancyId": "80000000-0000-4000-8000-000000000002",
+  "expected": {
+    "published": "PUBLISHED",
+    "unpublished": "UNPUBLISHED",
+    "occupied": "OCCUPIED",
+    "vacant": "VACANT",
+    "inactive": "INACTIVE",
+    "maintenance": "MAINTENANCE",
+    "ending": "ENDING",
+    "ended": "ENDED",
+    "archived": "ARCHIVED",
+    "singleCommit": 1,
+    "singleRejection": 1,
+    "activationGuard": "tenancy_activation",
+    "publishGuard": "listing_publish_eligibility",
+    "transitionGuard": "room_leave_vacant_unpublish",
+    "archiveGuard": "property_archive_guard",
+    "archiveBlocker": "open_incident_archive_blocker",
+    "timeOrderError": "PersistenceCheckViolation"
+  }
+}

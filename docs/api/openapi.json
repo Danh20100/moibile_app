@@ -1,0 +1,5784 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Service đang hoạt động bình thường",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Kiểm tra tình trạng hoạt động của service",
+        "tags": [
+          "Health"
+        ],
+        "security": []
+      }
+    },
+    "/organizations": {
+      "post": {
+        "operationId": "OrganizationController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Workspace đã được tạo thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Tạo rental operating workspace mới",
+        "tags": [
+          "Organization"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "OrganizationController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Danh sách workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationProfileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Lấy danh sách rental operating workspace",
+        "tags": [
+          "Organization"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/organizations/{id}": {
+      "get": {
+        "operationId": "OrganizationController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Organization ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin chi tiết workspace",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy workspace"
+          }
+        },
+        "summary": "Lấy thông tin chi tiết workspace theo ID",
+        "tags": [
+          "Organization"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "OrganizationController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Organization ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tên workspace đã được cập nhật",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Đổi tên rental operating workspace",
+        "tags": [
+          "Organization"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/properties": {
+      "post": {
+        "operationId": "PropertyController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Property da duoc tao thanh cong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Tao Property / khu tro moi",
+        "tags": [
+          "Property"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "PropertyController_findByOrganizationId",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "required": false,
+            "in": "query",
+            "description": "Loc theo Organization ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sach Property",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyProfileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Lay danh sach Property (co the loc theo organizationId)",
+        "tags": [
+          "Property"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/properties/{id}": {
+      "get": {
+        "operationId": "PropertyController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Property ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thong tin Property",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Khong tim thay Property"
+          }
+        },
+        "summary": "Lay thong tin chi tiet Property",
+        "tags": [
+          "Property"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "PropertyController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Property ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePropertyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thong tin Property da duoc cap nhat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cap nhat ten / dia chi / location projection (khong doi lifecycle)",
+        "tags": [
+          "Property"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/rooms": {
+      "post": {
+        "operationId": "RoomController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Room da duoc tao thanh cong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Tao Room moi (vacant + active)",
+        "tags": [
+          "Room"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "RoomController_findByPropertyId",
+        "parameters": [
+          {
+            "name": "propertyId",
+            "required": false,
+            "in": "query",
+            "description": "Loc theo Property ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sach Room",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoomProfileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Lay danh sach Room (co the loc theo propertyId)",
+        "tags": [
+          "Room"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "operationId": "RoomController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Room ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thong tin Room",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Khong tim thay Room"
+          }
+        },
+        "summary": "Lay thong tin chi tiet Room",
+        "tags": [
+          "Room"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "RoomController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Room ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thong tin Room da duoc cap nhat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cap nhat nameOrLabel cua Room",
+        "tags": [
+          "Room"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies": {
+      "get": {
+        "operationId": "TenancyController_findByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tenancies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenancyProfileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find tenancies (optionally filtered by roomId)",
+        "tags": [
+          "Tenancy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RentalLifecycleController_createTenancy",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenancyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tenancy created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new draft tenancy",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}": {
+      "get": {
+        "operationId": "TenancyController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Tenancy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenancy details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenancy not found"
+          }
+        },
+        "summary": "Get Tenancy by ID",
+        "tags": [
+          "Tenancy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}/cancel": {
+      "post": {
+        "operationId": "TenancyController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Tenancy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cancelled tenancy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cancel a DRAFT Tenancy before activation",
+        "tags": [
+          "Tenancy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}/start-ending": {
+      "post": {
+        "operationId": "TenancyController_startEnding",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Tenancy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ending tenancy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start move-out workflow without making Room vacant",
+        "tags": [
+          "Tenancy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}/resume": {
+      "post": {
+        "operationId": "TenancyController_resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Tenancy ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resumed tenancy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Resume ACTIVE state from ENDING",
+        "tags": [
+          "Tenancy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants": {
+      "post": {
+        "operationId": "TenancySupportController_addParticipant",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTenancyParticipantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Participant added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyParticipantDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add a participant to tenancy",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listActiveParticipants",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of active participants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenancyParticipantDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active participants of tenancy",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants/{participantId}/leave": {
+      "post": {
+        "operationId": "TenancySupportController_leaveOccupant",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "participantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantOccurredAtDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Participant updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyParticipantDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record participant leave",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/participants/{participantId}/link-user": {
+      "post": {
+        "operationId": "TenancySupportController_linkUser",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "participantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkParticipantUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Participant linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyParticipantDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Link user ID to participant",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms": {
+      "post": {
+        "operationId": "TenancySupportController_createTerms",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenancyTermsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Terms created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyTermsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create new version of tenancy terms",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listTerms",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of terms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenancyTermsDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List terms versions of tenancy",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms/{termsId}": {
+      "get": {
+        "operationId": "TenancySupportController_findTerms",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "termsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tenancy terms",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyTermsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get tenancy terms version by ID",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/terms/{termsId}/acknowledgements": {
+      "post": {
+        "operationId": "TenancySupportController_acknowledgeTerms",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "termsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTermsAcknowledgementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Terms acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermsAcknowledgementDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Acknowledge tenancy terms",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/notices": {
+      "post": {
+        "operationId": "TenancySupportController_issueNotice",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueTenancyNoticeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Notice issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyNoticeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue tenancy notice",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "TenancySupportController_listNotices",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of notices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenancyNoticeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List notices of tenancy",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/notices/{noticeId}/acknowledge": {
+      "post": {
+        "operationId": "TenancySupportController_acknowledgeNotice",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "noticeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcknowledgeTenancyNoticeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notice acknowledged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyNoticeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Acknowledge tenancy notice",
+        "tags": [
+          "Tenancy Support"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/cycles": {
+      "post": {
+        "operationId": "BillingController_createCycle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBillingCycleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Billing cycle created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCycleDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a billing cycle",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "BillingController_findCycles",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of billing cycles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BillingCycleDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find billing cycles by tenancy ID",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/cycles/{id}": {
+      "get": {
+        "operationId": "BillingController_findCycle",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Billing cycle details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingCycleDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get billing cycle by ID",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/payments": {
+      "post": {
+        "operationId": "BillingController_recordPayment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record a payment",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "BillingController_findPaymentsByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment history for the Tenancy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot read the Tenancy"
+          }
+        },
+        "summary": "List confirmed Payment records by Tenancy ID",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/payments/{id}": {
+      "get": {
+        "operationId": "BillingController_findPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get payment by ID",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/payments/{id}/allocations": {
+      "post": {
+        "operationId": "BillingController_allocate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyAmountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment allocated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentAllocationDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Allocate payment to charge",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/deposits": {
+      "post": {
+        "operationId": "BillingController_createDeposit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDepositDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deposit lifecycle created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Tenancy"
+          }
+        },
+        "summary": "Initialize the one-per-Tenancy Deposit lifecycle",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "BillingController_findDepositByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposit projection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot read the Tenancy"
+          },
+          "404": {
+            "description": "Tenancy or Deposit lifecycle not found"
+          }
+        },
+        "summary": "Get the source-backed Deposit projection for a Tenancy",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/deposits/{id}/events": {
+      "get": {
+        "operationId": "BillingController_findDepositEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Deposit ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposit event history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DepositEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List append-only Deposit events",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/deposits/{id}/settlements": {
+      "post": {
+        "operationId": "BillingController_settleDeposit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Deposit ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleDepositDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deposit settlement recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositSettlementDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record a Deposit refund/retain settlement",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/payments/{id}/deposit-applications": {
+      "post": {
+        "operationId": "BillingController_applyDeposit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyAmountDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Deposit application created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DepositPaymentApplicationDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply payment to deposit",
+        "tags": [
+          "Finance"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/organizations/{organizationId}/dashboard": {
+      "get": {
+        "operationId": "DashboardController_findByOrganization",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardReadModelDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Organization"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read the server-owned V1 operational Dashboard projection",
+        "tags": [
+          "Dashboard"
+        ]
+      }
+    },
+    "/tenancies/{tenancyId}/history": {
+      "get": {
+        "operationId": "HistoryController_findByTenancy",
+        "parameters": [
+          {
+            "name": "tenancyId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RentalHistoryProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user has no operator or participant history access"
+          },
+          "404": {
+            "description": "Tenancy not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read source-backed rental history for an operated or historically linked Tenancy",
+        "tags": [
+          "History"
+        ]
+      }
+    },
+    "/rooms/{roomId}/history": {
+      "get": {
+        "operationId": "HistoryController_findByRoom",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomOperationalHistoryProjectionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user does not operate the Room"
+          },
+          "404": {
+            "description": "Room not found"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Read source-backed operational history for an operated Room",
+        "tags": [
+          "History"
+        ]
+      }
+    },
+    "/receipts": {
+      "post": {
+        "operationId": "ReceiptController_issue",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueReceiptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue receipt for confirmed payment",
+        "tags": [
+          "Receipt"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ReceiptController_findByPaymentId",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of receipts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReceiptRecordDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find receipts by payment ID",
+        "tags": [
+          "Receipt"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/receipts/{id}": {
+      "get": {
+        "operationId": "ReceiptController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Receipt details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get receipt by ID",
+        "tags": [
+          "Receipt"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/receipts/{id}/void": {
+      "post": {
+        "operationId": "ReceiptController_void",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voided receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Void a receipt",
+        "tags": [
+          "Receipt"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/incidents": {
+      "post": {
+        "operationId": "IncidentController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateIncidentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sự cố đã được tạo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentTicketDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Báo sự cố mới gắn với phòng (trạng thái ban đầu: reported)",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "IncidentController_findByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": false,
+            "in": "query",
+            "description": "Lọc theo Room ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách sự cố",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentTicketDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Lấy danh sách các sự cố (có thể lọc theo roomId)",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/incidents/{id}/events": {
+      "get": {
+        "operationId": "IncidentController_listEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Incident ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident event timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentEventDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Current user cannot access the Incident"
+          },
+          "404": {
+            "description": "Incident not found"
+          }
+        },
+        "summary": "Lấy timeline Incident Event theo thứ tự xảy ra",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/incidents/{id}": {
+      "get": {
+        "operationId": "IncidentController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin sự cố",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentTicketDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy sự cố"
+          }
+        },
+        "summary": "Lấy thông tin chi tiết một sự cố",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/incidents/{id}/status": {
+      "patch": {
+        "operationId": "IncidentController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateIncidentStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Trạng thái sự cố đã được cập nhật",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentTicketDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Chuyển đổi trạng thái không hợp lệ"
+          }
+        },
+        "summary": "Chuyển đổi trạng thái xử lý sự cố (acknowledged -> processing -> need_more_information -> resolved -> closed)",
+        "tags": [
+          "Incident"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/public": {
+      "get": {
+        "operationId": "ListingController_findPublic",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Published listings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ListingProfileDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read currently published Listing projections",
+        "tags": [
+          "Listing"
+        ],
+        "security": []
+      }
+    },
+    "/listings": {
+      "get": {
+        "operationId": "ListingController_findCurrentByRoomId",
+        "parameters": [
+          {
+            "name": "roomId",
+            "required": true,
+            "in": "query",
+            "description": "Room ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current Listing for the Room",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "roomId query parameter is required"
+          },
+          "403": {
+            "description": "Current user does not operate the Room"
+          },
+          "404": {
+            "description": "Room or current Listing not found"
+          }
+        },
+        "summary": "Get the current non-archived Listing for an operated Room",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RentalLifecycleController_createListing",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Listing created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new Listing",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/{id}": {
+      "get": {
+        "operationId": "ListingController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Listing ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Listing not found"
+          }
+        },
+        "summary": "Get Listing by ID",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ListingController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Listing ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateListingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update Listing content",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/{id}/unpublish": {
+      "post": {
+        "operationId": "ListingController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Listing ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unpublished listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Explicitly unpublish a currently published Listing",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/{id}/archive": {
+      "post": {
+        "operationId": "ListingController_archive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Listing ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Archived listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Archive an eligible draft or unpublished Listing",
+        "tags": [
+          "Listing"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/inquiries": {
+      "post": {
+        "operationId": "InquiryController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInquiryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Inquiry created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record discovery/contact intent for a Listing",
+        "tags": [
+          "Inquiry"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "InquiryController_findByListingId",
+        "parameters": [
+          {
+            "name": "listingId",
+            "required": true,
+            "in": "query",
+            "description": "Listing ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of inquiries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InquiryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Find Inquiries by Listing ID",
+        "tags": [
+          "Inquiry"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/inquiries/{id}": {
+      "get": {
+        "operationId": "InquiryController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Inquiry ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inquiry details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InquiryDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get Inquiry by ID",
+        "tags": [
+          "Inquiry"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/public/search": {
+      "get": {
+        "description": "Uses only Listing publicLocationProjection. Exact operational Property location is never returned. Room/property type remains OPEN and is not exposed here.",
+        "operationId": "PublicListingSearchController_find",
+        "parameters": [
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": -90,
+              "maximum": 90,
+              "example": 10.776,
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "minimum": -180,
+              "maximum": 180,
+              "example": 106.7,
+              "type": "number"
+            }
+          },
+          {
+            "name": "radiusMeters",
+            "required": true,
+            "in": "query",
+            "description": "Radius in meters over public Listing projection coordinates",
+            "schema": {
+              "minimum": 0,
+              "example": 5000,
+              "type": "number"
+            }
+          },
+          {
+            "name": "minPrice",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2000000.00",
+              "type": "string"
+            }
+          },
+          {
+            "name": "maxPrice",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "5000000.00",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicListingSearchResultDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search PUBLISHED Listings by public projection radius and frozen price-range filters",
+        "tags": [
+          "Listing"
+        ],
+        "security": []
+      }
+    },
+    "/identity-access/auth/google": {
+      "post": {
+        "operationId": "IdentityAccessController_authenticateWithGoogle",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyGoogleTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Xác thực thành công và trả về thông tin user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedPrincipalDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token không hợp lệ hoặc đã hết hạn"
+          }
+        },
+        "summary": "Xác thực người dùng qua Google ID Token (Android Credential Manager)",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": []
+      }
+    },
+    "/identity-access/me": {
+      "get": {
+        "operationId": "IdentityAccessController_getSessionContext",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session context thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionContextDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chưa xác thực hoặc token không hợp lệ"
+          }
+        },
+        "summary": "Lấy session context của user hiện tại từ relationship thật",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/users/{id}": {
+      "get": {
+        "operationId": "IdentityAccessController_findUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "User ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin identity profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserReferenceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không tìm thấy user"
+          }
+        },
+        "summary": "Lấy thông tin digital identity profile theo ID",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/listings/{id}/publish": {
+      "post": {
+        "operationId": "RentalLifecycleController_publishListing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Listing published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListingProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Publish a Listing",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/rooms/{id}/operational-state": {
+      "post": {
+        "operationId": "RentalLifecycleController_transitionRoomManually",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionRoomManuallyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Room operational state updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Transition room operational state manually",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}/activate": {
+      "post": {
+        "operationId": "RentalLifecycleController_activateTenancy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateTenancyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tenancy activated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Activate a tenancy",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/tenancies/{id}/checkout": {
+      "post": {
+        "operationId": "RentalLifecycleController_checkoutTenancy",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutTenancyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tenancy checked out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenancyProfileDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Checkout a tenancy",
+        "tags": [
+          "Rental lifecycle"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-trust/facts": {
+      "post": {
+        "operationId": "AuditTrustController_recordFact",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordAuditFactDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sự kiện đã được ghi nhận vào lịch sử",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Ghi nhận một sự kiện/business fact quan trọng để lưu vết audit",
+        "tags": [
+          "Audit & Trust"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "AuditTrustController_queryAudit",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "resourceId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách bản ghi audit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditRecordDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Tra cứu lịch sử audit theo resourceType hoặc resourceId",
+        "tags": [
+          "Audit & Trust"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/audit-trust/reports": {
+      "post": {
+        "operationId": "AuditTrustController_submitReport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitTrustReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Báo cáo đã được tiếp nhận",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustReportDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Gửi báo cáo tin đăng công khai",
+        "tags": [
+          "Audit & Trust"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "AuditTrustController_listReports",
+        "parameters": [],
+        "responses": {
+          "403": {
+            "description": "Không cấp danh sách báo cáo cho app user"
+          }
+        },
+        "summary": "Danh sách báo cáo nội bộ không mở cho người dùng app",
+        "tags": [
+          "Audit & Trust"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "operationId": "NotificationController_listMyNotifications",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "List of notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationItemDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List notifications for the current authenticated user",
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
+    "/notifications/{id}": {
+      "get": {
+        "operationId": "NotificationController_findById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get notification by ID",
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
+    "/notifications/{id}/read": {
+      "post": {
+        "operationId": "NotificationController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated notification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Mark notification as read",
+        "tags": [
+          "Notification"
+        ]
+      }
+    },
+    "/finance/checkouts": {
+      "post": {
+        "operationId": "PaymentGatewayController_createCheckout",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGatewayCheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Checkout created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayCheckoutDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a MoMo checkout session. Does not create a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/checkouts/{id}": {
+      "get": {
+        "operationId": "PaymentGatewayController_findCheckout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Checkout status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayCheckoutDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a MoMo checkout session. CREATED is not a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/finance/checkouts/momo/ipn": {
+      "post": {
+        "operationId": "PaymentGatewayController_momoIpn",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MomoIpnDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "IPN accepted without a response body"
+          }
+        },
+        "summary": "MoMo IPN. Verified success is the only path that creates a Payment.",
+        "tags": [
+          "Payment Gateway"
+        ],
+        "security": []
+      }
+    }
+  },
+  "info": {
+    "title": "TrọƠi API",
+    "description": "Tài liệu OpenAPI chính thức của hệ thống backend TrọƠi (Sổ vận hành thuê trọ)",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Kiểm tra trạng thái hoạt động của hệ thống"
+    },
+    {
+      "name": "Identity & Access",
+      "description": "Danh tính người dùng và capability truy cập theo relationship, không dùng global role"
+    },
+    {
+      "name": "Organization",
+      "description": "Phạm vi vận hành cấp cao nhất của chủ trọ/đơn vị quản lý"
+    },
+    {
+      "name": "Property",
+      "description": "Quản lý tài sản và bất động sản ở cấp địa điểm"
+    },
+    {
+      "name": "Room",
+      "description": "Đơn vị cho thuê cốt lõi và operational anchor"
+    },
+    {
+      "name": "Tenancy",
+      "description": "Quan hệ thuê phòng theo thời gian giữa room và tenant"
+    },
+    {
+      "name": "Billing",
+      "description": "Khoản phải thu, chi phí và trạng thái công nợ theo kỳ"
+    },
+    {
+      "name": "Receipt",
+      "description": "Bằng chứng phát hành từ Payment đã xác nhận; không phải bản ghi Payment"
+    },
+    {
+      "name": "Incident",
+      "description": "Sự cố vận hành và lifecycle xử lý ticket"
+    },
+    {
+      "name": "Listing",
+      "description": "Public projection của phòng phục vụ tìm kiếm/khám phá"
+    },
+    {
+      "name": "Audit & Trust",
+      "description": "Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ"
+    },
+    {
+      "name": "Payment Gateway",
+      "description": "MoMo checkout channel. Confirmed Payment is created only after provider IPN."
+    }
+  ],
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Base path chung của API hiện hành"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "HealthStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "timestamp": {
+            "type": "string",
+            "example": "2026-09-30T14:00:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "timestamp"
+        ]
+      },
+      "CreateOrganizationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tên workspace vận hành cho thuê",
+            "example": "Hệ thống nhà trọ An Cư"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "OrganizationProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Organization ID",
+            "example": "org_12345"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tên workspace",
+            "example": "Hệ thống nhà trọ An Cư"
+          },
+          "primaryOwnerUserId": {
+            "type": "string",
+            "description": "User ID của primary owner",
+            "example": "user_12345"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "primaryOwnerUserId"
+        ]
+      },
+      "UpdateOrganizationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Tên workspace vận hành cho thuê",
+            "example": "Hệ thống phòng trọ An Cư Mới"
+          }
+        }
+      },
+      "GeoPointDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "description": "Latitude",
+            "example": 21.0285,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude",
+            "example": 105.8542,
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "CreatePropertyDto": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "description": "ID of owning Organization workspace",
+            "example": "org_12345"
+          },
+          "name": {
+            "type": "string",
+            "description": "Property / khu tro name",
+            "example": "Nha tro 12 ngo 80 Cau Giay"
+          },
+          "operationalAddressText": {
+            "type": "string",
+            "description": "Operational address text",
+            "example": "So 12, Ngo 80 Duong Cau Giay"
+          },
+          "operationalLocation": {
+            "description": "Operational geospatial point",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          },
+          "publicLocationProjection": {
+            "description": "Public location projection",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "organizationId",
+          "name",
+          "operationalAddressText",
+          "operationalLocation",
+          "publicLocationProjection"
+        ]
+      },
+      "PropertyProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Property ID",
+            "example": "prop_12345"
+          },
+          "organizationId": {
+            "type": "string",
+            "description": "Organization workspace ID",
+            "example": "org_12345"
+          },
+          "name": {
+            "type": "string",
+            "description": "Property / khu tro name",
+            "example": "Nha tro 12 ngo 80 Cau Giay"
+          },
+          "lifecycleStatus": {
+            "type": "string",
+            "description": "Lifecycle status",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "example": "active"
+          },
+          "operationalAddressText": {
+            "type": "string",
+            "description": "Operational address text"
+          },
+          "operationalLocation": {
+            "description": "Operational geospatial point",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          },
+          "publicLocationProjection": {
+            "description": "Public location projection",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "name",
+          "lifecycleStatus",
+          "operationalAddressText",
+          "operationalLocation",
+          "publicLocationProjection"
+        ]
+      },
+      "UpdatePropertyDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Property / khu tro name"
+          },
+          "operationalAddressText": {
+            "type": "string",
+            "description": "Operational address text"
+          },
+          "operationalLocation": {
+            "description": "Operational geospatial point",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          },
+          "publicLocationProjection": {
+            "description": "Public location projection",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GeoPointDto"
+              }
+            ]
+          }
+        }
+      },
+      "CreateRoomDto": {
+        "type": "object",
+        "properties": {
+          "propertyId": {
+            "type": "string",
+            "description": "ID of parent Property",
+            "example": "prop_12345"
+          },
+          "nameOrLabel": {
+            "type": "string",
+            "description": "Room name or label",
+            "example": "Phong 201"
+          }
+        },
+        "required": [
+          "propertyId",
+          "nameOrLabel"
+        ]
+      },
+      "RoomProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "propertyId": {
+            "type": "string",
+            "description": "Parent Property ID",
+            "example": "prop_12345"
+          },
+          "nameOrLabel": {
+            "type": "string",
+            "description": "Room name or label",
+            "example": "Phong 201"
+          },
+          "operationalState": {
+            "type": "string",
+            "description": "Operational state",
+            "enum": [
+              "vacant",
+              "occupied",
+              "maintenance",
+              "inactive"
+            ],
+            "example": "vacant"
+          },
+          "recordLifecycle": {
+            "type": "string",
+            "description": "Record lifecycle",
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "example": "active"
+          }
+        },
+        "required": [
+          "id",
+          "propertyId",
+          "nameOrLabel",
+          "operationalState",
+          "recordLifecycle"
+        ]
+      },
+      "UpdateRoomDto": {
+        "type": "object",
+        "properties": {
+          "nameOrLabel": {
+            "type": "string",
+            "description": "Room name or label",
+            "example": "Phong 201"
+          }
+        }
+      },
+      "TenancyProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tenancy ID",
+            "example": "ten_12345"
+          },
+          "roomId": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "status": {
+            "type": "string",
+            "description": "Tenancy status",
+            "enum": [
+              "draft",
+              "active",
+              "ending",
+              "ended",
+              "cancelled"
+            ],
+            "example": "active"
+          },
+          "startedAt": {
+            "type": "string",
+            "description": "Start timestamp"
+          },
+          "endedAt": {
+            "type": "string",
+            "description": "End timestamp"
+          },
+          "endReason": {
+            "type": "string",
+            "description": "End reason",
+            "enum": [
+              "TERM_ENDED",
+              "TENANT_INITIATED",
+              "OPERATOR_INITIATED",
+              "MUTUAL",
+              "OTHER"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "roomId",
+          "status"
+        ]
+      },
+      "AddTenancyParticipantDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "PRIMARY",
+              "OCCUPANT"
+            ]
+          },
+          "joinedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "joinedAt"
+        ]
+      },
+      "TenancyParticipantDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Participant ID",
+            "example": "part_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "description": "Tenancy ID",
+            "example": "ten_12345"
+          },
+          "userId": {
+            "type": "string",
+            "description": "Linked User ID"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "PRIMARY",
+              "OCCUPANT"
+            ]
+          },
+          "joinedAt": {
+            "type": "string"
+          },
+          "leftAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "role",
+          "joinedAt"
+        ]
+      },
+      "ParticipantOccurredAtDto": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "occurredAt"
+        ]
+      },
+      "LinkParticipantUserDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "CreateTenancyTermsDto": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number"
+          },
+          "rentAmount": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "agreedDepositRequirement": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "termStart": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "termEnd": {
+            "type": "string",
+            "example": "2027-09-30"
+          },
+          "billingDayOrDueDateRule": {
+            "type": "object"
+          },
+          "electricityArrangement": {
+            "type": "object"
+          },
+          "waterArrangement": {
+            "type": "object"
+          },
+          "minimalRentalConditions": {
+            "type": "object"
+          },
+          "effectiveFromCycleBoundary": {
+            "type": "string",
+            "example": "2026-10-01"
+          }
+        },
+        "required": [
+          "version",
+          "rentAmount",
+          "agreedDepositRequirement",
+          "termStart",
+          "termEnd",
+          "billingDayOrDueDateRule",
+          "electricityArrangement",
+          "waterArrangement",
+          "minimalRentalConditions",
+          "effectiveFromCycleBoundary"
+        ]
+      },
+      "TenancyTermsDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Terms ID",
+            "example": "terms_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "description": "Tenancy ID",
+            "example": "ten_12345"
+          },
+          "version": {
+            "type": "number"
+          },
+          "rentAmount": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "agreedDepositRequirement": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "termStart": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "termEnd": {
+            "type": "string",
+            "example": "2027-09-30"
+          },
+          "billingDayOrDueDateRule": {
+            "type": "object"
+          },
+          "electricityArrangement": {
+            "type": "object"
+          },
+          "waterArrangement": {
+            "type": "object"
+          },
+          "minimalRentalConditions": {
+            "type": "object"
+          },
+          "effectiveFromCycleBoundary": {
+            "type": "string",
+            "example": "2026-10-01"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "version",
+          "rentAmount",
+          "agreedDepositRequirement",
+          "termStart",
+          "termEnd",
+          "billingDayOrDueDateRule",
+          "electricityArrangement",
+          "waterArrangement",
+          "minimalRentalConditions",
+          "effectiveFromCycleBoundary"
+        ]
+      },
+      "CreateTermsAcknowledgementDto": {
+        "type": "object",
+        "properties": {
+          "tenancyParticipantId": {
+            "type": "string"
+          },
+          "acknowledgedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenancyParticipantId",
+          "acknowledgedAt"
+        ]
+      },
+      "TermsAcknowledgementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Acknowledgement ID",
+            "example": "ack_12345"
+          },
+          "tenancyTermsId": {
+            "type": "string",
+            "description": "Terms ID",
+            "example": "terms_12345"
+          },
+          "tenancyParticipantId": {
+            "type": "string",
+            "description": "Participant ID",
+            "example": "part_12345"
+          },
+          "userId": {
+            "type": "string",
+            "description": "User ID",
+            "example": "user_12345"
+          },
+          "acknowledgedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyTermsId",
+          "tenancyParticipantId",
+          "userId",
+          "acknowledgedAt"
+        ]
+      },
+      "IssueTenancyNoticeDto": {
+        "type": "object",
+        "properties": {
+          "noticeType": {
+            "type": "string",
+            "description": "Opaque notice type; no Wave B enum is defined"
+          },
+          "contentOrNote": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "noticeType",
+          "contentOrNote",
+          "issuedAt"
+        ]
+      },
+      "TenancyNoticeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Notice ID",
+            "example": "not_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "description": "Tenancy ID",
+            "example": "ten_12345"
+          },
+          "noticeType": {
+            "type": "string"
+          },
+          "issuedByUserId": {
+            "type": "string"
+          },
+          "contentOrNote": {
+            "type": "string"
+          },
+          "issuedAt": {
+            "type": "string"
+          },
+          "acknowledgedByUserId": {
+            "type": "string"
+          },
+          "acknowledgedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "noticeType",
+          "issuedByUserId",
+          "contentOrNote",
+          "issuedAt"
+        ]
+      },
+      "AcknowledgeTenancyNoticeDto": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "occurredAt"
+        ]
+      },
+      "CreateChargeDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "RENT",
+              "ELECTRICITY",
+              "WATER"
+            ],
+            "example": "RENT"
+          },
+          "amount": {
+            "type": "string",
+            "example": "3500000.00"
+          }
+        },
+        "required": [
+          "type",
+          "amount"
+        ]
+      },
+      "CreateBillingCycleDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "tenancyTermsId": {
+            "type": "string",
+            "example": "terms_12345"
+          },
+          "periodStart": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "periodEnd": {
+            "type": "string",
+            "example": "2026-10-31"
+          },
+          "charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateChargeDto"
+            }
+          }
+        },
+        "required": [
+          "tenancyId",
+          "tenancyTermsId",
+          "periodStart",
+          "periodEnd",
+          "charges"
+        ]
+      },
+      "ChargeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "chg_12345"
+          },
+          "billingCycleId": {
+            "type": "string",
+            "example": "cycle_12345"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "RENT",
+              "ELECTRICITY",
+              "WATER"
+            ],
+            "example": "RENT"
+          },
+          "amount": {
+            "type": "string",
+            "example": "3500000.00"
+          }
+        },
+        "required": [
+          "id",
+          "billingCycleId",
+          "type",
+          "amount"
+        ]
+      },
+      "BillingCycleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "cycle_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "tenancyTermsId": {
+            "type": "string",
+            "example": "terms_12345"
+          },
+          "periodStart": {
+            "type": "string",
+            "example": "2026-10-01"
+          },
+          "periodEnd": {
+            "type": "string",
+            "example": "2026-10-31"
+          },
+          "charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChargeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "tenancyTermsId",
+          "periodStart",
+          "periodEnd",
+          "charges"
+        ]
+      },
+      "RecordPaymentDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "amount": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "MANUAL_CASH",
+              "MANUAL_TRANSFER"
+            ],
+            "example": "MANUAL_TRANSFER"
+          },
+          "confirmedAt": {
+            "type": "string",
+            "example": "2026-10-05T08:00:00.000Z"
+          }
+        },
+        "required": [
+          "tenancyId",
+          "amount",
+          "source",
+          "confirmedAt"
+        ]
+      },
+      "PaymentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "pay_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "amount": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "MANUAL_CASH",
+              "MANUAL_TRANSFER",
+              "GATEWAY"
+            ]
+          },
+          "verification": {
+            "type": "string",
+            "enum": [
+              "USER_RECORDED",
+              "PROVIDER_VERIFIED"
+            ]
+          },
+          "confirmedAt": {
+            "type": "string"
+          },
+          "voidedOrReversedAt": {
+            "type": "string"
+          },
+          "correctionNote": {
+            "type": "string"
+          },
+          "replacementPaymentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "amount",
+          "source",
+          "verification",
+          "confirmedAt"
+        ]
+      },
+      "ApplyAmountDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "string",
+            "example": "1000000.00"
+          },
+          "targetId": {
+            "type": "string",
+            "example": "target_12345"
+          }
+        },
+        "required": [
+          "amount",
+          "targetId"
+        ]
+      },
+      "PaymentAllocationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "alloc_12345"
+          },
+          "paymentId": {
+            "type": "string",
+            "example": "pay_12345"
+          },
+          "chargeId": {
+            "type": "string",
+            "example": "chg_12345"
+          },
+          "allocatedAmount": {
+            "type": "string",
+            "example": "3500000.00"
+          }
+        },
+        "required": [
+          "id",
+          "paymentId",
+          "chargeId",
+          "allocatedAmount"
+        ]
+      },
+      "CreateDepositDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          }
+        },
+        "required": [
+          "tenancyId"
+        ]
+      },
+      "DepositProjectionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "tenancyId": {
+            "type": "string",
+            "example": "ten_12345"
+          },
+          "requirementAmount": {
+            "type": "string",
+            "nullable": true,
+            "example": "3500000.00"
+          },
+          "fundedAmount": {
+            "type": "string",
+            "example": "2000000.00"
+          },
+          "settledAmount": {
+            "type": "string",
+            "example": "0.00"
+          },
+          "heldAmount": {
+            "type": "string",
+            "example": "2000000.00"
+          },
+          "state": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "EXPECTED",
+              "PARTIALLY_HELD",
+              "HELD",
+              "PENDING_SETTLEMENT",
+              "SETTLED"
+            ]
+          },
+          "blockedByOpenPolicy": {
+            "type": "boolean",
+            "description": "True when an OPEN deposit-requirement-change policy prevents an authoritative state projection."
+          }
+        },
+        "required": [
+          "id",
+          "tenancyId",
+          "fundedAmount",
+          "settledAmount",
+          "heldAmount",
+          "blockedByOpenPolicy"
+        ]
+      },
+      "DepositEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "devent_12345"
+          },
+          "depositId": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "eventType": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "REFUNDED",
+              "RETAINED"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "example": "1000000.00"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "paymentApplicationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "settlementId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "depositId",
+          "eventType",
+          "amount",
+          "occurredAt"
+        ]
+      },
+      "SettleDepositDto": {
+        "type": "object",
+        "properties": {
+          "refundedAmount": {
+            "type": "string",
+            "example": "3000000.00"
+          },
+          "retainedAmount": {
+            "type": "string",
+            "example": "500000.00"
+          },
+          "reasonOrNote": {
+            "type": "string",
+            "example": "Final checkout settlement"
+          },
+          "settledAt": {
+            "type": "string",
+            "example": "2026-10-05T08:00:00.000Z"
+          }
+        },
+        "required": [
+          "refundedAmount",
+          "retainedAmount",
+          "reasonOrNote",
+          "settledAt"
+        ]
+      },
+      "DepositSettlementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dset_12345"
+          },
+          "depositId": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "refundedAmount": {
+            "type": "string",
+            "example": "3000000.00"
+          },
+          "retainedAmount": {
+            "type": "string",
+            "example": "500000.00"
+          },
+          "reasonOrNote": {
+            "type": "string"
+          },
+          "actedByUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "settledAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "depositId",
+          "refundedAmount",
+          "retainedAmount",
+          "reasonOrNote",
+          "actedByUserId",
+          "settledAt"
+        ]
+      },
+      "DepositPaymentApplicationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "dapp_12345"
+          },
+          "paymentId": {
+            "type": "string",
+            "example": "pay_12345"
+          },
+          "depositId": {
+            "type": "string",
+            "example": "dep_12345"
+          },
+          "appliedAmount": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "appliedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "paymentId",
+          "depositId",
+          "appliedAmount",
+          "appliedAt"
+        ]
+      },
+      "DashboardRoomStateCountsDto": {
+        "type": "object",
+        "properties": {
+          "VACANT": {
+            "type": "number",
+            "example": 8
+          },
+          "OCCUPIED": {
+            "type": "number",
+            "example": 12
+          },
+          "MAINTENANCE": {
+            "type": "number",
+            "example": 2
+          },
+          "INACTIVE": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "VACANT",
+          "OCCUPIED",
+          "MAINTENANCE",
+          "INACTIVE"
+        ]
+      },
+      "DashboardReadModelDto": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "description": "Operated Organization ID"
+          },
+          "roomsByState": {
+            "$ref": "#/components/schemas/DashboardRoomStateCountsDto"
+          },
+          "activeTenancyCount": {
+            "type": "number",
+            "description": "Count of Tenancy rows whose current lifecycle status is ACTIVE"
+          },
+          "outstandingReceivable": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null until an authoritative dashboard finance aggregation scope is frozen; clients must not reconstruct it."
+          },
+          "confirmedPaymentTotal": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null until an authoritative dashboard finance aggregation scope is frozen; clients must not reconstruct it."
+          },
+          "openIncidentCount": {
+            "type": "number",
+            "description": "Count of Incidents in REPORTED, ACKNOWLEDGED, IN_PROGRESS, or RESOLVED state."
+          }
+        },
+        "required": [
+          "organizationId",
+          "roomsByState",
+          "activeTenancyCount",
+          "openIncidentCount"
+        ]
+      },
+      "ReceiptRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "rcpt_12345"
+          },
+          "paymentId": {
+            "type": "string",
+            "example": "pay_12345"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ISSUED",
+              "VOIDED"
+            ],
+            "example": "ISSUED"
+          },
+          "issuedAt": {
+            "type": "string"
+          },
+          "voidedAt": {
+            "type": "string"
+          },
+          "replacementReceiptId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "paymentId",
+          "status",
+          "issuedAt"
+        ]
+      },
+      "RentalPaymentHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "payment": {
+            "$ref": "#/components/schemas/PaymentDto"
+          },
+          "receipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceiptRecordDto"
+            }
+          }
+        },
+        "required": [
+          "payment",
+          "receipts"
+        ]
+      },
+      "IncidentTicketDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "inc_12345"
+          },
+          "roomId": {
+            "type": "string",
+            "example": "room_12345"
+          },
+          "reportedByUserId": {
+            "type": "string",
+            "description": "Reported by user ID"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ELECTRICAL",
+              "PLUMBING",
+              "ACCESS_SECURITY",
+              "ROOM_FACILITY",
+              "APPLIANCE",
+              "OTHER"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "closureReason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "roomId",
+          "category",
+          "status",
+          "createdAt"
+        ]
+      },
+      "IncidentEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "evt_12345"
+          },
+          "incidentId": {
+            "type": "string",
+            "example": "inc_12345"
+          },
+          "eventType": {
+            "type": "string",
+            "example": "STATUS_CHANGED"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "attachmentReference": {
+            "type": "string"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ]
+          },
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "incidentId",
+          "eventType",
+          "occurredAt"
+        ]
+      },
+      "RentalIncidentHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "incident": {
+            "$ref": "#/components/schemas/IncidentTicketDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IncidentEventDto"
+            }
+          }
+        },
+        "required": [
+          "incident",
+          "events"
+        ]
+      },
+      "RentalDepositHistoryDto": {
+        "type": "object",
+        "properties": {
+          "projection": {
+            "$ref": "#/components/schemas/DepositProjectionDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DepositEventDto"
+            }
+          }
+        },
+        "required": [
+          "projection",
+          "events"
+        ]
+      },
+      "RentalHistoryProjectionDto": {
+        "type": "object",
+        "properties": {
+          "tenancy": {
+            "$ref": "#/components/schemas/TenancyProfileDto"
+          },
+          "terms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyTermsDto"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalPaymentHistoryEntryDto"
+            }
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyNoticeDto"
+            }
+          },
+          "incidents": {
+            "description": "Room incidents whose createdAt falls inside the Tenancy occupancy window; this is a read projection, not a new Incident-to-Tenancy source relation.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalIncidentHistoryEntryDto"
+            }
+          },
+          "deposit": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RentalDepositHistoryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tenancy",
+          "terms",
+          "payments",
+          "notices",
+          "incidents"
+        ]
+      },
+      "PublicLocationProjectionDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "example": 10.77
+          },
+          "longitude": {
+            "type": "number",
+            "example": 106.69
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "ListingProfileDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Listing ID",
+            "example": "list_12345"
+          },
+          "roomId": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "status": {
+            "type": "string",
+            "description": "Listing status",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ],
+            "example": "published"
+          },
+          "publicTitle": {
+            "type": "string",
+            "description": "Public title"
+          },
+          "publicDescription": {
+            "type": "string",
+            "description": "Public description"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "description": "Exact numeric(18,2)-compatible public price",
+            "example": "3500000.00"
+          },
+          "publicLocationProjection": {
+            "description": "Public location projection",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicLocationProjectionDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "roomId",
+          "status",
+          "publicTitle",
+          "publicDescription",
+          "publicPriceProjection",
+          "publicLocationProjection"
+        ]
+      },
+      "ListingStatusEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Listing status event ID"
+          },
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID"
+          },
+          "fromStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          },
+          "toStatus": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published",
+              "unpublished",
+              "archived"
+            ]
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "actorType": {
+            "type": "string"
+          },
+          "actorUserId": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "listingId",
+          "fromStatus",
+          "toStatus",
+          "reasonCode",
+          "actorType",
+          "trigger",
+          "occurredAt"
+        ]
+      },
+      "ListingOperationalHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "listing": {
+            "$ref": "#/components/schemas/ListingProfileDto"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingStatusEventDto"
+            }
+          }
+        },
+        "required": [
+          "listing",
+          "events"
+        ]
+      },
+      "TenancyFinanceHistoryEntryDto": {
+        "type": "object",
+        "properties": {
+          "tenancy": {
+            "$ref": "#/components/schemas/TenancyProfileDto"
+          },
+          "billingCycles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingCycleDto"
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalPaymentHistoryEntryDto"
+            }
+          },
+          "deposit": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RentalDepositHistoryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tenancy",
+          "billingCycles",
+          "payments"
+        ]
+      },
+      "RoomOperationalHistoryProjectionDto": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "$ref": "#/components/schemas/RoomProfileDto"
+          },
+          "listings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ListingOperationalHistoryEntryDto"
+            }
+          },
+          "tenancies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenancyFinanceHistoryEntryDto"
+            }
+          },
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RentalIncidentHistoryEntryDto"
+            }
+          }
+        },
+        "required": [
+          "room",
+          "listings",
+          "tenancies",
+          "incidents"
+        ]
+      },
+      "IssueReceiptDto": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Confirmed Payment ID"
+          }
+        },
+        "required": [
+          "paymentId"
+        ]
+      },
+      "CreateIncidentDto": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "Room ID",
+            "example": "room_12345"
+          },
+          "reportedByUserId": {
+            "type": "string",
+            "description": "Reported by user ID"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "ELECTRICAL",
+              "PLUMBING",
+              "ACCESS_SECURITY",
+              "ROOM_FACILITY",
+              "APPLIANCE",
+              "OTHER"
+            ],
+            "example": "ELECTRICAL"
+          }
+        },
+        "required": [
+          "roomId",
+          "category"
+        ]
+      },
+      "UpdateIncidentStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACKNOWLEDGED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "CLOSED",
+              "REJECTED"
+            ],
+            "example": "IN_PROGRESS"
+          },
+          "actorUserId": {
+            "type": "string",
+            "description": "Actor user ID"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note"
+          },
+          "closureReason": {
+            "type": "string",
+            "description": "Closure reason"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateListingDto": {
+        "type": "object",
+        "properties": {
+          "publicTitle": {
+            "type": "string",
+            "description": "Public listing title"
+          },
+          "publicDescription": {
+            "type": "string",
+            "description": "Public listing description"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "description": "Exact numeric(18,2)-compatible public price"
+          },
+          "publicLocationProjection": {
+            "$ref": "#/components/schemas/PublicLocationProjectionDto"
+          }
+        }
+      },
+      "CreateInquiryDto": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID"
+          },
+          "senderUserId": {
+            "type": "string",
+            "description": "Sender User ID when the sender has an account"
+          },
+          "contactIntentOrMessage": {
+            "type": "string",
+            "description": "Contact intent or message"
+          },
+          "status": {
+            "type": "string",
+            "description": "Opaque Inquiry status; no Wave B lifecycle is defined"
+          }
+        },
+        "required": [
+          "listingId",
+          "contactIntentOrMessage",
+          "status"
+        ]
+      },
+      "InquiryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Inquiry ID",
+            "example": "inq_12345"
+          },
+          "listingId": {
+            "type": "string",
+            "description": "Listing ID",
+            "example": "list_12345"
+          },
+          "senderUserId": {
+            "type": "string",
+            "description": "Sender user ID"
+          },
+          "contactIntentOrMessage": {
+            "type": "string",
+            "description": "Contact intent or message"
+          },
+          "status": {
+            "type": "string",
+            "description": "Inquiry status"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Creation timestamp"
+          }
+        },
+        "required": [
+          "id",
+          "listingId",
+          "contactIntentOrMessage",
+          "status",
+          "createdAt"
+        ]
+      },
+      "PublicListingSearchResultDto": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string"
+          },
+          "publicTitle": {
+            "type": "string"
+          },
+          "publicDescription": {
+            "type": "string"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "example": "3500000.00"
+          },
+          "publicLocation": {
+            "type": "object",
+            "example": {
+              "latitude": 10.776,
+              "longitude": 106.7
+            }
+          },
+          "distanceMeters": {
+            "type": "number",
+            "example": 842.5
+          }
+        },
+        "required": [
+          "listingId",
+          "roomId",
+          "publicTitle",
+          "publicDescription",
+          "publicPriceProjection",
+          "publicLocation",
+          "distanceMeters"
+        ]
+      },
+      "VerifyGoogleTokenDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Google ID Token nhận từ Android Credential Manager",
+            "example": "eyJhbGciOiJSUzI1Ni..."
+          }
+        },
+        "required": [
+          "idToken"
+        ]
+      },
+      "VerifiedPrincipalDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID của người dùng",
+            "example": "c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Provider danh tính",
+            "example": "google"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "Issuer của Google ID Token",
+            "example": "https://accounts.google.com"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Google Subject ID (sub claim)",
+            "example": "112345678901234567890"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email người dùng",
+            "example": "user@example.com"
+          },
+          "emailVerified": {
+            "type": "boolean",
+            "description": "Trạng thái xác thực email",
+            "example": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Tên hiển thị người dùng",
+            "example": "Nguyen Van A"
+          },
+          "pictureUrl": {
+            "type": "string",
+            "description": "URL ảnh đại diện"
+          }
+        },
+        "required": [
+          "userId",
+          "provider",
+          "issuer",
+          "subject"
+        ]
+      },
+      "SessionContextDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID của người dùng đã xác thực",
+            "example": "c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8"
+          },
+          "operatedOrganizationIds": {
+            "description": "Danh sách Organization ID mà user là primary owner",
+            "example": [
+              "org_123"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "linkedTenancyIds": {
+            "description": "Danh sách Tenancy ID mà user tham gia",
+            "example": [
+              "ten_456"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "email": {
+            "type": "string",
+            "description": "Email người dùng",
+            "example": "user@example.com"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tên hiển thị người dùng",
+            "example": "Nguyen Van A"
+          },
+          "pictureUrl": {
+            "type": "string",
+            "description": "URL ảnh đại diện"
+          }
+        },
+        "required": [
+          "userId",
+          "operatedOrganizationIds",
+          "linkedTenancyIds"
+        ]
+      },
+      "UserReferenceDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "User ID của người dùng",
+            "example": "c22d8235-9d37-5d5f-bc4f-1f3bbd0b59a8"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "CreateListingDto": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "description": "Parent Room ID",
+            "example": "room_12345"
+          },
+          "publicTitle": {
+            "type": "string",
+            "description": "Public listing title"
+          },
+          "publicDescription": {
+            "type": "string",
+            "description": "Public listing description"
+          },
+          "publicPriceProjection": {
+            "type": "string",
+            "description": "Exact numeric(18,2)-compatible public price",
+            "example": "3500000.00"
+          },
+          "publicLocationProjection": {
+            "$ref": "#/components/schemas/PublicLocationProjectionDto"
+          }
+        },
+        "required": [
+          "roomId",
+          "publicTitle",
+          "publicDescription",
+          "publicPriceProjection",
+          "publicLocationProjection"
+        ]
+      },
+      "TransitionRoomManuallyDto": {
+        "type": "object",
+        "properties": {
+          "operationalState": {
+            "type": "string",
+            "enum": [
+              "vacant",
+              "maintenance",
+              "inactive"
+            ]
+          }
+        },
+        "required": [
+          "operationalState"
+        ]
+      },
+      "CreateTenancyDto": {
+        "type": "object",
+        "properties": {
+          "roomId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "roomId"
+        ]
+      },
+      "ActivateTenancyDto": {
+        "type": "object",
+        "properties": {
+          "occurredAt": {
+            "type": "string",
+            "description": "Business-effective activation timestamp"
+          }
+        },
+        "required": [
+          "occurredAt"
+        ]
+      },
+      "CheckoutTenancyDto": {
+        "type": "object",
+        "properties": {
+          "endReason": {
+            "type": "string",
+            "enum": [
+              "TERM_ENDED",
+              "TENANT_INITIATED",
+              "OPERATOR_INITIATED",
+              "MUTUAL",
+              "OTHER"
+            ]
+          },
+          "occurredAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "endReason",
+          "occurredAt"
+        ]
+      },
+      "RecordAuditFactDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "example": "user_12345"
+          },
+          "action": {
+            "type": "string",
+            "example": "room.created"
+          },
+          "resourceType": {
+            "type": "string",
+            "example": "room"
+          },
+          "resourceId": {
+            "type": "string",
+            "example": "room_12345"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "actorId",
+          "action",
+          "resourceType",
+          "resourceId"
+        ]
+      },
+      "AuditRecordDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "audit_12345"
+          },
+          "actorId": {
+            "type": "string",
+            "example": "user_12345"
+          },
+          "action": {
+            "type": "string",
+            "example": "room.created"
+          },
+          "resourceType": {
+            "type": "string",
+            "example": "room"
+          },
+          "resourceId": {
+            "type": "string",
+            "example": "room_12345"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "timestamp": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actorId",
+          "action",
+          "resourceType",
+          "resourceId",
+          "timestamp"
+        ]
+      },
+      "SubmitTrustReportDto": {
+        "type": "object",
+        "properties": {
+          "listingId": {
+            "type": "string",
+            "example": "list_12345"
+          },
+          "reviewId": {
+            "type": "string",
+            "example": "rev_12345"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "INCORRECT_INFORMATION",
+              "MISLEADING_PRICE",
+              "WRONG_LOCATION",
+              "DUPLICATE_LISTING",
+              "INAPPROPRIATE_CONTENT",
+              "SUSPECTED_FRAUD",
+              "PRIVACY_VIOLATION",
+              "SPAM",
+              "OTHER"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "TrustReportDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "report_12345"
+          },
+          "reporterUserId": {
+            "type": "string",
+            "example": "user_12345"
+          },
+          "listingId": {
+            "type": "string",
+            "example": "list_12345"
+          },
+          "reviewId": {
+            "type": "string",
+            "example": "rev_12345"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "INCORRECT_INFORMATION",
+              "MISLEADING_PRICE",
+              "WRONG_LOCATION",
+              "DUPLICATE_LISTING",
+              "INAPPROPRIATE_CONTENT",
+              "SUSPECTED_FRAUD",
+              "PRIVACY_VIOLATION",
+              "SPAM",
+              "OTHER"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "RESOLVED",
+              "REJECTED"
+            ]
+          },
+          "noteOrEvidenceReference": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "resolvedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "status",
+          "createdAt"
+        ]
+      },
+      "NotificationItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string"
+          },
+          "messageOrPayloadReference": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source feature type parsed from the authoritative notification reference."
+          },
+          "sourceId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source record ID parsed from the authoritative notification reference."
+          },
+          "deliveryStatus": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "deliveredAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "readAt": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "recipientUserId",
+          "category",
+          "messageOrPayloadReference",
+          "deliveryStatus",
+          "createdAt"
+        ]
+      },
+      "CreateGatewayCheckoutDto": {
+        "type": "object",
+        "properties": {
+          "tenancyId": {
+            "type": "string",
+            "example": "60000000-0000-4000-8000-000000000001"
+          },
+          "amount": {
+            "type": "string",
+            "example": "4470000.00"
+          }
+        },
+        "required": [
+          "tenancyId",
+          "amount"
+        ]
+      },
+      "GatewayCheckoutDto": {
+        "type": "object",
+        "properties": {
+          "replayAllowed": {
+            "type": "boolean"
+          },
+          "replayBlockedReason": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "tenancyId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "MOMO"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "INITIATED",
+              "CREATED",
+              "UNKNOWN",
+              "FAILED",
+              "SUCCEEDED"
+            ]
+          },
+          "payUrl": {
+            "type": "string"
+          },
+          "deeplink": {
+            "type": "string"
+          },
+          "resultingPaymentId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "replayAllowed",
+          "id",
+          "tenancyId",
+          "amount",
+          "referenceCode",
+          "provider",
+          "status",
+          "createdAt"
+        ]
+      },
+      "MomoIpnDto": {
+        "type": "object",
+        "properties": {
+          "partnerCode": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "orderInfo": {
+            "type": "string"
+          },
+          "orderType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "payType": {
+            "type": "string"
+          },
+          "extraData": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "transId": {
+            "type": "number"
+          },
+          "resultCode": {
+            "type": "number"
+          },
+          "responseTime": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "partnerCode",
+          "orderId",
+          "requestId",
+          "orderInfo",
+          "orderType",
+          "message",
+          "payType",
+          "extraData",
+          "signature",
+          "amount",
+          "transId",
+          "resultCode",
+          "responseTime"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

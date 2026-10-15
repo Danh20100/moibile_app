@@ -1,0 +1,3200 @@
+{
+  "schemaVersion": "1.0",
+  "title": "TrọƠi — ERD LV3 Physical — Canonical v3.7 — REVIEWED FROZEN — PostgreSQL/PostGIS",
+  "level": "LV3_PHYSICAL",
+  "status": "REVIEWED_FROZEN",
+  "source": {
+    "canonicalVersion": "v3.7",
+    "canonical": {
+      "path": "docs/database/v1/canonical.md",
+      "version": "v3.7"
+    },
+    "lv1": {
+      "path": "docs/database/v1/erd/conceptual.json",
+      "status": "REVIEWED_FROZEN"
+    },
+    "lv2": {
+      "path": "docs/database/v1/erd/logical.json",
+      "status": "REVIEWED_FROZEN"
+    }
+  },
+  "platform": {
+    "database": "PostgreSQL",
+    "extensions": [
+      "postgis"
+    ],
+    "defaultSchema": "public"
+  },
+  "typePolicy": [
+    "uuid",
+    "text",
+    "integer",
+    "smallint",
+    "date",
+    "timestamptz",
+    "jsonb",
+    "numeric(18,2)",
+    "numeric(18,6)",
+    "geography(Point,4326)"
+  ],
+  "tables": [
+    {
+      "logicalEntity": "USER",
+      "name": "users",
+      "primaryKey": {
+        "name": "pk_users",
+        "columns": [
+          "user_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "user_id",
+          "logicalAttribute": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": []
+    },
+    {
+      "logicalEntity": "ORGANIZATION",
+      "name": "organizations",
+      "primaryKey": {
+        "name": "pk_organizations",
+        "columns": [
+          "organization_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "organization_id",
+          "logicalAttribute": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "primary_owner_user_id",
+          "logicalAttribute": "primary_owner_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_organizations_primary_owner_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "name",
+          "logicalAttribute": "name",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_organizations_primary_owner_user_id",
+          "columns": [
+            "primary_owner_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "PROPERTY",
+      "name": "properties",
+      "primaryKey": {
+        "name": "pk_properties",
+        "columns": [
+          "property_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "property_id",
+          "logicalAttribute": "property_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "organization_id",
+          "logicalAttribute": "organization_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_properties_organization",
+            "table": "organizations",
+            "column": "organization_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "name",
+          "logicalAttribute": "name",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "lifecycle_status",
+          "logicalAttribute": "lifecycle_status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "operational_address_text",
+          "logicalAttribute": "operational_location",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "operational_location",
+          "logicalAttribute": "operational_location",
+          "type": "geography(Point,4326)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "public_location_projection",
+          "logicalAttribute": "public_location_projection",
+          "type": "geography(Point,4326)",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_properties_lifecycle_status",
+          "expression": "lifecycle_status IN ('ACTIVE','ARCHIVED')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_properties_organization_id",
+          "columns": [
+            "organization_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "ROOM",
+      "name": "rooms",
+      "primaryKey": {
+        "name": "pk_rooms",
+        "columns": [
+          "room_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "room_id",
+          "logicalAttribute": "room_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "property_id",
+          "logicalAttribute": "property_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_rooms_property",
+            "table": "properties",
+            "column": "property_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "name_or_label",
+          "logicalAttribute": "name_or_label",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "operational_state",
+          "logicalAttribute": "operational_state",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "record_lifecycle",
+          "logicalAttribute": "record_lifecycle",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_rooms_operational_state",
+          "expression": "operational_state IN ('VACANT','OCCUPIED','MAINTENANCE','INACTIVE')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_rooms_record_lifecycle",
+          "expression": "record_lifecycle IN ('ACTIVE','ARCHIVED')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_rooms_property_id",
+          "columns": [
+            "property_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "LISTING",
+      "name": "listings",
+      "primaryKey": {
+        "name": "pk_listings",
+        "columns": [
+          "listing_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "listing_id",
+          "logicalAttribute": "listing_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "room_id",
+          "logicalAttribute": "room_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_listings_room",
+            "table": "rooms",
+            "column": "room_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "public_title",
+          "logicalAttribute": "public_title",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "public_description",
+          "logicalAttribute": "public_description",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "public_price_projection",
+          "logicalAttribute": "public_price_projection",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "public_location_projection",
+          "logicalAttribute": "public_location_projection",
+          "type": "geography(Point,4326)",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_listings_status",
+          "expression": "status IN ('DRAFT','PUBLISHED','UNPUBLISHED','ARCHIVED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_listings_public_price_nonnegative",
+          "expression": "public_price_projection >= 0",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_listings_room_current",
+          "columns": [
+            "room_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "status <> 'ARCHIVED'"
+        },
+        {
+          "name": "ix_listings_published_location",
+          "columns": [
+            "public_location_projection"
+          ],
+          "unique": false,
+          "method": "gist",
+          "where": "status = 'PUBLISHED'"
+        },
+        {
+          "name": "ix_listings_published_price",
+          "columns": [
+            "public_price_projection"
+          ],
+          "unique": false,
+          "method": "btree",
+          "where": "status = 'PUBLISHED'"
+        },
+        {
+          "name": "ix_listings_room_id",
+          "columns": [
+            "room_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "LISTING_STATUS_EVENT",
+      "name": "listing_status_events",
+      "primaryKey": {
+        "name": "pk_listing_status_events",
+        "columns": [
+          "listing_status_event_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "listing_status_event_id",
+          "logicalAttribute": "listing_status_event_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "listing_id",
+          "logicalAttribute": "listing_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_listing_status_events_listing",
+            "table": "listings",
+            "column": "listing_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "from_status",
+          "logicalAttribute": "from_status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "to_status",
+          "logicalAttribute": "to_status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "reason_code",
+          "logicalAttribute": "reason_code",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "actor_type",
+          "logicalAttribute": "actor_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "actor_user_id",
+          "logicalAttribute": "actor_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_listing_status_events_actor_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "trigger",
+          "logicalAttribute": "trigger",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "occurred_at",
+          "logicalAttribute": "occurred_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "metadata",
+          "logicalAttribute": "metadata",
+          "type": "jsonb",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_listing_status_events_from_status",
+          "expression": "from_status IN ('DRAFT','PUBLISHED','UNPUBLISHED','ARCHIVED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_listing_status_events_to_status",
+          "expression": "to_status IN ('DRAFT','PUBLISHED','UNPUBLISHED','ARCHIVED')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_listing_status_events_listing_occurred",
+          "columns": [
+            "listing_id",
+            "occurred_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_listing_status_events_actor_user_id",
+          "columns": [
+            "actor_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "INQUIRY",
+      "name": "inquiries",
+      "primaryKey": {
+        "name": "pk_inquiries",
+        "columns": [
+          "inquiry_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "inquiry_id",
+          "logicalAttribute": "inquiry_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "listing_id",
+          "logicalAttribute": "listing_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_inquiries_listing",
+            "table": "listings",
+            "column": "listing_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "sender_user_id",
+          "logicalAttribute": "sender_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_inquiries_sender_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "contact_intent_or_message",
+          "logicalAttribute": "contact_intent_or_message",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "created_at",
+          "logicalAttribute": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_inquiries_listing_id",
+          "columns": [
+            "listing_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_inquiries_sender_user_id",
+          "columns": [
+            "sender_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "TENANCY",
+      "name": "tenancies",
+      "primaryKey": {
+        "name": "pk_tenancies",
+        "columns": [
+          "tenancy_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "room_id",
+          "logicalAttribute": "room_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancies_room",
+            "table": "rooms",
+            "column": "room_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "started_at",
+          "logicalAttribute": "started_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "ended_at",
+          "logicalAttribute": "ended_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "end_reason",
+          "logicalAttribute": "end_reason",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_tenancies_status",
+          "expression": "status IN ('DRAFT','ACTIVE','ENDING','ENDED','CANCELLED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancies_end_reason",
+          "expression": "end_reason IS NULL OR end_reason IN ('TERM_ENDED','TENANT_INITIATED','OPERATOR_INITIATED','MUTUAL','OTHER')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancies_time_order",
+          "expression": "ended_at IS NULL OR started_at IS NULL OR ended_at >= started_at",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_tenancies_room_nonterminal",
+          "columns": [
+            "room_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "status IN ('DRAFT','ACTIVE','ENDING')"
+        },
+        {
+          "name": "ix_tenancies_room_status",
+          "columns": [
+            "room_id",
+            "status"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "TENANCY_PARTICIPANT",
+      "name": "tenancy_participants",
+      "primaryKey": {
+        "name": "pk_tenancy_participants",
+        "columns": [
+          "tenancy_participant_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "tenancy_participant_id",
+          "logicalAttribute": "tenancy_participant_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_participants_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "user_id",
+          "logicalAttribute": "user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_participants_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "role",
+          "logicalAttribute": "role",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "joined_at",
+          "logicalAttribute": "joined_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "left_at",
+          "logicalAttribute": "left_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_tenancy_participants_role",
+          "expression": "role IN ('PRIMARY','OCCUPANT')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancy_participants_time_order",
+          "expression": "left_at IS NULL OR left_at >= joined_at",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_tenancy_participants_active_primary",
+          "columns": [
+            "tenancy_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "role = 'PRIMARY' AND left_at IS NULL"
+        },
+        {
+          "name": "ix_tenancy_participants_tenancy_role_left",
+          "columns": [
+            "tenancy_id",
+            "role",
+            "left_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_tenancy_participants_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "TENANCY_TERMS",
+      "name": "tenancy_terms",
+      "primaryKey": {
+        "name": "pk_tenancy_terms",
+        "columns": [
+          "tenancy_terms_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "tenancy_terms_id",
+          "logicalAttribute": "tenancy_terms_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_terms_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "version",
+          "logicalAttribute": "version",
+          "type": "integer",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "rent_amount",
+          "logicalAttribute": "rent_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "agreed_deposit_requirement",
+          "logicalAttribute": "agreed_deposit_requirement",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "term_start",
+          "logicalAttribute": "term_start",
+          "type": "date",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "term_end",
+          "logicalAttribute": "term_end",
+          "type": "date",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "billing_day_or_due_date_rule",
+          "logicalAttribute": "billing_day_or_due_date_rule",
+          "type": "jsonb",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "electricity_arrangement",
+          "logicalAttribute": "electricity_arrangement",
+          "type": "jsonb",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "water_arrangement",
+          "logicalAttribute": "water_arrangement",
+          "type": "jsonb",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "minimal_rental_conditions",
+          "logicalAttribute": "minimal_rental_conditions",
+          "type": "jsonb",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "effective_from_cycle_boundary",
+          "logicalAttribute": "effective_from_cycle_boundary",
+          "type": "date",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_tenancy_terms_version_positive",
+          "expression": "version > 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancy_terms_rent_nonnegative",
+          "expression": "rent_amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancy_terms_deposit_nonnegative",
+          "expression": "agreed_deposit_requirement >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_tenancy_terms_date_order",
+          "expression": "term_end >= term_start",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "uq_tenancy_terms_tenancy_version",
+          "columns": [
+            "tenancy_id",
+            "version"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "logicalEntity": "TERMS_ACKNOWLEDGEMENT",
+      "name": "terms_acknowledgements",
+      "primaryKey": {
+        "name": "pk_terms_acknowledgements",
+        "columns": [
+          "terms_acknowledgement_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "terms_acknowledgement_id",
+          "logicalAttribute": "terms_acknowledgement_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_terms_id",
+          "logicalAttribute": "tenancy_terms_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_terms_acknowledgements_terms",
+            "table": "tenancy_terms",
+            "column": "tenancy_terms_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "tenancy_participant_id",
+          "logicalAttribute": "tenancy_participant_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_terms_acknowledgements_participant",
+            "table": "tenancy_participants",
+            "column": "tenancy_participant_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "user_id",
+          "logicalAttribute": "user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_terms_acknowledgements_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "acknowledged_at",
+          "logicalAttribute": "acknowledged_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_terms_acknowledgements_tenancy_terms_id",
+          "columns": [
+            "tenancy_terms_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_terms_acknowledgements_tenancy_participant_id",
+          "columns": [
+            "tenancy_participant_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_terms_acknowledgements_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "TENANCY_NOTICE",
+      "name": "tenancy_notices",
+      "primaryKey": {
+        "name": "pk_tenancy_notices",
+        "columns": [
+          "tenancy_notice_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "tenancy_notice_id",
+          "logicalAttribute": "tenancy_notice_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_notices_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "notice_type",
+          "logicalAttribute": "notice_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "issued_by_user_id",
+          "logicalAttribute": "issued_by_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_notices_issued_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "content_or_note",
+          "logicalAttribute": "content_or_note",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "issued_at",
+          "logicalAttribute": "issued_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "acknowledged_by_user_id",
+          "logicalAttribute": "acknowledged_by_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_tenancy_notices_acknowledged_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "acknowledged_at",
+          "logicalAttribute": "acknowledged_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_tenancy_notices_ack_pair",
+          "expression": "(acknowledged_by_user_id IS NULL) = (acknowledged_at IS NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_tenancy_notices_tenancy_id",
+          "columns": [
+            "tenancy_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_tenancy_notices_issued_by_user_id",
+          "columns": [
+            "issued_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_tenancy_notices_acknowledged_by_user_id",
+          "columns": [
+            "acknowledged_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "BILLING_CYCLE",
+      "name": "billing_cycles",
+      "primaryKey": {
+        "name": "pk_billing_cycles",
+        "columns": [
+          "billing_cycle_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "billing_cycle_id",
+          "logicalAttribute": "billing_cycle_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_billing_cycles_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "tenancy_terms_id",
+          "logicalAttribute": "tenancy_terms_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_billing_cycles_terms",
+            "table": "tenancy_terms",
+            "column": "tenancy_terms_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "period_start",
+          "logicalAttribute": "period_start",
+          "type": "date",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "period_end",
+          "logicalAttribute": "period_end",
+          "type": "date",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_billing_cycles_date_order",
+          "expression": "period_end >= period_start",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_billing_cycles_tenancy_period",
+          "columns": [
+            "tenancy_id",
+            "period_start",
+            "period_end"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_billing_cycles_tenancy_terms_id",
+          "columns": [
+            "tenancy_terms_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "CHARGE",
+      "name": "charges",
+      "primaryKey": {
+        "name": "pk_charges",
+        "columns": [
+          "charge_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "charge_id",
+          "logicalAttribute": "charge_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "billing_cycle_id",
+          "logicalAttribute": "billing_cycle_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_charges_billing_cycle",
+            "table": "billing_cycles",
+            "column": "billing_cycle_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "charge_type",
+          "logicalAttribute": "charge_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "amount",
+          "logicalAttribute": "amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "utility_connection_id",
+          "logicalAttribute": "utility_connection_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_charges_utility_connection",
+            "table": "utility_connections",
+            "column": "utility_connection_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "start_meter_reading_id",
+          "logicalAttribute": "start_meter_reading_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_charges_start_meter_reading",
+            "table": "meter_readings",
+            "column": "meter_reading_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "end_meter_reading_id",
+          "logicalAttribute": "end_meter_reading_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_charges_end_meter_reading",
+            "table": "meter_readings",
+            "column": "meter_reading_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_charges_type",
+          "expression": "charge_type IN ('RENT','ELECTRICITY','WATER')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_charges_amount_nonnegative",
+          "expression": "amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_charges_rent_no_utility",
+          "expression": "charge_type <> 'RENT' OR (utility_connection_id IS NULL AND start_meter_reading_id IS NULL AND end_meter_reading_id IS NULL)",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_charges_reading_requires_connection",
+          "expression": "utility_connection_id IS NOT NULL OR (start_meter_reading_id IS NULL AND end_meter_reading_id IS NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_charges_billing_cycle_id",
+          "columns": [
+            "billing_cycle_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_charges_utility_connection_id",
+          "columns": [
+            "utility_connection_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_charges_start_meter_reading_id",
+          "columns": [
+            "start_meter_reading_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_charges_end_meter_reading_id",
+          "columns": [
+            "end_meter_reading_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "UTILITY_CONNECTION",
+      "name": "utility_connections",
+      "primaryKey": {
+        "name": "pk_utility_connections",
+        "columns": [
+          "utility_connection_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "utility_connection_id",
+          "logicalAttribute": "utility_connection_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "room_id",
+          "logicalAttribute": "room_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_utility_connections_room",
+            "table": "rooms",
+            "column": "room_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "utility_type",
+          "logicalAttribute": "utility_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "source_or_provider",
+          "logicalAttribute": "source_or_provider",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "meter_identifier",
+          "logicalAttribute": "meter_identifier",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_utility_connections_type",
+          "expression": "utility_type IN ('ELECTRICITY','WATER')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_utility_connections_room_id",
+          "columns": [
+            "room_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "METER_READING",
+      "name": "meter_readings",
+      "primaryKey": {
+        "name": "pk_meter_readings",
+        "columns": [
+          "meter_reading_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "meter_reading_id",
+          "logicalAttribute": "meter_reading_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "utility_connection_id",
+          "logicalAttribute": "utility_connection_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_meter_readings_connection",
+            "table": "utility_connections",
+            "column": "utility_connection_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "reading_value",
+          "logicalAttribute": "reading_value",
+          "type": "numeric(18,6)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "recorded_at",
+          "logicalAttribute": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "recorded_by_user_id",
+          "logicalAttribute": "recorded_by_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_meter_readings_recorded_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_meter_readings_nonnegative",
+          "expression": "reading_value >= 0",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_meter_readings_connection_recorded",
+          "columns": [
+            "utility_connection_id",
+            "recorded_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_meter_readings_recorded_by_user_id",
+          "columns": [
+            "recorded_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "PAYMENT",
+      "name": "payments",
+      "primaryKey": {
+        "name": "pk_payments",
+        "columns": [
+          "payment_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "payment_id",
+          "logicalAttribute": "payment_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payments_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "amount",
+          "logicalAttribute": "amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "source",
+          "logicalAttribute": "source",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "verification",
+          "logicalAttribute": "verification",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "confirmed_at",
+          "logicalAttribute": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "voided_or_reversed_at",
+          "logicalAttribute": "voided_or_reversed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "correction_note",
+          "logicalAttribute": "correction_note",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "replacement_payment_id",
+          "logicalAttribute": "replacement_payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payments_replacement_payment",
+            "table": "payments",
+            "column": "payment_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_payments_amount_nonnegative",
+          "expression": "amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_payments_source",
+          "expression": "source IN ('MANUAL_CASH','MANUAL_TRANSFER','GATEWAY')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_payments_verification",
+          "expression": "verification IN ('USER_RECORDED','PROVIDER_VERIFIED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_payments_replacement_not_self",
+          "expression": "replacement_payment_id IS NULL OR replacement_payment_id <> payment_id",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_payments_replacement_requires_void",
+          "expression": "replacement_payment_id IS NULL OR voided_or_reversed_at IS NOT NULL",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_payments_replacement_payment",
+          "columns": [
+            "replacement_payment_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "replacement_payment_id IS NOT NULL"
+        },
+        {
+          "name": "ix_payments_tenancy_confirmed",
+          "columns": [
+            "tenancy_id",
+            "confirmed_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payments_replacement_payment_id",
+          "columns": [
+            "replacement_payment_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "PAYMENT_ALLOCATION",
+      "name": "payment_allocations",
+      "primaryKey": {
+        "name": "pk_payment_allocations",
+        "columns": [
+          "payment_allocation_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "payment_allocation_id",
+          "logicalAttribute": "payment_allocation_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "payment_id",
+          "logicalAttribute": "payment_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_allocations_payment",
+            "table": "payments",
+            "column": "payment_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "charge_id",
+          "logicalAttribute": "charge_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_allocations_charge",
+            "table": "charges",
+            "column": "charge_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "allocated_amount",
+          "logicalAttribute": "allocated_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_payment_allocations_amount_nonnegative",
+          "expression": "allocated_amount >= 0",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_payment_allocations_payment_id",
+          "columns": [
+            "payment_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payment_allocations_charge_id",
+          "columns": [
+            "charge_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "PAYMENT_CLAIM",
+      "name": "payment_claims",
+      "primaryKey": {
+        "name": "pk_payment_claims",
+        "columns": [
+          "payment_claim_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "payment_claim_id",
+          "logicalAttribute": "payment_claim_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_claims_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "submitted_by_user_id",
+          "logicalAttribute": "submitted_by_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_claims_submitted_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "submitted_by_participant_id",
+          "logicalAttribute": "submitted_by_participant_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_claims_submitted_by_participant",
+            "table": "tenancy_participants",
+            "column": "tenancy_participant_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "claimed_amount",
+          "logicalAttribute": "claimed_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "evidence_reference",
+          "logicalAttribute": "evidence_reference",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "submitted_at",
+          "logicalAttribute": "submitted_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "reviewed_by_user_id",
+          "logicalAttribute": "reviewed_by_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_claims_reviewed_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "reviewed_at",
+          "logicalAttribute": "reviewed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "resulting_payment_id",
+          "logicalAttribute": "resulting_payment_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_payment_claims_resulting_payment",
+            "table": "payments",
+            "column": "payment_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_payment_claims_amount_nonnegative",
+          "expression": "claimed_amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_payment_claims_review_pair",
+          "expression": "(reviewed_by_user_id IS NULL) = (reviewed_at IS NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_payment_claims_resulting_payment",
+          "columns": [
+            "resulting_payment_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "resulting_payment_id IS NOT NULL"
+        },
+        {
+          "name": "ix_payment_claims_tenancy_id",
+          "columns": [
+            "tenancy_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payment_claims_submitted_by_user_id",
+          "columns": [
+            "submitted_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payment_claims_submitted_by_participant_id",
+          "columns": [
+            "submitted_by_participant_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payment_claims_reviewed_by_user_id",
+          "columns": [
+            "reviewed_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_payment_claims_resulting_payment_id",
+          "columns": [
+            "resulting_payment_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "RECEIPT",
+      "name": "receipts",
+      "primaryKey": {
+        "name": "pk_receipts",
+        "columns": [
+          "receipt_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "receipt_id",
+          "logicalAttribute": "receipt_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "payment_id",
+          "logicalAttribute": "payment_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_receipts_payment",
+            "table": "payments",
+            "column": "payment_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "issued_at",
+          "logicalAttribute": "issued_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "voided_at",
+          "logicalAttribute": "voided_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "replacement_receipt_id",
+          "logicalAttribute": "replacement_receipt_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_receipts_replacement_receipt",
+            "table": "receipts",
+            "column": "receipt_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_receipts_status",
+          "expression": "status IN ('ISSUED','VOIDED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_receipts_replacement_not_self",
+          "expression": "replacement_receipt_id IS NULL OR replacement_receipt_id <> receipt_id",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_receipts_replacement_requires_void",
+          "expression": "replacement_receipt_id IS NULL OR status = 'VOIDED'",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_receipts_status_voided_at",
+          "expression": "(status = 'ISSUED' AND voided_at IS NULL) OR (status = 'VOIDED' AND voided_at IS NOT NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "uq_receipts_payment_current",
+          "columns": [
+            "payment_id"
+          ],
+          "unique": true,
+          "method": "btree",
+          "where": "status = 'ISSUED'"
+        },
+        {
+          "name": "ix_receipts_payment_id",
+          "columns": [
+            "payment_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_receipts_replacement_receipt_id",
+          "columns": [
+            "replacement_receipt_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "DEPOSIT",
+      "name": "deposits",
+      "primaryKey": {
+        "name": "pk_deposits",
+        "columns": [
+          "deposit_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "deposit_id",
+          "logicalAttribute": "deposit_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposits_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [
+        {
+          "name": "uq_deposits_tenancy",
+          "columns": [
+            "tenancy_id"
+          ]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "logicalEntity": "DEPOSIT_PAYMENT_APPLICATION",
+      "name": "deposit_payment_applications",
+      "primaryKey": {
+        "name": "pk_deposit_payment_applications",
+        "columns": [
+          "deposit_payment_application_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "deposit_payment_application_id",
+          "logicalAttribute": "deposit_payment_application_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "payment_id",
+          "logicalAttribute": "payment_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_payment_applications_payment",
+            "table": "payments",
+            "column": "payment_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "deposit_id",
+          "logicalAttribute": "deposit_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_payment_applications_deposit",
+            "table": "deposits",
+            "column": "deposit_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "applied_amount",
+          "logicalAttribute": "applied_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "applied_at",
+          "logicalAttribute": "applied_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_deposit_payment_applications_amount_nonnegative",
+          "expression": "applied_amount >= 0",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_deposit_payment_applications_payment_id",
+          "columns": [
+            "payment_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_deposit_payment_applications_deposit_id",
+          "columns": [
+            "deposit_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "DEPOSIT_SETTLEMENT",
+      "name": "deposit_settlements",
+      "primaryKey": {
+        "name": "pk_deposit_settlements",
+        "columns": [
+          "deposit_settlement_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "deposit_settlement_id",
+          "logicalAttribute": "deposit_settlement_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "deposit_id",
+          "logicalAttribute": "deposit_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_settlements_deposit",
+            "table": "deposits",
+            "column": "deposit_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "refunded_amount",
+          "logicalAttribute": "refunded_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "retained_amount",
+          "logicalAttribute": "retained_amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "reason_or_note",
+          "logicalAttribute": "reason_or_note",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "acted_by_user_id",
+          "logicalAttribute": "acted_by_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_settlements_acted_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "settled_at",
+          "logicalAttribute": "settled_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_deposit_settlements_refunded_nonnegative",
+          "expression": "refunded_amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_deposit_settlements_retained_nonnegative",
+          "expression": "retained_amount >= 0",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_deposit_settlements_deposit_id",
+          "columns": [
+            "deposit_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_deposit_settlements_acted_by_user_id",
+          "columns": [
+            "acted_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "DEPOSIT_EVENT",
+      "name": "deposit_events",
+      "primaryKey": {
+        "name": "pk_deposit_events",
+        "columns": [
+          "deposit_event_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "deposit_event_id",
+          "logicalAttribute": "deposit_event_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "deposit_id",
+          "logicalAttribute": "deposit_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_events_deposit",
+            "table": "deposits",
+            "column": "deposit_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "event_type",
+          "logicalAttribute": "event_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "amount",
+          "logicalAttribute": "amount",
+          "type": "numeric(18,2)",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "occurred_at",
+          "logicalAttribute": "occurred_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "payment_application_id",
+          "logicalAttribute": "payment_application_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_events_payment_application",
+            "table": "deposit_payment_applications",
+            "column": "deposit_payment_application_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "settlement_id",
+          "logicalAttribute": "settlement_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_deposit_events_settlement",
+            "table": "deposit_settlements",
+            "column": "deposit_settlement_id",
+            "onDelete": "NO ACTION"
+          }
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_deposit_events_type",
+          "expression": "event_type IN ('RECEIVED','REFUNDED','RETAINED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_deposit_events_amount_nonnegative",
+          "expression": "amount >= 0",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_deposit_events_provenance",
+          "expression": "(event_type = 'RECEIVED' AND payment_application_id IS NOT NULL AND settlement_id IS NULL) OR (event_type IN ('REFUNDED','RETAINED') AND settlement_id IS NOT NULL AND payment_application_id IS NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_deposit_events_deposit_id",
+          "columns": [
+            "deposit_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_deposit_events_payment_application_id",
+          "columns": [
+            "payment_application_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_deposit_events_settlement_id",
+          "columns": [
+            "settlement_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "INCIDENT",
+      "name": "incidents",
+      "primaryKey": {
+        "name": "pk_incidents",
+        "columns": [
+          "incident_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "incident_id",
+          "logicalAttribute": "incident_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "room_id",
+          "logicalAttribute": "room_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_incidents_room",
+            "table": "rooms",
+            "column": "room_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "reported_by_user_id",
+          "logicalAttribute": "reported_by_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_incidents_reported_by_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "category",
+          "logicalAttribute": "category",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "closure_reason",
+          "logicalAttribute": "closure_reason",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "created_at",
+          "logicalAttribute": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "closed_at",
+          "logicalAttribute": "closed_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_incidents_category",
+          "expression": "category IN ('ELECTRICAL','PLUMBING','ACCESS_SECURITY','ROOM_FACILITY','APPLIANCE','OTHER')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_incidents_status",
+          "expression": "status IN ('REPORTED','ACKNOWLEDGED','IN_PROGRESS','RESOLVED','CLOSED','REJECTED')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_incidents_room_status",
+          "columns": [
+            "room_id",
+            "status"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_incidents_reported_by_user_id",
+          "columns": [
+            "reported_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "INCIDENT_EVENT",
+      "name": "incident_events",
+      "primaryKey": {
+        "name": "pk_incident_events",
+        "columns": [
+          "incident_event_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "incident_event_id",
+          "logicalAttribute": "incident_event_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "incident_id",
+          "logicalAttribute": "incident_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_incident_events_incident",
+            "table": "incidents",
+            "column": "incident_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "event_type",
+          "logicalAttribute": "event_type",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "actor_user_id",
+          "logicalAttribute": "actor_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_incident_events_actor_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "note",
+          "logicalAttribute": "note",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "attachment_reference",
+          "logicalAttribute": "attachment_reference",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "from_status",
+          "logicalAttribute": "from_status",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "to_status",
+          "logicalAttribute": "to_status",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "occurred_at",
+          "logicalAttribute": "occurred_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_incident_events_from_status",
+          "expression": "from_status IS NULL OR from_status IN ('REPORTED','ACKNOWLEDGED','IN_PROGRESS','RESOLVED','CLOSED','REJECTED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_incident_events_to_status",
+          "expression": "to_status IS NULL OR to_status IN ('REPORTED','ACKNOWLEDGED','IN_PROGRESS','RESOLVED','CLOSED','REJECTED')",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_incident_events_incident_occurred",
+          "columns": [
+            "incident_id",
+            "occurred_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_incident_events_actor_user_id",
+          "columns": [
+            "actor_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "REVIEW",
+      "name": "reviews",
+      "primaryKey": {
+        "name": "pk_reviews",
+        "columns": [
+          "review_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "review_id",
+          "logicalAttribute": "review_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "tenancy_id",
+          "logicalAttribute": "tenancy_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_reviews_tenancy",
+            "table": "tenancies",
+            "column": "tenancy_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "property_id",
+          "logicalAttribute": "property_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_reviews_property",
+            "table": "properties",
+            "column": "property_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "author_user_id",
+          "logicalAttribute": "author_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_reviews_author_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "author_participant_id",
+          "logicalAttribute": "author_participant_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_reviews_author_participant",
+            "table": "tenancy_participants",
+            "column": "tenancy_participant_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "overall_rating",
+          "logicalAttribute": "overall_rating",
+          "type": "smallint",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "comment",
+          "logicalAttribute": "comment",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "landlord_response",
+          "logicalAttribute": "landlord_response",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "landlord_response_by_user_id",
+          "logicalAttribute": "landlord_response_by_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_reviews_landlord_response_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "landlord_responded_at",
+          "logicalAttribute": "landlord_responded_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "created_at",
+          "logicalAttribute": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_reviews_response_coherence",
+          "expression": "(landlord_response IS NULL AND landlord_response_by_user_id IS NULL AND landlord_responded_at IS NULL) OR (landlord_response IS NOT NULL AND landlord_response_by_user_id IS NOT NULL AND landlord_responded_at IS NOT NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_reviews_tenancy_id",
+          "columns": [
+            "tenancy_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_reviews_property_id",
+          "columns": [
+            "property_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_reviews_author_user_id",
+          "columns": [
+            "author_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_reviews_author_participant_id",
+          "columns": [
+            "author_participant_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_reviews_landlord_response_by_user_id",
+          "columns": [
+            "landlord_response_by_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "TRUST_REPORT",
+      "name": "trust_reports",
+      "primaryKey": {
+        "name": "pk_trust_reports",
+        "columns": [
+          "trust_report_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "trust_report_id",
+          "logicalAttribute": "trust_report_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "reporter_user_id",
+          "logicalAttribute": "reporter_user_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_trust_reports_reporter_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "listing_id",
+          "logicalAttribute": "listing_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_trust_reports_listing",
+            "table": "listings",
+            "column": "listing_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "review_id",
+          "logicalAttribute": "review_id",
+          "type": "uuid",
+          "nullable": true,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_trust_reports_review",
+            "table": "reviews",
+            "column": "review_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "reason",
+          "logicalAttribute": "reason",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "status",
+          "logicalAttribute": "status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "note_or_evidence_reference",
+          "logicalAttribute": "note_or_evidence_reference",
+          "type": "text",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "created_at",
+          "logicalAttribute": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "resolved_at",
+          "logicalAttribute": "resolved_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [
+        {
+          "name": "ck_trust_reports_reason",
+          "expression": "reason IN ('INCORRECT_INFORMATION','MISLEADING_PRICE','WRONG_LOCATION','DUPLICATE_LISTING','INAPPROPRIATE_CONTENT','SUSPECTED_FRAUD','PRIVACY_VIOLATION','SPAM','OTHER')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_trust_reports_status",
+          "expression": "status IN ('SUBMITTED','UNDER_REVIEW','RESOLVED','REJECTED')",
+          "sourceKind": "row_check"
+        },
+        {
+          "name": "ck_trust_reports_exactly_one_target",
+          "expression": "(listing_id IS NOT NULL) <> (review_id IS NOT NULL)",
+          "sourceKind": "row_check"
+        }
+      ],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_trust_reports_reporter_user_id",
+          "columns": [
+            "reporter_user_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_trust_reports_listing_id",
+          "columns": [
+            "listing_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        },
+        {
+          "name": "ix_trust_reports_review_id",
+          "columns": [
+            "review_id"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    },
+    {
+      "logicalEntity": "NOTIFICATION",
+      "name": "notifications",
+      "primaryKey": {
+        "name": "pk_notifications",
+        "columns": [
+          "notification_id"
+        ]
+      },
+      "columns": [
+        {
+          "name": "notification_id",
+          "logicalAttribute": "notification_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": true
+        },
+        {
+          "name": "recipient_user_id",
+          "logicalAttribute": "recipient_user_id",
+          "type": "uuid",
+          "nullable": false,
+          "primaryKey": false,
+          "references": {
+            "name": "fk_notifications_recipient_user",
+            "table": "users",
+            "column": "user_id",
+            "onDelete": "NO ACTION"
+          }
+        },
+        {
+          "name": "category",
+          "logicalAttribute": "category",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "message_or_payload_reference",
+          "logicalAttribute": "message_or_payload_reference",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "delivery_status",
+          "logicalAttribute": "delivery_status",
+          "type": "text",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "created_at",
+          "logicalAttribute": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "primaryKey": false
+        },
+        {
+          "name": "delivered_at",
+          "logicalAttribute": "delivered_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        },
+        {
+          "name": "read_at",
+          "logicalAttribute": "read_at",
+          "type": "timestamptz",
+          "nullable": true,
+          "primaryKey": false
+        }
+      ],
+      "checks": [],
+      "uniqueConstraints": [],
+      "indexes": [
+        {
+          "name": "ix_notifications_recipient_created",
+          "columns": [
+            "recipient_user_id",
+            "created_at"
+          ],
+          "unique": false,
+          "method": "btree"
+        }
+      ]
+    }
+  ],
+  "transactionGuards": [
+    {
+      "id": "listing_publish_eligibility",
+      "description": "Listing publish requires VACANT active Room under active Property.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "room_leave_vacant_unpublish",
+      "description": "Room leaving VACANT synchronously unpublishes current Listing.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "property_archive_guard",
+      "description": "Property archive rechecks child Room/Tenancy/Listing/Incident state.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "room_archive_guard",
+      "description": "Room archive requires INACTIVE, no nonterminal Tenancy, no open Incident.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "tenancy_activation",
+      "description": "Activate Tenancy only for eligible Room with exactly one active PRIMARY.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "tenancy_checkout",
+      "description": "Ending/checkout FSM and Room state transition happen in one transaction.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "billing_cycle_no_overlap",
+      "description": "Billing cycles for one Tenancy may not overlap.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "billing_cycle_terms_provenance",
+      "description": "Applied Terms belongs to same Tenancy and valid effective boundary.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "payment_allocation_same_tenancy",
+      "description": "Payment and allocated Charge must belong to same Tenancy.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "deposit_application_same_tenancy",
+      "description": "Payment and Deposit application must belong to same Tenancy.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "payment_amount_cap",
+      "description": "Allocation plus deposit application sum may not exceed Payment amount.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "payment_correction",
+      "description": "Replacement Payment must share Tenancy and predecessor must be voided/reversed.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "receipt_issue",
+      "description": "Receipt may only be issued from eligible confirmed Payment.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "utility_provenance",
+      "description": "Utility Connection belongs to Tenancy Room, type matches Charge, readings share Connection.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "deposit_event_provenance_amount",
+      "description": "Deposit Event provenance type and amount must match Application/Settlement.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "deposit_settlement_amount_cap",
+      "description": "Cumulative Deposit Settlement refunded+retained amount may not exceed cumulative Deposit Payment Application amount for the same Deposit.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "open_incident_archive_blocker",
+      "description": "Archive transaction rechecks open Incident.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "review_eligibility",
+      "description": "Review requires ENDED Tenancy and eligible linked Participant/User.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "review_historical_property_target",
+      "description": "Review captures historical Property target and does not cascade on reassignment.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "payment_claim_consistency",
+      "description": "Payment Claim participant and resulting Payment must belong to same Tenancy.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "terms_acknowledgement_consistency",
+      "description": "Terms and Participant share Tenancy; action User matches linked Participant User.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "review_author_identity",
+      "description": "Review author Participant belongs to Review Tenancy and links author User.",
+      "enforcement": "transaction"
+    },
+    {
+      "id": "receipt_replacement",
+      "description": "Replacement Receipt belongs to same Payment and predecessor is VOIDED.",
+      "enforcement": "transaction"
+    }
+  ],
+  "openPolicies": [
+    "Payment unallocated amount handling",
+    "Payment Claim evidence format",
+    "Payment Claim confirmation permission",
+    "Deposit requirement change after partially held",
+    "Review minimum occupancy duration",
+    "Review edit policy",
+    "Review moderation authority",
+    "Review target (property_id) correction authority",
+    "Review rating dimensions",
+    "Trust Report login requirement",
+    "Trust Report rate limit",
+    "Trust Report moderation permissions",
+    "Trust Report evidence policy",
+    "Notification delivery channels",
+    "Charge over-allocation across multiple Payments targeting one Charge",
+    "Review multiplicity per eligible Participant/Tenancy",
+    "Search/Map room/property type authoritative owner and vocabulary"
+  ],
+  "openPolicyFreezes": [],
+  "excludedFuture": [
+    "Subscription / Pricing tiers / quota gating",
+    "CSV / Excel import",
+    "advanced team/staff delegation",
+    "Room Asset Inventory",
+    "generic Service/WiFi/Parking/Other charges",
+    "Partner marketplace / worker dispatch / commission",
+    "AI / OCR / predictive features",
+    "full realtime messaging",
+    "saved search / advanced favorites",
+    "OTA reservation / instant booking",
+    "nightly calendar / dynamic pricing",
+    "proration engine",
+    "public tenant rating",
+    "public personal landlord rating"
+  ],
+  "visualReview": {
+    "documentId": "7b7fc608-f969-4d70-bf99-7a58dd2a3199",
+    "editUrl": "https://lucid.app/lucidchart/7b7fc608-f969-4d70-bf99-7a58dd2a3199/edit",
+    "createdFromContractSha256": "25a3295bfbfa34e62fb0a01f70ef1902c7c6d4cddd058412f55ef2af127002e1"
+  }
+}
