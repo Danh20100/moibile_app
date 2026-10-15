@@ -4,7 +4,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
-const outFile = path.join(os.tmpdir(), 'trooi-sepay-integration-checkout.json');
+// Preserve earlier 1,000 VND checkout separately. Only allow preapproved tiny test amounts.
+const amountVnd = process.env.TROOI_SEPAY_TEST_AMOUNT === '2000' ? '2000' : '1000';
+const outFile = path.join(os.tmpdir(),
+  amountVnd === '2000' ? 'trooi-sepay-integration-checkout-2000.json' : 'trooi-sepay-integration-checkout.json');
 const origin = 'http://127.0.0.1:3101/api/v1';
 const tenancyId = 'e0080000-0000-4000-8000-000000000007';
 
@@ -45,13 +48,13 @@ async function main() {
     throw new Error('Unexpected tenant session');
   }
   const checkout = await jsonRequest(origin + '/finance/checkouts',
-    { provider: 'SEPAY', tenancyId, amount: '1000' },
+    { provider: 'SEPAY', tenancyId, amount: amountVnd },
     {
       Authorization: 'Bearer ' + session.accessToken,
       'Idempotency-Key': randomUUID(),
     });
   if (checkout.provider !== 'SEPAY' ||
-      !/^(1000|1000\.00)$/.test(String(checkout.amount)) ||
+      String(checkout.amount) !== amountVnd + '.00' ||
       !checkout.id || !checkout.payUrl) {
     throw new Error('Checkout response failed its binding check');
   }
