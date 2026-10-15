@@ -23,7 +23,7 @@ import {
   verifySepayHandoff,
 } from '../sepay/sepay-handoff-token';
 import { readSepayIpnInvoice, sepaySecretsMatch } from '../sepay/sepay-ipn';
-import { SEPAY_ORDER_READER, type SepayOrderReader } from '../sepay/sepay-order-client';
+import { SEPAY_ORDER_READER, type SepayOrderReader, type SepayReadResult } from '../sepay/sepay-order-client';
 import type { SepayProductionConfig } from '../sepay/sepay-production-config';
 import {
   GATEWAY_CLOCK,
@@ -131,10 +131,15 @@ export class SepayGatewayAdapter implements GatewayProviderAdapter {
   ): Promise<VerifiedGatewayEvidence> {
     readSepayIpnInvoice(input);
     const evidence = await this.reconcile(record);
-    if (evidence === 'pending' || evidence === 'uncertain') {
-      throw new ServiceUnavailableException('SePay order is not uniquely paid');
+    if (evidence !== 'pending' && evidence !== 'uncertain') return evidence;
+    if (evidence === 'uncertain' && this.orders?.readVerifiedIpn) {
+      // Only the authenticated IPN path can use the 404-detail fallback.
+      // REST must independently prove a unique captured invoice and amount.
+      const read = await this.orders.readVerifiedIpn(record.providerOrderId, input);
+      const fallback = this.evidenceFromRead(record, read, 'PAYMENT_IPN');
+      if (fallback !== 'pending' && fallback !== 'uncertain') return fallback;
     }
-    return evidence;
+    throw new ServiceUnavailableException('SePay order is not uniquely paid');
   }
 
   checkoutIdFromHandoff(token: string, now: Date): string {
@@ -170,6 +175,15 @@ export class SepayGatewayAdapter implements GatewayProviderAdapter {
     this.assertIntent(record);
     if (!this.orders) return 'uncertain';
     const read = await this.orders.readInvoice(record.providerOrderId);
+    return this.evidenceFromRead(record, read, 'RECONCILIATION');
+  }
+
+  private evidenceFromRead(
+    record: GatewayCheckoutRecord,
+    read: SepayReadResult,
+    stage: 'RECONCILIATION' | 'PAYMENT_IPN',
+  ): SepayVerifiedEvidence | 'pending' | 'uncertain' {
+    this.assertIntent(record);
     if (read.kind !== 'paid') return read.kind;
     if (
       read.invoice !== record.providerOrderId ||
@@ -199,10 +213,12 @@ export class SepayGatewayAdapter implements GatewayProviderAdapter {
       currency: 'VND',
       outcome: 'PAYMENT_SUCCEEDED',
       providerSettlementId: read.transactionId,
-      stage: 'RECONCILIATION',
+      stage,
       resultCode: null,
       observation: JSON.stringify({
-        source: 'sepay-order-detail',
+        source: stage === 'PAYMENT_IPN'
+          ? 'sepay-secret-ipn-plus-captured-order-list-detail-404'
+          : 'sepay-order-detail',
         orderStatus: 'CAPTURED',
         remoteOrderId: read.remoteOrderId,
         transactionId: read.transactionId,

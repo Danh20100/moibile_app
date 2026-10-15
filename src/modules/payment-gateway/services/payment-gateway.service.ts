@@ -286,10 +286,10 @@ export class PaymentGatewayService {
     if (!record || record.provider !== 'SEPAY') {
       throw new ServiceUnavailableException('SePay order is not uniquely paid');
     }
-    const evidence = await adapter.reconcile(record);
-    if (evidence === 'pending' || evidence === 'uncertain') {
-      throw new ServiceUnavailableException('SePay order is not uniquely paid');
-    }
+    // The adapter requires independent provider REST verification. If SePay's
+    // detail API returns 404, it may cross-check the authenticated IPN against
+    // the unique CAPTURED REST list order instead; browser return is never proof.
+    const evidence = await adapter.verifyNotification(payload, record);
     await this.settlement.settle(evidence);
     return { success: true };
   }

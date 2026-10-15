@@ -60,3 +60,13 @@ From another local terminal: `node scripts/sepay-standalone/verify-test-checkout
 The intended account is `tenant@trooi.local` with the isolated development runner password (default `TroOiDemo2026!`); this login is **not** Google authentication. The signed handoff token expires after 30 minutes. If expired, refresh the checkout safely rather than claiming the original URL still works.
 
 **Money gate:** Before authorizing a transfer, inspect SePay-hosted bank account name, destination, invoice/reference, and amount; require the user's explicit confirmation. A checkout `CREATED`, browser return, or screenshot alone cannot create `PROVIDER_VERIFIED`. Verify provider REST settlement, valid IPN, exact amount, correct tenancy, one Payment, and deduplication. Never copy .env secrets to source control.
+
+## Verified 2,000 VND bank-transfer acceptance (2026-10-15)
+
+- User confirmed the bank debit and the linked beneficiary bank credit.
+- Checkout `4a732deb-5183-426f-a125-373af0ad6158`, `SEPAY`, `2000.00`.
+- Production SePay authenticated REST list returned one invoice-matched order with status `CAPTURED`; its detail API returned `HTTP 404`. This is a provider-detail availability issue, not evidence that payment failed.
+- Real SePay `ORDER_PAID` callbacks reached the ngrok IPN endpoint with matching `X-Secret-Key`, `BANK_TRANSFER` / `APPROVED`, invoice, remote-order ID and exact amount. The earlier runtime returned 503 because it required the unavailable detail endpoint.
+- Fix: when and only when SePay REST detail returns HTTP 404, authenticate the IPN secret and cross-check its bank-transfer transaction against the *single* captured order returned by authenticated REST. HTTP 401/403/429, timeouts, ambiguous lists, wrong amounts, card payments and invalid IPNs remain fail-closed.
+- A previously captured real provider callback was replayed locally after the fix (no new transfer). The IPN endpoint returned HTTP 200; the checkout became `SUCCEEDED`; PostgreSQL recorded Payment `00791baa-cf9a-4d17-ae10-678738bd13da` with source `GATEWAY` and verification `PROVIDER_VERIFIED`. Replaying the exact same authenticated callback again returned 200 and left **exactly one** 2,000 VND provider-verified Payment.
+- Validation: existing SePay suite + fallback/negative-case tests, Backend typecheck/build/lint. This is acceptance of the isolated finance test runtime; it does not attest production release deployment or all app features.

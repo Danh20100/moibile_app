@@ -64,7 +64,7 @@ export class GatewaySettlementService {
               locked.providerRemoteOrderId === null &&
               data.remoteOrderId !== null &&
               data.outcome === 'PAYMENT_SUCCEEDED' &&
-              data.stage === 'RECONCILIATION')
+              (data.stage === 'RECONCILIATION' || data.stage === 'PAYMENT_IPN'))
           ) ||
           data.currency !== 'VND' ||
           !['INITIATED', 'CREATED', 'UNKNOWN', 'FAILED', 'SUCCEEDED'].includes(locked.status)

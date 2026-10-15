@@ -1,5 +1,6 @@
 import { SEPAY_PRODUCTION_API_ORIGIN, SEPAY_PRODUCTION_PAID_STATUS } from './sepay-form';
 import type { SepayProductionConfig } from './sepay-production-config';
+import { readSepayAuthenticatedBankTransferIpn } from './sepay-ipn';
 
 export type SepayReadResult =
   | {
@@ -16,6 +17,7 @@ export type SepayReadResult =
 
 export interface SepayOrderReader {
   readInvoice(invoice: string): Promise<SepayReadResult>;
+  readVerifiedIpn?(invoice: string, payload: unknown): Promise<SepayReadResult>;
 }
 
 export const SEPAY_ORDER_READER = Symbol('SEPAY_ORDER_READER');
@@ -163,7 +165,57 @@ export class HttpSepayOrderClient implements SepayOrderReader {
     return interpretSepayOrder(listed, detail, invoice, this.config.merchantId);
   }
 
+  /**
+   * Strict fallback for provider detail HTTP 404. Only called after the
+   * merchant's X-Secret-Key has authenticated the IPN. A unique CAPTURED REST
+   * list result must agree with every identity/amount/transaction field.
+   * Normal REST settlement remains the preferred path.
+   */
+  async readVerifiedIpn(invoice: string, payload: unknown): Promise<SepayReadResult> {
+    const proof = readSepayAuthenticatedBankTransferIpn(payload);
+    if (!proof || proof.invoice !== invoice) return uncertain;
+
+    const listUrl = new URL('/v1/order', SEPAY_PRODUCTION_API_ORIGIN);
+    listUrl.searchParams.set('q', invoice);
+    listUrl.searchParams.set('per_page', '1');
+    listUrl.searchParams.set('page', '1');
+    const listed = await this.get(listUrl);
+    if (!isRecord(listed) || !isRecord(listed.meta) || !Array.isArray(listed.data) ||
+        listed.meta.total !== 1 || listed.meta.has_more !== false ||
+        listed.meta.page_count !== 1 || listed.meta.current_page !== 1 ||
+        listed.data.length !== 1) return uncertain;
+    const order = listed.data[0];
+    if (!isRecord(order) ||
+        order.order_invoice_number !== invoice ||
+        order.order_status !== SEPAY_PRODUCTION_PAID_STATUS ||
+        order.order_currency !== 'VND' ||
+        remoteOrderId(order.order_id, invoice) !== proof.remoteOrderId ||
+        wholeVnd(order.order_amount) !== proof.amount) return uncertain;
+    for (const key of ['merchant', 'merchant_id', 'merchantId']) {
+      if (key in order && order[key] != null && order[key] !== this.config.merchantId)
+        return uncertain;
+    }
+
+    const detailUrl = new URL(
+      `/v1/order/detail/${encodeURIComponent(proof.remoteOrderId)}`,
+      SEPAY_PRODUCTION_API_ORIGIN,
+    );
+    const detail = await this.getWithStatus(detailUrl);
+    // Fail closed for bad auth, timeouts, conflicts, or a 200 detail with bad data.
+    if (detail.status !== 404) return uncertain;
+    return {
+      kind: 'paid', remoteOrderId: proof.remoteOrderId,
+      transactionId: proof.transactionId, invoice,
+      amount: proof.amount, currency: 'VND', paymentMethod: 'BANK_TRANSFER',
+    };
+  }
+
   private async get(url: URL): Promise<unknown | null> {
+    const result = await this.getWithStatus(url);
+    return result.status === 200 ? result.body : null;
+  }
+
+  private async getWithStatus(url: URL): Promise<{ status: number; body: unknown | null }> {
     try {
       const response = await this.fetchImpl(url, {
         method: 'GET',
@@ -174,10 +226,11 @@ export class HttpSepayOrderClient implements SepayOrderReader {
           authorization: `Basic ${Buffer.from(`${this.config.merchantId}:${this.config.secretKey}`).toString('base64')}`,
         },
       });
-      if (response.status !== 200) return null;
-      return (await response.json()) as unknown;
+      if (response.status !== 200) return { status: response.status, body: null };
+      const body = (await response.json()) as unknown;
+      return { status: 200, body };
     } catch {
-      return null;
+      return { status: -1, body: null };
     }
   }
 }

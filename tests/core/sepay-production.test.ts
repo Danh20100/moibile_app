@@ -687,3 +687,75 @@ test('reconciliation does not confirm money without a settled transaction', asyn
     S.values.paymentCountExpected,
   );
 });
+
+test('authenticated SePay IPN fallback settles one Payment only when amount and tenancy match', async () => {
+  const reader: SepayOrderReader = {
+    async readInvoice() { return { kind: 'uncertain' }; },
+    async readVerifiedIpn(invoice, payload) {
+      const order = (payload as { order?: { order_invoice_number?: string; order_id?: string; order_amount?: string } }).order;
+      const transaction = (payload as { transaction?: { id?: string; transaction_amount?: string } }).transaction;
+      if (order?.order_invoice_number !== invoice ||
+          order?.order_amount !== '2000.00' ||
+          transaction?.transaction_amount !== '2000') return { kind: 'uncertain' };
+      return {
+        kind: 'paid', invoice,
+        remoteOrderId: 'SEPAY-INTEGRATION-ORDER',
+        transactionId: 'd8000000-0000-4000-8000-000000000001',
+        amount: '2000.00', currency: 'VND', paymentMethod: 'BANK_TRANSFER',
+      };
+    },
+  };
+  const { transactions, gateway } = await harness(reader);
+  const created = await gateway.createCheckout(
+    { tenancyId, amount: '2000', provider: 'SEPAY' }, userId,
+    'd8000000-0000-4000-8000-000000000002',
+  );
+  const row = await transactions.run(({ repositories }) =>
+    repositories.finance.findGatewayCheckout(created.id),
+  );
+  assert.ok(row);
+  const notice = {
+    timestamp: 1792000000,
+    notification_type: 'ORDER_PAID',
+    order: {
+      order_invoice_number: row.providerOrderId, order_id: 'SEPAY-INTEGRATION-ORDER',
+      order_status: 'CAPTURED', order_amount: '2000.00', order_currency: 'VND',
+    },
+    transaction: {
+      id: 'd8000000-0000-4000-8000-000000000001', payment_method: 'BANK_TRANSFER',
+      transaction_type: 'PAYMENT', transaction_status: 'APPROVED',
+      transaction_amount: '2000', transaction_currency: 'VND',
+    },
+  };
+  await assert.rejects(
+    gateway.handleSepayIpn('invalid-key', notice),
+    (error: unknown) => error instanceof UnauthorizedException,
+  );
+  await assert.rejects(
+    gateway.handleSepayIpn(config.ipnSecretKey, {
+      ...notice,
+      transaction: { ...notice.transaction, transaction_amount: '2001' },
+    }),
+    (error: unknown) => error instanceof ServiceUnavailableException,
+  );
+  assert.equal(
+    (await transactions.run(({ repositories }) =>
+      repositories.finance.findPaymentsForTenancy(tenancyId))).length, 0,
+  );
+  const first = await gateway.handleSepayIpn(config.ipnSecretKey, notice);
+  const replay = await gateway.handleSepayIpn(config.ipnSecretKey, notice);
+  assert.deepEqual(first, { success: true });
+  assert.deepEqual(replay, { success: true });
+  const settled = await transactions.run(async ({ repositories }) => {
+    const checkout = await repositories.finance.findGatewayCheckout(created.id);
+    const payments = await repositories.finance.findPaymentsForTenancy(tenancyId);
+    return { checkout, payments };
+  });
+  assert.equal(settled.checkout?.status, 'SUCCEEDED');
+  assert.equal(settled.checkout?.providerOutcomeStage, 'PAYMENT_IPN');
+  assert.equal(settled.payments.length, 1);
+  assert.equal(settled.payments[0].paymentId, settled.checkout?.resultingPaymentId);
+  assert.equal(settled.payments[0].amount, '2000.00');
+  assert.equal(settled.payments[0].source, 'GATEWAY');
+  assert.equal(settled.payments[0].verification, 'PROVIDER_VERIFIED');
+});
