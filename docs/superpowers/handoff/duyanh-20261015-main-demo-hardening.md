@@ -1,125 +1,672 @@
-# Handoff cho Duy Anh — hardening `main`, đóng gói và demo TrọƠi
+# TRỌƠI — FINAL IMPLEMENTATION & DEMO HANDOFF
 
-> Ngày giao việc: **15/10/2026**. Người tiếp nhận: **Duy Anh (Backend / Database / Full-stack integration)**.
-> Baseline đã merge và push: **`main` @ `71a33430fa7842df74aa41458f7bd4d41f172589`**.
-> **Mục tiêu: ổn định và demo E2E; hạn chế tối đa mở tính năng mới.**
-> Trạng thái tài liệu: **KẾ HOẠCH / CHƯA TRIỂN KHAI**. Các mục bên dưới chỉ PASS khi có bằng chứng kiểm thử tương ứng.
+**Người tiếp quản:** Duy Anh  
+**Branch:** `main`  
+**Baseline commit:** `5126d62`  
+**Mục tiêu:** Hoàn thiện toàn bộ nghiệp vụ hiện có của TrọƠi, thống nhất cấu hình và hạ tầng, xử lý các luồng chưa hoạt động, tích hợp Android–Backend–Database và chuẩn bị bản demo hoàn chỉnh.
 
-## 0. Quy tắc bất biến & điều kiện nhận việc
+## 1. Định hướng triển khai
 
-- **Feature freeze**: không tự mở marketplace, pricing/quota, AI/OCR production, subscription mới, thanh toán hộ hoặc nghiệp vụ ngoài scope chỉ để demo. Chỉ sửa bug, wiring, bảo mật, dữ liệu demo, cấu hình và tài liệu; thay đổi hợp đồng nghiệp vụ phải xin phê duyệt.
-- **Canonical source of truth**: `docs/database/v1/canonical.md` → `docs/database/v1/erd/` → `docs/database/v1/schema/` → migration → service/API → Android. `[OPEN]` không được tự quyết, `[FUTURE]` không tự quảng bá thành chức năng hiện hành.
-- **Giữ lịch sử Git và database**: fetch/pull sau khi kiểm tra trạng thái; làm trên nhánh riêng của Duy Anh; PR vào `main`. Không force-push, không reset/`down -v` database, không sửa migration đã phát hành, không đè worktree hoặc thay đổi chưa commit của người khác.
-- **Không đưa secret lên GitHub**: bất kỳ giá trị production/local secret, private key, signing key, mật khẩu DB, Merchant SePay/TPBank, dump DB, `.env`, `gradle.properties` cá nhân, `local.properties`, `keystore.properties`, `*.jks` đều phải ngoài Git. `*.example` chỉ được chứa placeholder không dùng được.
-- **Ngăn dữ liệu giả đi vào tiền thật**: seed/demo chỉ ở môi trường dev/test, không tạo `PAYMENT` giả là `PROVIDER_VERIFIED`, không reset Checkout đã có; callback và return URL không phải bằng chứng nếu thiếu xác minh provider.
+Giai đoạn hiện tại ưu tiên **Product Completion & Stabilization**, không tiếp tục mở rộng sản phẩm theo hướng thêm hàng loạt tính năng mới.
 
-## 1. Baseline và blocker đã biết
+Tuy nhiên, điều này **không có nghĩa chỉ kiểm tra những gì đã có**.
 
-| Khu vực | Bằng chứng hiện tại (15/10) | Cần làm |
-| --- | --- | --- |
-| Merge Git | `main` = `71a3343`, bao gồm `35ad67e` | Lấy baseline từ `main`, không merge thêm nhánh không qua review |
-| Real-money SePay | Đã chuyển thử **2.000 VND** trên finance DB **cô lập**; Checkout `4a732deb-5183-426f-a125-373af0ad6158` = `SUCCEEDED`; 1 Payment `GATEWAY / PROVIDER_VERIFIED`, replay IPN không duplicate | Giữ evidence, không tạo thêm lệnh chuyển tiền; nghiệm thu lại sau đóng gói trên DB riêng |
-| Backend targeted | Typecheck, Nest build, ESLint PASS; SePay + fixture governance `17/17` PASS | Chạy lại toàn bộ gate từ môi trường chuẩn |
-| Android | `CheckoutIdentityTest` PASS; Android Debug smoke dùng API riêng | Kiểm thử cả Guest / Tenant / Owner trên bản API + DB dùng chung |
-| Full test suite | `501` test: `494` PASS, `3` FAIL, `4` CANCELLED vì thiếu `DATABASE_URL` trong runtime audit | KHÔNG tuyên bố full-green; xử lý từng lỗi bên dưới |
-| Slot chủ trọ | `AssetWizard.kt` hiện nút “Mở thêm 1 slot”, giá UI `259.000đ/năm`; `TroOiViewModel.purchaseLocalCapacity()` trả `REAUTH_UNAVAILABLE` | **Blocker UI/payment**: rà soát luồng; không hiển thị thông báo “đã thanh toán” nếu không có settlement |
-| Runtime stack | `docker-compose.yml` có PostgreSQL/PostGIS + Nest; MinIO/Redis ở `compose.infrastructure.yml`, messaging riêng ở `compose.messaging.yml` | Thiết kế 1 Compose thống nhất có profiles và nghiệm thu clean rebuild |
-| Cấu hình | `.env.example`, `.env.messaging.example`, `gradle.properties.example`, `local.properties.example`, `keystore.properties.example` đang tồn tại | Một nguồn cấu hình private rõ ràng, có adapter cho Gradle/SDK và bảo vệ Git |
+Những chức năng đã xuất hiện trong giao diện, đã có API hoặc đã được thiết kế thành một phần của luồng nghiệp vụ phải được hoàn thiện đến mức hoạt động thực tế.
 
-**Ba lỗi test đã quan sát**:
-1. `tests/verification/account-verification-foundation.test.ts`: `tests/core/finance.behavior.test.ts` còn business literals thay vì fixture JSON.
-2. `tests/verification/application-restart-foundation.test.ts`: Owner/Tenant principal trong fixture chưa được bind đúng; phải là hai identity riêng.
-3. `tests/verification/identity-test-architecture.test.ts`: literal trong `tests/integration/persistence/identity-vnext.integration.ts` (vùng dòng ~246 ở baseline).
+Phân biệt rõ:
 
-**Bốn cancelled**: nhóm `tests/audit/low-level-architecture/runtime.access.test.ts` thiếu `DATABASE_URL` đúng loại DB test. Không chạy `pnpm test` với finance DB tiền thật.
+- **Existing Feature:** Chức năng đã tồn tại nhưng chưa hoàn chỉnh → phải hoàn thiện.
+- **Broken Feature:** Có giao diện/API nhưng lỗi hoặc không chạy → phải sửa.
+- **Disconnected Feature:** Frontend có nhưng chưa kết nối Backend/Database → phải tích hợp.
+- **Mock-only Feature:** Chỉ hoạt động bằng dữ liệu giả trong bộ nhớ → phải đánh giá và chuyển sang Backend thật nếu thuộc luồng demo.
+- **New Feature:** Chức năng hoàn toàn mới, nằm ngoài phạm vi demo → tạm hoãn.
 
-## 2. P0 — audit source, naming, hardcode, fixture JSON
+Không được coi việc ẩn nút, bỏ chức năng, chuyển sang Mock hoặc ghi chú "chưa hỗ trợ" là cách hoàn thành một nghiệp vụ bắt buộc.
 
-**Phạm vi**: `src/`, `app/src/`, `database/`, `tests/`, `scripts/`, tất cả đường API và config.
+Nếu một chức năng còn thiếu thiết kế nghiệp vụ, cần xác định phương án hợp lý, trình những quyết định có ảnh hưởng đến sản phẩm để chốt, sau đó triển khai.
 
-- Kiểm tra naming theo convention từng ngôn ngữ: TypeScript PascalCase class/DTO, camelCase variable/service method, snake_case column & migration, Kotlin theo Kotlin style; tên domain thống nhất `Room`/`Listing`/`Tenancy`/`BillingCycle`/`Charge`/`Payment`/`Receipt`/`Incident`; tránh viết tắt không định nghĩa, magic ID, đổi tên DB schema tùy tiện.
-- Liệt kê **mọi** hardcode: giá/slot, thông số kinh doanh, amount VND, URL/host, token, UID, ngày giờ, phone/email, mã phòng, test fixture, status fallback, text chưa i18n, cấu hình giao diện. Phân loại: (A) constant kỹ thuật hợp lệ, (B) fixture dev/test, (C) bug phải config/DB, (D) đề xuất thay đổi canonical cần approval.
-- Thẩm định đủ `*.json`, `*.schema.json`, fixture loaders, `tests/fixtures/`: schema validate fail-closed, type, version, required fields, dữ liệu liên kết FK/tenancy/role, không trùng data source, không fallback literal, không phụ thuộc thứ tự test. Chuyển business literals **test** về fixture có schema, không biến chúng thành default production.
-- Loại bỏ dead code, mock/legacy route còn chạy trên release; bảo đảm Debug fixture/demo adapter không cho auth bypass trong Release/Production.
-- Với mỗi kết quả, ghi `path:line`, mức P0/P1/P2, trạng thái, test liên quan và commit sửa. Không “cleanup” hàng loạt phá contract để đạt số liệu đẹp.
+**Kết quả cuối cùng phải là một ứng dụng thực sự hoạt động, không chỉ một giao diện mô phỏng.**
 
-**Nghiệm thu**: 3 lỗi fixture phía trên PASS; static governance PASS; full test suite chạy có DB riêng; lint/typecheck/build PASS; báo cáo còn sót hardcode hợp lệ và blocker chủ ý.
+---
 
-## 3. P0 — một nguồn cấu hình, tuyệt đối không track secret
+## 2. Source Code Audit & Refactoring
 
-**Ý định cuối**: **một file local private `.env` ở repo root** làm nguồn duy nhất cho giá trị chạy Backend/Compose và cấu hình chung; **một template `.env.example`** có placeholder để người mới bootstrap. Đây **chưa** là trạng thái hiện tại.
+### 2.1. Kiểm tra toàn bộ source
 
-- Lập inventory *tên biến + nơi đọc + profile dùng* từ `.env.example`, `.env.messaging.example`, Compose, `Dockerfile`, Node, Kotlin/Gradle, Google/Maps, SePay, optional Redis/MinIO. Không log hoặc paste **giá trị secret**.
-- Refactor loader/Compose để đọc `--env-file .env` và chuyển biến vào đúng service; tách môi trường `local/demo/test` bằng *profile/config entrypoint* thay vì thêm các `.env.production`, `.env.sepay-standalone` được share bừa bãi. Production thực tế ưu tiên secret manager/CI secret injection; không đóng gói `.env` trong image.
-- Gradle đọc các biến **không bí mật** từ environment tương ứng (`TROOI_API_BASE_URL`, `TROOI_GOOGLE_WEB_CLIENT_ID`, `TROOI_MAPS_API_KEY` nếu cấu hình được, `TROOI_PAYMENT_PUBLIC_ORIGIN`) hoặc `-P...`; không đòi copy cấu hình qua một `gradle.properties` cá nhân khác. **Gradle không tự đọc `.env`**: phải làm adapter/launcher và có test. Android SDK path vẫn cần biến `ANDROID_HOME`/`local.properties` do Android SDK quản lý; tài liệu phải nói rõ ngoại lệ kỹ thuật thay vì hứa bỏ một cách mù quáng.
-- Release signing key nằm ngoài repo; có thể truyền qua CI secrets hoặc môi trường an toàn, không xuất keystore/password trong APK hoặc BuildConfig. Không embed `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, merchant credential, DB password vào Android.
-- Kiểm tra và giữ `.gitignore` + `.dockerignore`, `git ls-files`, `git check-ignore -v`, `git diff --cached --name-only`. Nếu phát hiện secret đã track thì `git rm --cached -- <file>` và **xoay khóa nếu từng bị lộ**, không xóa bản local; tuyệt đối không `git add -f`. Không push log/env/database dump.
-- `.env.messaging.example`/`gradle.properties.example` có thể giữ làm tài liệu mẫu công khai khi chuyển đổi, nhưng xác lập rõ **single authoritative private config** và loại bỏ các bản cấu hình có thể gây lệch runtime.
+Rà soát toàn bộ:
 
-**Nghiệm thu**: chạy local sau clean clone chỉ với `.env` private + SDK/keystore được cấp an toàn; tất cả service/Android đọc đúng cấu hình; `git status` và staged diff không có secret.
+- Android Kotlin / Jetpack Compose.
+- NestJS Backend.
+- PostgreSQL repositories, migrations và database schema.
+- API contracts, DTOs và validation.
+- Authentication, Authorization.
+- Payment Gateway.
+- Database seeds và JSON fixtures.
+- Docker và các script chạy hệ thống.
 
-## 4. P0 — một Docker Compose, rebuild và data safety
+Không chỉ lập danh sách lỗi. Những vấn đề có thể xử lý an toàn trong phạm vi hiện tại phải được sửa trực tiếp.
 
-**Đầu ra bắt buộc**: `docker-compose.yml` làm **một entrypoint** chạy Backend + PostgreSQL/PostGIS + Redis + MinIO/S3-compatible + bucket/init cần thiết. Dùng `profiles` cho optional services (không kéo Redis/MinIO lên nếu adapter chưa dùng), tránh cứng cổng/mật khẩu và xung đột container/volume.
+### 2.2. Hardcoded Values
 
-- Hợp nhất cấu hình còn phân mảnh tại `compose.persistence.yml`, `compose.infrastructure.yml` và `compose.messaging.yml`; giữ các script cũ cho tới khi parity PASS rồi mới deprecate rõ ràng, không làm đứt CI/test đang tham chiếu.
-- Thiết kế service dependencies + healthchecks + named volumes + networks + logs + restart + database migrations **up-only**; bảo đảm PostGIS extension, test DB isolation, MinIO private bucket, môi trường DEV/DEMO/SEPAY rõ ràng.
-- **Bảo vệ tiền thật**: database SePay độc lập không được dùng seed/reset demo. Không đổi `DATABASE_URL` trỏ đến `trooi_dev` nếu bật SePay Production: loader hiện chặn `trooi_dev` / `trooi_test` và yêu cầu `SEPAY_FINANCE_DATABASE` trùng tên DB; xử lý kiến trúc tương thích thay vì nới guard.
-- Trước khi thao tác Docker: audit container đang chạy + mount + named volumes, snapshot/backup DB và evidence; xác nhận dự kiến ảnh hưởng. **Không chạy `docker compose down -v`, `db:reset`, `volume rm` hoặc prune.**
-- Thử trước trên Docker project/volume **mới**, không đổi các port `3000/3001/3100/3101/3102` hiện đang dùng. Dùng `docker compose --env-file .env config --quiet` để validate tránh in secret; `docker compose ... build` và `up -d --wait` khi mọi service đã cấu hình đúng.
-- Kiểm chứng 2 lần start/rebuild không mất dữ liệu và không duplicate seed/migration; kiểm thử service internal DNS, host port và HTTP health; có lệnh logs, backup, restore, shutdown không xóa volume.
+Tìm và xử lý:
 
-**Nghiệm thu**: một lệnh up từ clean clone (sau khi cấp private config) + migrations + optional seed; screenshot/log health; restart giữ dữ liệu; tài liệu rollback.
+- Business logic chứa giá trị cố định không hợp lý.
+- Giá tiền, phí dịch vụ và thông số nghiệp vụ.
+- API URLs, host, ports.
+- User IDs, Organization IDs, Room IDs.
+- Database credentials và secrets.
+- Dữ liệu demo bị nhúng trực tiếp vào production code.
+- Placeholder hoặc fallback làm sai trạng thái thực tế.
+- Những đoạn logic phụ thuộc cứng vào dữ liệu của một tài khoản test.
 
-## 5. P0 — rà soát UI và E2E (đặc biệt Payment / slot / Auth)
+Phân loại hardcode thành:
 
-Kiểm trên Android emulator **và ít nhất một thiết bị thật** khi có thể; riêng mỗi role lưu bằng chứng màn hình, API response và DB assertion.
+1. **Technical Constant:** Hằng số kỹ thuật hợp lệ, được giữ lại.
+2. **Configurable Value:** Chuyển sang configuration.
+3. **Business Data:** Đọc từ Backend/Database hoặc cấu hình nghiệp vụ phù hợp.
+4. **Test Data:** Chuyển vào JSON fixture/seed của môi trường test.
+5. **Invalid Hardcode:** Xóa hoặc thay bằng logic đúng.
 
-| Persona / flow | Ca bắt buộc |
-| --- | --- |
-| Guest | Khám phá/phân trang/search/tin đăng chi tiết, ảnh/map, không lộ private location hoặc UI quản trị |
-| Google auth | Google Credential Manager đăng ký/login, OTP/reauth (nếu scope hiện có), refresh sau restart, logout + revoke, expired token; kiểm tra SHA-1 Android OAuth, Web Client ID, Google backend audience |
-| Tenant | Vào `Tenancy` thật với quyền hợp lệ → danh sách `BillingCycle / Charge` → checkout `SEPAY` → handoff external → return → polling/readback → lịch sử `Payment`/`Receipt`; phân biệt `CREATED / UNKNOWN / SUCCEEDED` |
-| Owner | Có nút `+ Thêm tài sản` → tạo/tồn tại/đăng tin phòng → tenant link → công nợ/confirmed payment hiển thị đúng; không thấy checkout của người thuê ngoài quyền |
-| Owner — **thêm slot** | `AssetWizard` đang hiện `+1 slot`, `259.000đ/năm` và “Xác nhận thanh toán”, **nhưng** `TroOiViewModel.purchaseLocalCapacity` hiện trả `REAUTH_UNAVAILABLE`. Đây là **stub/blocked**, không phải SePay đang hoạt động; phải quyết định với Product: (A) ẩn/vô hiệu và ghi “Chưa hỗ trợ” vì Pricing/Quota là `[FUTURE]`, hoặc (B) chỉ nối payment sau khi có phê duyệt product/canonical + backend contract riêng. Không tự gán thanh toán tiền thuê cho phí slot hay giả `SUCCEEDED` |
-| Auth + quyền | User A/B, owner/tenant của các tổ chức khác: IDOR 403/404, guest private API 401, no mock login trên public/Release, Google disabled fail-closed |
-| Real-money SePay | IPN sai/thiếu secret 401; payload lỗi 400; REST provider uncertain/404 detail 503 hoặc fallback bảo mật; accepted callback 200; amount/merchant/invoice/remote order/transaction match; duplicate callback chỉ 1 `PROVIDER_VERIFIED`; return URL không tự xác nhận |
+Không thay tất cả hardcode một cách máy móc.
 
-**Lưu ý SePay + TPBank:** Merchant là tài khoản SePay của cá nhân/đơn vị được cấp quyền, liên kết **tài khoản TPBank nhận tiền** trong dashboard. Tiền chuyển về tài khoản ngân hàng liên kết; phía app chỉ tích hợp **SePay Payment Gateway**, **không giả định có API trực tiếp hay API key của TPBank**. Đối soát người thụ hưởng, invoice và nhận tiền trên tài khoản thực tế trước khi demo. Không lấy demo OTP hoặc token để giả auth.
+### 2.3. Naming & Code Quality
 
-**Nghiệm thu**: video/screenshots + trace HTTP + DB row cho từng flow, nhất là Payment; logout/restart làm mới không mất phân quyền, không double charge.
+Kiểm tra và chỉnh sửa:
 
-## 6. P1 — cập nhật README và hướng dẫn onboarding “từ zero”
+- Convention của Kotlin và TypeScript.
+- Tên class, interface, method, variable.
+- Tên DTO, repository và service.
+- API endpoint naming.
+- Database table/column naming.
+- Sự nhất quán giữa Frontend Models và Backend DTOs.
+- Dead code, duplicated code và unreachable branches.
+- Exception handling và error messages.
 
-README phải giải thích **cái đang chạy thực tế** và **đích cần triển khai**, đủ cho người khác clone/build không cần hỏi người cũ:
+Ưu tiên sửa code để thống nhất naming, tránh đổi tên hàng loạt làm hỏng API hoặc migration.
 
-- Sơ đồ monorepo, prerequisite Node/pnpm, Docker Desktop, JDK/Android Studio/SDK, USB/ADB/emulator, Google Cloud.
-- Link và thao tác tạo **Google OAuth Web Client ID + Android client/package/SHA-1**, Maps API key bị giới hạn (app/package SHA-1), Merchant ID + Secret Key + IPN secret SePay, ngrok hoặc HTTPS domain; hướng dẫn cấu hình `.env` riêng tư.
-- TPBank: liên kết và xác thực tài khoản ngân hàng với SePay từ dashboard, **không đòi TPBank API key** cho transfer QR thông thường; phân biệt Sandbox vs Production, tiền thật, callback và webhook.
-- Hướng dẫn `docker compose` up/build/logs/down an toàn, DB migrate/seed, Nest app health/OpenAPI, Android debug/release, runtime MOCK/BACKEND, URL emulator `10.0.2.2` vs máy thật LAN/IP, test commands, troubleshooting, backup.
-- Cảnh báo credential leakage, các endpoint public, cách bật/tắt IPN, rollback; tài liệu cập nhật kèm thay đổi code/config để không lỗi thời.
+### 2.4. JSON Fixtures
 
-**README ở `main` được cập nhật trước trong đợt handoff này**, nhưng lệnh một Compose + single-config cuối cùng **chỉ được đánh dấu DONE sau khi Duy Anh thực sự triển khai và kiểm chứng**.
+Kiểm tra và hoàn thiện hệ thống JSON fixture.
 
-## 7. P1 — seed dữ liệu giả như app đang hoạt động
+Yêu cầu:
 
-- Seed **synthetic, deterministic, idempotent** trên database dev/demo **riêng**; gồm vài chủ trọ, người thuê, workspace/property, nhiều room/listing có ảnh placeholder hợp lệ, có phòng trống / đang thuê, terms, billing cycles/charges, incident tickets, notices, inbox/conversations và payment lịch sử **manual mô phỏng với provenance rõ ràng**.
-- Tenant/Owner có liên kết `TenancyParticipant` thật; không dùng global business role; không ghép danh tính Google thật vào fixture nếu không có binding được duyệt.
-- Room/listing/terms/charge/payment theo invariant Database v1; không seed cọc/hợp đồng/biên nhận sai vòng đời.
-- Dữ liệu đa dạng trạng thái để UI đầy đủ: 3–5 khu trọ/tòa, ~10–20 phòng, một số listing PUBLISHED, vài thuê ACTIVE, sự cố mở/đóng, khoản đã đến hạn/chưa đến hạn, lịch sử hợp lệ; số lượng gợi ý, không bắt buộc.
-- **Tuyệt đối không fake Gateway `PROVIDER_VERIFIED`, SePay IPN, real bank credit hoặc impersonate tài khoản thật**. Nếu demo Paid, dùng manual flow rõ nhãn hoặc fixture sandbox tách biệt. Không seed vào `trooi_sepay_isolated` đã từng ghi tiền thật.
-- Seed có `--dry-run` hoặc output tóm tắt, re-run giữ số row ổn định, unseed/cleanup chỉ đối với disposable DB. Chạy smoke DB → backend → Android ngay sau seed.
+- Dữ liệu nghiệp vụ test phải có fixture tương ứng.
+- Fixture được kiểm tra bằng JSON Schema.
+- Không thiếu required fields.
+- Không có ID/relationship sai.
+- Không tạo fixture trùng lặp hoặc mâu thuẫn.
+- Không phụ thuộc vào thứ tự chạy test.
+- Không fallback sang business literals trong test code.
+- Các bộ fixture Android và Backend phải nhất quán khi cùng mô phỏng một nghiệp vụ.
 
-## 8. Thứ tự thi công / yêu cầu chứng cứ / điều kiện chốt demo
+Các test failure về Finance, Application Restart và Identity được ghi nhận tại baseline phải được sửa đến khi PASS.
 
-1. **P0.1 Audit**: chụp baseline, inventory config, rà soát hardcode/naming/fixture + 3 blocker và runtime audit DB.
-2. **P0.2 Config/secrets**: single private source, adapters Gradle, Git/Docker ignore, không phát sinh secret ở client/log.
-3. **P0.3 Docker**: thống nhất Compose, backup và deploy song song trên container/volume mới, verify parity và restart persistence.
-4. **P0.4 Product flows**: Google auth, Tenant Checkout, Owner phòng/slot, access guard; không tự bật tính năng pricing `[FUTURE]`.
-5. **P1 Seed**: dataset demo đa vai trò, dữ liệu hoạt động thực tế nhưng không làm giả tiền.
-6. **P1 Documentation**: cập nhật README đúng với thực thi, chạy lại clean onboarding.
-7. **Final gate**: full backend tests + governance, Android debug/release build + targeted tests, DB schema/migrate, Docker health, cross-role E2E, SePay no-duplicate readback, công khai bảng PASS/FAIL + blocker.
+**Deliverable:** Source đã refactor, test fixture hoàn chỉnh, thống kê các hardcode còn lại cùng lý do giữ chúng.
 
-**Bàn giao bắt buộc**: changelog/commit hoặc PR, `docs/implementation/phase5/` acceptance report, screenshot/video demo, test summary, Docker compose/volumes inventory, danh sách tên biến môi trường (không có giá trị), seed report và các blocker chưa giải quyết.
+---
 
-**Definition of Done:** có thể dựng demo ổn định từ `main` với hướng dẫn README, không lộ secret, không fake thanh toán, các luồng bắt buộc kiểm chứng bằng dữ liệu Backend thật; **không có P0 mở**. Nếu còn lỗi/feature đang stub, hiển thị tình trạng rõ và khoanh lại thay vì tuyên bố toàn hệ thống hoàn thành.
+## 3. Configuration Consolidation
+
+### 3.1. Mục tiêu
+
+Hợp nhất hệ thống configuration để có **một nguồn cấu hình private chính**, giảm tối đa việc phải chỉnh sửa nhiều file mỗi lần đổi môi trường.
+
+Định hướng:
+
+- `.env` — file cấu hình local chính, tuyệt đối không commit.
+- `.env.example` — template công khai, không chứa credential thật.
+- `docker-compose.yml` — dùng các biến được cung cấp qua `.env`.
+- Backend đọc environment variables.
+- Android Gradle nhận các biến phù hợp thông qua environment hoặc một cơ chế đồng bộ cấu hình được kiểm thử.
+
+### 3.2. Việc phải triển khai
+
+Rà soát và thống nhất cấu hình từ:
+
+- `.env` và các file `.env.*` đang tồn tại.
+- `.env.messaging.example`.
+- `gradle.properties` và `gradle.properties.example`.
+- `local.properties`.
+- `keystore.properties`.
+- Docker Compose.
+- Các script demo/seed.
+- Backend, Google Auth, Google Maps, SePay và MinIO.
+
+Chỉ duy trì những file phụ thật sự bắt buộc vì yêu cầu công cụ, như Android SDK local path hoặc signing keystore.
+
+### 3.3. Bảo mật Git
+
+Kiểm tra các file nhạy cảm đã từng được track hay chưa.
+
+Nếu có:
+
+- Untrack bằng `git rm --cached`, không xóa bản local.
+- Cập nhật `.gitignore` và `.dockerignore`.
+- Kiểm tra staged files trước commit.
+- Không đưa credentials, database dumps, bank credentials, keystore hoặc token vào Docker image.
+- Xoay các secret nếu có bằng chứng chúng từng bị lộ.
+
+**Tuyệt đối không push `.env`, `gradle.properties` cá nhân, `local.properties`, `keystore.properties`, file signing hoặc secret thật lên GitHub.**
+
+Không được nhúng backend secret vào APK.
+
+### 3.4. Kết quả mong muốn
+
+Sau khi hoàn thiện, người khác chỉ cần:
+
+1. Clone repository.
+2. Tạo `.env` từ `.env.example`.
+3. Điền credentials được cấp.
+4. Cài Android SDK và cấu hình signing nếu cần.
+5. Khởi chạy Backend/Database.
+6. Build App.
+
+Không phải tự sửa nhiều file hoặc hardcode IP/port để hệ thống chạy.
+
+---
+
+## 4. Docker Infrastructure — Full Stack
+
+### 4.1. Mục tiêu
+
+Hợp nhất Backend và các infrastructure dependencies vào **một `docker-compose.yml` làm entrypoint chính**.
+
+Bao gồm:
+
+| Service | Vai trò |
+|---|---|
+| NestJS Backend | REST API và nghiệp vụ |
+| PostgreSQL + PostGIS | Database chính |
+| MinIO | Object storage cho những luồng media đã triển khai |
+| Redis | Cache/runtime dependency nếu thực sự có adapter sử dụng |
+| Migration/Init | Tạo và cập nhật database schema |
+| Storage initialization | Chuẩn bị bucket và quyền truy cập cần thiết |
+
+MinIO/Redis có thể sử dụng Docker Compose profiles nếu chưa bắt buộc đối với tất cả môi trường.
+
+### 4.2. Công việc triển khai
+
+- Hợp nhất các Compose configuration đang phân tán.
+- Chuẩn hóa environment variables.
+- Kiểm tra Dockerfile Backend.
+- Kiểm tra healthchecks.
+- Kiểm tra network/service discovery.
+- Chuẩn hóa container names, ports và volumes.
+- Kiểm tra dependencies và startup order.
+- Tự chạy migrations theo cơ chế an toàn.
+- Cấu hình object storage/private buckets nếu nghiệp vụ sử dụng.
+- Bổ sung logging phù hợp.
+- Đảm bảo database được lưu trong persistent volume.
+
+### 4.3. Rebuild & Verification
+
+Không chỉ sửa Compose rồi kết thúc.
+
+Phải thực hiện:
+
+1. Backup và kiểm tra Docker volumes/database đang chạy.
+2. Dựng môi trường kiểm thử song song, tránh ảnh hưởng container của người khác.
+3. Build lại Docker image.
+4. Start toàn bộ stack.
+5. Chạy migrations.
+6. Nạp dữ liệu development/demo.
+7. Kiểm tra tất cả healthchecks.
+8. Thử API từ Android.
+9. Restart containers.
+10. Xác minh database và media không mất dữ liệu.
+
+Không dùng `docker compose down -v`, xóa volume hoặc reset database có dữ liệu quan trọng.
+
+### 4.4. Kết quả
+
+Một cấu hình Compose thống nhất, có thể dựng môi trường demo bằng lệnh rõ ràng.
+
+Môi trường SePay có giao dịch thật phải được tách biệt hợp lý; không nới lỏng các điều kiện bảo vệ database chỉ để chạy chung Docker.
+
+---
+
+## 5. Hoàn thiện toàn bộ nghiệp vụ Android ↔ Backend ↔ Database
+
+**Đây là phần trọng tâm của handoff.**
+
+Với mỗi nghiệp vụ, Duy Anh phải kiểm tra luồng hiện tại, phát hiện phần thiếu và **triển khai hoàn chỉnh phần còn thiếu**, không dừng ở UI audit.
+
+### 5.1. Authentication & Session Management
+
+Hoàn thiện và kiểm thử:
+
+- Đăng nhập bằng Google.
+- Đăng ký tài khoản nếu chưa tồn tại.
+- Backend xác thực Google ID Token.
+- Tạo phiên đăng nhập hợp lệ.
+- Refresh session.
+- Logout và revoke session.
+- Khôi phục trạng thái sau khi tắt/mở App.
+- Tải hồ sơ và quyền truy cập của tài khoản.
+- Chuyển giữa những ngữ cảnh được phép.
+- Xử lý token hết hạn.
+- Xử lý lỗi mạng và lỗi xác thực.
+
+Đảm bảo Debug Mock Login không làm sai kết quả kiểm thử Auth thật.
+
+Nếu luồng Google Login hiện lỗi, phải **sửa cho hoạt động**, không thay bằng Mock rồi coi như hoàn thành.
+
+**Acceptance:** Đăng nhập Google thật → Backend nhận diện đúng User → load đúng dữ liệu → đóng/mở App vẫn hoạt động → logout/revoke đúng.
+
+### 5.2. Owner — Quản lý tài sản và phòng trọ
+
+Hoàn thiện toàn bộ vòng đời:
+
+- Tạo Organization/workspace hợp lệ.
+- Tạo tài sản/khu trọ.
+- Tạo và quản lý phòng.
+- Chỉnh sửa thông tin phòng.
+- Cập nhật trạng thái trống/đang thuê/ngừng quản lý.
+- Quản lý ảnh và thông tin tiện nghi.
+- Tạo/chỉnh sửa Listing cho Discovery.
+- Quản lý dữ liệu người thuê.
+- Hiển thị số phòng và tình trạng vận hành.
+- Xem tổng quan khoản phải thu, Payment và sự cố.
+
+Đảm bảo tất cả thao tác được lưu vào Backend/Database, không mất khi restart ứng dụng.
+
+Xử lý những màn hình chỉ lưu dữ liệu local hoặc chưa kết nối API.
+
+### 5.3. Owner — Mua thêm slot quản lý phòng
+
+**Blocker cụ thể đã phát hiện:**
+
+- `AssetWizard.kt` có nút **“Mở thêm 1 slot”**.
+- Giao diện đang hiển thị **259.000đ/năm**.
+- `TroOiViewModel.purchaseLocalCapacity()` hiện trả `REAUTH_UNAVAILABLE`.
+- Chưa có luồng thanh toán slot end-to-end.
+
+Yêu cầu Duy Anh giải quyết nghiệp vụ này, không chỉ kiểm tra nút.
+
+Trước khi implement cần chốt với Product:
+
+- Slot được tính theo phòng/tài sản nào?
+- Giá và thời hạn có đúng là 259.000đ/năm không?
+- Khi mua thêm slot, capacity tăng lúc nào?
+- Nếu thanh toán thất bại hoặc bị hủy thì sao?
+- Gia hạn/hết hạn slot xử lý như thế nào?
+- Có sử dụng SePay hay gateway riêng?
+
+Sau khi các quyết định được duyệt, hoàn thiện:
+
+**Owner → Hết slot → Mở thêm slot → Tạo Checkout → Thanh toán → Backend xác minh → Capacity cập nhật → Có thể thêm phòng.**
+
+Không dùng Payment của Tenancy để đại diện sai cho thanh toán phí slot. Nếu nghiệp vụ slot chưa được phê duyệt để triển khai trong phiên bản demo, phải báo blocker và xin quyết định loại khỏi phạm vi, không âm thầm bỏ.
+
+### 5.4. Tenant — Vòng đời thuê phòng
+
+Hoàn thiện các nghiệp vụ đang được sản phẩm hỗ trợ:
+
+- Xem phòng/tài sản đang thuê.
+- Xem thông tin thỏa thuận và điều khoản thuê.
+- Xem tiền thuê, cọc và các khoản phụ phí đã ghi nhận.
+- Xem billing cycles và charges.
+- Xem khoản phải thanh toán.
+- Xem lịch sử Payment.
+- Xem biên nhận hợp lệ.
+- Tạo và theo dõi sự cố.
+- Nhận thông báo/thông tin liên quan đến lượt thuê.
+
+Dữ liệu phải gắn với Tenant/Tenancy hợp lệ.
+
+Không cho Tenant A xem thông tin tài chính hoặc phòng thuê của Tenant B.
+
+### 5.5. Finance & Rental Ledger
+
+Hoàn thiện việc đồng bộ:
+
+**Billing Cycle → Charge → Payment → Allocation/Outstanding Balance → Receipt**, theo contract nghiệp vụ hiện tại.
+
+Kiểm tra và sửa:
+
+- Hiển thị khoản phải thu.
+- Công nợ và lịch sử khoản thu.
+- Ghi nhận Payment thủ công hợp lệ.
+- Payment từ Gateway.
+- Trạng thái thanh toán.
+- Đồng bộ dữ liệu giữa Owner và Tenant.
+- Các phép tính outstanding balance.
+- Xử lý Payment trùng.
+- Xử lý Payment chưa xác minh.
+- Phân biệt tiền đã nhận và khoản công nợ đã được phân bổ.
+
+Không tự động kết luận một khoản phải thu đã thanh toán đầy đủ chỉ vì tồn tại Payment.
+
+### 5.6. SePay — Thanh toán ngân hàng thật
+
+Phần SePay đã có một giao dịch thật thành công:
+
+- **Số tiền:** 2.000 VND.
+- **Checkout:** `4a732deb-5183-426f-a125-373af0ad6158`.
+- **Trạng thái:** `SUCCEEDED`.
+- **Payment:** `PROVIDER_VERIFIED`.
+- Callback được xử lý và không tạo Payment trùng khi replay.
+
+Đây là kết quả của **môi trường SePay độc lập**.
+
+Nhiệm vụ tiếp theo:
+
+- Tích hợp luồng SePay ổn định vào Backend/Database demo thống nhất.
+- Xác minh session Tenant thật và quyền truy cập.
+- Tạo Checkout từ Android.
+- Mở trang thanh toán/QR.
+- Xử lý browser return.
+- Nhận IPN.
+- Đối soát SePay REST.
+- Cập nhật Payment trong database.
+- Cập nhật UI Tenant.
+- Cập nhật Ledger của Owner.
+- Xử lý các trạng thái `CREATED`, `UNKNOWN`, `SUCCEEDED` và các trường hợp thất bại/hết hạn.
+- Đảm bảo idempotency.
+- Đảm bảo App restart hoặc callback lặp không tạo Payment trùng.
+
+**Lưu ý ngân hàng:**
+
+TrọƠi hiện sử dụng **SePay Merchant cá nhân có tài khoản TPBank liên kết để nhận tiền**.
+
+SePay là Payment Gateway trung gian. Không giả định có TPBank API Key riêng.
+
+Hướng dẫn cấu hình Merchant ID, Secret Key, IPN Secret, ngân hàng TPBank liên kết và webhook phải được viết đầy đủ trong README.
+
+Không yêu cầu thêm giao dịch tiền thật khi chưa cần thiết. Có thể dùng giao dịch đã được xác minh để đối chiếu regression, kết hợp các test synthetic/sandbox độc lập.
+
+### 5.7. Discovery / Listing
+
+Hoàn thiện:
+
+- Danh sách phòng công khai.
+- Tìm kiếm và lọc.
+- Xem chi tiết Listing.
+- Hình ảnh.
+- Vị trí công khai/map.
+- Trạng thái còn phòng.
+- Tạo/chỉnh sửa tin đăng từ Owner.
+- Đồng bộ thông tin thay đổi từ Room/Listing.
+- Xử lý màn hình trống, lỗi tải dữ liệu hoặc ảnh thiếu.
+
+Dữ liệu hiển thị phải đến từ Backend thật trong demo tích hợp, không dựa vào các local fixture hardcode.
+
+### 5.8. Incidents & Messaging
+
+Rà soát và hoàn thiện các luồng hiện có:
+
+- Tenant gửi báo cáo sự cố.
+- Owner xem và xử lý.
+- Phân loại và thay đổi trạng thái.
+- Lưu lịch sử xử lý.
+- Gửi/đọc tin nhắn theo ngữ cảnh hợp lệ.
+- Hiển thị lịch sử sau khi reload hoặc restart.
+
+Những phần messaging/media cần MinIO hoặc cơ chế lưu trữ phải được nối với infrastructure thực tế, nếu đó là dependency của luồng demo.
+
+---
+
+## 6. Database — Hoàn thiện dữ liệu demo
+
+Mục tiêu: **App mở lên có dữ liệu hợp lý, thể hiện một hệ thống đang được sử dụng thực tế**, thay vì các màn hình rỗng.
+
+### 6.1. Synthetic Demo Dataset
+
+Tạo tập dữ liệu giả hợp lệ cho môi trường development/demo.
+
+Gợi ý bao gồm:
+
+- Nhiều chủ trọ.
+- Nhiều người thuê.
+- Nhiều Organization/workspace.
+- Một số khu trọ/tòa nhà.
+- Nhiều phòng trọ/căn hộ.
+- Phòng trống và phòng đang thuê.
+- Listing đang hiển thị và chưa công khai.
+- Lượt thuê đang hoạt động.
+- Các điều khoản thuê.
+- Billing cycles, tiền thuê, điện, nước và phụ phí.
+- Lịch sử Payment thủ công giả lập có nhãn rõ.
+- Các khoản còn nợ.
+- Một số sự cố đang xử lý và đã hoàn tất.
+- Thông báo.
+- Conversation/messages theo quyền truy cập.
+
+Dữ liệu cần nhất quán về quan hệ, số tiền và trạng thái.
+
+### 6.2. Yêu cầu triển khai Seed
+
+- Dữ liệu deterministic, chạy lại được.
+- Idempotent, không tạo duplicate records.
+- Có JSON fixture/schema khi phù hợp.
+- Đúng database migrations và các ràng buộc quan hệ.
+- Không phụ thuộc User ID cố định ở production.
+- Không ghi đè dữ liệu thật.
+- Không seed nhầm vào database đã có giao dịch SePay Production.
+- Không tạo Payment Gateway giả mạo `PROVIDER_VERIFIED`.
+
+### 6.3. Acceptance
+
+Sau khi seed:
+
+- Guest có nhiều Listing để duyệt.
+- Owner có tài sản và công nợ để quản lý.
+- Tenant có phòng và khoản phải thanh toán để xem.
+- Có sự cố và tin nhắn để kiểm thử.
+- Có lịch sử sử dụng hợp lý.
+- Restart Backend hoặc database không làm mất dữ liệu.
+- Chạy lại seed không tạo trùng.
+
+Dữ liệu demo phải giúp kiểm tra nghiệp vụ, không chỉ phục vụ screenshot.
+
+---
+
+## 7. README.md — Hướng dẫn toàn bộ hệ thống
+
+Viết và cập nhật README tại root để một developer mới có thể tự dựng và chạy TrọƠi.
+
+README phải bao gồm:
+
+### 7.1. System Overview
+
+- Kiến trúc tổng thể.
+- Repository structure.
+- Android/Backend/Database.
+- Các thành phần Docker.
+- Payment Gateway.
+- Luồng dữ liệu giữa các thành phần.
+
+### 7.2. Development Environment
+
+- Node.js/pnpm.
+- Docker Desktop/Compose.
+- JDK và Android Studio.
+- Android SDK/Emulator/ADB.
+- PostgreSQL/PostGIS.
+- Công cụ cần thiết khác.
+
+### 7.3. API Keys & External Services
+
+Hướng dẫn từng bước:
+
+**Google Cloud**
+- Tạo project.
+- Cấu hình OAuth consent.
+- Tạo Web Client ID và Android OAuth Client.
+- Đăng ký package name/SHA-1.
+- Bật và kiểm thử Google Login.
+
+**Google Maps**
+- Bật SDK.
+- Tạo API Key.
+- Cấu hình restrictions.
+- Truyền key vào Android.
+
+**SePay**
+- Đăng ký/đăng nhập Merchant cá nhân.
+- Kết nối tài khoản ngân hàng TPBank.
+- Bật phương thức chuyển khoản QR.
+- Lấy Merchant ID và Secret Key.
+- Cấu hình IPN, HTTPS URL và Secret Key riêng.
+- Bật/tắt Gateway.
+- Phân biệt Sandbox/Production.
+- Kiểm tra trạng thái thanh toán và đối soát.
+
+**MinIO/Redis**
+- Khi nào cần bật.
+- Các biến cấu hình.
+- Bucket/permissions.
+- Cách kiểm tra health.
+
+### 7.4. Running the System
+
+Viết lệnh cụ thể:
+
+- Clone repository.
+- Tạo `.env`.
+- Docker build/up.
+- Database migrations.
+- Seed demo.
+- Backend run/build.
+- Android Debug build/install.
+- Android Release build/signing.
+- Test commands.
+- Healthchecks.
+- Logs.
+- Restart.
+- Backup/restore.
+
+### 7.5. Troubleshooting
+
+Giải quyết các lỗi phổ biến:
+
+- Google Auth không hoạt động.
+- Android không kết nối Backend.
+- Database không kết nối.
+- Port conflict.
+- Docker container không healthy.
+- MinIO không tải được ảnh.
+- Payment chuyển khoản thành công nhưng App chưa cập nhật.
+- SePay IPN lỗi.
+- Gradle/SDK/configuration lỗi.
+
+**README chỉ được đánh dấu hoàn thành sau khi các lệnh được kiểm thử trên môi trường phù hợp.**
+
+---
+
+## 8. Integration Testing & Final Acceptance
+
+Duy Anh phải kiểm tra **toàn bộ hệ thống sau khi triển khai**, không chỉ test từng module độc lập.
+
+### 8.1. Technical Gates
+
+- TypeScript typecheck PASS.
+- NestJS build PASS.
+- ESLint PASS.
+- Backend unit/integration tests PASS.
+- JSON fixture governance PASS.
+- Database migrations PASS.
+- Docker build PASS.
+- Docker healthchecks PASS.
+- Android Debug build PASS.
+- Android unit tests PASS.
+- Android Release build/signing kiểm tra khi có cấu hình hợp lệ.
+- Không có credentials bị track trong Git.
+
+Các lỗi test tồn đọng từ baseline phải được xử lý, không được đơn thuần skip hoặc thay assertion để PASS.
+
+### 8.2. End-to-End Demo Scenarios
+
+**Scenario A — Guest**
+
+Mở App → Xem Discovery → Tìm kiếm → Xem chi tiết phòng.
+
+**Scenario B — Authentication**
+
+Google Login → Backend xác minh → Load profile → Khôi phục session khi restart.
+
+**Scenario C — Owner**
+
+Đăng nhập → Tạo/quản lý khu trọ → Thêm phòng → Chỉnh sửa → Đăng Listing → Xem tài sản.
+
+**Scenario D — Tenant**
+
+Đăng nhập → Xem phòng đang thuê → Xem điều khoản → Xem công nợ → Thanh toán.
+
+**Scenario E — Payment**
+
+Tạo Checkout → Mở SePay → Gateway xác nhận → IPN/REST → Backend ghi Payment → Tenant và Owner cùng nhìn thấy thông tin đúng.
+
+**Scenario F — Slot Management**
+
+Owner hết dung lượng → yêu cầu thêm slot → xử lý theo phương án nghiệp vụ đã phê duyệt → cập nhật capacity chính xác sau khi giao dịch đủ điều kiện.
+
+**Scenario G — Incident**
+
+Tenant tạo sự cố → Owner tiếp nhận → Cập nhật trạng thái → Tenant theo dõi kết quả.
+
+**Scenario H — Persistence**
+
+Restart App/Backend/Docker → Dữ liệu và quan hệ nghiệp vụ không thay đổi bất thường.
+
+### 8.3. Điều kiện PASS
+
+Mỗi scenario phải chứng minh được:
+
+1. UI hoạt động.
+2. API hoạt động.
+3. Backend thực thi đúng nghiệp vụ.
+4. Database ghi/đọc dữ liệu chính xác.
+5. Phân quyền hợp lệ.
+6. Restart không làm mất dữ liệu.
+7. Có test hoặc evidence đủ để tái hiện.
+
+Không chấp nhận trường hợp UI chuyển trạng thái thành công nhưng Backend/Database chưa cập nhật.
+
+---
+
+## 9. Thứ tự ưu tiên thực hiện
+
+| Giai đoạn | Công việc | Kết quả bắt buộc |
+|---|---|---|
+| **P0 — Source** | Audit + refactor hardcode, naming, fixtures, lỗi tồn đọng | Source sạch hơn, test governance PASS |
+| **P0 — Configuration** | Hợp nhất cấu hình, bảo vệ secret, hoàn thiện loader | Chạy local không phải sửa thủ công nhiều file |
+| **P0 — Infrastructure** | Một Docker Compose, rebuild, migrations, persistent DB | Full-stack Docker hoạt động ổn định |
+| **P0 — Authentication** | Hoàn thiện Google login/session/authorization | Đăng nhập thật và phân quyền PASS |
+| **P0 — Business Logic** | Owner, Tenant, Finance, Listing, Incident, Messaging | Các nghiệp vụ demo lưu và đọc từ Backend |
+| **P0 — Payment** | SePay tích hợp với hệ thống thống nhất; giải quyết luồng mua slot | Thanh toán và cập nhật dữ liệu đúng, không giả lập |
+| **P1 — Demo Data** | Seed dữ liệu synthetic hoàn chỉnh | App có dữ liệu đa vai trò |
+| **P1 — Documentation** | README full setup, secrets, Google, TPBank/SePay, Android | Developer khác dựng được môi trường |
+| **Final** | Integration test và demo rehearsal | Các scenario bắt buộc PASS hoặc có blocker được chấp thuận |
+
+Các phần có thể triển khai song song, nhưng phải được kiểm tra tương thích trước khi tích hợp.
+
+## 10. Deliverables cuối cùng
+
+Duy Anh phải bàn giao:
+
+- Source code đã hoàn thiện và commit vào nhánh phù hợp.
+- Hệ thống configuration đã chuẩn hóa.
+- Docker Compose thống nhất và image build được.
+- Database migrations/seed hoạt động.
+- Android kết nối được Backend thật.
+- Auth và phân quyền hoạt động.
+- Các nghiệp vụ Owner/Tenant/Finance/Listing/Incident/Messaging đã hoàn thiện theo phạm vi demo.
+- SePay được đối soát đúng, không tạo Payment trùng.
+- Nghiệp vụ thêm slot được xử lý theo quyết định Product.
+- README đầy đủ, đã kiểm thử các bước cài đặt.
+- Test report.
+- Danh sách issue còn lại và lý do.
+- Video/screenshots demo hoặc bằng chứng E2E tương đương.
+
+## 11. Definition of Done
+
+Công việc được coi là hoàn thành khi:
+
+**TrọƠi có thể được dựng từ repository, cấu hình bằng quy trình thống nhất, chạy Backend và Database qua Docker, build Android, đăng nhập thật, thực hiện các nghiệp vụ chính, lưu dữ liệu thực tế vào PostgreSQL, thanh toán đúng qua SePay, hiển thị dữ liệu nhất quán và demo ổn định.**
+
+Không cần mọi tính năng tương lai đều hoàn thành. Nhưng mọi nghiệp vụ thuộc phạm vi demo đã chốt phải **hoạt động end-to-end**, không còn ở trạng thái UI-only, Mock-only hoặc stub.
+
+Mọi blocker còn tồn tại phải được nêu rõ và giải quyết hoặc được người phụ trách sản phẩm chấp thuận loại khỏi phạm vi demo.
+
+**Ưu tiên cuối cùng: hoàn thiện sản phẩm hiện có, không mở rộng sản phẩm khi các luồng cốt lõi chưa ổn định.**
