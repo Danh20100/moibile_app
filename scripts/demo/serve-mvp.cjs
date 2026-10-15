@@ -6,6 +6,7 @@ const {
 } = require('@nestjs/common');
 const { APP_GUARD, NestFactory, Reflector } = require('@nestjs/core');
 const { accounts, seedMvpPrincipals } = require('./mvp-fixture.cjs');
+const { ids: paymentIds, seedDemoGraph } = require('./fixture.cjs');
 const { DatabaseModule } = require('../../build/infrastructure/database/database.module');
 const { TRANSACTION_MANAGER } = require('../../build/persistence/ports/transaction-manager');
 const { ResourceAuthorizationModule } = require('../../build/common/auth/resource-authorization.module');
@@ -36,6 +37,15 @@ const database = new URL(process.env.DATABASE_URL || '');
 if (!['localhost', '127.0.0.1', '[::1]'].includes(database.hostname)) {
   throw new Error('MVP demo runner requires a loopback PostgreSQL database');
 }
+const paymentFixture = process.env.TROOI_SEPAY_PAYMENT_FIXTURE === 'true';
+if (paymentFixture && (database.pathname !== '/trooi_sepay_isolated' || process.env.SEPAY_ENABLED !== 'true')) {
+  throw new Error('SePay payment fixture requires isolated finance database and an enabled gateway');
+}
+const demoAccounts = paymentFixture
+  ? [{ identifier: 'tenant@trooi.local', userId: paymentIds.tenant, name: 'SePay Test Tenant' }]
+  : accounts;
+const demoPort = Number(process.env.TROOI_DEMO_MVP_PORT || 3001);
+if (![3001, 3101].includes(demoPort)) throw new Error('MVP demo port not allowed');
 
 const accessTokens = new Map();
 const refreshTokens = new Map();
@@ -65,7 +75,7 @@ function issueDemoSession(principal) {
 
 class DemoMvpController {
   async login(body) {
-    const account = accounts.find((entry) => entry.identifier === body?.identifier);
+    const account = demoAccounts.find((entry) => entry.identifier === body?.identifier);
     if (!account || body?.password !== password) throw new UnauthorizedException('Invalid demo credentials');
     const sessionId = randomUUID();
     const principal = {
@@ -117,7 +127,7 @@ class DemoMvpController {
   }
 
   async fixtureStatus() {
-    return { mode: 'DEMO', identities: accounts.length, seededPayments: 0 };
+    return { mode: 'DEMO', identities: demoAccounts.length, seededPayments: 0, paymentFixture };
   }
 }
 Controller('demo')(DemoMvpController);
@@ -158,14 +168,15 @@ Module({
 async function main() {
   const app = await NestFactory.create(MvpDemoModule, { bodyParser: false });
   transactions = app.get(TRANSACTION_MANAGER);
-  await seedMvpPrincipals(transactions);
+  if (paymentFixture) await seedDemoGraph(transactions);
+  else await seedMvpPrincipals(transactions);
   applyHttpBodyParsers(app);
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
-  await app.listen(3001, '127.0.0.1');
-  console.log('TroOi MVP DEMO API listening on loopback :3001; test principals are not Google identities');
+  await app.listen(demoPort, '127.0.0.1');
+  console.log(`TroOi MVP DEMO API listening on loopback :${demoPort}; test principals are not Google identities`);
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await app.close(); process.exit(0); });
 }
 
