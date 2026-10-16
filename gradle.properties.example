@@ -14,6 +14,8 @@ org.gradle.tooling.parallel=true
 # trooiApiBaseUrl                    -> TROOI_API_BASE_URL
 # trooiGoogleWebClientId            -> TROOI_GOOGLE_WEB_CLIENT_ID (fallback GOOGLE_CLIENT_ID)
 # trooiMapsApiKey                   -> TROOI_MAPS_API_KEY
+# trooiMapProvider                  -> TROOI_MAP_PROVIDER (maplibre [default] | google | auto)
+# trooiMapLibreStyleUrl            -> TROOI_MAPLIBRE_STYLE_URL (OpenFreeMap HTTPS style)
 # trooiPaymentPublicOrigin          -> TROOI_PAYMENT_PUBLIC_ORIGIN (Debug only)
 # trooiReleasePaymentPublicOrigin   -> TROOI_RELEASE_PAYMENT_PUBLIC_ORIGIN (HTTPS non-tunnel)
 # trooiDemoBackendEnabled           -> TROOI_DEMO_BACKEND_ENABLED (Debug only)

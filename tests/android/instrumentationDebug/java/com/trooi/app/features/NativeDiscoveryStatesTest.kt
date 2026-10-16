@@ -122,7 +122,7 @@ class NativeDiscoveryStatesTest {
         }
     }
 
-    @Test fun missingMapConfigurationRendersWithoutEspressoInBothThemes() {
+    @Test fun noGoogleBillingRendersFreeMapLibreInBothThemes() {
         assumeTrue(BuildConfig.MAPS_API_KEY.isBlank())
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round7-native-map").apply { mkdirs() }
         for (dark in listOf(false, true)) {
@@ -139,12 +139,12 @@ class NativeDiscoveryStatesTest {
                         }
                     }
                 } }
-                waitFor("Chưa cấu hình bản đồ")
-                assertTrue(visible().any { it.text?.toString() == "Chưa cấu hình bản đồ" && it.isVisibleToUser })
+                waitFor("MapLibre · OpenFreeMap")
+                assertTrue(visible().any { it.text?.toString() == "MapLibre · OpenFreeMap" && it.isVisibleToUser })
                 instrumentation.waitForIdleSync()
                 Thread.sleep(500)
                 val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-                File(directory, "map-config-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
+                File(directory, "map-free-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
                 bitmap.recycle()

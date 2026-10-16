@@ -95,6 +95,37 @@ node --env-file=.env --import tsx database/seeds/development.ts
 
 Không tạo gateway `PROVIDER_VERIFIED` giả hoặc seed vào DB nhận tiền thật.
 
+## Bản đồ miễn phí: MapLibre + OpenFreeMap (mặc định)
+
+**Lựa chọn ổn định chi phí:** Android dùng [MapLibre Native Android](https://maplibre.org/maplibre-native/android/) với mã nguồn mở **BSD-2-Clause**, lấy bản đồ từ [OpenFreeMap](https://openfreemap.org/). Không cần tạo Google Maps API Key, không yêu cầu Google Cloud Billing, không cần OpenFreeMap API Key/đăng ký hay thêm tài khoản thanh toán. Theo thông báo **hiện tại** của OpenFreeMap, public instance là miễn phí, không giới hạn lượt xem/request và được hỗ trợ bằng quyên góp.
+
+Đây là ba vấn đề độc lập:
+
+| Thành phần | Giá và điều kiện |
+| --- | --- |
+| MapLibre Android SDK | **Miễn phí / mã nguồn mở (BSD-2-Clause)**, kể cả phân phối trong ứng dụng thương mại; phải tuân thủ license |
+| Dữ liệu nền OpenStreetMap | Mở theo [ODbL](https://www.openstreetmap.org/copyright) và cần ghi nguồn tác giả |
+| Hosted tiles của OpenFreeMap | **Hiện miễn phí, không yêu cầu thẻ/API key, không có hạn mức công bố** theo [website](https://openfreemap.org/) và [Terms of Service](https://openfreemap.org/tos/) |
+
+**Quan trọng:** không có cơ sở để **cam kết miễn phí và uptime mãi mãi** đối với hosted tiles do bên thứ ba vận hành. [OpenFreeMap ToS](https://openfreemap.org/tos/) quy định dịch vụ *as-is*, có thể ngừng hoặc thay đổi điều khoản; chi phí data mạng của thiết bị hoặc tự host riêng vẫn do người triển khai trả. Nếu TrọƠi tăng tải, cần đánh giá SLA và cân nhắc self-host; không tự chuyển sang tiles có billing. Chỉ dùng tiles khi người dùng xem bản đồ, không thu thập hàng loạt hoặc prefetch/offline gây vi phạm chính sách. Không sử dụng `tile.openstreetmap.org` làm nền production: [OSMF Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) nói rõ tile server do quyên góp duy trì và **không đảm bảo phục vụ không giới hạn**.
+
+Mặc định trong `.env`:
+
+```dotenv
+TROOI_MAP_PROVIDER=maplibre
+TROOI_MAPLIBRE_STYLE_URL=https://tiles.openfreemap.org/styles/liberty
+TROOI_MAPS_API_KEY=
+```
+
+- `maplibre` (**mặc định, khuyến nghị**): không khởi tạo Google Maps ở màn này, hoạt động dù Maps Key/Billing trống; hiện bản đồ, marker công khai, chọn pin, kéo camera/tìm khu vực.
+- `google`: chỉ dùng Google Maps khi có Google Maps Key; nếu thiếu key **tự về MapLibre**. Khi đã chọn Google và gặp lỗi Billing/key, có nút **“Dùng bản đồ miễn phí”** để quay về MapLibre. Google Maps SDK không có tín hiệu tin cậy để tự xác định trạng thái Billing Cloud.
+- `auto`: dùng Google nếu có key, nếu không dùng MapLibre. **Không khuyến nghị** nếu muốn chắc chắn không phát sinh phí Google.
+- Có thể đổi `TROOI_MAPLIBRE_STYLE_URL` sang một HTTPS style URL khác, **nhưng giá và điều khoản của tile provider mới phải được kiểm tra riêng**; không được mặc định nhà cung cấp khác là miễn phí.
+
+MapLibre được chia sẻ cho màn **Guest Discovery và Owner Location Picker**; không thay đổi quy tắc riêng tư về vị trí phòng. Hiện attribution **“© OpenStreetMap contributors · OpenFreeMap”** ngay dưới bản đồ. Sau khi sửa biến môi trường dùng trong BuildConfig, **build lại APK**.
+
+**Tài liệu tham chiếu**: [MapLibre license](https://github.com/maplibre/maplibre-native/blob/main/platform/android/LICENSE.md), [OpenFreeMap Quick Start](https://openfreemap.org/quick_start/), [OpenFreeMap ToS](https://openfreemap.org/tos/), [OSMF Tile Policy](https://operations.osmfoundation.org/policies/tiles/). Kiểm tra lại điều khoản khi phát hành Production.
+
 ## Google OAuth và Maps
 
 1. Vào [Google Cloud Console](https://console.cloud.google.com/), tạo/chọn project và cấu hình OAuth consent.

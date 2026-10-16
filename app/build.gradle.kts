@@ -67,6 +67,11 @@ val escapedReleasePaymentPublicOrigin = acceptedReleasePaymentOrigin(releasePaym
     .replace("\\", "\\\\").replace("\"", "\\\"")
 val mapsApiKey = clientSetting("trooiMapsApiKey", "TROOI_MAPS_API_KEY")
 val escapedMapsApiKey = mapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
+val mapProvider = clientSetting("trooiMapProvider", "TROOI_MAP_PROVIDER").ifBlank { "maplibre" }
+val escapedMapProvider = mapProvider.replace("\\", "\\\\").replace("\"", "\\\"")
+val mapLibreStyleUrl = clientSetting("trooiMapLibreStyleUrl", "TROOI_MAPLIBRE_STYLE_URL")
+    .ifBlank { "https://tiles.openfreemap.org/styles/liberty" }
+val escapedMapLibreStyleUrl = mapLibreStyleUrl.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
     namespace = "com.trooi.app"
@@ -83,6 +88,8 @@ android {
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")
         buildConfigField("String", "PAYMENT_PUBLIC_ORIGIN", "\"$escapedPaymentPublicOrigin\"")
         buildConfigField("String", "MAPS_API_KEY", "\"$escapedMapsApiKey\"")
+        buildConfigField("String", "MAP_PROVIDER", "\"$escapedMapProvider\"")
+        buildConfigField("String", "MAPLIBRE_STYLE_URL", "\"$escapedMapLibreStyleUrl\"")
         manifestPlaceholders["trooiMapsApiKey"] = mapsApiKey
     }
 
@@ -171,6 +178,8 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.android.gms:play-services-maps:20.0.0")
+    // Open-source renderer (BSD-2-Clause), no Google account/API key required.
+    implementation("org.maplibre.gl:android-sdk-opengl:11.8.3")
     ksp("com.google.dagger:hilt-android-compiler:2.59.2")
 
     implementation("com.google.mlkit:text-recognition:16.0.1")
