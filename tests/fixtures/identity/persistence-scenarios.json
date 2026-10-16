@@ -109,7 +109,10 @@
     "conflictUser": "26955c20-b3e6-5233-acd5-b9a833072be2",
     "conflictIdentity": "474017ab-6d07-5c86-84f3-baf991a94463",
     "missingCredentialUser": "6b7c1618-8497-5add-9e56-a5a6dbfbd6b6",
-    "unboundCredentialUser": "74eba028-43f8-59d0-93c2-9f32dcf66941"
+    "unboundCredentialUser": "74eba028-43f8-59d0-93c2-9f32dcf66941",
+    "reviewedLegacyIdentity": "ad000000-0000-4000-8000-000000000002",
+    "foundationLegacyIdentity": "ad000000-0000-4000-8000-000000000001",
+    "sessionRollbackId": "af000000-0000-4000-8000-000000000001"
   },
   "configuration": {
     "registrationConcurrency": 8,

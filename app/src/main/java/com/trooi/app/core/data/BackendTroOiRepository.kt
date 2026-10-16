@@ -15,6 +15,9 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+class SlotCheckoutPending(val payUrl: String) :
+    IllegalStateException("Chờ xác nhận chuyển khoản 259.000đ. Trang thanh toán đã được mở.")
+
 /** Backend-backed repository. All authorization and canonical writes remain server-side. */
 class BackendTroOiRepository @Inject constructor(
     private val api: BackendApi,
@@ -409,6 +412,21 @@ class BackendTroOiRepository @Inject constructor(
         }
     }
 
+    override suspend fun purchaseLocalCapacity(purchaseId: String): Result<FrontendReadSnapshot> = runCatching {
+        val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
+        val checkout = api.createSlotCheckout(purchaseId, purchaseId, credential).required("mở slot")
+        check(checkout.amount == "259000.00") { "Số tiền slot không khớp." }
+        check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." }
+        if (checkout.status != "SUCCEEDED") {
+            throw SlotCheckoutPending(checkout.payUrl ?: error("Chưa có trang thanh toán slot."))
+        }
+        val session = api.getSessionContext(credential).required("session context")
+        refreshAuthorizedRead(AccessCapabilities(
+            linkedTenancyIds = session.linkedTenancyIds.toSet(),
+            operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+        )).getOrThrow()
+    }
+
     override suspend fun archiveLocalAsset(assetId: String): Result<FrontendReadSnapshot> = runCatching {
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         val session = api.getSessionContext(credential).required("session context")
@@ -653,7 +671,14 @@ class BackendTroOiRepository @Inject constructor(
         }
 
         return FrontendReadSnapshot(
-            localManagement = LocalManagement(assets = managedAssets.distinctBy { it.id }),
+            localManagement = LocalManagement(
+                assets = managedAssets.distinctBy { it.id },
+                entitlements = try {
+                    api.slotEntitlements().required("slot entitlements").map {
+                        LocalSlotEntitlement(it.purchaseId, java.time.Instant.parse(it.validUntil).toEpochMilli())
+                    }
+                } catch (_: RuntimeException) { emptyList() },
+            ),
             publicListings = publicListings,
             organizations = organizationRows.map { OrganizationCard(it.id, it.name) },
             properties = properties.distinctBy { it.id }.map { PropertyCard(it.id, it.organizationId, it.name) },

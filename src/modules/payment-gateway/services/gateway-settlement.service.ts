@@ -34,6 +34,8 @@ export class GatewaySettlementService {
   async settle(evidence: VerifiedGatewayEvidence): Promise<void> {
     if (!VerifiedGatewayEvidence.isVerified(evidence))
       throw new ConflictException('Internally verified gateway evidence required');
+    if (evidence.data.referenceCode.startsWith('SLOT '))
+      throw new ConflictException('Slot checkout cannot settle as rent');
     const data = evidence.data;
     const providerName =
       data.provider === 'MOMO' ? 'MoMo' : data.provider === 'SEPAY' ? 'SePay' : data.provider;

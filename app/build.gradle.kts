@@ -16,25 +16,40 @@ if (hasReleaseSigning) {
 }
 
 // Per-machine configuration only; never check in real endpoint hosts or credentials.
-val backendApiBaseUrl = providers.gradleProperty("trooiApiBaseUrl")
-    .orElse(providers.environmentVariable("TROOI_API_BASE_URL"))
-    .orElse("")
-    .get()
+// Order: Gradle -P, process environment, then an allowlisted key in the root .env.
+fun dotenvValue(key: String): String {
+    val file = rootProject.file(".env")
+    if (!file.isFile) return ""
+    val prefix = "$key="
+    return file.readLines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .map { if (it.startsWith("export ")) it.removePrefix("export ").trim() else it }
+        .firstOrNull { it.startsWith(prefix) }
+        ?.removePrefix(prefix)
+        ?.trim()
+        ?.removeSurrounding("\"")
+        ?.removeSurrounding("'")
+        ?: ""
+}
+
+fun clientSetting(property: String, envKey: String, fallbackEnvKey: String? = null): String {
+    val fromProperty = providers.gradleProperty(property).orNull
+    if (!fromProperty.isNullOrBlank()) return fromProperty
+    val fromEnv = System.getenv(envKey)
+    if (!fromEnv.isNullOrBlank()) return fromEnv
+    val fromFile = dotenvValue(envKey)
+    if (fromFile.isNotBlank()) return fromFile
+    return if (fallbackEnvKey == null) "" else dotenvValue(fallbackEnvKey).ifBlank { System.getenv(fallbackEnvKey) ?: "" }
+}
+
+val backendApiBaseUrl = clientSetting("trooiApiBaseUrl", "TROOI_API_BASE_URL")
 val escapedBackendApiBaseUrl = backendApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
-val googleWebClientId = providers.gradleProperty("trooiGoogleWebClientId")
-    .orElse(providers.environmentVariable("TROOI_GOOGLE_WEB_CLIENT_ID"))
-    .orElse("")
-    .get()
+val googleWebClientId = clientSetting("trooiGoogleWebClientId", "TROOI_GOOGLE_WEB_CLIENT_ID", "GOOGLE_CLIENT_ID")
 val escapedGoogleWebClientId = googleWebClientId.replace("\\", "\\\\").replace("\"", "\\\"")
-val demoBackendEnabled = providers.gradleProperty("trooiDemoBackendEnabled")
-    .orElse(providers.environmentVariable("TROOI_DEMO_BACKEND_ENABLED"))
-    .map { it.equals("true", ignoreCase = true) }
-    .orElse(false)
-    .get()
-val paymentPublicOrigin = providers.gradleProperty("trooiPaymentPublicOrigin")
-    .orElse(providers.environmentVariable("TROOI_PAYMENT_PUBLIC_ORIGIN"))
-    .orElse("")
-    .get()
+val demoBackendEnabled = clientSetting("trooiDemoBackendEnabled", "TROOI_DEMO_BACKEND_ENABLED")
+    .equals("true", ignoreCase = true)
+val paymentPublicOrigin = clientSetting("trooiPaymentPublicOrigin", "TROOI_PAYMENT_PUBLIC_ORIGIN")
 val escapedPaymentPublicOrigin = paymentPublicOrigin.replace("\\", "\\\\").replace("\"", "\\\"")
 
 fun acceptedReleasePaymentOrigin(raw: String): String {
@@ -47,16 +62,10 @@ fun acceptedReleasePaymentOrigin(raw: String): String {
     if (uri.rawPath !in listOf(null, "", "/") || uri.rawQuery != null || uri.rawFragment != null) return ""
     return trimmed
 }
-val releasePaymentPublicOrigin = providers.gradleProperty("trooiReleasePaymentPublicOrigin")
-    .orElse(providers.environmentVariable("TROOI_RELEASE_PAYMENT_PUBLIC_ORIGIN"))
-    .orElse("")
-    .get()
+val releasePaymentPublicOrigin = clientSetting("trooiReleasePaymentPublicOrigin", "TROOI_RELEASE_PAYMENT_PUBLIC_ORIGIN")
 val escapedReleasePaymentPublicOrigin = acceptedReleasePaymentOrigin(releasePaymentPublicOrigin)
     .replace("\\", "\\\\").replace("\"", "\\\"")
-val mapsApiKey = providers.gradleProperty("trooiMapsApiKey")
-    .orElse(providers.environmentVariable("TROOI_MAPS_API_KEY"))
-    .orElse("")
-    .get()
+val mapsApiKey = clientSetting("trooiMapsApiKey", "TROOI_MAPS_API_KEY")
 val escapedMapsApiKey = mapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
@@ -91,6 +100,8 @@ android {
     buildTypes {
         getByName("debug") {
             // Source selection happens at runtime in debug; there is no third build type.
+            // Emulator Google OAuth client is registered for this package.
+            applicationIdSuffix = ".backenddev"
             buildConfigField("boolean", "DEMO_BACKEND_ENABLED", demoBackendEnabled.toString())
         }
         release {

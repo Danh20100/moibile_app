@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "expected", "provenance", "actors", "values"],
+    "required": ["version", "expected", "provenance", "actors", "values", "harness"],
   "properties": {
     "version": {
       "type": "integer",
@@ -110,7 +110,16 @@
         "expectedDepositEvents",
         "expectedIncidentStatusAfterRestart",
         "expectedIncidentEvents",
-        "expectedTrustReportCount"
+        "expectedTrustReportCount",
+        "ownerId",
+        "tenantId",
+        "outsiderId",
+        "historicalTermsId",
+        "historicalBillingDayOrDueDateRule",
+        "historicalElectricityArrangement",
+        "historicalWaterArrangement",
+        "historicalMinimalRentalConditions",
+        "historicalTermsProjection"
       ],
       "properties": {
         "propertyId": { "type": "string", "format": "uuid" },
@@ -417,7 +426,84 @@
         "expectedTrustReportCount": {
           "type": "integer",
           "enum": [1]
+        },
+        "ownerId": { "type": "string", "enum": ["ab07e23b-ff9c-5203-91a5-49e150a47d7a"] },
+        "tenantId": { "type": "string", "enum": ["418600bf-61a4-5df6-9845-7ac69e216732"] },
+        "outsiderId": { "type": "string", "enum": ["54da5896-0edd-5437-953d-5b458ba514d9"] },
+        "historicalTermsId": { "type": "string", "enum": ["83000000-0000-4000-8000-000000000099"] },
+        "historicalBillingDayOrDueDateRule": { "type": "array", "maxItems": 0 },
+        "historicalElectricityArrangement": { "type": "string", "enum": ["metered"] },
+        "historicalWaterArrangement": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "type": "string", "enum": ["fixed"] }
+        },
+        "historicalMinimalRentalConditions": { "type": "string", "enum": ["legacy"] },
+        "historicalTermsProjection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["billingDayOrDueDateRule", "electricityArrangement", "waterArrangement", "minimalRentalConditions"],
+          "properties": {
+            "billingDayOrDueDateRule": { "type": "array", "maxItems": 0 },
+            "electricityArrangement": { "type": "string", "enum": ["metered"] },
+            "waterArrangement": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": { "type": "string", "enum": ["fixed"] }
+            },
+            "minimalRentalConditions": { "type": "string", "enum": ["legacy"] }
+          }
         }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolveGoogle", "registerGoogle", "bodyParser", "nestLogger", "pipeTransform", "pipeWhitelist", "pipeForbidNonWhitelisted", "loopback", "savedEnvKeys", "storageEnabled", "defaultRegion", "storagePathStyle", "forcePathStyle", "bucketCreated", "bucketReady", "googleIssuer", "googleProvider", "authIdentitiesTable", "ownerIdentityId", "tenantIdentityId", "outsiderIdentityId", "linkedAt", "invalidCredential", "emailVerified", "emptyRequest", "jsonContentType", "base64Encoding", "postMethod", "patchMethod", "jpegContentType", "createdStatus", "okStatus", "forbiddenStatus", "notFoundStatus", "publicConsent", "addressOmitted", "cacheControlHeader", "noStore", "bucketName", "mediaId", "noObjects"],
+      "properties": {
+        "resolveGoogle": { "type": "boolean" },
+        "registerGoogle": { "type": "boolean" },
+        "bodyParser": { "type": "boolean" },
+        "nestLogger": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "enum": ["error"] } },
+        "pipeTransform": { "type": "boolean" },
+        "pipeWhitelist": { "type": "boolean" },
+        "pipeForbidNonWhitelisted": { "type": "boolean" },
+        "loopback": { "type": "string" },
+        "savedEnvKeys": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "string" } },
+        "storageEnabled": { "type": "string" },
+        "defaultRegion": { "type": "string" },
+        "storagePathStyle": { "type": "string" },
+        "forcePathStyle": { "type": "boolean" },
+        "bucketCreated": { "type": "boolean" },
+        "bucketReady": { "type": "boolean" },
+        "googleIssuer": { "type": "string" },
+        "googleProvider": { "type": "string" },
+        "authIdentitiesTable": { "type": "string", "enum": ["auth_identities"] },
+        "ownerIdentityId": { "type": "string" },
+        "tenantIdentityId": { "type": "string" },
+        "outsiderIdentityId": { "type": "string" },
+        "linkedAt": { "type": "string" },
+        "invalidCredential": { "type": "string" },
+        "emailVerified": { "type": "boolean" },
+        "emptyRequest": { "type": "object", "additionalProperties": false, "properties": {} },
+        "jsonContentType": { "type": "string" },
+        "base64Encoding": { "type": "string", "enum": ["base64"] },
+        "postMethod": { "type": "string" },
+        "patchMethod": { "type": "string" },
+        "jpegContentType": { "type": "string" },
+        "createdStatus": { "type": "integer", "enum": [201] },
+        "okStatus": { "type": "integer", "enum": [200] },
+        "forbiddenStatus": { "type": "integer", "enum": [403] },
+        "notFoundStatus": { "type": "integer", "enum": [404] },
+        "publicConsent": { "type": "boolean" },
+        "addressOmitted": { "type": "boolean" },
+        "cacheControlHeader": { "type": "string" },
+        "noStore": { "type": "string" },
+        "bucketName": { "type": "string" },
+        "mediaId": { "type": "string" },
+        "noObjects": { "type": "array", "maxItems": 0 }
       }
     }
   }

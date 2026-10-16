@@ -169,16 +169,17 @@ export class IdentitySessionService {
       throw new UnauthorizedException('Google authentication challenge is invalid or expired');
     }
     let normalizedEmail: string | null = null;
-    if (purpose === 'REGISTER') {
-      if (identity.emailVerified !== true || !identity.email) {
-        await this.recordRejected('REGISTRATION_REJECTED', 'unverified_email');
-        throw new UnauthorizedException('Verified Google email is required for registration');
-      }
+    if (identity.emailVerified === true && identity.email) {
       try { normalizedEmail = normalizeLoginEmail(identity.email); }
       catch {
-        await this.recordRejected('REGISTRATION_REJECTED', 'invalid_email');
-        throw new UnauthorizedException('Google registration was rejected');
+        if (purpose === 'REGISTER') {
+          await this.recordRejected('REGISTRATION_REJECTED', 'invalid_email');
+          throw new UnauthorizedException('Google registration was rejected');
+        }
       }
+    } else if (purpose === 'REGISTER') {
+      await this.recordRejected('REGISTRATION_REJECTED', 'unverified_email');
+      throw new UnauthorizedException('Verified Google email is required for registration');
     }
 
     const nonceHash = digest(input.nonce);
@@ -214,7 +215,7 @@ export class IdentitySessionService {
         let newUser = false;
         if (resolved.kind === 'resolved') {
           userId = resolved.userId;
-        } else if (purpose === 'REGISTER' && normalizedEmail) {
+        } else if (normalizedEmail) {
           const created = await repositories.identityFoundation.createGoogleUserFoundation({
             principal,
             email: { address: identity.email!, normalizedEmail, verifiedAt: createdAt, verificationSource: 'google' },

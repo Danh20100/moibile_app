@@ -243,7 +243,7 @@ test('real PostgreSQL identity persistence satisfies frozen compatibility and co
         await db
           .insertInto('auth_identities')
           .values({
-            auth_identity_id: 'ad000000-0000-4000-8000-000000000002',
+            auth_identity_id: F.ids.reviewedLegacyIdentity,
             user_id: id,
             provider: F.values.googleProvider,
             issuer: F.values.canonicalIssuer,

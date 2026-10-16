@@ -568,6 +568,18 @@
         "unboundCredentialUser": {
           "type": "string",
           "minLength": 1
+        },
+        "reviewedLegacyIdentity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "foundationLegacyIdentity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sessionRollbackId": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -582,7 +594,10 @@
         "conflictUser",
         "conflictIdentity",
         "missingCredentialUser",
-        "unboundCredentialUser"
+        "unboundCredentialUser",
+        "reviewedLegacyIdentity",
+        "foundationLegacyIdentity",
+        "sessionRollbackId"
       ],
       "additionalProperties": false
     },

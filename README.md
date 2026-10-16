@@ -13,13 +13,12 @@ TrọƠi là “sổ vận hành thuê trọ”: quản lý tài sản/phòng, n
 | Android | `app/` | Kotlin + Jetpack Compose; Debug có MOCK/BACKEND; Release luôn Backend |
 | Backend | `src/` | NestJS REST API dưới `/api/v1`, identity/tenancy/finance/discovery |
 | Database | `database/`, `docs/database/v1/` | PostgreSQL 16 + PostGIS; migrations và seed development |
-| Docker | `docker-compose.yml`, `Dockerfile` | **Hiện có** PostgreSQL/PostGIS + Backend |
-| Tùy chọn | `compose.infrastructure.yml` | MinIO/Redis qua profile, adapter không mặc định bật |
-| Messaging lane | `compose.messaging.yml` | Dev/test riêng, chưa hợp nhất |
+| Docker | `docker-compose.yml`, `Dockerfile` | PostgreSQL/PostGIS + Backend; profile `local-infra` bật Redis, MinIO và init bucket riêng tư |
+| Messaging lane | `compose.messaging.yml` | Project test tách cổng 55447/9047, không gộp vào database demo |
 | Payment | `src/modules/payment-gateway/` | SePay, MoMo, DEMO only local/test |
 | Tests | `tests/`, `tests/android/` | Contract, governance, API, JVM, instrumentation |
 
-**Canonical authority:** `docs/database/v1/canonical.md` → `docs/database/v1/erd/` → `docs/database/v1/schema/` → migration → services → App. `USER` là danh tính, không có “global role” chủ trọ/người thuê; quyền được tính theo Organization, Room/Tenancy, Participant. `BILLING_CYCLE` / `CHARGE` là nghĩa vụ, `PAYMENT` là tiền thực thu, `RECEIPT` chỉ là chứng từ. `[OPEN]` không tự chốt và `[FUTURE]` (Pricing/Quota, CSV/Excel import...) không được bật ngoài quyết định Product.
+**Canonical authority:** `docs/database/v1/canonical.md` → `docs/database/v1/erd/conceptual.json` → `docs/contexts/` → implementation and tests. `USER` là danh tính, không có “global role” chủ trọ/người thuê; quyền được tính theo Organization, Room/Tenancy, Participant. `BILLING_CYCLE` / `CHARGE` là nghĩa vụ. Payment is actual money inflow. Receipt is not the Payment record. `RECEIPT` chỉ là chứng từ. `[OPEN]` không tự chốt. Subscription/Pricing/Quota và CSV/Excel import là `[FUTURE]`, không được bật ngoài quyết định Product.
 
 ## 2. Yêu cầu môi trường
 
@@ -42,7 +41,7 @@ adb devices
 
 **Hiện tại**: `.env.example` dành cho Backend/Docker, `.env.messaging.example` cho messaging test cũ, `gradle.properties.example`, `local.properties.example`, `keystore.properties.example` cho Android. Chúng chỉ là **template**, không chứa secret thật.
 
-**Mục tiêu của Duy Anh**: một private root `.env` làm nguồn cấu hình local duy nhất; adapter chuyển đúng biến sang Compose/Backend và environment Gradle. **Adapter và unified Compose chưa được triển khai**; hiện Gradle vẫn nhận biến môi trường hoặc tham số `-P...`. SDK path và release signing là ngoại lệ cần quản lý qua môi trường/keystore bảo mật, không ép lưu khóa bí mật vào Android client.
+Root `.env` là nguồn cấu hình local. Docker Compose đọc file đó. Gradle Debug/Release chỉ nhận allowlist client (`TROOI_API_BASE_URL`, Web Client ID, Maps key, payment public origin, demo-backend flag), theo thứ tự `-P`, biến môi trường, rồi `.env`. Web Client ID trống thì dùng `GOOGLE_CLIENT_ID`. Secret server không được đọc vào APK. SDK path và signing keystore vẫn là file riêng vì công cụ yêu cầu.
 
 ~~~powershell
 # Chạy ở thư mục root. Tạo file riêng tư, thay các giá trị trên máy cá nhân.
@@ -97,7 +96,7 @@ git status --short
 
 ## 4. Dựng Backend + Database Docker (cách hiện có)
 
-**Hiện trạng chính xác:** `docker-compose.yml` chỉ có `postgres` (PostGIS) + `backend`. Redis/MinIO có trong `compose.infrastructure.yml`, `compose.messaging.yml` là lane legacy/test; một Compose “all-in-one” + single-env adapter **vẫn là TODO giao Duy Anh**, chưa tuyên bố đã hoàn tất. Compose hiện tại cũng **chưa truyền đủ biến SePay/finance riêng**, nên không được hiểu lầm chạy base Compose là đã bật Checkout Production.
+`docker-compose.yml` là entrypoint. Postgres và Backend luôn chạy; Redis, MinIO và `minio-init` chỉ chạy với `--profile local-infra`. Backend trong container nhận SePay/MoMo/object-storage từ `.env`, nhưng guard production vẫn từ chối SePay khi database là `trooi_dev` hoặc `trooi_test`. `OBJECT_STORAGE_ENDPOINT` bên trong container là `http://minio:9000`. `COMPOSE_REDIS_URL=redis://redis:6379` mới bật Redis trong container. `compose.messaging.yml` giữ project test riêng.
 
 ~~~powershell
 # Tại root; Docker Desktop đang chạy, .env đã tạo và điền đúng giá trị.
@@ -118,12 +117,12 @@ docker compose down
 # KHÔNG thêm -v: xóa volumes có thể xóa dữ liệu.
 ~~~
 
-**MinIO + Redis optional** (chỉ khi cấu hình đã được cấp, gồm `MINIO_ROOT_PASSWORD`):
+**MinIO + Redis optional** (cần `MINIO_ROOT_PASSWORD` và, nếu bật storage, `OBJECT_STORAGE_ACCESS_KEY` / `OBJECT_STORAGE_SECRET_KEY` trùng user MinIO):
 ~~~powershell
-docker compose --env-file .env -f docker-compose.yml -f compose.infrastructure.yml --profile local-infra up -d --no-deps redis minio
+docker compose --env-file .env --profile local-infra up -d --build --wait
 ~~~
 
-Không tự ghép `compose.messaging.yml` vào base nếu chưa xử lý tên service/port/volume trùng nhau. **Việc Duy Anh cần hoàn thành**: một `docker-compose.yml` làm entrypoint, profiles cho optional services, healthcheck, private S3 bucket/init, config injection, finance DB biệt lập, snapshot/backups; thử rebuild ở Docker project và volume **mới** rồi nghiệm thu restart **không mất data**. Không chạm các DB/port đang phục vụ người khác.
+`pnpm db:dev:up` chỉ khởi động service `postgres` của file này. Không dùng `docker compose down -v`. Messaging test vẫn là `docker compose -p trooi-messages-mvp -f compose.messaging.yml --profile messaging up -d`.
 
 ### 4.1. Chạy Nest trên host (không chạy Docker Backend song song ở port 3000)
 
@@ -152,7 +151,9 @@ Script đã có `database/seeds/development.ts` và gọi fixture `scripts/demo/
 node --env-file=.env --import tsx database/seeds/development.ts
 ~~~
 
-Seed hiện tại có dữ liệu synthetic hữu hạn, **chưa chứng minh đầy đủ demo nhiều người hoạt động**. Duy Anh cần xây bộ seed đa actor deterministic/idempotent: Owner/Organization/Room/Listing, Tenant/Participant/Tenancy/Terms, khoản thu/biên nhận hợp lệ, incident, notice, message, lịch sử thủ công — **không giả `PROVIDER_VERIFIED` hay IPN ngân hàng**. Seed chạy lần 2 phải không nhân đôi, rollback chỉ trên disposable DB.
+Lệnh dừng ngay nếu database trong URL không phải `trooi_dev`. `DATABASE_URL` trong `.env` của máy này đang là `trooi_finance`, nên không dùng file đó để seed.
+
+`scripts/demo/fixture.cjs` seed idempotent hai chủ trọ, hai người thuê, phòng trống và phòng đang thuê, listing `PUBLISHED` và `DRAFT`, tenancy, tiền thuê còn outstanding sau một lần phân bổ thủ công `USER_RECORDED`, sự cố đang mở và đã đóng, notice, notification và hai tin nhắn tenancy. Không tạo Payment `PROVIDER_VERIFIED`. Chạy lại không nhân bản.
 
 
 ## 5. Build và chạy Android App
@@ -186,6 +187,8 @@ adb -s emulator-5554 install -r app\build\outputs\apk\debug\app-debug.apk
 | SePay | Không tự báo thành công từ trình duyệt; đối chiếu IPN + REST + Payment, replay không ghi nhận trùng |
 | Slot phòng | **ĐANG BLOCK**: `AssetWizard.kt` có UI “Mở thêm 1 slot” / `259.000đ/năm` nhưng `TroOiViewModel.purchaseLocalCapacity()` hiện trả `REAUTH_UNAVAILABLE`. Giá trên UI là giá hiện có, **không phải** một Checkout hoạt động. Vì Pricing/Quota là `[FUTURE]`, phải xin quyết định Product để ẩn/disable hoặc đặc tả thanh toán slot riêng; **không** dùng sai luồng SePay tiền thuê để thu phí slot. |
 
+Slot cần Product chốt trước khi code Checkout: slot tính theo phòng đang quản lý hay theo tài sản; 259.000đ/năm có đúng không; capacity tăng chỉ sau Payment `PROVIDER_VERIFIED`; hủy/thất bại thì không tăng; hết hạn thì slot ngừng tính; gateway là SePay riêng, không phải Payment của tenancy. Chưa có quyết định đó nên luồng chưa được triển khai và nút không bị giấu.
+
 Ghi lại bằng chứng màn hình, HTTP status, và kết quả database cho từng vai trò. Nếu lỗi Auth/slot thì ghi **FAIL/BLOCKED** chứ không chuyển qua Mock rồi báo PASS.
 
 
@@ -211,7 +214,7 @@ pnpm test
 **Snapshot lúc merge `main` commit `71a3343`, không được đổi thành PASS nếu chưa chạy lại:**
 
 - Backend typecheck, build, lint: **PASS**; SePay + fixture governance: **17/17 PASS**; Android `CheckoutIdentityTest`: PASS.
-- Full `pnpm test`: **501** bài, **494 PASS**, **3 FAIL**, **4 CANCELLED** do thiếu `DATABASE_URL` cho runtime HTTP audit (không có một môi trường test DB được cấp đúng). Ba lỗi còn lại: Finance fixtures, application restart fixtures, Identity fixtures.
+- Ba governance fixture Finance, Application Restart và Identity đã PASS trên máy này (15/15 trong bộ verification tương ứng). Full `pnpm test` vẫn cần `TEST_DATABASE_URL` trỏ `trooi_test` local; thiếu URL thì các bài integration bị cancel, không được tính là PASS full suite.
 - E2E tiền thật **2.000đ** chỉ được kiểm chứng trên finance DB cô lập; không coi đó là full Product, Docker hay Google Authentication acceptance.
 
 **Không chạy full test với finance DB đã chứa Payment thật.** Các test có thể ghi dữ liệu. Môi trường kiểm thử cần DB và identity/fixtures riêng, migrations đúng version, các biến môi trường được load thật (PowerShell chạy `pnpm test` **không tự đọc** `.env`). Duy Anh cần chuẩn hóa test runner và ghi bằng chứng PASS/FAIL.
@@ -227,20 +230,19 @@ pnpm test
 | IPN SePay `401` | Secret ở server và SePay dashboard có đồng bộ không; không ghi key ra log |
 | IPN SePay `400/503` | Payload, invoice/amount/currency/remote order ID, merchant và REST evidence; REST detail `404` chỉ có fallback xác thực nghiêm ngặt |
 | Chuyển tiền rồi nhưng UI chưa đổi | Kiểm tra Checkout readback + IPN/REST + PostgreSQL Payment; **đừng chuyển tiếp lần thứ hai** cho đến khi đối soát |
-| Slot chủ trọ bấm không hoạt động | Hiện là stub: `purchaseLocalCapacity` trả `REAUTH_UNAVAILABLE`, chưa có tính năng thu phí slot hợp lệ |
+| Slot chủ trọ bấm không hoạt động | Blocker sản phẩm: Pricing/Quota là `[FUTURE]`. UI vẫn hiện 259.000đ/năm nhưng chưa có Checkout slot. Không dùng Payment tiền thuê để thu phí này |
 | Gradle không thấy SDK | `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `local.properties` private khi cần, JDK/AGP |
 | Build Release lỗi signing | Không commit `keystore.properties`/`*.jks`; cấp key bằng kênh an toàn, xác nhận SHA-1 Release riêng |
 | `pnpm test` fail/cancel | Xem baseline `main`, cung cấp **DB test riêng**, sửa fixture governance trước khi báo toàn bộ PASS |
 
 ## 8. Bàn giao Duy Anh và quy tắc an toàn
 
-Hướng dẫn này phản ánh **cách chạy đang tồn tại** và nhấn mạnh phần còn phải triển khai. Yêu cầu còn mở trước demo:
+Phần đã nối trong source: fixture governance, một `.env` cho Compose/Gradle allowlist, một `docker-compose.yml`, seed demo đa vai. Phần chưa được nghiệm thu trên máy này, và không được báo PASS:
 
-- Audit hardcode/naming/JSON fixture đầy đủ, sửa ba bài fixture còn lỗi.
-- Hợp nhất **một private `.env`** làm nguồn chạy local; không track/push file cá nhân. Gradle/Android SDK/signing phải được cấu hình đúng, không nhét bí mật server vào client.
-- Đưa **Backend + PostgreSQL/PostGIS + tùy chọn MinIO + Redis** vào một `docker-compose.yml` có profile, migrate, seed, volume, backup, health, hỗ trợ rebuild không mất dữ liệu, không đụng DB tiền thật.
-- Kiểm tra UI Guest/Tenant/Owner, Google Auth thật, Payment/SePay và quyết định về slot phí quản lý; **không tự mở tính năng mới**.
-- Seed dữ liệu tổng hợp hợp lệ như hệ thống có người dùng (room, listing, tenancy, charge, incident, conversations, lịch sử), deterministic và idempotent trên **database demo tách biệt**, không tạo gateway Payment giả `PROVIDER_VERIFIED`.
-- Nghiệm thu qua video/screenshots, HTTP traces, DB readback và tài liệu PASS/FAIL.
+- Docker stack đã build và healthy trên project `trooi-project`: Postgres, Backend, Redis, MinIO. Migration `000016` chỉ chạy trên `trooi_dev`. `trooi_finance` vẫn 6 payment, 4 `PROVIDER_VERIFIED`, schema dừng ở `000007`. Seed từ chối mọi database khác `trooi_dev` vì `DATABASE_URL` trên máy này đang trỏ `trooi_finance`.
+- Google login thật vẫn phụ thuộc gate `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` (mặc định tắt cho đến khi có quyết định bật riêng) và OAuth SHA-1 trên thiết bị.
+- SePay production vẫn chỉ hợp lệ trên finance database tách khỏi `trooi_dev`/`trooi_test`. Giao dịch 2.000đ đã có không được tạo lại.
+- Mua slot 259.000đ/năm đang chờ quyết định Product ở mục 5.1 của README. Không gắn vào Checkout tiền thuê.
+- Android Debug/Release và scenario E2E trên emulator chưa được chạy trong lượt này.
 
 Chi tiết đầu việc và Definition of Done tại **[Handoff Duy Anh 15/10/2026](docs/superpowers/handoff/duyanh-20261015-main-demo-hardening.md)**. Không dùng `docker compose down -v`, `pnpm db:reset` hoặc rollback migrations trên DB có dữ liệu quan trọng; không push secret hoặc log thông tin ngân hàng lên GitHub.

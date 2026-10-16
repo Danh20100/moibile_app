@@ -13,6 +13,7 @@ import com.trooi.app.core.auth.restoreVerifiedSession
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.TransportOutcome
 import androidx.lifecycle.viewModelScope
+import com.trooi.app.core.data.SlotCheckoutPending
 import com.trooi.app.core.data.TroOiRepository
 import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.*
@@ -796,8 +797,18 @@ class TroOiViewModel @Inject constructor(
         val result = repository.messageAttachment(id, attachmentId)
         return if (generation == sessionGeneration) result else Result.failure(IllegalStateException("Phiên đã thay đổi."))
     }
-    suspend fun purchaseLocalCapacity(purchaseId: String): Result<Unit> =
-        Result.failure(IllegalStateException(com.trooi.app.features.profile.REAUTH_UNAVAILABLE))
+    suspend fun purchaseLocalCapacity(purchaseId: String): Result<Unit> {
+        val result = localManagementCommand { repository.purchaseLocalCapacity(purchaseId) }
+        val pending = result.exceptionOrNull() as? SlotCheckoutPending ?: return result
+        val url = com.trooi.app.features.tenancy.launchableHttpsPayUrl(pending.payUrl, allowLocalHttp = true) ?: return result
+        runCatching {
+            appContext.startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+        return result
+    }
     suspend fun archiveLocalAsset(assetId: String): Result<Unit> =
         localManagementCommand { repository.archiveLocalAsset(assetId) }
 

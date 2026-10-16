@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { Module, ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -45,7 +44,7 @@ function createJ04HttpModule(verifier: GoogleIdTokenVerifier) {
       {
         provide: GooglePrincipalResolver,
         inject: [TRANSACTION_MANAGER],
-        useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, verifier, true, true),
+        useFactory: (transactions: TransactionManager) => new GooglePrincipalResolver(transactions, verifier, F.harness.resolveGoogle, F.harness.registerGoogle),
       },
       { provide: APP_GUARD, useClass: AuthGuard },
     ],
@@ -55,12 +54,12 @@ function createJ04HttpModule(verifier: GoogleIdTokenVerifier) {
 }
 
 async function startJ04Http(verifier: GoogleIdTokenVerifier): Promise<INestApplication> {
-  const app = await NestFactory.create(createJ04HttpModule(verifier), { bodyParser: false, logger: ['error'] });
+  const app = await NestFactory.create(createJ04HttpModule(verifier), { bodyParser: F.harness.bodyParser, logger: F.harness.nestLogger });
   app.setGlobalPrefix(API_PREFIX);
   applyHttpBodyParsers(app);
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }));
+  app.useGlobalPipes(new ValidationPipe({ transform: F.harness.pipeTransform, whitelist: F.harness.pipeWhitelist, forbidNonWhitelisted: F.harness.pipeForbidNonWhitelisted }));
   app.useGlobalInterceptors(new TransformInterceptor());
-  await app.listen(0, '127.0.0.1');
+  await app.listen(0, F.harness.loopback);
   return app;
 }
 
@@ -117,44 +116,37 @@ test('core application state remains readable after database client restart', as
   assert.ok(storageEndpoint, 'LEDGER_J04_S3_ENDPOINT is required');
   assert.ok(storageAccessKey, 'LEDGER_J04_S3_ACCESS_KEY is required');
   assert.ok(storageSecretKey, 'LEDGER_J04_S3_SECRET_KEY is required');
-  const bucket = `trooi-j04-${randomUUID()}`;
-  const previousEnvironment = new Map<string, string | undefined>([
-    ['DATABASE_URL', process.env.DATABASE_URL],
-    ['OBJECT_STORAGE_ENABLED', process.env.OBJECT_STORAGE_ENABLED],
-    ['OBJECT_STORAGE_ENDPOINT', process.env.OBJECT_STORAGE_ENDPOINT],
-    ['OBJECT_STORAGE_REGION', process.env.OBJECT_STORAGE_REGION],
-    ['OBJECT_STORAGE_BUCKET', process.env.OBJECT_STORAGE_BUCKET],
-    ['OBJECT_STORAGE_ACCESS_KEY', process.env.OBJECT_STORAGE_ACCESS_KEY],
-    ['OBJECT_STORAGE_SECRET_KEY', process.env.OBJECT_STORAGE_SECRET_KEY],
-    ['OBJECT_STORAGE_FORCE_PATH_STYLE', process.env.OBJECT_STORAGE_FORCE_PATH_STYLE],
-  ]);
+  const bucket = F.harness.bucketName;
+  const previousEnvironment = new Map<string, string | undefined>(
+    F.harness.savedEnvKeys.map((key) => [key, process.env[key]]),
+  );
   Object.assign(process.env, {
     DATABASE_URL: databaseUrl,
-    OBJECT_STORAGE_ENABLED: 'true',
+    OBJECT_STORAGE_ENABLED: F.harness.storageEnabled,
     OBJECT_STORAGE_ENDPOINT: storageEndpoint,
-    OBJECT_STORAGE_REGION: process.env.LEDGER_J04_S3_REGION || 'us-east-1',
+    OBJECT_STORAGE_REGION: process.env.LEDGER_J04_S3_REGION ?? F.harness.defaultRegion,
     OBJECT_STORAGE_BUCKET: bucket,
     OBJECT_STORAGE_ACCESS_KEY: storageAccessKey,
     OBJECT_STORAGE_SECRET_KEY: storageSecretKey,
-    OBJECT_STORAGE_FORCE_PATH_STYLE: 'true',
+    OBJECT_STORAGE_FORCE_PATH_STYLE: F.harness.storagePathStyle,
   });
   const s3 = new S3Client({
     endpoint: storageEndpoint,
     region: process.env.OBJECT_STORAGE_REGION,
-    forcePathStyle: true,
+    forcePathStyle: F.harness.forcePathStyle,
     credentials: { accessKeyId: storageAccessKey, secretAccessKey: storageSecretKey },
   });
-  let bucketCreated = false;
+  let bucketCreated = F.harness.bucketCreated;
   let first: ReturnType<typeof runtime> | undefined;
   let firstClosed = false;
   let http: INestApplication | undefined;
   try {
     await s3.send(new CreateBucketCommand({ Bucket: bucket }));
-    bucketCreated = true;
+    bucketCreated = F.harness.bucketReady;
     await resetPublicSchema(databaseUrl);
     await runMigrations('up', databaseUrl);
     first = runtime(databaseUrl);
-    const issuer = 'https://accounts.google.com';
+    const issuer = F.harness.googleIssuer;
     const subjects = new Map([
       [F.actors.ownerToken, F.actors.ownerSubject],
       [F.actors.tenantToken, F.actors.tenantSubject],
@@ -163,21 +155,24 @@ test('core application state remains readable after database client restart', as
     const ownerId = googlePrincipalUserId(issuer, F.actors.ownerSubject);
     const tenantId = googlePrincipalUserId(issuer, F.actors.tenantSubject);
     const outsiderId = googlePrincipalUserId(issuer, F.actors.outsiderSubject);
+    assert.equal(ownerId, F.values.ownerId);
+    assert.equal(tenantId, F.values.tenantId);
+    assert.equal(outsiderId, F.values.outsiderId);
     await first.transactions.run(async ({ repositories }) => {
       await repositories.identity.ensureUser(ownerId);
       await repositories.identity.ensureUser(tenantId);
       await repositories.identity.ensureUser(outsiderId);
     });
-    await first.database.insertInto('auth_identities').values([
-      { auth_identity_id: randomUUID(), user_id: ownerId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.ownerSubject, linked_at: new Date().toISOString() },
-      { auth_identity_id: randomUUID(), user_id: tenantId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.tenantSubject, linked_at: new Date().toISOString() },
-      { auth_identity_id: randomUUID(), user_id: outsiderId, provider: 'google', issuer: 'https://accounts.google.com', subject: F.actors.outsiderSubject, linked_at: new Date().toISOString() },
+    await first.database.insertInto(F.harness.authIdentitiesTable).values([
+      { auth_identity_id: F.harness.ownerIdentityId, user_id: ownerId, provider: F.harness.googleProvider, issuer, subject: F.actors.ownerSubject, linked_at: F.harness.linkedAt },
+      { auth_identity_id: F.harness.tenantIdentityId, user_id: tenantId, provider: F.harness.googleProvider, issuer, subject: F.actors.tenantSubject, linked_at: F.harness.linkedAt },
+      { auth_identity_id: F.harness.outsiderIdentityId, user_id: outsiderId, provider: F.harness.googleProvider, issuer, subject: F.actors.outsiderSubject, linked_at: F.harness.linkedAt },
     ]).execute();
     const verifier: GoogleIdTokenVerifier = {
       async verify(token) {
         const subject = subjects.get(token);
-        if (!subject) throw new Error('Invalid J04 test credential');
-        return { issuer, subject, email: `${subject}@example.test`, emailVerified: true };
+        if (!subject) throw new Error(F.harness.invalidCredential);
+        return { issuer, subject, email: `${subject}@example.test`, emailVerified: F.harness.emailVerified };
       },
     };
     const organization = await first.organizations.create({
@@ -222,33 +217,33 @@ test('core application state remains readable after database client restart', as
     assert.deepEqual(await first.listings.findAssetDetails(listing.id), { listingId: listing.id, ...assetDetails });
     http = await startJ04Http(verifier);
     const apiRoot = `${await http.getUrl()}/${API_PREFIX}`;
-    const request = async (token: string, path: string, init: RequestInit = {}) => {
+    const request = async (token: string, path: string, init: RequestInit = F.harness.emptyRequest) => {
       const currentApiRoot = `${await http!.getUrl()}/${API_PREFIX}`;
       try {
         return await fetch(`${currentApiRoot}${path}`, {
           ...init,
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...init.headers },
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': F.harness.jsonContentType, ...init.headers },
         });
       } catch (error) {
         throw new Error(`J04 HTTP request failed: ${path}; listening=${http?.getHttpServer().listening}`, { cause: error });
       }
     };
-    const mediaId = randomUUID();
+    const mediaId = F.harness.mediaId;
     const imageBytes = readFileSync(rentalAssetMediaFlow.images[0]!.path);
     const uploaded = await request(F.actors.ownerToken, `/listings/${listing.id}/media`, {
-      method: 'POST',
-      body: JSON.stringify({ mediaId, contentType: 'image/jpeg', base64: imageBytes.toString('base64') }),
+      method: F.harness.postMethod,
+      body: JSON.stringify({ mediaId, contentType: F.harness.jpegContentType, base64: imageBytes.toString(F.harness.base64Encoding) }),
     });
-    assert.equal(uploaded.status, 201, await uploaded.clone().text());
+    assert.equal(uploaded.status, F.harness.createdStatus, await uploaded.clone().text());
     const privatePhotoResponse = await request(F.actors.ownerToken, `/listings/${listing.id}/media/${mediaId}/content`);
-    assert.equal(privatePhotoResponse.status, 200);
-    assert.deepEqual(Buffer.from(((await privatePhotoResponse.json() as { data: { base64: string } }).data).base64, 'base64'), imageBytes);
-    assert.equal((await request(F.actors.outsiderToken, `/listings/${listing.id}/media`)).status, 403);
+    assert.equal(privatePhotoResponse.status, F.harness.okStatus);
+    assert.deepEqual(Buffer.from(((await privatePhotoResponse.json() as { data: { base64: string } }).data).base64, F.harness.base64Encoding), imageBytes);
+    assert.equal((await request(F.actors.outsiderToken, `/listings/${listing.id}/media`)).status, F.harness.forbiddenStatus);
     const publicConsent = await request(F.actors.ownerToken, `/listings/${listing.id}/media/${mediaId}/public`, {
-      method: 'PATCH',
-      body: JSON.stringify({ isPublic: true }),
+      method: F.harness.patchMethod,
+      body: JSON.stringify({ isPublic: F.harness.publicConsent }),
     });
-    assert.equal(publicConsent.status, 200);
+    assert.equal(publicConsent.status, F.harness.okStatus);
     const published = await first.rentalLifecycle.publishListing(listing.id, {
       reasonCode: F.values.publishReason,
       actorType: F.values.publishActorType,
@@ -257,15 +252,15 @@ test('core application state remains readable after database client restart', as
     });
     assert.equal(published.status, F.values.publishedListingStatus);
     const publicFeedResponse = await fetch(`${apiRoot}/listings/public`);
-    assert.equal(publicFeedResponse.status, 200);
+    assert.equal(publicFeedResponse.status, F.harness.okStatus);
     const publicFeed = (await publicFeedResponse.json() as { data: Array<Record<string, unknown>> }).data;
     const publicListing = publicFeed.find((item) => item.id === listing.id);
     assert.deepEqual(publicListing?.publicPhotoIds, [mediaId]);
-    assert.equal(JSON.stringify(publicListing).includes(F.values.operationalAddress), false);
+    assert.equal(JSON.stringify(publicListing).includes(F.values.operationalAddress), F.harness.addressOmitted);
     const publicPhoto = await fetch(`${apiRoot}/listings/public/${listing.id}/media/${mediaId}/content`);
-    assert.equal(publicPhoto.status, 200);
-    assert.equal(publicPhoto.headers.get('cache-control'), 'no-store');
-    assert.deepEqual(Buffer.from(((await publicPhoto.json() as { data: { base64: string } }).data).base64, 'base64'), imageBytes);
+    assert.equal(publicPhoto.status, F.harness.okStatus);
+    assert.equal(publicPhoto.headers.get(F.harness.cacheControlHeader), F.harness.noStore);
+    assert.deepEqual(Buffer.from(((await publicPhoto.json() as { data: { base64: string } }).data).base64, F.harness.base64Encoding), imageBytes);
     const report = await first.trust.submitReport(
       { listingId: published.id, reason: F.values.trustReportReason },
       ownerId,
@@ -284,8 +279,8 @@ test('core application state remains readable after database client restart', as
     });
     assert.equal(participant.userId, tenantId);
     assert.notEqual(participant.userId, ownerId);
-    assert.equal((await request(F.actors.tenantToken, `/tenancies/${tenancy.id}`)).status, 200);
-    assert.equal((await request(F.actors.outsiderToken, `/tenancies/${tenancy.id}`)).status, 403);
+    assert.equal((await request(F.actors.tenantToken, `/tenancies/${tenancy.id}`)).status, F.harness.okStatus);
+    assert.equal((await request(F.actors.outsiderToken, `/tenancies/${tenancy.id}`)).status, F.harness.forbiddenStatus);
     const terms = await first.terms.createVersion({
       tenancyId: tenancy.id,
       version: F.values.termsVersion,
@@ -300,15 +295,15 @@ test('core application state remains readable after database client restart', as
       effectiveFromCycleBoundary: F.values.effectiveBoundary,
     });
     const historicalTerms = {
-      tenancyTermsId: '83000000-0000-4000-8000-000000000099', tenancyId: tenancy.id, version: F.values.termsVersion + 1,
+      tenancyTermsId: F.values.historicalTermsId, tenancyId: tenancy.id, version: F.values.termsVersion + 1,
       rentAmount: F.values.rentAmount, agreedDepositRequirement: F.values.depositRequirement,
-      termStart: F.values.termStart, termEnd: F.values.termEnd, billingDayOrDueDateRule: [],
-      electricityArrangement: 'metered', waterArrangement: ['fixed'], minimalRentalConditions: 'legacy',
+      termStart: F.values.termStart, termEnd: F.values.termEnd, billingDayOrDueDateRule: F.values.historicalBillingDayOrDueDateRule,
+      electricityArrangement: F.values.historicalElectricityArrangement, waterArrangement: F.values.historicalWaterArrangement, minimalRentalConditions: F.values.historicalMinimalRentalConditions,
       effectiveFromCycleBoundary: F.values.effectiveBoundary,
     };
     await first.transactions.run(({ repositories }) => repositories.tenancy.insertTerms(historicalTerms));
     const termsResponse = await request(F.actors.tenantToken, `/tenancies/${tenancy.id}/terms`);
-    assert.equal(termsResponse.status, 200);
+    assert.equal(termsResponse.status, F.harness.okStatus);
     const returnedTerms = (await termsResponse.json() as { data: Array<Record<string, unknown>> }).data;
     const returnedHistoricalTerms = returnedTerms.find((value) => value.id === historicalTerms.tenancyTermsId);
     assert.deepEqual(returnedHistoricalTerms && {
@@ -316,9 +311,7 @@ test('core application state remains readable after database client restart', as
       electricityArrangement: returnedHistoricalTerms.electricityArrangement,
       waterArrangement: returnedHistoricalTerms.waterArrangement,
       minimalRentalConditions: returnedHistoricalTerms.minimalRentalConditions,
-    }, {
-      billingDayOrDueDateRule: [], electricityArrangement: 'metered', waterArrangement: ['fixed'], minimalRentalConditions: 'legacy',
-    }, 'authorized HTTP Terms list preserves historical JSON shapes');
+    }, F.values.historicalTermsProjection);
     const acknowledgement = await first.acknowledgements.acknowledge({
       tenancyTermsId: terms.id,
       tenancyParticipantId: participant.id,
@@ -386,7 +379,7 @@ test('core application state remains readable after database client restart', as
     );
     const allocatedCycle = await first.billing.findById(cycle.id);
     assert.equal(allocatedCycle.charges[0]?.outstandingAmount, F.expected.remainingOutstanding);
-    assert.equal((await fetch(`${apiRoot}/listings/public/${listing.id}/media/${mediaId}/content`)).status, 404);
+    assert.equal((await fetch(`${apiRoot}/listings/public/${listing.id}/media/${mediaId}/content`)).status, F.harness.notFoundStatus);
     await http.close();
     http = undefined;
     await first.database.destroy();
@@ -397,11 +390,11 @@ test('core application state remains readable after database client restart', as
       http = await startJ04Http(verifier);
       const restartedApiRoot = `${await http.getUrl()}/${API_PREFIX}`;
       const restartedPhotoResponse = await request(F.actors.ownerToken, `/listings/${listing.id}/media/${mediaId}/content`);
-      assert.equal(restartedPhotoResponse.status, 200);
-      assert.deepEqual(Buffer.from(((await restartedPhotoResponse.json() as { data: { base64: string } }).data).base64, 'base64'), imageBytes);
-      assert.equal((await request(F.actors.tenantToken, `/tenancies/${activeTenancy.id}`)).status, 200);
-      assert.equal((await request(F.actors.outsiderToken, `/listings/${listing.id}/media`)).status, 403);
-      assert.equal((await fetch(`${restartedApiRoot}/listings/public/${listing.id}/media/${mediaId}/content`)).status, 404);
+      assert.equal(restartedPhotoResponse.status, F.harness.okStatus);
+      assert.deepEqual(Buffer.from(((await restartedPhotoResponse.json() as { data: { base64: string } }).data).base64, F.harness.base64Encoding), imageBytes);
+      assert.equal((await request(F.actors.tenantToken, `/tenancies/${activeTenancy.id}`)).status, F.harness.okStatus);
+      assert.equal((await request(F.actors.outsiderToken, `/listings/${listing.id}/media`)).status, F.harness.forbiddenStatus);
+      assert.equal((await fetch(`${restartedApiRoot}/listings/public/${listing.id}/media/${mediaId}/content`)).status, F.harness.notFoundStatus);
       assert.deepEqual(await second.organizations.findById(organization.id), organization);
       assert.deepEqual(await second.properties.findById(property.id), property);
       const restartedListing = await second.listings.findById(listing.id);
@@ -453,7 +446,7 @@ test('core application state remains readable after database client restart', as
     if (first && !firstClosed) await first.database.destroy();
     if (bucketCreated) {
       const listed = await s3.send(new ListObjectsV2Command({ Bucket: bucket }));
-      for (const object of listed.Contents ?? []) {
+      for (const object of listed.Contents ?? F.harness.noObjects) {
         if (object.Key) await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: object.Key }));
       }
       await s3.send(new DeleteBucketCommand({ Bucket: bucket }));

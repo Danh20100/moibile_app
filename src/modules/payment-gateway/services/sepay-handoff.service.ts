@@ -13,6 +13,7 @@ import {
 } from '../../../persistence/ports/transaction-manager';
 import { GATEWAY_CLOCK } from '../providers/gateway-provider';
 import { SepayGatewayAdapter } from '../providers/sepay-gateway.adapter';
+import { SlotCheckoutService } from './slot-checkout.service';
 
 export type SepayHandoffView =
   | { kind: 'ready'; record: GatewayCheckoutRecord }
@@ -25,6 +26,7 @@ export class SepayHandoffService {
     @Inject(TRANSACTION_MANAGER) private readonly tx: TransactionManager,
     @Inject(SepayGatewayAdapter) private readonly sepay: SepayGatewayAdapter,
     @Optional() @Inject(GATEWAY_CLOCK) private readonly clock: () => Date = () => new Date(),
+    @Optional() @Inject(SlotCheckoutService) private readonly slots?: SlotCheckoutService,
   ) {}
 
   async read(token: string): Promise<SepayHandoffView> {
@@ -36,6 +38,10 @@ export class SepayHandoffService {
 
   async release(token: string): Promise<SepayHandoffView> {
     const record = await this.load(token);
+    if (record.referenceCode.startsWith('SLOT ')) {
+      if (!this.slots) throw new NotFoundException('Gateway checkout not found');
+      return this.slots.release(record);
+    }
     if (record.status !== 'CREATED' || record.handoffAttempt !== 0)
       return { kind: 'issued', record };
     const now = this.clock().toISOString();
@@ -58,8 +64,13 @@ export class SepayHandoffService {
     const record = await this.tx.run(({ repositories }) =>
       repositories.finance.findGatewayCheckout(checkoutId),
     );
-    if (!record) throw new NotFoundException('Gateway checkout not found');
-    this.sepay.assertStoredIntent(record);
-    return record;
+    if (record) {
+      this.sepay.assertStoredIntent(record);
+      return record;
+    }
+    const slot = this.slots ? await this.slots.asGatewayRecord(checkoutId) : undefined;
+    if (!slot) throw new NotFoundException('Gateway checkout not found');
+    this.sepay.assertStoredIntent(slot);
+    return slot;
   }
 }

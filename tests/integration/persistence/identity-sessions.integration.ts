@@ -225,6 +225,22 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
       await sql`DROP FUNCTION test_fail_session_revocation_audit()`.execute(database);
     }
 
+    const firstLoginChallenge = await identity.issueChallenge('LOGIN');
+    claims = { ...claims, subject: 'google-login-provisions', email: 'first.login@example.test',
+      emailVerified: true, nonce: firstLoginChallenge.nonce, authTime: Math.floor(Date.now() / 1000), name: 'First login' };
+    const provisioned = await identity.authenticateGoogle({ idToken: 'test-only-google-proof', nonce: firstLoginChallenge.nonce });
+    const provisionedUserId = googlePrincipalUserId(claims.issuer, claims.subject);
+    assert.equal(provisioned.userId, provisionedUserId, 'first Google login creates the verified account');
+    const repeatLoginChallenge = await identity.issueChallenge('LOGIN');
+    claims = { ...claims, nonce: repeatLoginChallenge.nonce };
+    assert.equal((await identity.authenticateGoogle({ idToken: 'test-only-google-proof', nonce: repeatLoginChallenge.nonce })).userId, provisionedUserId);
+    const unverifiedLoginChallenge = await identity.issueChallenge('LOGIN');
+    claims = { ...claims, subject: 'google-login-unverified', email: 'login.unverified@example.test',
+      emailVerified: false, nonce: unverifiedLoginChallenge.nonce };
+    await assert.rejects(identity.authenticateGoogle({ idToken: 'test-only-google-proof', nonce: unverifiedLoginChallenge.nonce }), UnauthorizedException);
+    assert.equal(await database.selectFrom('users').selectAll()
+      .where('user_id', '=', googlePrincipalUserId(claims.issuer, claims.subject)).executeTakeFirst(), undefined);
+
     const unverifiedChallenge = await identity.issueChallenge('REGISTER');
     claims = { ...claims, subject: 'google-email-unverified', email: 'unverified@example.test',
       emailVerified: false, nonce: unverifiedChallenge.nonce };

@@ -11,6 +11,7 @@ on:
       - 'src/persistence/ports/cache.port.ts'
       - 'src/persistence/ports/object-storage.port.ts'
       - 'tests/integration/infrastructure/**'
+      - 'docker-compose.yml'
       - 'compose.infrastructure.yml'
       - '.env.example'
   workflow_dispatch:
@@ -55,4 +56,4 @@ jobs:
           POSTGRES_TEST_DB: trooi_test_ci
           MINIO_ROOT_USER: trooi_ci
           MINIO_ROOT_PASSWORD: trooi_ci_password_only
-        run: docker compose -f docker-compose.yml -f compose.infrastructure.yml --profile local-infra config -q
+        run: docker compose -f docker-compose.yml --profile local-infra config -q

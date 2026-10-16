@@ -71,7 +71,7 @@ test('concurrent Google authentication preserves User references and never links
     await client.query(
       `INSERT INTO auth_identities (auth_identity_id, user_id, provider, issuer, subject, linked_at)
        VALUES ($1, $2, 'google', $3, $4, $5)`,
-      ['ad000000-0000-4000-8000-000000000001', userId, F.values.canonicalIssuer, G.subjectFirst, L.joinedAt],
+      [F.ids.foundationLegacyIdentity, userId, F.values.canonicalIssuer, G.subjectFirst, L.joinedAt],
     );
     const referencesBefore = await fixture.manager.run(async ({ repositories }) => ({
       organization: await repositories.organization.findOrganization(organizationId),
@@ -221,7 +221,7 @@ test('frozen v1 snapshot upgrades without rekeying Users and media rollback guar
         refresh_token_sha256, created_at, last_seen_at, idle_expires_at, absolute_expires_at, authenticated_at)
        VALUES ($1, $1, $2, $3, now() + interval '15 minutes', $4, now(), now(), now() + interval '30 days',
         now() + interval '90 days', now())`,
-      ['af000000-0000-4000-8000-000000000001', G.userFirst, 'a'.repeat(64), 'b'.repeat(64)],
+      [F.ids.sessionRollbackId, G.userFirst, 'a'.repeat(64), 'b'.repeat(64)],
     );
     await assert.rejects(runMigrations('down', url), /Migration 000016 contains Identity session\/security data/);
 

@@ -11,6 +11,8 @@ import { MomoGatewayAdapter } from './providers/momo-gateway.adapter';
 import { DemoGatewayAdapter } from './providers/demo-gateway.adapter';
 import { DemoPaymentController } from './controllers/demo-payment.controller';
 import { SepayHandoffController } from './controllers/sepay-handoff.controller';
+import { SlotCheckoutController } from './controllers/slot-checkout.controller';
+import { SlotCheckoutService } from './services/slot-checkout.service';
 import { DemoPaymentService } from './services/demo-payment.service';
 import { SepayHandoffService } from './services/sepay-handoff.service';
 import { SepayGatewayAdapter, SEPAY_PRODUCTION_CONFIG } from './providers/sepay-gateway.adapter';
@@ -22,10 +24,11 @@ import {
 
 @Module({
   imports: [DatabaseModule, TenancyModule],
-  controllers: [PaymentGatewayController, DemoPaymentController, SepayHandoffController],
+  controllers: [PaymentGatewayController, DemoPaymentController, SepayHandoffController, SlotCheckoutController],
   providers: [
     PaymentGatewayService,
     GatewaySettlementService,
+    SlotCheckoutService,
     GatewayProviderRegistry,
     MomoGatewayAdapter,
     DemoGatewayAdapter,

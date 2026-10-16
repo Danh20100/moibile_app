@@ -259,7 +259,34 @@
     "scenario68": {
       "correctionNote": "Correction"
     },
-    "scenario69": 1
+    "scenario69": 1,
+    "scenario70": {
+      "tenancyTermsId": "terms-due-day",
+      "tenancyId": "tenancy-a",
+      "version": 2,
+      "rentAmount": "100.00",
+      "agreedDepositRequirement": "0.00",
+      "termStart": "2026-01-01",
+      "termEnd": "2100-01-01",
+      "billingDayOrDueDateRule": { "day": 31 },
+      "electricityArrangement": {},
+      "waterArrangement": {},
+      "minimalRentalConditions": {},
+      "effectiveFromCycleBoundary": "2026-01-01"
+    },
+    "scenario71": {
+      "tenancyId": "tenancy-a",
+      "tenancyTermsId": "terms-due-day",
+      "periodStart": "2026-02-01",
+      "periodEnd": "2026-02-28",
+      "charges": [{ "type": "RENT", "amount": "100.00" }]
+    },
+    "scenario72": "2026-02-28",
+    "scenario73": { "periodStart": "2026-03-01", "periodEnd": "2026-03-31" },
+    "scenario74": null,
+    "scenario75": { "periodStart": "2026-04-99", "periodEnd": "2026-04-99" },
+    "scenario76": "tenancy-a",
+    "scenario77": []
   },
   "tenancyLookup": [
     {

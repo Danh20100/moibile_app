@@ -9,7 +9,9 @@ enum class AppDataSource { MOCK, BACKEND }
 object RuntimeDataSource {
     private const val PREFS = "trooi_developer_settings"
     private const val KEY_MODE = "data_source"
-    private val debugDefault = if (BuildConfig.DEMO_BACKEND_ENABLED) AppDataSource.BACKEND else AppDataSource.MOCK
+    private val debugDefault =
+        if (BuildConfig.DEMO_BACKEND_ENABLED || BuildConfig.BACKEND_API_BASE_URL.isNotBlank()) AppDataSource.BACKEND
+        else AppDataSource.MOCK
 
     @Volatile
     private var selected: AppDataSource =

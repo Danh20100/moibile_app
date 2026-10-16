@@ -3,6 +3,17 @@ package com.trooi.app.core.network
 import com.trooi.app.core.network.dto.*
 import javax.inject.Inject
 
+data class SlotCheckoutTransport(
+    val id: String,
+    val purchaseId: String,
+    val amount: String,
+    val status: String,
+    val payUrl: String?,
+    val validUntil: String?,
+)
+
+data class SlotEntitlementTransport(val purchaseId: String, val validUntil: String)
+
 interface BackendApi {
     suspend fun messagingConversations(): ApiOutcome<List<MessagingConversation>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun messagingMessages(id: String, cursor: String? = null): ApiOutcome<MessagingMessagePage> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -109,6 +120,9 @@ interface BackendApi {
     suspend fun getNotifications(): ApiOutcome<List<NotificationTransport>>
     suspend fun getNotification(id: String): ApiOutcome<NotificationTransport>
     suspend fun markNotificationRead(id: String): ApiOutcome<NotificationTransport>
+    suspend fun createSlotCheckout(purchaseId: String, idempotencyKey: String, expectedToken: String? = null): ApiOutcome<SlotCheckoutTransport> =
+        ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun slotEntitlements(): ApiOutcome<List<SlotEntitlementTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
 }
 
 class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : BackendApi {
@@ -444,6 +458,42 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     override suspend fun markNotificationRead(id: String) =
         client.postEmpty("notifications/$id/read", authenticated = true)
             .decode(BackendJsonCodec::notification)
+
+    override suspend fun createSlotCheckout(purchaseId: String, idempotencyKey: String, expectedToken: String?) =
+        client.postJson(
+            "finance/slot-checkouts",
+            com.google.gson.JsonObject().apply { addProperty("purchaseId", purchaseId) }.toString(),
+            authenticated = true,
+            headers = mapOf("Idempotency-Key" to idempotencyKey),
+            expectedToken = expectedToken,
+        ).decode(::slotCheckout)
+
+    override suspend fun slotEntitlements() =
+        client.get("finance/slot-entitlements", true).decode(::slotEntitlements)
+
+    private fun slotCheckout(raw: String): SlotCheckoutTransport {
+        val json = com.google.gson.JsonParser.parseString(raw).asJsonObject
+        fun text(name: String) = json.get(name)?.takeUnless { it.isJsonNull }?.asString
+        return SlotCheckoutTransport(
+            id = text("id") ?: error("slot checkout"),
+            purchaseId = text("purchaseId") ?: error("slot checkout"),
+            amount = text("amount") ?: error("slot checkout"),
+            status = text("status") ?: error("slot checkout"),
+            payUrl = text("payUrl"),
+            validUntil = text("validUntil"),
+        )
+    }
+
+    private fun slotEntitlements(raw: String): List<SlotEntitlementTransport> {
+        val array = com.google.gson.JsonParser.parseString(raw).asJsonArray
+        return array.map { element ->
+            val json = element.asJsonObject
+            SlotEntitlementTransport(
+                json.get("purchaseId").asString,
+                json.get("validUntil").asString,
+            )
+        }
+    }
 
     private inline fun <T> TransportOutcome.decode(parser: (String) -> T): ApiOutcome<T> = when (this) {
         is TransportOutcome.Failure -> ApiOutcome.Failure(kind, httpStatus)

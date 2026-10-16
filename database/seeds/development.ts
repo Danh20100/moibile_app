@@ -114,5 +114,9 @@ async function seedPaymentRoom(r: TransactionContext['repositories']): Promise<v
     });
   }
 }
-async function main(){const db=createDatabaseClient(loadDatabaseConfig(process.env));try{const manager=new PostgresTransactionManager(db,createRepositorySet);await manager.run(seedDevelopmentData);const {seedDemoGraph}=require('../../scripts/demo/fixture.cjs') as {seedDemoGraph:(tx:PostgresTransactionManager)=>Promise<void>};await seedDemoGraph(manager);}finally{await db.destroy();}}
+function assertDevelopmentSeedTarget(databaseUrl: string): void {
+  const name = decodeURIComponent(new URL(databaseUrl).pathname.replace(/^\//, ''));
+  if (name !== 'trooi_dev') throw new Error(`Refusing to seed ${name}. Development seed only runs against trooi_dev.`);
+}
+async function main(){const config=loadDatabaseConfig(process.env);assertDevelopmentSeedTarget(config.url);const db=createDatabaseClient(config);try{const manager=new PostgresTransactionManager(db,createRepositorySet);await manager.run(seedDevelopmentData);const demo=require('../../scripts/demo/fixture.cjs') as {seedDemoGraph:(tx:PostgresTransactionManager)=>Promise<void>;seedDemoMessages:(database:ReturnType<typeof createDatabaseClient>)=>Promise<void>};await demo.seedDemoGraph(manager);await demo.seedDemoMessages(db);}finally{await db.destroy();}}
 if(require.main===module)void main().catch((error:unknown)=>{console.error(error instanceof Error?error.message:'Seed failed');process.exitCode=1;});

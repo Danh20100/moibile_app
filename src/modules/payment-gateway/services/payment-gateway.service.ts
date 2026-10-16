@@ -27,6 +27,7 @@ import { GatewayProviderRegistry } from '../providers/gateway-provider.registry'
 import { SepayGatewayAdapter } from '../providers/sepay-gateway.adapter';
 import { readSepayIpnInvoice } from '../sepay/sepay-ipn';
 import { GatewaySettlementService } from './gateway-settlement.service';
+import { SlotCheckoutService } from './slot-checkout.service';
 export { GATEWAY_CLOCK } from '../providers/gateway-provider';
 
 @Injectable()
@@ -42,6 +43,9 @@ export class PaymentGatewayService {
     @Optional()
     @Inject(GATEWAY_CLOCK)
     private readonly clock: () => Date = () => new Date(),
+    @Optional()
+    @Inject(SlotCheckoutService)
+    private readonly slots?: SlotCheckoutService,
   ) {}
 
   async createCheckout(
@@ -284,6 +288,7 @@ export class PaymentGatewayService {
       repositories.finance.findGatewayCheckoutByOrderId(invoice),
     );
     if (!record || record.provider !== 'SEPAY') {
+      if (this.slots && (await this.slots.acceptIpn(adapter, payload))) return { success: true };
       throw new ServiceUnavailableException('SePay order is not uniquely paid');
     }
     // The adapter requires independent provider REST verification. If SePay's

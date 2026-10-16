@@ -83,7 +83,15 @@
         "scenario66",
         "scenario67",
         "scenario68",
-        "scenario69"
+        "scenario69",
+        "scenario70",
+        "scenario71",
+        "scenario72",
+        "scenario73",
+        "scenario74",
+        "scenario75",
+        "scenario76",
+        "scenario77"
       ],
       "properties": {
         "scenario3": {
@@ -1072,7 +1080,78 @@
         "scenario69": {
           "type": "integer",
           "enum": [1]
-        }
+        },
+        "scenario70": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tenancyTermsId", "tenancyId", "version", "rentAmount", "agreedDepositRequirement", "termStart", "termEnd", "billingDayOrDueDateRule", "electricityArrangement", "waterArrangement", "minimalRentalConditions", "effectiveFromCycleBoundary"],
+          "properties": {
+            "tenancyTermsId": { "type": "string", "enum": ["terms-due-day"] },
+            "tenancyId": { "type": "string", "enum": ["tenancy-a"] },
+            "version": { "type": "integer", "enum": [2] },
+            "rentAmount": { "type": "string", "enum": ["100.00"] },
+            "agreedDepositRequirement": { "type": "string", "enum": ["0.00"] },
+            "termStart": { "type": "string", "enum": ["2026-01-01"] },
+            "termEnd": { "type": "string", "enum": ["2100-01-01"] },
+            "billingDayOrDueDateRule": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["day"],
+              "properties": { "day": { "type": "integer", "enum": [31] } }
+            },
+            "electricityArrangement": { "type": "object", "additionalProperties": false, "properties": {} },
+            "waterArrangement": { "type": "object", "additionalProperties": false, "properties": {} },
+            "minimalRentalConditions": { "type": "object", "additionalProperties": false, "properties": {} },
+            "effectiveFromCycleBoundary": { "type": "string", "enum": ["2026-01-01"] }
+          }
+        },
+        "scenario71": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["tenancyId", "tenancyTermsId", "periodStart", "periodEnd", "charges"],
+          "properties": {
+            "tenancyId": { "type": "string", "enum": ["tenancy-a"] },
+            "tenancyTermsId": { "type": "string", "enum": ["terms-due-day"] },
+            "periodStart": { "type": "string", "enum": ["2026-02-01"] },
+            "periodEnd": { "type": "string", "enum": ["2026-02-28"] },
+            "charges": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "amount"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["RENT"] },
+                  "amount": { "type": "string", "enum": ["100.00"] }
+                }
+              }
+            }
+          }
+        },
+        "scenario72": { "type": "string", "enum": ["2026-02-28"] },
+        "scenario73": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["periodStart", "periodEnd"],
+          "properties": {
+            "periodStart": { "type": "string", "enum": ["2026-03-01"] },
+            "periodEnd": { "type": "string", "enum": ["2026-03-31"] }
+          }
+        },
+        "scenario74": { "type": "null" },
+        "scenario75": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["periodStart", "periodEnd"],
+          "properties": {
+            "periodStart": { "type": "string", "enum": ["2026-04-99"] },
+            "periodEnd": { "type": "string", "enum": ["2026-04-99"] }
+          }
+        },
+        "scenario76": { "type": "string", "enum": ["tenancy-a"] },
+        "scenario77": { "type": "array", "maxItems": 0 }
       }
     },
     "tenancyLookup": {

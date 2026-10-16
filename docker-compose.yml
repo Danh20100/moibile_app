@@ -1,3 +1,8 @@
+# Primary stack. Optional services stay behind profiles:
+#   docker compose --env-file .env up -d --build --wait
+#   docker compose --env-file .env --profile local-infra up -d --build --wait
+# Messaging tests stay in compose.messaging.yml (isolated ports, separate project).
+# SePay production is passed through but still refused on trooi_dev/trooi_test.
 services:
   postgres:
     image: postgis/postgis:16-3.4
@@ -18,6 +23,11 @@ services:
       retries: 10
       start_period: 10s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - trooi-network
 
@@ -31,10 +41,39 @@ services:
     environment:
       PORT: 3000
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: ${TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED:-false}
+      TROOI_DEMO_CLAIM_USER_ID: ${TROOI_DEMO_CLAIM_USER_ID:-}
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}
       TEST_DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_TEST_DB:?POSTGRES_TEST_DB is required}
       DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-10}
       DATABASE_CONNECTION_TIMEOUT_MS: ${DATABASE_CONNECTION_TIMEOUT_MS:-5000}
+      OBJECT_STORAGE_ENABLED: ${OBJECT_STORAGE_ENABLED:-false}
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-trooi-media}
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: ${OBJECT_STORAGE_FORCE_PATH_STYLE:-true}
+      REDIS_URL: ${COMPOSE_REDIS_URL:-}
+      CACHE_ENVIRONMENT: ${CACHE_ENVIRONMENT:-}
+      REDIS_CONNECT_TIMEOUT_MS: ${REDIS_CONNECT_TIMEOUT_MS:-1000}
+      SEPAY_ENABLED: ${SEPAY_ENABLED:-}
+      SEPAY_ENVIRONMENT: ${SEPAY_ENVIRONMENT:-}
+      SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:-}
+      SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:-}
+      SEPAY_IPN_SECRET_KEY: ${SEPAY_IPN_SECRET_KEY:-}
+      SEPAY_PUBLIC_BASE_URL: ${SEPAY_PUBLIC_BASE_URL:-}
+      SEPAY_HANDOFF_SIGNING_KEY: ${SEPAY_HANDOFF_SIGNING_KEY:-}
+      SEPAY_FINANCE_DATABASE: ${SEPAY_FINANCE_DATABASE:-}
+      DEMO_PAYMENT_ENABLED: ${DEMO_PAYMENT_ENABLED:-false}
+      DEMO_PAYMENT_PUBLIC_BASE_URL: ${DEMO_PAYMENT_PUBLIC_BASE_URL:-}
+      DEMO_PAYMENT_SIGNING_KEY: ${DEMO_PAYMENT_SIGNING_KEY:-}
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+      MOMO_ENDPOINT: ${MOMO_ENDPOINT:-}
+      MOMO_IPN_URL: ${MOMO_IPN_URL:-}
+      MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     healthcheck:
@@ -44,6 +83,65 @@ services:
       retries: 5
       start_period: 40s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - trooi-network
+
+  redis:
+    profiles: [local-infra]
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:${REDIS_DEV_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - trooi-network
+
+  minio:
+    profiles: [local-infra]
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trooi_local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trooi_local_minio}
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_media_data:/data
+    healthcheck:
+      test: ["CMD", "silo", "healthcheck", "ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - trooi-network
+
+  minio-init:
+    profiles: [local-infra]
+    image: trooi-project-backend:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trooi_local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trooi_local_minio}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-trooi-media}
+    entrypoint: ["node"]
+    command:
+      - "-e"
+      - "const {S3Client,CreateBucketCommand}=require('@aws-sdk/client-s3'); const Bucket=process.env.OBJECT_STORAGE_BUCKET; const client=new S3Client({region:'us-east-1',endpoint:'http://minio:9000',forcePathStyle:true,credentials:{accessKeyId:process.env.MINIO_ROOT_USER,secretAccessKey:process.env.MINIO_ROOT_PASSWORD}}); client.send(new CreateBucketCommand({Bucket})).then(()=>process.exit(0)).catch((error)=>{ if(error.name==='BucketAlreadyOwnedByYou'||error.name==='BucketAlreadyExists') process.exit(0); console.error(error.name||error.message); process.exit(1); });"
+    restart: "no"
     networks:
       - trooi-network
 
@@ -53,3 +151,4 @@ networks:
 
 volumes:
   postgres_persistence_data:
+  minio_media_data:

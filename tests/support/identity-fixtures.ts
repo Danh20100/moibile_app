@@ -121,6 +121,9 @@ export type PersistenceScenarios = {
     conflictIdentity: string;
     missingCredentialUser: string;
     unboundCredentialUser: string;
+    reviewedLegacyIdentity: string;
+    foundationLegacyIdentity: string;
+    sessionRollbackId: string;
   };
   configuration: {
     barrierParticipants: number;
