@@ -38,7 +38,7 @@ git check-ignore -v .env
 ### Một nguồn cấu hình, một Compose
 
 - **`.env` (local, untracked):** cấu hình Backend/Docker/Google/Maps/SePay và những profile test cần thiết. Chỉ có một template `.env.example` được track.
-- **`docker-compose.yml`:** file Compose duy nhất, với các profile `local-infra`, `messaging-test`, `sepay-isolated`. Các DB test dùng container/volume riêng.
+- **`docker-compose.yml`:** file Compose duy nhất, với các profile `local-infra`, `messaging-test`, `sepay-isolated`, `finance-production`. Các DB test dùng container/volume riêng.
 - **Gradle:** `app/build.gradle.kts` chỉ đọc các biến **client allowlist** qua `-P` → environment → root `.env`. `gradle.properties.example` là mẫu cấu hình Gradle; `local.properties.example` dành cho SDK và `keystore.properties.example` dành cho signing — mỗi loại chỉ một mẫu. Các file thật bị ignore.
 - **Không** copy `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, `SEPAY_HANDOFF_SIGNING_KEY`, `POSTGRES_PASSWORD` hoặc private signing key vào APK.
 
@@ -47,6 +47,7 @@ Với các profile phụ, **phải điền mật khẩu riêng** trong `.env`; k
 ## Chạy Backend + Database
 
 ```powershell
+node --env-file=.env scripts/config/check-local.cjs
 docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d --build --wait
 docker compose ps
@@ -60,12 +61,15 @@ Các profile tùy chọn:
 
 ```powershell
 # Cache và object storage (cấp MINIO_ROOT_PASSWORD riêng trong .env)
+node --env-file=.env scripts/config/check-local.cjs local-infra
 docker compose --env-file .env --profile local-infra up -d --build --wait
 
 # Messaging test: chỉ 2 service cô lập; không khởi động Backend mặc định
+node --env-file=.env scripts/config/check-local.cjs messaging-test
 docker compose --env-file .env --profile messaging-test up -d --no-deps messaging-postgres messaging-minio
 
 # Isolated SePay test DB: không phải DB finance/merchant Production
+node --env-file=.env scripts/config/check-local.cjs sepay-isolated
 docker compose --env-file .env --profile sepay-isolated up -d --no-deps sepay-postgres
 ```
 
@@ -143,3 +147,78 @@ python scripts/verify_docs_links.py --scope all
 **Lưu ý:** full `pnpm test` yêu cầu **database test đã migrate** và environment phù hợp; thiếu `DATABASE_URL` có thể khiến runtime access tests bị hủy. Không gọi đó là full PASS nếu còn test fail/cancel. Docker Engine và thiết bị/emulator phải chạy để nghiệm thu E2E thật.
 
 Đọc [hướng dẫn module](src/modules/) và [database](docs/database/) để tìm contract theo chức năng. Mọi thay đổi config phải cập nhật ngay README này và `.env.example`, không tạo thêm file config song song chỉ để chạy demo.
+
+
+## Configuration preflight and safe finance deployment
+
+The root `.env` is the **only application environment file**. Copy `.env.example`, then set
+`POSTGRES_PASSWORD` and any provider credentials through a private channel. `.env.example`
+intentionally has no working default passwords. `DATABASE_URL` and `TEST_DATABASE_URL`
+are for **host-side scripts/tests** and must use URL-encoded credentials; Compose builds its
+own connection URL from `POSTGRES_*` with correct escaping.
+
+Run this preflight **before** starting a profile (no secrets are printed):
+
+```powershell
+node --env-file=.env scripts/config/check-local.cjs
+docker compose --env-file .env config --quiet
+# Optional services require additional credentials
+node --env-file=.env scripts/config/check-local.cjs local-infra
+node --env-file=.env scripts/config/check-local.cjs messaging-test
+node --env-file=.env scripts/config/check-local.cjs sepay-isolated
+```
+
+Docker always runs the default Backend with `NODE_ENV=production`, `SEPAY_ENABLED=false`,
+and a local development database. Local PostgreSQL/API ports are bound to `127.0.0.1`
+and never published to a public network by this Compose configuration. `TROOI_DATABASE_MODE`
+is set by Compose, not manually. `COMPREFACE_*` are optional server-only verification
+settings; leave `COMPREFACE_ENABLED=false` unless the integration is explicitly enabled.
+
+### Production SePay — separate full application/finance runtime
+
+`finance-backend` is an **opt-in** profile with its own `DATABASE_URL`, never the
+default development database. Configure `SEPAY_FINANCE_DATABASE_URL` to a **separately
+managed and backed-up full TrọƠi application database** reachable from the container,
+and configure `SEPAY_FINANCE_DATABASE` to the exact database name. It must contain the
+real authorized identities and tenancies for that environment. **Do not** point it at
+`trooi_dev`, `trooi_test`, or a disposable SePay fixture database.
+
+Only after verifying database backup, migrations and authorized merchant settings:
+
+```powershell
+node --env-file=.env scripts/config/check-local.cjs finance-production
+docker compose --env-file .env --profile finance-production config --quiet
+# Starts only this service; does not start/reset local postgres or demo fixtures.
+# WARNING: the service runs additive database migrations on the configured finance DB.
+docker compose --env-file .env --profile finance-production up -d --build --wait finance-backend
+docker compose logs --tail=80 finance-backend
+```
+
+The finance API binds to **localhost port `SEPAY_BACKEND_PORT` (default 3101)**.
+A separately configured TLS reverse proxy must expose *only approved SePay callback/
+handoff paths* at `SEPAY_PUBLIC_BASE_URL`; do not expose developer/demo endpoints.
+The callback endpoint is `/api/v1/finance/checkouts/sepay/ipn`. The startup guard
+rejects mismatched or development databases, disabled SePay Production, missing secrets,
+and missing HTTPS origins **before migrations are attempted**.
+
+These steps are **deployment instructions, not evidence of a completed Production
+transaction**. Validation in CI verifies the Compose/Gradle/environment contract;
+real banking and end-to-end authentication require separate authorized acceptance.
+
+### Android / Gradle
+
+Application values come from `.env` via an allowlist in `app/build.gradle.kts`.
+`gradle.properties.example` now contains **build-tool JVM settings only**:
+do not copy duplicate application values to `gradle.properties` or they may override
+`.env`. For a one-off override use `-PtrooiApiBaseUrl=...` or the matching `TROOI_*`
+environment key. Android SDK `local.properties` and release signing
+`keystore.properties` remain private per-machine exceptions; no Backend/SePay
+credentials belong in an APK.
+
+After changes, run the automatic drift guard:
+
+```powershell
+pnpm exec tsx --test tests/verification/configuration-completeness.test.ts
+pnpm typecheck
+pnpm build
+```

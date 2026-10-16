@@ -26,3 +26,11 @@ Trước khi chạy migrations hoặc các script kiểm thử, **kiểm tra `DA
 - **Không tự tạo giao dịch ngân hàng thật** chỉ để chạy unit test.
 
 Các thông tin về số tiền giao dịch/URL ngrok và các cổng cũ không phải default config của dự án. Xem [README chung](../../README.md) để thiết lập phiên bản hiện tại.
+
+
+Security update: the isolated demo login now **requires** `TROOI_DEMO_PASSWORD` in the private
+root `.env` (12+ characters) and no longer has a hardcoded fallback. This is
+not Google authentication. Production SePay must use the separately gated
+`finance-backend` profile documented in [README root](../../README.md);
+do not point that profile at a disposable checkout fixture database or replay
+previous real-money callbacks without authorized testing.
