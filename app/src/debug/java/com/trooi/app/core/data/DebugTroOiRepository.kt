@@ -35,6 +35,14 @@ class TroOiRepositoryImpl private constructor(
         DemoBackendLogin(backendClient, backendApi, tokens, context),
     )
 
+    // Runtime source-switching test seam. Never bypasses the selected Backend repository.
+    internal constructor(context: Context, backend: BackendTroOiRepository) : this(
+        lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) },
+        backend,
+        false,
+        null,
+    )
+
     // Retain fixture-only constructors for legacy instrumentation tests, regardless of DEV preference.
     constructor(context: Context) : this(lazy { initializeDebugFixtures(context); FixtureTroOiRepository(context) }, null, true, null)
     internal constructor(prefs: SharedPreferences?) : this(lazy { FixtureTroOiRepository(prefs) }, null, true, null)
