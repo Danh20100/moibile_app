@@ -12,7 +12,6 @@ on:
       - 'src/persistence/ports/object-storage.port.ts'
       - 'tests/integration/infrastructure/**'
       - 'docker-compose.yml'
-      - 'compose.infrastructure.yml'
       - '.env.example'
   workflow_dispatch:
 

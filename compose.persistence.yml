@@ -1,3 +1,0 @@
-# Canonical Postgres is the postgres service in docker-compose.yml.
-include:
-  - docker-compose.yml

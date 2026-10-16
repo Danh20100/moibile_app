@@ -1,3 +1,0 @@
-# Optional MinIO and Redis now live in docker-compose.yml under profile local-infra.
-# This file stays empty so older `-f compose.infrastructure.yml` overlays still parse.
-services: {}

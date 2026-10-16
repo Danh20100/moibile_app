@@ -1,13 +1,13 @@
 # Android frontend architecture and migration record
 
-Current implementation on `design/app-ui-redesign`, HEAD `f53f6d8`, 2026-10-11. This is the settled frontend architecture record; the original [draft](../../testing/LEGACY_UI_QA_ARCHIVE.md) remains historical provenance. Canonical domain, API contracts and server authorization remain authoritative for business meaning.
+Current implementation on `design/app-ui-redesign`, HEAD `f53f6d8`, 2026-10-11. This is the settled frontend architecture record; the original draft remains historical provenance. Canonical domain, API contracts and server authorization remain authoritative for business meaning.
 
 | Gate | Status | Evidence |
 | --- | --- | --- |
-| Round 4 — typed Debug catalog | Implemented / PASS | [Round 4](../../testing/LEGACY_UI_QA_ARCHIVE.md) |
-| Round 5 — six sequential UI slices | Implemented / PASS | [Round 5](../../testing/LEGACY_UI_QA_ARCHIVE.md) |
-| Round 6 — removal, guardrails, documentation | Implemented / PASS | [Round 6](../../testing/LEGACY_UI_QA_ARCHIVE.md) |
-| Round 7 — final regression and two review axes | Implemented / PASS | [Round 7](../../testing/LEGACY_UI_QA_ARCHIVE.md) |
+| Round 4 — typed Debug catalog | Implemented / PASS | Round 4 |
+| Round 5 — six sequential UI slices | Implemented / PASS | Round 5 |
+| Round 6 — removal, guardrails, documentation | Implemented / PASS | Round 6 |
+| Round 7 — final regression and two review axes | Implemented / PASS | Round 7 |
 
 ## Component ownership
 
@@ -35,7 +35,7 @@ Intentional local compositions: profile menu icon/divider and shortcut cards, no
 
 ## Fixture and runtime ownership
 
-The only immutable Mock scenario source is `app/src/debug/assets/fixtures/v1/`, with seven files: manifest, accounts, references, rentals, operations, finance and conversations. [Catalog/schema and scenario guide](android-fixture-catalog.md) documents strict typed validation, IDs/relationships/order, symbolic resources and parity. [Validated runtime architecture viewer](../../testing/LEGACY_UI_QA_ARCHIVE.md) maps source sets and repository consumers.
+The only immutable Mock scenario source is `app/src/debug/assets/fixtures/v1/`, with seven files: manifest, accounts, references, rentals, operations, finance and conversations. [Catalog/schema and scenario guide](android-fixture-catalog.md) documents strict typed validation, IDs/relationships/order, symbolic resources and parity. Validated runtime architecture viewer maps source sets and repository consumers.
 
 DemoData, DemoRentalGraph, ListingFixtures, profile Mock adapters and FixtureTroOiRepository consume that catalog; they do not author competing seed objects. Debug security test hooks and local mutable portfolio/message previews remain separate. Finance seed is HISTORICAL_DEMO, not an issued receipt or confirmation. USER capabilities derive from canonical relationships, not global tenant/landlord roles.
 

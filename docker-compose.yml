@@ -1,7 +1,7 @@
 # Primary stack. Optional services stay behind profiles:
 #   docker compose --env-file .env up -d --build --wait
 #   docker compose --env-file .env --profile local-infra up -d --build --wait
-# Messaging tests stay in compose.messaging.yml (isolated ports, separate project).
+# Optional isolated messaging and SePay test DBs are defined below; profiles never run by default.
 # SePay production is passed through but still refused on trooi_dev/trooi_test.
 services:
   postgres:
@@ -32,6 +32,7 @@ services:
       - trooi-network
 
   backend:
+    image: ${TROOI_BACKEND_IMAGE:-trooi-backend:local}
     build:
       context: .
       dockerfile: Dockerfile
@@ -112,7 +113,7 @@ services:
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trooi_local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trooi_local_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
     ports:
       - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -129,13 +130,13 @@ services:
 
   minio-init:
     profiles: [local-infra]
-    image: trooi-project-backend:latest
+    image: ${TROOI_BACKEND_IMAGE:-trooi-backend:local}
     depends_on:
       minio:
         condition: service_healthy
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-trooi_local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-trooi_local_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
       OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-trooi-media}
     entrypoint: ["node"]
     command:
@@ -145,6 +146,55 @@ services:
     networks:
       - trooi-network
 
+  # Isolated test fixtures; never share the default application's postgres volume.
+  messaging-postgres:
+    profiles: [messaging-test]
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${MESSAGING_DB_NAME:-messaging_test}
+      POSTGRES_USER: ${MESSAGING_DB_USER:-messaging_test}
+      POSTGRES_PASSWORD: ${MESSAGING_DB_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${MESSAGING_DB_PORT:-55447}:5432"
+    volumes:
+      - messaging_db_data:/var/lib/postgresql/data
+    networks: [trooi-network]
+
+  messaging-minio:
+    profiles: [messaging-test]
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MESSAGING_MINIO_USER:-messaging-local}
+      MINIO_ROOT_PASSWORD: ${MESSAGING_MINIO_PASSWORD:-}
+    ports:
+      - "127.0.0.1:${MESSAGING_MINIO_PORT:-9047}:9000"
+      - "127.0.0.1:${MESSAGING_MINIO_CONSOLE_PORT:-9048}:9001"
+    volumes:
+      - messaging_media_data:/data
+    networks: [trooi-network]
+
+  # New isolated test DB. The previous trooi-sepay-standalone volume is left untouched.
+  # Never seed this service with demo data or connect the default app to it.
+  sepay-postgres:
+    profiles: [sepay-isolated]
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: trooi_sepay
+      POSTGRES_PASSWORD: ${TROOI_STANDALONE_DB_PASSWORD:-}
+      POSTGRES_DB: trooi_sepay_isolated
+    ports:
+      - "127.0.0.1:${SEPAY_ISOLATED_DB_PORT:-55459}:5432"
+    volumes:
+      - sepay_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trooi_sepay -d trooi_sepay_isolated"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: "no"
+    networks: [trooi-network]
+
 networks:
   trooi-network:
     driver: bridge
@@ -152,3 +202,6 @@ networks:
 volumes:
   postgres_persistence_data:
   minio_media_data:
+  messaging_db_data:
+  messaging_media_data:
+  sepay_postgres_data:

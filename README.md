@@ -1,248 +1,145 @@
-# TrọƠi — Android · NestJS · PostgreSQL/PostGIS
+# TrọƠi
 
-> **Status: DEMO HARDENING, NOT PRODUCTION READY (15/10/2026).** SePay đã có **một giao dịch ngân hàng thật 2.000 VND** được đối soát thành công trên database cô lập; đó không phải bằng chứng full app, full Docker hay Auth production đã PASS.
->
-> **Duy Anh tiếp quản:** [Handoff hardening & demo](docs/superpowers/handoff/duyanh-20261015-main-demo-hardening.md) · [Handoff merge trước đó](docs/implementation/phase5/main-integration-handoff-20261015.md).
+Ứng dụng Android quản lý vận hành cho thuê phòng trọ, kết nối NestJS API và PostgreSQL/PostGIS. Repo này chứa **sản phẩm, hợp đồng kỹ thuật, kiểm thử và hướng dẫn vận hành**; các biên bản handoff, kế hoạch Superpowers và evidence lịch sử không nằm trên nhánh chính (có thể tra cứu qua lịch sử Git).
 
-## 1. Architecture & source of truth
+**Thứ tự đọc contract:** [Database v1 canonical](docs/database/v1/canonical.md) → [frozen conceptual ERD](docs/database/v1/erd/conceptual.json) → [contexts](docs/contexts/) → implementation and tests. **Payment is actual money inflow. Receipt is not the Payment record.** Các module Subscription/Pricing/Quota và CSV/Excel import là FUTURE, không phải chức năng core đã nghiệm thu.
 
-TrọƠi là “sổ vận hành thuê trọ”: quản lý tài sản/phòng, người thuê, các khoản phải thu, tiền đã nhận, sự cố và lịch sử; Android là sản phẩm chính. [Landing page](https://github.com/onsra520/TroOi-Landing-Page) ở repository riêng, không phải dependency để build ứng dụng.
+## Cấu trúc repository
 
-| Phần | Thư mục | Trạng thái |
-| --- | --- | --- |
-| Android | `app/` | Kotlin + Jetpack Compose; Debug có MOCK/BACKEND; Release luôn Backend |
-| Backend | `src/` | NestJS REST API dưới `/api/v1`, identity/tenancy/finance/discovery |
-| Database | `database/`, `docs/database/v1/` | PostgreSQL 16 + PostGIS; migrations và seed development |
-| Docker | `docker-compose.yml`, `Dockerfile` | PostgreSQL/PostGIS + Backend; profile `local-infra` bật Redis, MinIO và init bucket riêng tư |
-| Messaging lane | `compose.messaging.yml` | Project test tách cổng 55447/9047, không gộp vào database demo |
-| Payment | `src/modules/payment-gateway/` | SePay, MoMo, DEMO only local/test |
-| Tests | `tests/`, `tests/android/` | Contract, governance, API, JVM, instrumentation |
+| Đường dẫn | Nội dung |
+| --- | --- |
+| `app/` | Android Kotlin + Jetpack Compose; Debug hỗ trợ MOCK/BACKEND, Release sử dụng Backend |
+| `src/modules/` | Nghiệp vụ NestJS: Identity, Organization, Room, Listing, Tenancy, Billing, Payment, Incident… |
+| `src/infrastructure/`, `src/persistence/` | Database adapter và các service hạ tầng |
+| `database/` | Migrations và seed phát triển |
+| `docs/database/`, `docs/contexts/` | Hợp đồng dữ liệu/nghiệp vụ cần cho kiểm thử và triển khai |
+| `docs/api/openapi.json` | OpenAPI được generate; không chỉnh sửa thủ công |
+| `docs/designs/v1/` | Design/UX reference đang được sử dụng |
+| `tests/` | Unit, conformance, integration, E2E và Android tests |
+| `scripts/` | Công cụ migrate, kiểm thử và tạo dữ liệu |
+| `docker-compose.yml` | **Một** Docker Compose: Backend, PostGIS và các profile tùy chọn |
+| `.env.example` | **Một** mẫu environment; dữ liệu thật lưu trong `.env` bị Git ignore |
 
-**Canonical authority:** `docs/database/v1/canonical.md` → `docs/database/v1/erd/conceptual.json` → `docs/contexts/` → implementation and tests. `USER` là danh tính, không có “global role” chủ trọ/người thuê; quyền được tính theo Organization, Room/Tenancy, Participant. `BILLING_CYCLE` / `CHARGE` là nghĩa vụ. Payment is actual money inflow. Receipt is not the Payment record. `RECEIPT` chỉ là chứng từ. `[OPEN]` không tự chốt. Subscription/Pricing/Quota và CSV/Excel import là `[FUTURE]`, không được bật ngoài quyết định Product.
+Hướng dẫn nghiệp vụ nằm gần source tại các `src/modules/*/README.md`; [database](database/README.md), [bối cảnh kỹ thuật](docs/README.md), [Android tests](tests/android/README.md). Các hợp đồng DB versioned được test tự động; không suy luận quy tắc tài chính chỉ từ giao diện.
 
-## 2. Yêu cầu môi trường
+## Chuẩn bị máy
 
-- Git, Windows PowerShell (lệnh mẫu bên dưới) hoặc shell tương đương.
-- Node.js đáp ứng `package.json`: `^22.22.3 || ^24.15.0 || >=26.0.0`; pnpm (Dockerfile dùng pnpm 12.8.1), Docker Desktop + Compose v2.
-- Android Studio, Android SDK API 36, JDK được Android Gradle Plugin 9.2.1 hỗ trợ, Google APIs/Play Services trên emulator hoặc Android thiết bị thật (minSdk 26).
-- `adb` để cài APK; `keytool` để lấy SHA-1 Google OAuth.
+- Node.js theo `package.json` (`^22.22.3 || ^24.15.0 || >=26`), pnpm, Git.
+- Docker Desktop/Engine + Compose v2 (Linux containers).
+- Android Studio + SDK API 36, JDK 21, ADB/emulator để build ứng dụng.
 
-~~~powershell
-node --version
-pnpm --version
-docker compose version
-java -version
-adb devices
-~~~
-
-**URL phát triển:** Android emulator tới Backend chạy trên host dùng `http://10.0.2.2:3000`; thiết bị thật dùng IP LAN hoặc HTTPS được phép. `10.0.2.2` không phải địa chỉ của điện thoại thật.
-
-## 3. Cấu hình một nguồn và bảo mật
-
-**Hiện tại**: `.env.example` dành cho Backend/Docker, `.env.messaging.example` cho messaging test cũ, `gradle.properties.example`, `local.properties.example`, `keystore.properties.example` cho Android. Chúng chỉ là **template**, không chứa secret thật.
-
-Root `.env` là nguồn cấu hình local. Docker Compose đọc file đó. Gradle Debug/Release chỉ nhận allowlist client (`TROOI_API_BASE_URL`, Web Client ID, Maps key, payment public origin, demo-backend flag), theo thứ tự `-P`, biến môi trường, rồi `.env`. Web Client ID trống thì dùng `GOOGLE_CLIENT_ID`. Secret server không được đọc vào APK. SDK path và signing keystore vẫn là file riêng vì công cụ yêu cầu.
-
-~~~powershell
-# Chạy ở thư mục root. Tạo file riêng tư, thay các giá trị trên máy cá nhân.
+```powershell
+pnpm install --frozen-lockfile
 Copy-Item .env.example .env
-# Không chia sẻ nội dung .env trong chat / issue / log.
+# Chỉnh .env tại máy. KHÔNG commit/đưa vào log/chat các secret.
 git check-ignore -v .env
-git status --short
-~~~
+```
 
-| Cấu hình | Tên biến hiện có | Phạm vi |
-| --- | --- | --- |
-| DB | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_TEST_DB`, `DATABASE_URL`, `TEST_DATABASE_URL` | Backend/Compose |
-| Google sign-in | `GOOGLE_CLIENT_ID` | Web OAuth Client ID để Backend verify ID Token |
-| Android Google | `TROOI_GOOGLE_WEB_CLIENT_ID` hoặc Gradle `trooiGoogleWebClientId` | Cùng Web Client ID, không phải Google client secret |
-| Android Maps | `TROOI_MAPS_API_KEY` / Gradle `trooiMapsApiKey` | Public app key phải restrict package + SHA-1/API |
-| Android API | `TROOI_API_BASE_URL` / Gradle `trooiApiBaseUrl` | Base URL đúng Backend |
-| SePay | `SEPAY_ENABLED`, `SEPAY_ENVIRONMENT`, `SEPAY_MERCHANT_ID`, `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, `SEPAY_HANDOFF_SIGNING_KEY`, `SEPAY_PUBLIC_BASE_URL`, `SEPAY_FINANCE_DATABASE` | **Server-only**, riêng finance DB |
-| Payment Android | `TROOI_PAYMENT_PUBLIC_ORIGIN` / Gradle `trooiPaymentPublicOrigin` | Public HTTPS origin, không có secret |
-| Object storage | `OBJECT_STORAGE_*`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Optional |
-| Cache | `REDIS_URL` / `CACHE_ENVIRONMENT` | Optional |
+### Một nguồn cấu hình, một Compose
 
-**Không commit:** `.env`, `.env.*` thật, `gradle.properties` cá nhân, `local.properties`, `keystore.properties`, `*.jks`, database dump, bank statement, API key bí mật. Trước khi push kiểm tra `git diff --cached --name-only`, `git ls-files`, `git check-ignore -v`. Nếu một secret đã từng bị track, xóa khỏi Git index và **rotate** khóa (ignore không xóa lịch sử).
+- **`.env` (local, untracked):** cấu hình Backend/Docker/Google/Maps/SePay và những profile test cần thiết. Chỉ có một template `.env.example` được track.
+- **`docker-compose.yml`:** file Compose duy nhất, với các profile `local-infra`, `messaging-test`, `sepay-isolated`. Các DB test dùng container/volume riêng.
+- **Gradle:** `app/build.gradle.kts` chỉ đọc các biến **client allowlist** qua `-P` → environment → root `.env`. `gradle.properties.example` là mẫu cấu hình Gradle; `local.properties.example` dành cho SDK và `keystore.properties.example` dành cho signing — mỗi loại chỉ một mẫu. Các file thật bị ignore.
+- **Không** copy `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, `SEPAY_HANDOFF_SIGNING_KEY`, `POSTGRES_PASSWORD` hoặc private signing key vào APK.
 
-### 3.1. Cách lấy Google OAuth & Maps API key
+Với các profile phụ, **phải điền mật khẩu riêng** trong `.env`; không có mật khẩu MinIO hoặc database tài chính mặc định. Chỉ nên bật profile đang cần kiểm thử.
 
-1. Vào [Google Cloud Console](https://console.cloud.google.com/) → tạo/chọn project, cấu hình OAuth consent screen/branding.
-2. Tạo **OAuth 2.0 Client ID loại Web application**. Đặt cùng ID vào Backend `GOOGLE_CLIENT_ID` và Android `TROOI_GOOGLE_WEB_CLIENT_ID`/`trooiGoogleWebClientId`.
-3. Tạo **Android OAuth Client ID** với package `com.trooi.app` và SHA-1 certificate ký Debug. Release cần fingerprint của release key riêng. Kiểm tra SHA-1 Debug trên Windows:
-   ~~~powershell
-   keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
-   ~~~
-4. Với Maps, bật Maps SDK for Android, billing theo yêu cầu Google, tạo API key và restrict theo **Android package + SHA-1 + Maps SDK for Android**. Truyền qua `TROOI_MAPS_API_KEY`.
-5. Kiểm tra Google login trên emulator và điện thoại thật, Backend xác nhận đúng audience + principal; thử refresh/logout/restart. Debug Mock login không phải kiểm thử Google auth.
+## Chạy Backend + Database
 
-**Tài liệu chính thức:** [Google Sign-In Android](https://codelabs.developers.google.com/sign-in-with-google-android) · [OAuth Web Client ID](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid) · [Maps API key](https://developers.google.com/maps/documentation/android-sdk/get-api-key).
-
-### 3.2. SePay cá nhân + ngân hàng TPBank liên kết
-
-**Luồng:** Android → NestJS tạo Checkout → SePay QR `BANK_TRANSFER` → khách chuyển khoản → tiền về **TPBank đã liên kết với merchant SePay** → SePay IPN + REST → Backend xác minh → PostgreSQL Payment. Đây là **gateway SePay**, **không phải tích hợp trực tiếp TPBank API**; luồng QR đã thử **không cần TPBank API key**. Tài khoản SePay cá nhân phải có quyền liên kết ngân hàng và đủ điều kiện Production theo SePay.
-
-1. Vào [SePay Merchant](https://my.sepay.vn/), đăng ký/đăng nhập, mở **Cổng thanh toán**, cấu hình phương thức **Quét mã QR chuyển khoản ngân hàng**; bắt đầu ở Sandbox rồi làm thủ tục liên kết **tài khoản TPBank nhận tiền** mà merchant được quyền sử dụng.
-2. Khi chuyển Production đã được SePay duyệt, lấy **MERCHANT ID** + **SECRET KEY** Production ở dashboard, lưu chỉ trong server/secret manager.
-3. Cấu hình SePay IPN tại **Cổng thanh toán → Cấu hình → IPN**; chọn kiểu xác thực `SECRET_KEY`, tạo `SEPAY_IPN_SECRET_KEY` riêng và bảo đảm header đến Backend là `X-Secret-Key`. Tạo `SEPAY_HANDOFF_SIGNING_KEY` khác cả secret merchant và IPN.
-4. Backend chỉ bật SePay Production khi `SEPAY_ENABLED=true` và `SEPAY_ENVIRONMENT=production`; `SEPAY_FINANCE_DATABASE` phải **trùng tên database của `DATABASE_URL`**, đồng thời **không** được là `trooi_dev` hoặc `trooi_test`; `SEPAY_PUBLIC_BASE_URL` phải là HTTPS origin công khai không kèm path/port/query.
-5. Đăng ký URL IPN: `https://<public-host>/api/v1/finance/checkouts/sepay/ipn`. Backend cần public HTTPS reverse proxy có allowlist. **Không expose `/demo/login` hoặc Backend demo** qua ngrok.
-6. Handoff SePay submit form đến `https://pay.sepay.vn/v1/checkout/init`. Chỉ đánh dấu Checkout `SUCCEEDED` khi có bằng chứng provider được kiểm tra: đúng merchant/invoice/amount/currency, đúng giao dịch `BANK_TRANSFER`/`APPROVED`, đơn `CAPTURED`, tồn tại một Payment `GATEWAY / PROVIDER_VERIFIED`. Return URL hoặc ảnh chuyển khoản **không được tự xác nhận**.
-7. Kiểm thử callback thiếu/sai secret (401), payload sai (400), ambiguous/pending (503), retry idempotent (chỉ một Payment). Không gửi thêm tiền thật chỉ để “chạy test”.
-
-**Bằng chứng E2E riêng biệt (15/10/2026):** chuyển ngân hàng thật **2.000 VND**; SePay REST `CAPTURED` và IPN đã xác thực; Checkout `4a732deb-5183-426f-a125-373af0ad6158` thành `SUCCEEDED` trên **`trooi_sepay_isolated`**, Payment `00791baa-cf9a-4d17-ae10-678738bd13da` `PROVIDER_VERIFIED`. Gửi callback đó lần thứ hai **không tạo Payment trùng**. API detail của SePay từng trả HTTP 404, vì vậy source hiện có fallback **chỉ khi IPN đã xác thực và một đơn REST `CAPTURED` khớp tuyệt đối**. Điều này **không** chứng minh một Compose Production thống nhất đã hoạt động.
-
-**Tài liệu chính thức:** [SePay Quick Start](https://developer.sepay.vn/vi/cong-thanh-toan/bat-dau) · [IPN](https://developer.sepay.vn/vi/cong-thanh-toan/IPN) · [Checkout Form](https://developer.sepay.vn/vi/cong-thanh-toan/API/don-hang/form-thanh-toan).
-
-## 4. Dựng Backend + Database Docker (cách hiện có)
-
-`docker-compose.yml` là entrypoint. Postgres và Backend luôn chạy; Redis, MinIO và `minio-init` chỉ chạy với `--profile local-infra`. Backend trong container nhận SePay/MoMo/object-storage từ `.env`, nhưng guard production vẫn từ chối SePay khi database là `trooi_dev` hoặc `trooi_test`. `OBJECT_STORAGE_ENDPOINT` bên trong container là `http://minio:9000`. `COMPOSE_REDIS_URL=redis://redis:6379` mới bật Redis trong container. `compose.messaging.yml` giữ project test riêng.
-
-~~~powershell
-# Tại root; Docker Desktop đang chạy, .env đã tạo và điền đúng giá trị.
+```powershell
 docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d --build --wait
 docker compose ps
 curl.exe -i http://localhost:3000/api/v1/health
-docker compose logs --tail=80 backend
-~~~
+docker compose logs --tail=100 backend
+```
 
-`Dockerfile` build Nest; `docker-entrypoint.sh` chạy **migration up** trước khi mở API. PostgreSQL dùng named volume `postgres_persistence_data`. Backend qua Docker dùng hostname nội bộ `postgres`, host-side scripts dùng `localhost` trong `DATABASE_URL`. Không tự chạy `db:reset` sau build.
+Backend khởi chạy migrations theo `docker-entrypoint.sh`. PostgreSQL dùng named volume, dữ liệu được giữ khi `docker compose down` **không có `-v`**.
 
-Lệnh an toàn:
-~~~powershell
-docker compose logs -f backend
-docker compose logs -f postgres
-docker compose down
-# KHÔNG thêm -v: xóa volumes có thể xóa dữ liệu.
-~~~
+Các profile tùy chọn:
 
-**MinIO + Redis optional** (cần `MINIO_ROOT_PASSWORD` và, nếu bật storage, `OBJECT_STORAGE_ACCESS_KEY` / `OBJECT_STORAGE_SECRET_KEY` trùng user MinIO):
-~~~powershell
+```powershell
+# Cache và object storage (cấp MINIO_ROOT_PASSWORD riêng trong .env)
 docker compose --env-file .env --profile local-infra up -d --build --wait
-~~~
 
-`pnpm db:dev:up` chỉ khởi động service `postgres` của file này. Không dùng `docker compose down -v`. Messaging test vẫn là `docker compose -p trooi-messages-mvp -f compose.messaging.yml --profile messaging up -d`.
+# Messaging test: chỉ 2 service cô lập; không khởi động Backend mặc định
+docker compose --env-file .env --profile messaging-test up -d --no-deps messaging-postgres messaging-minio
 
-### 4.1. Chạy Nest trên host (không chạy Docker Backend song song ở port 3000)
+# Isolated SePay test DB: không phải DB finance/merchant Production
+docker compose --env-file .env --profile sepay-isolated up -d --no-deps sepay-postgres
+```
 
-Khi PostgreSQL/PostGIS đã chạy nhưng **container Backend tắt**:
+Các profile test **không thay thế hoặc gắn tự động** vào volume cũ `trooi-sepay-standalone`; dữ liệu thanh toán thật trước đây phải được bảo toàn riêng. Không dùng seed/reset/rollback hoặc `docker compose down -v` trên DB có dữ liệu quan trọng. Không chạy test tài chính trên `trooi_finance` hoặc bất kỳ finance DB thật nào.
 
-~~~powershell
-pnpm install --frozen-lockfile
+Nếu chạy Backend trên host thay vì container Backend:
+
+```powershell
+# Chỉ chạy sau khi DATABASE_URL trong .env đã trỏ tới DB thích hợp.
 node --env-file=.env --import tsx scripts/database/migrate.ts up
 pnpm build
 node --env-file=.env build/main.js
-~~~
+```
 
-Node `--env-file=.env` cần phiên bản Node phù hợp như phần 2. **`pnpm start:dev` không tự đọc `.env` từ PowerShell**: phải cấp biến môi trường trước (hoặc dùng wrapper được Duy Anh kiểm chứng).
+### Seed dữ liệu giả
 
-- Health: `GET http://localhost:3000/api/v1/health`.
-- API private: token Bearer do Backend xác minh + quyền Organization/Tenancy; không dùng UUID/tokens giả.
-- OpenAPI/Swagger: `src/main.ts` cấu hình Swagger tại path `docs` (kiểm tra URL host theo deployment).
-- Migration up: chỉ trên đúng DB, không chạy reset/down trên môi trường có tiền thật.
+`database/seeds/development.ts` và `scripts/demo/fixture.cjs` thêm Organization, Owner/Tenant, Room/Listing, Tenancy, Billing, Incident, Messages và Payment thủ công **USER_RECORDED**. Script từ chối database khác `trooi_dev`; chạy lại phải idempotent.
 
-### 4.2. Seed dữ liệu development (không dùng trên database tiền thật)
-
-Script đã có `database/seeds/development.ts` và gọi fixture `scripts/demo/fixture.cjs`. Sau migrate trên **DB dev/test riêng, được backup**:
-
-~~~powershell
-# Đảm bảo DATABASE_URL trong .env đang trỏ DB DEV, KHÔNG phải finance/production.
+```powershell
+# Sau migrations. Xác minh DATABASE_URL trỏ ĐÚNG trooi_dev trước khi chạy.
 node --env-file=.env --import tsx database/seeds/development.ts
-~~~
+```
 
-Lệnh dừng ngay nếu database trong URL không phải `trooi_dev`. `DATABASE_URL` trong `.env` của máy này đang là `trooi_finance`, nên không dùng file đó để seed.
+Không tạo gateway `PROVIDER_VERIFIED` giả hoặc seed vào DB nhận tiền thật.
 
-`scripts/demo/fixture.cjs` seed idempotent hai chủ trọ, hai người thuê, phòng trống và phòng đang thuê, listing `PUBLISHED` và `DRAFT`, tenancy, tiền thuê còn outstanding sau một lần phân bổ thủ công `USER_RECORDED`, sự cố đang mở và đã đóng, notice, notification và hai tin nhắn tenancy. Không tạo Payment `PROVIDER_VERIFIED`. Chạy lại không nhân bản.
+## Google OAuth và Maps
 
+1. Vào [Google Cloud Console](https://console.cloud.google.com/), tạo/chọn project và cấu hình OAuth consent.
+2. Tạo **Web OAuth Client ID** cho Backend Google ID-token verification: `GOOGLE_CLIENT_ID`. Android Credential Manager dùng cùng Web Client ID qua `TROOI_GOOGLE_WEB_CLIENT_ID`.
+3. Tạo **Android OAuth Client ID** cho package Debug `com.trooi.app.backenddev` và SHA-1 Debug; Release dùng `com.trooi.app` và release SHA-1 khác. Cấu hình màn hình đồng ý, tester và audience theo Google Cloud.
+4. Bật Maps SDK for Android, cấp `TROOI_MAPS_API_KEY` **giới hạn package + SHA-1 + API**.
+5. Test login Google thật, nonce, refresh, logout và phân quyền; Debug Mock login không được dùng để khẳng định OAuth E2E PASS.
 
-## 5. Build và chạy Android App
+```powershell
+keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+```
 
-Các lệnh sau dành cho **Windows PowerShell** tại thư mục gốc. SDK Android cần cài qua Android Studio; đường dẫn mặc định trên Windows là ví dụ, không phải quy tắc cố định.
+## Thanh toán SePay / TPBank
 
-~~~powershell
+TrọƠi tạo Checkout qua NestJS → SePay QR chuyển khoản → ngân hàng **TPBank được liên kết với SePay Merchant** nhận tiền → SePay IPN/REST đối soát → ghi Payment/Entitlement vào PostgreSQL. **Không sử dụng TPBank API Key trực tiếp** trong luồng này.
+
+- Tại [SePay Merchant](https://my.sepay.vn/): liên kết tài khoản nhận tiền được phép, lấy `SEPAY_MERCHANT_ID` và `SEPAY_SECRET_KEY`, cấu hình IPN secret riêng qua `X-Secret-Key`.
+- `SEPAY_ENABLED=true`, `SEPAY_ENVIRONMENT=production` chỉ được bật với `DATABASE_URL` trỏ **finance DB tách biệt**, có `SEPAY_FINANCE_DATABASE` khớp DB name và `SEPAY_PUBLIC_BASE_URL` là HTTPS origin công khai được kiểm soát.
+- IPN: `<SEPAY_PUBLIC_BASE_URL>/api/v1/finance/checkouts/sepay/ipn`. Không public các endpoint demo login.
+- **Không tự đánh dấu SUCCESS từ browser return**. Đối soát invoice, amount, remote order, bank method, SePay REST + IPN hợp lệ; callback trùng không tạo Payment/Entitlement thứ hai.
+- Checkout tiền thuê và **Checkout mua thêm slot Owner** là hai nghiệp vụ tách biệt. Giá slot hiện tại trong source là `259000.00 VND`, chỉ tăng entitlement sau `PROVIDER_VERIFIED`. Đây **chưa phải** chứng cứ đã nghiệm thu E2E cho slot; đừng chuyển tiền thật khi chưa kiểm tra luồng và quyền Owner.
+- Không tạo thêm giao dịch ngân hàng chỉ để chạy test code. Dùng unit/integration fixture và provider sandbox khi có cấu hình tương ứng.
+
+## Build Android
+
+```powershell
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 .\gradlew.bat :app:testDebugUnitTest --console=plain
 .\gradlew.bat :app:assembleDebug -PtrooiApiBaseUrl=http://10.0.2.2:3000 --console=plain
 adb devices
 adb -s emulator-5554 install -r app\build\outputs\apk\debug\app-debug.apk
-~~~
+```
 
-- **Google login:** cấp OAuth Web Client ID đúng Android/Backend, ví dụ đặt biến môi trường `TROOI_GOOGLE_WEB_CLIENT_ID` trước khi build. Cấu hình `GOOGLE_CLIENT_ID` của Backend tương ứng và đăng ký SHA-1 Debug/Release trong Google Cloud. Key không có nghĩa là login chắc chắn PASS; kiểm tra trên thiết bị.
-- **Maps:** cấp `TROOI_MAPS_API_KEY` có restriction. Chỉ Android client được nhận API key đã restrict; tuyệt đối không đóng gói SePay secret hoặc database password trong `BuildConfig`.
-- **Debug MOCK / BACKEND:** `RuntimeDataSource` giữ lựa chọn trong debug preferences. Debug không nhất thiết đang chạy Backend; kiểm tra chế độ trước khi test network/payment. Nếu muốn chủ động chọn Backend cho build local demo, dùng `-PtrooiDemoBackendEnabled=true` **chỉ ở Debug**, sau khi đã audit rằng demo login chỉ bind loopback. Debug demo auth không thay thế Google auth thật.
-- **Release:** `.\gradlew.bat :app:assembleRelease --console=plain` chỉ khi có signing key được bảo vệ ngoài Git, endpoint HTTPS hợp lệ và toàn bộ release gates PASS. App Release **không** được cấp đường login mock/demo. `keystore.properties` cá nhân và `*.jks` không được push.
-- **Emulator khác tên:** dùng kết quả `adb devices` để thay `emulator-5554`; điện thoại thật dùng IP LAN/HTTPS của máy Backend, **không dùng** `10.0.2.2`.
-- **Tránh lỗi URL kép:** xác nhận cách `BackendClient` ghép API prefix trước khi nhập `trooiApiBaseUrl`; không tự tạo `/api/v1/api/v1`.
+- Emulator truy cập Backend trên host qua `10.0.2.2`; điện thoại thật dùng địa chỉ LAN/HTTPS phù hợp.
+- Debug có thể chuyển MOCK/BACKEND, phải kiểm tra mode đang dùng trước khi nghiệm thu API.
+- Release: `.\gradlew.bat :app:assembleRelease` chỉ khi cấp private signing và HTTPS endpoint hợp lệ; không build secret server vào client.
 
-### 5.1. Kiểm tra những màn hình trọng yếu
+## Quality gates
 
-| Vai trò | Điều kiện demo |
-| --- | --- |
-| Guest | Discovery/search, listing detail, ảnh/map; không lộ dữ liệu tài khoản/chủ trọ |
-| Tenant | Google login hợp lệ, linked tenancy, billing cycle/charge, Checkout SePay, trạng thái chưa trả/đã trả và lịch sử đúng Backend |
-| Owner | Quản lý tài sản/phòng, tạo room/listing, công nợ, ghi nhận Payment, quyền giữa các Organization |
-| Auth/session | Google login, token refresh, logout/revoke, mở lại app, phân quyền User A/B; không dùng fixture bearer ở bản release |
-| SePay | Không tự báo thành công từ trình duyệt; đối chiếu IPN + REST + Payment, replay không ghi nhận trùng |
-| Slot phòng | **ĐANG BLOCK**: `AssetWizard.kt` có UI “Mở thêm 1 slot” / `259.000đ/năm` nhưng `TroOiViewModel.purchaseLocalCapacity()` hiện trả `REAUTH_UNAVAILABLE`. Giá trên UI là giá hiện có, **không phải** một Checkout hoạt động. Vì Pricing/Quota là `[FUTURE]`, phải xin quyết định Product để ẩn/disable hoặc đặc tả thanh toán slot riêng; **không** dùng sai luồng SePay tiền thuê để thu phí slot. |
-
-Slot cần Product chốt trước khi code Checkout: slot tính theo phòng đang quản lý hay theo tài sản; 259.000đ/năm có đúng không; capacity tăng chỉ sau Payment `PROVIDER_VERIFIED`; hủy/thất bại thì không tăng; hết hạn thì slot ngừng tính; gateway là SePay riêng, không phải Payment của tenancy. Chưa có quyết định đó nên luồng chưa được triển khai và nút không bị giấu.
-
-Ghi lại bằng chứng màn hình, HTTP status, và kết quả database cho từng vai trò. Nếu lỗi Auth/slot thì ghi **FAIL/BLOCKED** chứ không chuyển qua Mock rồi báo PASS.
-
-
-## 6. Kiểm thử và tiêu chí nghiệm thu
-
-~~~powershell
-# Static/backend
+```powershell
 pnpm typecheck
 pnpm build
 pnpm lint
-
-# Test SePay + test không dùng inline business fixture
-pnpm exec tsx --test tests/core/sepay-production.test.ts tests/core/sepay-ipn-list-fallback.test.ts tests/verification/cross-branch-persistence-fixtures.test.ts
-
-# Bộ test Backend tổng quát: cần cấp môi trường DB test đúng schema và migrations
+pnpm exec tsx --test tests/core/sepay-production.test.ts tests/core/sepay-ipn-list-fallback.test.ts
 pnpm test
+python scripts/verify_docs_links.py --scope all
+```
 
-# Android
-.\gradlew.bat :app:testDebugUnitTest --console=plain
-.\gradlew.bat :app:assembleDebug --console=plain
-~~~
+**Lưu ý:** full `pnpm test` yêu cầu **database test đã migrate** và environment phù hợp; thiếu `DATABASE_URL` có thể khiến runtime access tests bị hủy. Không gọi đó là full PASS nếu còn test fail/cancel. Docker Engine và thiết bị/emulator phải chạy để nghiệm thu E2E thật.
 
-**Snapshot lúc merge `main` commit `71a3343`, không được đổi thành PASS nếu chưa chạy lại:**
-
-- Backend typecheck, build, lint: **PASS**; SePay + fixture governance: **17/17 PASS**; Android `CheckoutIdentityTest`: PASS.
-- Ba governance fixture Finance, Application Restart và Identity đã PASS trên máy này (15/15 trong bộ verification tương ứng). Full `pnpm test` vẫn cần `TEST_DATABASE_URL` trỏ `trooi_test` local; thiếu URL thì các bài integration bị cancel, không được tính là PASS full suite.
-- E2E tiền thật **2.000đ** chỉ được kiểm chứng trên finance DB cô lập; không coi đó là full Product, Docker hay Google Authentication acceptance.
-
-**Không chạy full test với finance DB đã chứa Payment thật.** Các test có thể ghi dữ liệu. Môi trường kiểm thử cần DB và identity/fixtures riêng, migrations đúng version, các biến môi trường được load thật (PowerShell chạy `pnpm test` **không tự đọc** `.env`). Duy Anh cần chuẩn hóa test runner và ghi bằng chứng PASS/FAIL.
-
-## 7. Khắc phục sự cố nhanh
-
-| Triệu chứng | Kiểm tra và xử lý |
-| --- | --- |
-| `docker compose up` fail | Docker Desktop, `docker compose --env-file .env config --quiet`, ports đang chiếm, env bắt buộc; không xóa volume để chữa lỗi |
-| Backend trả `500`/không kết nối DB | `docker compose ps`, `docker compose logs backend`, schema migrations, hostname `postgres` (Docker) và `localhost` (host) |
-| Google Auth `401`/`503` | Web OAuth client audience khớp, Android OAuth package/SHA-1, access guard, principal tồn tại; không bypass auth bằng Mock |
-| Debug app vẫn thấy dữ liệu mẫu | Kiểm tra `RuntimeDataSource`: chọn BACKEND, API host/port, token Tenant/Owner, refresh app |
-| IPN SePay `401` | Secret ở server và SePay dashboard có đồng bộ không; không ghi key ra log |
-| IPN SePay `400/503` | Payload, invoice/amount/currency/remote order ID, merchant và REST evidence; REST detail `404` chỉ có fallback xác thực nghiêm ngặt |
-| Chuyển tiền rồi nhưng UI chưa đổi | Kiểm tra Checkout readback + IPN/REST + PostgreSQL Payment; **đừng chuyển tiếp lần thứ hai** cho đến khi đối soát |
-| Slot chủ trọ bấm không hoạt động | Blocker sản phẩm: Pricing/Quota là `[FUTURE]`. UI vẫn hiện 259.000đ/năm nhưng chưa có Checkout slot. Không dùng Payment tiền thuê để thu phí này |
-| Gradle không thấy SDK | `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `local.properties` private khi cần, JDK/AGP |
-| Build Release lỗi signing | Không commit `keystore.properties`/`*.jks`; cấp key bằng kênh an toàn, xác nhận SHA-1 Release riêng |
-| `pnpm test` fail/cancel | Xem baseline `main`, cung cấp **DB test riêng**, sửa fixture governance trước khi báo toàn bộ PASS |
-
-## 8. Bàn giao Duy Anh và quy tắc an toàn
-
-Phần đã nối trong source: fixture governance, một `.env` cho Compose/Gradle allowlist, một `docker-compose.yml`, seed demo đa vai. Phần chưa được nghiệm thu trên máy này, và không được báo PASS:
-
-- Docker stack đã build và healthy trên project `trooi-project`: Postgres, Backend, Redis, MinIO. Migration `000016` chỉ chạy trên `trooi_dev`. `trooi_finance` vẫn 6 payment, 4 `PROVIDER_VERIFIED`, schema dừng ở `000007`. Seed từ chối mọi database khác `trooi_dev` vì `DATABASE_URL` trên máy này đang trỏ `trooi_finance`.
-- Google login thật vẫn phụ thuộc gate `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` (mặc định tắt cho đến khi có quyết định bật riêng) và OAuth SHA-1 trên thiết bị.
-- SePay production vẫn chỉ hợp lệ trên finance database tách khỏi `trooi_dev`/`trooi_test`. Giao dịch 2.000đ đã có không được tạo lại.
-- Mua slot 259.000đ/năm đang chờ quyết định Product ở mục 5.1 của README. Không gắn vào Checkout tiền thuê.
-- Android Debug/Release và scenario E2E trên emulator chưa được chạy trong lượt này.
-
-Chi tiết đầu việc và Definition of Done tại **[Handoff Duy Anh 15/10/2026](docs/superpowers/handoff/duyanh-20261015-main-demo-hardening.md)**. Không dùng `docker compose down -v`, `pnpm db:reset` hoặc rollback migrations trên DB có dữ liệu quan trọng; không push secret hoặc log thông tin ngân hàng lên GitHub.
+Đọc [hướng dẫn module](src/modules/) và [database](docs/database/) để tìm contract theo chức năng. Mọi thay đổi config phải cập nhật ngay README này và `.env.example`, không tạo thêm file config song song chỉ để chạy demo.
