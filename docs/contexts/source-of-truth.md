@@ -42,10 +42,6 @@ Nếu lower layer conflict với higher layer trong chain này, sửa lower laye
 | `docs/contexts/` | Shared mental model, onboarding, liên kết | Không override canonical |
 | `docs/database/vN/` | Versioned product/domain/data contract | Có, theo authority chain của release |
 | `docs/backlogs/vN/` | Scoped implementation work đang phát triển | Không tự định nghĩa business truth |
-| `docs/superpowers/specs/` | Design specification tại thời điểm thực hiện | Historical/design evidence |
-| `docs/superpowers/plans/` | Execution plan | Không |
-| `docs/superpowers/audits/` | Audit/conformance evidence | Bằng chứng, không tự tạo semantics |
-| `docs/superpowers/handoff/` | Session/agent handoff history | Không |
 | `docs/temps/` | Chưa phân loại/chưa review | Tuyệt đối không |
 | `docs/archives/` | Historical/special retained artifacts | Không |
 
@@ -95,4 +91,4 @@ Khi phát hiện hai nguồn khác nhau:
 
 ## 8. Reading rule cho agent mới
 
-Bắt đầu từ [`README.md`](README.md) để hiểu hệ thống; khi cần quyết định business/data semantics thì chuyển sang database contract v1; khi cần biết execution history thì đọc Superpowers; khi cần biết việc đang làm thì đọc Backlogs.
+Bắt đầu từ [`README.md`](README.md) để hiểu hệ thống; khi cần quyết định business/data semantics thì chuyển sang database contract v1; khi cần biết lịch sử triển khai thì tra cứu lịch sử Git; khi cần biết việc đang làm thì đọc Backlogs.

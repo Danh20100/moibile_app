@@ -20,7 +20,7 @@ Remaining product-contract suites are intentionally **RED** until later waves:
 - incident
 - trust
 
-See `docs/superpowers/audits/2026-09-28-erd3-conformance-red-baseline.md` for exact failing test names and owners.
+Historical audit reports are available in Git history; current acceptance is determined by tests in this directory.
 
 ## Test style
 
