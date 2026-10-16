@@ -57,7 +57,7 @@ class NativeMapSmokeTest {
     }
 
     @Test
-    fun missingMapsKeyRendersConfigState() {
+    fun missingMapsKeyUsesFreeMapLibre() {
         assumeTrue(BuildConfig.MAPS_API_KEY.isBlank())
         compose.setContent {
             TroOiTheme {
@@ -70,8 +70,8 @@ class NativeMapSmokeTest {
                 )
             }
         }
-        compose.onNodeWithTag("native-map-unconfigured").assertIsDisplayed()
-        compose.onNodeWithText("Chưa cấu hình bản đồ").assertIsDisplayed()
+        compose.onNodeWithText("MapLibre · OpenFreeMap").assertIsDisplayed()
+        compose.onNodeWithTag("maplibre-attribution").assertIsDisplayed()
         assertTrue(publicMapMarkers(listings).isNotEmpty())
     }
 

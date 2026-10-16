@@ -30,7 +30,7 @@ import com.trooi.app.ui.components.TroOiCard
 import com.trooi.app.ui.components.TroOiFeedback
 
 @Composable
-fun NativeMapView(
+internal fun GoogleNativeMapView(
     publicMarkers: List<PublicListingCard>,
     selectedPoint: PublicGeoPoint?,
     onCameraCenter: (PublicGeoPoint) -> Unit,
