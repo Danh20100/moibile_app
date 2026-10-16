@@ -18,11 +18,14 @@ async function main() {
   assert.equal(unauth.status, 401, 'Unauthenticated checkout lookup must fail');
   console.log('UNAUTHENTICATED_CHECKOUT_401=PASS');
 
+  if (!process.env.TROOI_DEMO_PASSWORD || process.env.TROOI_DEMO_PASSWORD.length < 12) {
+    throw new Error('TROOI_DEMO_PASSWORD must be set privately for the isolated demo');
+  }
   const login = await request(origin + '/demo/login', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       identifier: 'tenant@trooi.local',
-      password: process.env.TROOI_DEMO_PASSWORD || 'TroOiDemo2026!',
+      password: process.env.TROOI_DEMO_PASSWORD,
     }),
   });
   assert.equal(login.status, 201, 'Demo tenant login failed');

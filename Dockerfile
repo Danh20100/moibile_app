@@ -25,6 +25,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
 COPY database ./database
 COPY scripts/database/migrate.ts ./scripts/database/migrate.ts
+COPY scripts/config/verify-runtime.cjs ./scripts/config/verify-runtime.cjs
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN sed -i 's/\r$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 

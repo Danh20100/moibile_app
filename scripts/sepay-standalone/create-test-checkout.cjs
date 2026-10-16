@@ -40,9 +40,12 @@ async function main() {
       return;
     }
   }
+  if (!process.env.TROOI_DEMO_PASSWORD || process.env.TROOI_DEMO_PASSWORD.length < 12) {
+    throw new Error('TROOI_DEMO_PASSWORD must be set privately for the isolated demo');
+  }
   const session = await jsonRequest(origin + '/demo/login', {
     identifier: 'tenant@trooi.local',
-    password: process.env.TROOI_DEMO_PASSWORD || 'TroOiDemo2026!',
+    password: process.env.TROOI_DEMO_PASSWORD,
   });
   if (!session.accessToken || session.userId !== 'e0080000-0000-4000-8000-000000000001') {
     throw new Error('Unexpected tenant session');

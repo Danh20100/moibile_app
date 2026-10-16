@@ -3,6 +3,7 @@ name: Infrastructure Foundation Verification
 on:
   push:
     branches:
+      - main
       - design/app-ui-redesign
     paths:
       - '.github/workflows/infrastructure-foundation.yml'
@@ -13,6 +14,12 @@ on:
       - 'tests/integration/infrastructure/**'
       - 'docker-compose.yml'
       - '.env.example'
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'app/build.gradle.kts'
+      - 'gradle.properties.example'
+      - 'scripts/config/**'
+      - 'tests/verification/configuration-completeness.test.ts'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +36,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 12.10.1
           run_install: false
 
       - name: Set up Node.js
@@ -47,6 +54,9 @@ jobs:
       - name: Test infrastructure configuration and disabled adapters
         run: pnpm exec tsx --test tests/integration/infrastructure/*.test.ts
 
+      - name: Enforce complete and isolated environment configuration
+        run: pnpm exec tsx --test tests/verification/configuration-completeness.test.ts
+
       - name: Validate optional Compose syntax without starting services
         env:
           POSTGRES_USER: trooi_ci
@@ -55,4 +65,4 @@ jobs:
           POSTGRES_TEST_DB: trooi_test_ci
           MINIO_ROOT_USER: trooi_ci
           MINIO_ROOT_PASSWORD: trooi_ci_password_only
-        run: docker compose -f docker-compose.yml --profile local-infra config -q
+        run: docker compose --env-file .env.example --profile local-infra --profile messaging-test --profile sepay-isolated --profile finance-production config -q

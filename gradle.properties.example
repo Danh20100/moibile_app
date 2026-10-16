@@ -1,17 +1,20 @@
-org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+# Gradle / Android build-tool defaults only.
+# Copy to untracked gradle.properties ONLY if these JVM settings are needed locally.
+# Application settings live in root .env (one authoritative source); do not set them
+# here unless you intentionally want a Gradle -P override.
+org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
 org.gradle.parallel=true
 org.gradle.caching=true
 android.nonTransitiveRClass=true
 android.useAndroidX=true
 android.overridePathCheck=true
-
-# Emulator reaches the host API. A physical device needs the host LAN address instead.
-trooiApiBaseUrl=http://10.0.2.2:3000
-# OAuth Web Client ID (....apps.googleusercontent.com). Leave empty until Google Cloud creates it.
-trooiGoogleWebClientId=
-# Debug SePay handoff origin: set only for a trusted local test endpoint. Release stays blank unless
-# trooiReleasePaymentPublicOrigin is a non-tunnel HTTPS origin.
-trooiPaymentPublicOrigin=
-
-# Enabled parallel sync for Gradle 9.4+
 org.gradle.tooling.parallel=true
+
+# Supported -P property names; normally read their TROOI_* counterparts from .env:
+# trooiApiBaseUrl                    -> TROOI_API_BASE_URL
+# trooiGoogleWebClientId            -> TROOI_GOOGLE_WEB_CLIENT_ID (fallback GOOGLE_CLIENT_ID)
+# trooiMapsApiKey                   -> TROOI_MAPS_API_KEY
+# trooiPaymentPublicOrigin          -> TROOI_PAYMENT_PUBLIC_ORIGIN (Debug only)
+# trooiReleasePaymentPublicOrigin   -> TROOI_RELEASE_PAYMENT_PUBLIC_ORIGIN (HTTPS non-tunnel)
+# trooiDemoBackendEnabled           -> TROOI_DEMO_BACKEND_ENABLED (Debug only)
+# trooiInstrumentationBuildType     -> default debug (Gradle test-only setting)

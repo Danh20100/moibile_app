@@ -51,7 +51,10 @@ const accessTokens = new Map();
 const refreshTokens = new Map();
 const refreshOperations = new Map();
 const tokenLifetimeMs = 12 * 60 * 60 * 1000;
-const password = process.env.TROOI_DEMO_PASSWORD || 'TroOiDemo2026!';
+const password = process.env.TROOI_DEMO_PASSWORD;
+if (!password || password.length < 12) {
+  throw new Error('TROOI_DEMO_PASSWORD must be set privately for the loopback demo runner');
+}
 let transactions;
 
 function demoPrincipal(request) {
