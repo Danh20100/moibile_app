@@ -79,7 +79,19 @@ class AssetPublicationFlowTest {
         nativeClick(thumbnails[0])
         android.os.SystemClock.sleep(300)
         nativeClick(nativeNodes().filter { it.viewIdResourceName?.endsWith("icon_thumbnail") == true || it.contentDescription?.toString()?.startsWith("Photo taken") == true }[1])
-        val add = nativeNodes().firstOrNull { it.viewIdResourceName?.endsWith("button_add") == true || it.text?.toString()?.startsWith("Add") == true || it.text?.toString() == "Done" }
+        // The system photo picker publishes its confirmation action asynchronously after selection.
+        // Wait for the actual accessible action rather than racing its transient layout update.
+        val confirmDeadline = android.os.SystemClock.uptimeMillis() + 10000
+        var add: AccessibilityNodeInfo? = null
+        do {
+            add = nativeNodes().firstOrNull {
+                it.viewIdResourceName?.endsWith("button_add") == true ||
+                    it.text?.toString()?.startsWith("Add") == true ||
+                    it.text?.toString() == "Done"
+            }
+            if (add != null) break
+            android.os.SystemClock.sleep(100)
+        } while (android.os.SystemClock.uptimeMillis() < confirmDeadline)
         checkNotNull(add) { "Picker add action missing: ${nativeNodes().map { "${it.viewIdResourceName}:${it.text}" }}" }
         nativeClick(add)
         compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-cover-1").fetchSemanticsNodes().isNotEmpty() }
@@ -90,6 +102,11 @@ class AssetPublicationFlowTest {
             compose.onNodeWithTag("nav-tab-profile").performClick()
             compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
             compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
         }
         compose.onAllNodesWithText("Đăng nhập").onFirst().performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("owner@trooi.local")
@@ -122,8 +139,17 @@ class AssetPublicationFlowTest {
         compose.onNodeWithTag("asset-pin-center").performClick()
         screenshot("asset-location-pin")
         compose.onNodeWithText("Lưu vị trí").performClick()
-        compose.onNodeWithTag("asset-save-draft").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("asset-wizard").fetchSemanticsNodes().isEmpty() }
+        // A draft can only be persisted after valid rent/deposit and a completed physical description.
+        // The production validation must NOT be bypassed to satisfy the old test fixture.
+        compose.onNodeWithTag("asset-next").performClick()
+        compose.onNodeWithTag("asset-wc-PRIVATE").performClick()
+        field("asset-max-occupants", "2")
+        field("asset-description", "Bản nháp đã ghi nhận diện tích và mô tả không gian.")
+        compose.onNodeWithTag("asset-next").performClick()
+        field("asset-rent", "3200000")
+        field("asset-deposit", "3200000")
+        compose.onNodeWithTag("asset-save-draft").assertIsEnabled().performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-wizard").fetchSemanticsNodes().isEmpty() }
         val draftRead = repository.refreshAuthorizedRead(account.access).getOrThrow()
         val draft = draftRead.localManagement!!.assets.single { asset -> baseline.assets.none { it.id == asset.id } }
         assertEquals(baseline.used, draftRead.localManagement!!.used)
@@ -188,9 +214,10 @@ class AssetPublicationFlowTest {
         compose.onNodeWithTag("ledger-screen").performScrollToNode(hasTestTag("ledger-capacity"))
         compose.onNodeWithTag("ledger-capacity").assertTextEquals("${baseline.used + 1} / ${baseline.capacity() + 1} đang quản lý")
         compose.onNodeWithTag("nav-tab-discovery").performClick()
-        compose.onNodeWithTag("explore-main-feed").performScrollToNode(hasTestTag("explore-card-${published.listingId}"))
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-${published.listingId}"))
         screenshot("published-local-listing")
-        compose.onNodeWithTag("explore-card-${published.listingId}").performClick()
+        compose.onNodeWithTag("discovery-detail-${published.listingId}").performClick()
         compose.onNodeWithText("Phòng C01").assertExists()
         compose.onNodeWithText("18 Đường D5, Phường 25, Bình Thạnh, TP.HCM").assertDoesNotExist()
         screenshot("published-local-detail")

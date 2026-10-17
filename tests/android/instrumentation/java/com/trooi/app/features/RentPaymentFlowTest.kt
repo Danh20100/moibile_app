@@ -77,6 +77,11 @@ class RentPaymentFlowTest {
             compose.onNodeWithTag("nav-tab-profile").performClick()
             compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
             compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
         }
         compose.onAllNodesWithText("Đăng nhập").onFirst().performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("tenant@trooi.local")

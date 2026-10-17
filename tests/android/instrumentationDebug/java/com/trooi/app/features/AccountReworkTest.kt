@@ -58,7 +58,7 @@ class AccountReworkTest {
         compose.onNodeWithText("Mật khẩu hiện tại").performTextInput("TroOi2026!")
         compose.onNodeWithTag("reauth-confirm").performClick()
         compose.waitUntil(3000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
-        if (expectBoundary) compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
+        if (expectBoundary) compose.onNodeWithText("Chưa thể thực hiện").assertExists()
     }
 
     private fun pinReauth() {
@@ -104,7 +104,7 @@ class AccountReworkTest {
         compose.onNodeWithContentDescription("Quay lại").performClick()
         compose.onNodeWithText("Tiếp tục chỉnh sửa").performClick()
         compose.onNodeWithText("Lưu lựa chọn").performClick()
-        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
         compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithContentDescription("Quay lại").performClick()
         compose.onNodeWithText("Bỏ thay đổi").performClick()
@@ -114,7 +114,7 @@ class AccountReworkTest {
         compose.onNodeWithContentDescription("Quay lại").performClick()
         click("Ngừng nhận tất cả ưu đãi và cập nhật", "account-page-notifications")
         passwordReauth(expectBoundary = true)
-        compose.onNodeWithText("Hiện chưa khả dụng").assertIsDisplayed()
+        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
         compose.onNodeWithText("Đã hiểu").performClick()
         compose.onNodeWithText("Tài khoản").performClick()
         click("Bảo mật và xác thực", "account-page-notifications")
@@ -138,8 +138,9 @@ class AccountReworkTest {
         compose.onNodeWithText("Thêm phương thức").performClick()
         pinReauth()
         compose.onNode(hasSetTextAction()).performTextInput("Ngân hàng Demo")
-        compose.onNodeWithText("Tiếp tục").performClick()
-        compose.onNodeWithText("Hiện chưa khả dụng").assertExists()
+        compose.onNodeWithText("Tiếp tục").assertIsEnabled().performClick()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Chưa thể thực hiện").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Chưa thể thực hiện").assertExists()
     }
 
     @Test fun privacyDeleteConfirmationAndRestore() {
@@ -262,6 +263,9 @@ class AccountReworkTest {
     @Test fun parentDirtyStateSurvivesCleanChildAndRestoration() {
         val restore = StateRestorationTester(compose)
         restore.setContent { TroOiTheme { AccountSettingsFlow(tenant, {}, "privacy") } }
+        // Privacy edits are protected by reauthentication; do not mutate a disabled preview switch.
+        compose.onNodeWithText("Chỉnh sửa").performClick()
+        passwordReauth()
         compose.onNode(isToggleable() and hasText("Đã đọc tin nhắn", substring = true)).performClick()
         click("Chế độ hiển thị hồ sơ", "account-page-privacy")
         compose.onNodeWithContentDescription("Quay lại").performClick()

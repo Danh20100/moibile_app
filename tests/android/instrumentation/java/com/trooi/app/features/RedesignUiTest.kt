@@ -49,9 +49,12 @@ class RedesignUiTest {
         compose.onNodeWithTag("listing-image-indicator").assertTextEquals("1/3")
         compose.onNodeWithTag("listing-hero-pager").performTouchInput { swipeLeft() }
         compose.onNodeWithTag("listing-image-indicator").assertTextEquals("2/3")
-        compose.onNodeWithTag("listing-favorite").assertIsNotSelected().performClick().assertIsSelected()
-        compose.onNodeWithTag("listing-viewing-cta").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Tính năng đặt lịch xem đang được phát triển.").assertExists()
+        // No local favorite or fake viewing CTA: published listings offer verified contact/report affordances.
+        compose.onNodeWithTag("listing-share").assertExists()
+        compose.onNodeWithTag("listing-open-report").assertExists()
+        compose.onNodeWithTag("listing-contact-cta").assertIsDisplayed().performClick()
+        // Contact CTA scrolls to the bottom, where the hero back button is lazily uncomposed.
+        compose.onNodeWithTag("listing-detail-demo-studio").performScrollToIndex(0)
         compose.onNodeWithTag("listing-back").performClick()
         assertEquals(1, backs)
     }
@@ -88,16 +91,12 @@ class RedesignUiTest {
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("profile-landlord-cta"))
         compose.onNodeWithTag("profile-landlord-cta").performClick()
         compose.onNodeWithText("CHẾ ĐỘ DEMO").assertDoesNotExist()
+        // Step 0 intro leads to mandatory CCCD capture; birthday is on the next guarded step.
         compose.onNodeWithTag("onboarding-next").performClick()
-        compose.onNodeWithTag("onboarding-next").assertIsNotEnabled()
-        compose.onNodeWithTag("onboarding-birthday").performTextReplacement("31/02/1995")
-        compose.onNodeWithTag("onboarding-next").assertIsNotEnabled()
-        compose.onNodeWithTag("onboarding-birthday").performTextReplacement("15/06/1995")
-        compose.onNodeWithTag("onboarding-birthday").performImeAction()
-        compose.onNodeWithTag("onboarding-next").performClick()
-        compose.onNodeWithTag("onboarding-next").assertIsNotEnabled()
-        compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-front"))
         compose.onNodeWithTag("onboarding-id-front").assertExists()
+        compose.onNodeWithTag("onboarding-id-back").assertExists()
+        compose.onNodeWithTag("onboarding-next").assertIsNotEnabled()
+        compose.onNodeWithTag("onboarding-birthday").assertDoesNotExist()
         assertEquals(0, completions)
         assertTrue(state.access.operatedOrganizationIds.isEmpty())
     }
@@ -119,7 +118,7 @@ class RedesignUiTest {
         compose.setContent { TroOiTheme { ProfileScreen(state, onOpenWorkspace = { workspaces++ }) } }
         compose.onNodeWithTag("profile-mode-operator").assertDoesNotExist()
         compose.onNodeWithTag("profile-mode-tenant").assertDoesNotExist()
-        compose.onNodeWithText("Chủ trọ").assertExists()
+        compose.onNodeWithText("Chủ trọ · Người thuê").assertExists()
         assertEquals(setOf("t"), state.access.linkedTenancyIds)
         assertEquals(setOf("o"), state.access.operatedOrganizationIds)
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("profile-landlord-cta"))
@@ -135,19 +134,26 @@ class RedesignUiTest {
         var settings = 0
         var help = 0
         var logout = 0
-        compose.setContent { TroOiTheme { ProfileScreen(TroOiUiState(isAuthenticated = true, displayName = "Lan"), onNotifications = { notifications++ }, onSettings = { settings++ }, onHelp = { help++ }, onLogout = { logout++ }) } }
+        compose.setContent { TroOiTheme { ProfileScreen(
+            TroOiUiState(isAuthenticated = true, displayName = "Lan"),
+            onNotifications = { notifications++ },
+            onSettings = { settings++ },
+            onHelp = { help++ },
+            onLogout = { logout++ },
+        ) } }
         compose.onNodeWithTag("profile-notification-bell").performClick()
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-settings"))
         compose.onNodeWithTag("account-settings").performClick()
-        compose.onNodeWithText("Thông tin tài khoản").assertExists()
-        compose.onNodeWithContentDescription("Quay lại").performClick()
-        compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
-        compose.onNodeWithTag("account-logout").performClick()
-        compose.onNodeWithTag("profile-scroll").performScrollToNode(hasText("Cài đặt"))
-        compose.onNodeWithText("Cài đặt").performClick()
-        compose.onNodeWithText(PROFILE_UNSUPPORTED_MESSAGE).assertExists()
+        // Settings and help are caller-owned navigation callbacks; Profile must not show fake local pages.
+        compose.runOnIdle { assertEquals(1, settings) }
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-help"))
         compose.onNodeWithTag("account-help").performClick()
-        assertEquals(listOf(1, 0, 0, 1), listOf(notifications, settings, help, logout))
+        compose.runOnIdle { assertEquals(1, help) }
+        compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
+        compose.onNodeWithTag("account-logout").performClick()
+        compose.runOnIdle { assertEquals(0, logout) }
+        compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+        compose.runOnIdle { assertEquals(listOf(1, 1, 1, 1), listOf(notifications, settings, help, logout)) }
     }
+
 }

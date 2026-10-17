@@ -36,6 +36,11 @@ class SeededAccountFlowTest {
         compose.onNodeWithTag("nav-tab-profile").performClick()
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
         compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
     }
     private fun login(email: String, capture: String) {
         compose.waitUntil(20000) { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -59,9 +64,11 @@ class SeededAccountFlowTest {
         compose.onNodeWithTag("ledger-mode-owner").assertDoesNotExist()
         screenshot("tenant-ledger")
         compose.onNodeWithTag("nav-tab-discovery").performClick()
-        compose.onNodeWithTag("explore-card-demo-studio").assertExists()
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-demo-studio"))
+        compose.onNodeWithTag("discovery-card-demo-studio").assertExists()
         screenshot("explore")
-        compose.onNodeWithTag("explore-card-demo-studio").performClick()
+        compose.onNodeWithTag("discovery-detail-demo-studio").performClick()
         compose.onNodeWithText("Căn hộ An Nhiên").assertExists()
         screenshot("listing-detail-top")
         compose.onNodeWithTag("listing-detail-demo-studio").performScrollToNode(hasText("Điều cần biết"))

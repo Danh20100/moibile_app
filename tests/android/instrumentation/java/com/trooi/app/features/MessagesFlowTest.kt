@@ -32,9 +32,18 @@ class MessagesFlowTest {
         bitmap.recycle()
     }
     private fun logout() {
+        // The conversation detail hides bottom navigation. Return to its list before switching tabs.
+        if (compose.onAllNodesWithTag("conversation-detail").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithContentDescription("Quay lại Tin nhắn").performClick()
+        }
         compose.onNodeWithTag("nav-tab-profile").performClick()
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
         compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
     }
     private fun login(identifier: String) {
         compose.waitUntil(30000) { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -96,6 +105,10 @@ class MessagesFlowTest {
             android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("cmd uimode night no")).use { it.readBytes() }
             android.os.SystemClock.sleep(700)
         }
+        // Restoring the device theme keeps the active conversation open, not the bottom navigation.
+        if (compose.onAllNodesWithTag("conversation-detail").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithContentDescription("Quay lại Tin nhắn").performClick()
+        }
         waitFor("nav-tab-profile")
         logout()
         login("owner@trooi.local")
@@ -113,6 +126,8 @@ class MessagesFlowTest {
         waitFor("messages-empty-explore")
         screenshot("messages-empty")
         compose.onNodeWithTag("messages-empty-explore").performClick()
-        compose.onNodeWithTag("explore-card-demo-studio").assertExists()
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-demo-studio"))
+        compose.onNodeWithTag("discovery-card-demo-studio").assertExists()
     }
 }

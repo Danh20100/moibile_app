@@ -10,6 +10,8 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -27,6 +29,15 @@ import org.junit.Test
 class AccountSecurityUiTest {
     @get:Rule val compose = createComposeRule()
     private val owner = TroOiUiState(isAuthenticated = true, demoPreview = true, backendUserId = "fixture-user-ha")
+
+    private fun showKeyboardAccessibleLoginEmail() {
+        compose.setContent {
+            // Android starts in touch mode. Exercise the hardware-keyboard navigation contract explicitly.
+            val inputMode = LocalInputModeManager.current
+            LaunchedEffect(Unit) { inputMode.requestInputMode(InputMode.Keyboard) }
+            TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") }
+        }
+    }
 
     @Test fun pinMismatchDirtyBackAndForgotNeverDowngrades() {
         compose.setContent { TroOiTheme { AccountSettingsFlow(owner, {}, "security") } }
@@ -96,7 +107,7 @@ class AccountSecurityUiTest {
     }
 
     @Test fun backendLoginEmailGateCanBeActivatedByKeyboard() {
-        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") } }
+        showKeyboardAccessibleLoginEmail()
         val action = compose.onNodeWithText("Thay đổi email")
         action.performSemanticsAction(SemanticsActions.RequestFocus)
         action.assertIsFocused()
@@ -106,7 +117,7 @@ class AccountSecurityUiTest {
     }
 
     @Test fun loginEmailActionIsNextKeyboardFocusAfterBackButton() {
-        compose.setContent { TroOiTheme { AccountSettingsFlow(owner.copy(demoPreview = false), {}, "login-email") } }
+        showKeyboardAccessibleLoginEmail()
         val back = compose.onNodeWithContentDescription("Quay lại")
         back.performSemanticsAction(SemanticsActions.RequestFocus)
         back.assertIsFocused()
