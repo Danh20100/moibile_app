@@ -7,12 +7,25 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /** Exercises the actual app/repository/session flow, rather than a preview composable. */
 class SeededAccountFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    // Developer machines with TROOI_API_BASE_URL default to Backend, whose email login never opens the ledger.
+    private val pinFixtureSource = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
+        }
+    }
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(pinFixtureSource).around(compose)
 
     private fun waitFor(tag: String) = compose.waitUntil(20000) {
         compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
@@ -23,12 +36,12 @@ class SeededAccountFlowTest {
         instrumentation.waitForIdleSync()
         android.os.SystemClock.sleep(750) // Let native IME/window transitions finish before capture.
         var bitmap: Bitmap? = null
-        for (attempt in 0 until 3) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 2000
+        while (bitmap == null && android.os.SystemClock.uptimeMillis() < deadline) {
             bitmap = instrumentation.uiAutomation.takeScreenshot()
-            if (bitmap != null) break
-            if (attempt < 2) android.os.SystemClock.sleep(300)
+            if (bitmap == null) android.os.SystemClock.sleep(300)
         }
-        val captured = requireNotNull(bitmap)
+        val captured = requireNotNull(bitmap ?: framebuffer(instrumentation)) { "Screenshot was null after UiAutomation and screencap: $name" }
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
@@ -37,6 +50,18 @@ class SeededAccountFlowTest {
         }))
         requireNotNull(resolver.openOutputStream(uri)).use { captured.compress(Bitmap.CompressFormat.PNG, 100, it) }
         captured.recycle()
+    }
+    private fun framebuffer(instrumentation: android.app.Instrumentation): Bitmap? {
+        val command = instrumentation.uiAutomation.executeShellCommand(
+            "screencap -p /data/local/tmp/trooi-fallback.png && base64 /data/local/tmp/trooi-fallback.png"
+        )
+        val encoded = try {
+            java.io.FileInputStream(command.fileDescriptor).bufferedReader().use { it.readText() }
+        } finally {
+            command.close()
+        }
+        val bytes = runCatching { android.util.Base64.decode(encoded, android.util.Base64.DEFAULT) }.getOrNull() ?: return null
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
     private fun logout() {
         compose.onNodeWithTag("nav-tab-profile").performClick()

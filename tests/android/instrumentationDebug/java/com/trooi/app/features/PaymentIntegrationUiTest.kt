@@ -17,6 +17,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.lifecycle.Lifecycle
+import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.core.model.*
@@ -27,6 +31,7 @@ import com.trooi.app.features.shared.RentalTenancy
 import com.trooi.app.features.tenancy.*
 import com.trooi.app.ui.theme.TroOiTheme
 import java.io.File
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +41,17 @@ import org.junit.runner.RunWith
 class PaymentIntegrationUiTest {
     @get:Rule val compose = createComposeRule()
     private val tenancy = RentalTenancy("tenancy-qa", "room-qa", "ACTIVE", "2026-10-01T00:00:00Z", null)
+
+    @After fun resumeBeforeClose() {
+        val androidRule = compose as? AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity> ?: return
+        runCatching {
+            val activity = androidRule.activity
+            val token = activity.currentFocus?.windowToken ?: activity.window.decorView.windowToken
+            activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                .hideSoftInputFromWindow(token, 0)
+            androidRule.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        }
+    }
 
     @Test fun paymentPanelKeepsConfirmationAndWriteGuardsWhileActionsRemainReachable() {
         var creates = 0

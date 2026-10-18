@@ -80,14 +80,25 @@ class NativeRemainingStatesTest {
     }
     private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
         instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+    private fun framebuffer(): Bitmap? {
+        val encoded = shell("screencap -p /data/local/tmp/trooi-fallback.png && base64 /data/local/tmp/trooi-fallback.png")
+        val bytes = runCatching { android.util.Base64.decode(encoded, android.util.Base64.DEFAULT) }.getOrNull() ?: return null
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
     private fun capture(name: String, dark: Boolean) {
         Thread.sleep(500)
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round5-remaining-states").apply { mkdirs() }
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(directory, "$name-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        var bitmap: Bitmap? = null
+        val deadline = android.os.SystemClock.uptimeMillis() + 2000
+        while (bitmap == null && android.os.SystemClock.uptimeMillis() < deadline) {
+            bitmap = instrumentation.uiAutomation.takeScreenshot()
+            if (bitmap == null) Thread.sleep(300)
         }
-        bitmap.recycle()
+        val captured = checkNotNull(bitmap ?: framebuffer()) { "Screenshot was null after UiAutomation and screencap: $name" }
+        File(directory, "$name-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
+            captured.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        captured.recycle()
     }
     private fun draft() = DemoData.ownerManagement.assets.single { it.id == DemoRentalGraph.AN_NHIEN }
 
@@ -230,7 +241,13 @@ class NativeRemainingStatesTest {
                     } else {
                         assertEquals(1, nodes(scrollTo("trust-reason-" + reason.name)).count { it.isClickable })
                         click(reason.label)
-                        val row = tag("trust-reason-" + reason.name)
+                        val reasonTag = "trust-reason-" + reason.name
+                        val checkedDeadline = android.os.SystemClock.uptimeMillis() + 2000
+                        var row = tag(reasonTag)
+                        while (!row.isChecked && android.os.SystemClock.uptimeMillis() < checkedDeadline) {
+                            Thread.sleep(100)
+                            row = tag(reasonTag)
+                        }
                         assertTrue(row.isChecked)
                         assertEquals(0, nodes(row).count { it.isClickable })
                     }
@@ -279,6 +296,7 @@ class NativeRemainingStatesTest {
                 }
                 capture(if (account.access.operatedOrganizationIds.isEmpty()) "context-tenant" else "context-owner", dark)
                 click("← Quay lại"); assertEquals(1, backs)
+                scenario.moveToState(Lifecycle.State.RESUMED)
             }
         }
     }

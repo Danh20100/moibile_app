@@ -49,6 +49,30 @@ Sáu fail của lượt 112:
 
 16/18 tên fail cũ PASS trong lượt 112. Hai tên còn lại là report `isChecked` và rent Chrome. Bốn test account security cũ và portal PASS.
 
+## Sửa 6 fail của lượt 106/112
+
+Năm class đích chạy cùng nhau sau khi emulator được bật lại, không wipe: **20/20 PASS, 4 phút 54 giây**.
+
+- Hai test bàn phím email gọi `setInTouchMode(false)` trước TAB/ENTER, chờ focus hoặc dialog, rồi trả touch mode. Nút `Thay đổi email` với `demoPreview = false` vẫn chỉ mở biên `Chưa thể thực hiện`.
+- Hàng lý do báo cáo được chờ tối đa 2 giây tới khi `isChecked`. Ảnh `takeScreenshot()` null được thử lại khoảng 2 giây, rồi đọc framebuffer bằng `screencap` nếu API vẫn trả null.
+- `PaymentIntegrationUiTest` ẩn IME và `moveToState(RESUMED)` trong `@After`, trước khi scenario đóng.
+- `SeededAccountFlowTest` ghim MOCK trước activity vì máy này mặc định backend và đăng nhập email không mở sổ. Assertion sổ và ảnh công khai giữ nguyên.
+- Checkout giả fail ngay nếu chưa có `checkoutId`. Nếu Chrome còn foreground thì đưa app lên rồi mới chờ `rent-payment-refresh`. Checkout thứ hai vẫn phải CREATED. `interpretPaymentReturn` không đổi.
+
+## Suite đầy đủ sau sửa 6 fail
+
+Một job `:app:connectedDebugAndroidTest` không lọc class, Pixel 8 API 34, sau lượt 20/20.
+
+**Không phải 112/112.** Gradle báo `INSTRUMENTATION_ABORTED: System has crashed` sau 21 phút 22 giây. Runner nhận 63/112 rồi dừng ở test 64. `Can't find service: activity`, adb `closed`, process emulator thoát. Logcat lấy được không có stack `FinalizerWatchdogDaemon`. Không gọi đây là Watchdog API 37. Không wipe userdata: máy đã tắt hẳn, không còn session để xác nhận package service mất lâu dài.
+
+Trước khi system chết, hai assertion fail:
+
+- `NativeDiscoveryStatesTest.noGoogleBillingRendersFreeMapLibreInBothThemes` — `takeScreenshot()` null.
+- `NativeMessagingStatesTest.rejectedLocalSaveKeepsDraftAndValidatesBeforeCallingTheRepository` — không thấy `message-save`.
+- `NativeOwnerStatesTest.scopedOwnerProjectionAndSourceNavigationRenderInBothThemes` — fail cùng lúc activity service biến mất.
+
+Sáu tên fail của lượt 106/112 nằm trong nhóm 20/20, nhưng chưa được chứng minh bằng một suite đầy đủ PASS.
+
 ## Chưa làm được
 
 - Chưa có suite 112/112 trên HEAD cuối.
@@ -65,6 +89,8 @@ Sáu fail của lượt 112:
 | `RentPaymentFlowTest` isolated trước wipe | PASS |
 | `:app:connectedDebugAndroidTest` sau wipe | 106/112, 33 phút 1 giây |
 | Lượt suite bị `INSTRUMENTATION_ABORTED` | Không đủ 112, system UI chết |
+| Năm class còn lại của lượt 106/112 | 20/20 PASS, 4 phút 54 giây |
+| `:app:connectedDebugAndroidTest` không lọc | Aborted, 63/112 nhận được, 21 phút 22 giây, system crashed |
 
 ## Ngoài phạm vi commit
 

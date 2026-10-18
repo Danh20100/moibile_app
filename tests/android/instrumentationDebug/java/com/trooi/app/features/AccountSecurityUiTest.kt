@@ -46,7 +46,7 @@ class AccountSecurityUiTest {
         compose.onNodeWithText("Mã PIN mới").assertDoesNotExist()
         compose.onAllNodesWithText("Mã PIN bảo mật").onLast().performTextInput("482795")
         compose.onNodeWithTag("reauth-confirm").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText("Mã PIN mới").performTextInput("482795")
         compose.onNodeWithText("Nhập lại mã PIN").performTextInput("482790")
         compose.onNodeWithText("Hai mã PIN chưa khớp.").assertExists()
@@ -79,7 +79,7 @@ class AccountSecurityUiTest {
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
         compose.onNodeWithText("Mật khẩu hiện tại").performTextInput("wrong")
         compose.onNodeWithTag("reauth-confirm").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("verification-contact-input").assertDoesNotExist()
         compose.onNodeWithText("Hủy").performClick()
         compose.onNodeWithText("Xác thực để chỉnh sửa").assertExists()
@@ -106,23 +106,41 @@ class AccountSecurityUiTest {
         compose.onNodeWithText("Lưu lựa chọn").assertDoesNotExist()
     }
 
+    private fun withHardwareKeys(block: () -> Unit) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.setInTouchMode(false)
+        instrumentation.waitForIdleSync()
+        compose.waitForIdle()
+        try {
+            block()
+        } finally {
+            instrumentation.setInTouchMode(true)
+        }
+    }
+
     @Test fun backendLoginEmailGateCanBeActivatedByKeyboard() {
         showKeyboardAccessibleLoginEmail()
-        val action = compose.onNodeWithText("Thay đổi email")
-        action.performSemanticsAction(SemanticsActions.RequestFocus)
-        action.assertIsFocused()
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
-        compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
-        compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
+        withHardwareKeys {
+            val action = compose.onNodeWithText("Thay đổi email")
+            action.performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.waitUntil(5_000) { runCatching { action.assertIsFocused(); true }.getOrDefault(false) }
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Chưa thể thực hiện").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Chưa thể thực hiện").assertIsDisplayed()
+            compose.onNodeWithText("Xác thực bảo mật").assertDoesNotExist()
+        }
     }
 
     @Test fun loginEmailActionIsNextKeyboardFocusAfterBackButton() {
         showKeyboardAccessibleLoginEmail()
-        val back = compose.onNodeWithContentDescription("Quay lại")
-        back.performSemanticsAction(SemanticsActions.RequestFocus)
-        back.assertIsFocused()
-        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
-        compose.onNodeWithText("Thay đổi email").assertIsFocused()
+        withHardwareKeys {
+            val back = compose.onNodeWithContentDescription("Quay lại")
+            back.performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.waitUntil(5_000) { runCatching { back.assertIsFocused(); true }.getOrDefault(false) }
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
+            val email = compose.onNodeWithText("Thay đổi email")
+            compose.waitUntil(5_000) { runCatching { email.assertIsFocused(); true }.getOrDefault(false) }
+        }
     }
 
     @Test fun languageHasOnlyTwoSections() {

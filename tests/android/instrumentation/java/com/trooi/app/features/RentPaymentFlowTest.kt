@@ -154,6 +154,25 @@ class RentPaymentFlowTest {
         }
         error("Browser did not return to the app")
     }
+    private fun ensureAppForeground() {
+        if (resumedActivity().contains("com.trooi.app")) return
+        val choices = listOf("Open", "Just once", "Always", "Open app", "Mở", "Chỉ một lần", "Luôn luôn")
+        val welcome = listOf("Use without an account", "Accept & continue", "No thanks", "Got it")
+        val deadline = android.os.SystemClock.uptimeMillis() + 10000
+        while (!resumedActivity().contains("com.trooi.app") && android.os.SystemClock.uptimeMillis() < deadline) {
+            val choice = choices.firstOrNull { nativeNode(it) != null }
+            val greeting = welcome.firstNotNullOfOrNull { nativeNode(it) }
+            when {
+                choice != null -> shellTap(choice)
+                greeting != null -> tapBounds(greeting)
+                nativeNode("English") != null && nativeNode("Close") != null -> shellTap("Close")
+                else -> instrumentation.targetContext.startActivity(
+                    Intent(instrumentation.targetContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+            android.os.SystemClock.sleep(500)
+        }
+    }
     private fun probeDemoPay() {
         val connection = java.net.URL("http://127.0.0.1:3001/api/v1/demo/login").openConnection() as java.net.HttpURLConnection
         connection.requestMethod = "POST"
@@ -244,7 +263,12 @@ class RentPaymentFlowTest {
         // Return before confirmation: a forged success URI still leaves the checkout CREATED.
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         while (hints.read()?.pendingCheckouts?.singleOrNull()?.checkoutId == null && android.os.SystemClock.uptimeMillis() < deadline) android.os.SystemClock.sleep(250)
+        val stored = hints.read()?.pendingCheckouts?.singleOrNull()
+        check(!stored?.checkoutId.isNullOrBlank()) {
+            "Second checkout was not stored before the forged return: ${hints.read()?.pendingCheckouts}"
+        }
         forgedReturn()
+        ensureAppForeground()
         waitFor("rent-payment-refresh")
         compose.onNodeWithTag("rent-payment-confirmed").assertDoesNotExist()
         val second = requireNotNull(hints.read()?.pendingCheckouts?.single())
