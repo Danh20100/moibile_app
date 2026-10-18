@@ -192,6 +192,16 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
         check(DemoData.TENANCY in account.access.linkedTenancyIds)
         requireNotNull(payments).get(account.userId, id)
     }
+    override suspend fun readConfirmedDemoPayment(access: AccessCapabilities, paymentId: String) = runCatching {
+        val account = currentSession() ?: error("Vui lòng đăng nhập lại.")
+        check(account.access == access) { "Quyền truy cập không thuộc tài khoản hiện tại." }
+        val read = authorizedRead(access)
+        val finance = read.tenantFinanceByTenancy[DemoData.TENANCY] ?: error("Chưa có sổ thanh toán cho khoản thuê này.")
+        val settled = requireNotNull(payments).finance(account.userId).payments.firstOrNull { it.paymentId == paymentId }
+            ?: error("Chưa thấy khoản thanh toán đã xác nhận.")
+        val merged = finance.copy(payments = finance.payments.filterNot { it.paymentId == settled.paymentId } + settled)
+        read.copy(tenantFinanceByTenancy = read.tenantFinanceByTenancy + (DemoData.TENANCY to merged))
+    }
 
     override suspend fun login(identifier: String, password: String): Result<UserSession> {
         val session = DemoData.authenticate(identifier, password)?.let(::withLocalOperator)

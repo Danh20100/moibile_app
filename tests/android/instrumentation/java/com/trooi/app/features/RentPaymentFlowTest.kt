@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
 import com.trooi.app.core.auth.SessionHintsStore
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.demo.DemoData
 import com.trooi.app.core.demo.DemoPaymentClient
 import kotlinx.coroutines.runBlocking
@@ -39,27 +41,109 @@ class RentPaymentFlowTest {
         bitmap.recycle()
     }
     private fun nativeNode(text: String): AccessibilityNodeInfo? {
-        fun find(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-            if (node.text?.toString() == text || node.contentDescription?.toString() == text) return node
-            repeat(node.childCount) { index -> node.getChild(index)?.let { find(it)?.let { found -> return found } } }
-            return null
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        fun visit(node: AccessibilityNodeInfo) {
+            if (node.text?.toString() == text || node.contentDescription?.toString() == text) matches += node
+            repeat(node.childCount) { index -> node.getChild(index)?.let(::visit) }
         }
-        return instrumentation.uiAutomation.rootInActiveWindow?.let(::find)
+        val roots = instrumentation.uiAutomation.windows.mapNotNull { it.root }
+        (roots.ifEmpty { listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow) }).forEach(::visit)
+        fun area(node: AccessibilityNodeInfo): Int {
+            val bounds = android.graphics.Rect()
+            node.getBoundsInScreen(bounds)
+            return if (bounds.width() <= 0 || bounds.height() <= 0) 0 else bounds.width() * bounds.height()
+        }
+        return matches.filter { area(it) > 0 }.maxByOrNull { area(it) + if (it.isClickable) 1_000_000 else 0 }
     }
-    private fun clickNative(text: String) {
+    private fun awaitNative(text: String) {
+        val extras = listOf("Use without an account", "Accept & continue", "No thanks", "Got it")
+        val deadline = android.os.SystemClock.uptimeMillis() + 20000
+        while (nativeNode(text) == null && android.os.SystemClock.uptimeMillis() < deadline) {
+            val extra = extras.firstOrNull { nativeNode(it) != null }
+            if (extra != null) clickNative(extra, motion = true) else android.os.SystemClock.sleep(250)
+        }
+        clickUntil(text, untilGone = true)
+    }
+    private fun clickUntil(text: String, untilGone: Boolean = false, untilText: String? = null) {
+        val deadline = android.os.SystemClock.uptimeMillis() + 25000
+        var attempts = 0
+        fun arrived() = (untilText != null && nativeNode(untilText) != null) || (untilGone && nativeNode(text) == null && attempts > 0)
+        while (!arrived() && android.os.SystemClock.uptimeMillis() < deadline && attempts < 4) {
+            if (nativeNode(text) != null) {
+                clickNative(text, motion = attempts % 2 == 1)
+                attempts++
+                android.os.SystemClock.sleep(2000)
+            } else android.os.SystemClock.sleep(250)
+        }
+        check(arrived()) { "Native action did not complete: $text" }
+    }
+    private fun clickNative(text: String, motion: Boolean = false) {
         val deadline = android.os.SystemClock.uptimeMillis() + 20000
         var node: AccessibilityNodeInfo?
         do { node = nativeNode(text); if (node != null) break; android.os.SystemClock.sleep(250) } while (android.os.SystemClock.uptimeMillis() < deadline)
+        val target = requireNotNull(node) { "Missing native action: $text" }
+        if (!motion) {
+            var current: AccessibilityNodeInfo? = target
+            while (current != null) {
+                if (current.isClickable && current.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return
+                current = current.parent
+            }
+        }
         val bounds = android.graphics.Rect()
-        requireNotNull(node) { "Missing native action: $text" }.getBoundsInScreen(bounds)
-        val time = android.os.SystemClock.uptimeMillis()
-        listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP).forEach { action ->
-            android.view.MotionEvent.obtain(time, time + 50, action, bounds.exactCenterX(), bounds.exactCenterY(), 0).apply {
+        target.getBoundsInScreen(bounds)
+        val down = android.os.SystemClock.uptimeMillis()
+        listOf(android.view.MotionEvent.ACTION_DOWN to down, android.view.MotionEvent.ACTION_UP to down + 90).forEach { (action, eventTime) ->
+            android.view.MotionEvent.obtain(down, eventTime, action, bounds.exactCenterX(), bounds.exactCenterY(), 0).apply {
                 source = android.view.InputDevice.SOURCE_TOUCHSCREEN
                 instrumentation.uiAutomation.injectInputEvent(this, true)
                 recycle()
             }
+            android.os.SystemClock.sleep(90)
         }
+    }
+    private fun shellTap(text: String): String {
+        val bounds = android.graphics.Rect()
+        val node = nativeNode(text) ?: return "missing $text"
+        node.getBoundsInScreen(bounds)
+        val command = instrumentation.uiAutomation.executeShellCommand("input tap ${bounds.centerX()} ${bounds.centerY()}")
+        val output = try { java.io.FileInputStream(command.fileDescriptor).readBytes().toString(Charsets.UTF_8).trim() } finally { command.close() }
+        return "tap ${bounds.toShortString()} output=${output.ifBlank { "ok" }}"
+    }
+    private fun resumedActivity(): String {
+        val command = instrumentation.uiAutomation.executeShellCommand("dumpsys activity activities")
+        val output = try { java.io.FileInputStream(command.fileDescriptor).readBytes().toString(Charsets.UTF_8) } finally { command.close() }
+        return output.lineSequence().firstOrNull { it.contains("topResumedActivity") }?.trim().orEmpty()
+    }
+    private fun returnFromBrowser() {
+        val choices = listOf("Open", "Just once", "Always", "Open app", "Mở", "Chỉ một lần", "Luôn luôn")
+        val deadline = android.os.SystemClock.uptimeMillis() + 20000
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            val confirmed = runCatching {
+                compose.onAllNodesWithTag("rent-payment-confirmed").fetchSemanticsNodes().isNotEmpty()
+            }.getOrDefault(false)
+            if (confirmed) return
+            val choice = choices.firstOrNull { nativeNode(it) != null }
+            when {
+                choice != null -> shellTap(choice)
+                nativeNode("English") != null && nativeNode("Close") != null -> shellTap("Close")
+                nativeNode("Về TrọƠi") != null -> shellTap("Về TrọƠi")
+                resumedActivity().contains("com.trooi.app") -> return
+            }
+            android.os.SystemClock.sleep(1000)
+        }
+        error("Browser did not return to the app")
+    }
+    private fun probeDemoPay() {
+        val connection = java.net.URL("http://127.0.0.1:3001/api/v1/demo/login").openConnection() as java.net.HttpURLConnection
+        connection.requestMethod = "POST"
+        connection.setRequestProperty("Content-Type", "application/json")
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        connection.doOutput = true
+        connection.outputStream.use { it.write("""{"identifier":"tenant@trooi.local","password":"wrong"}""".toByteArray()) }
+        val status = runCatching { connection.responseCode }.getOrElse { error("DemoPay is not reachable from the emulator: ${it.javaClass.simpleName}") }
+        check(status == 401) { "DemoPay probe returned HTTP $status" }
+        connection.disconnect()
     }
     private fun forgedReturn() = instrumentation.targetContext.startActivity(Intent(Intent.ACTION_VIEW,
         Uri.parse("trooi://payment/demo?status=SUCCEEDED&checkoutId=forged&amount=50000000"))
@@ -70,6 +154,10 @@ class RentPaymentFlowTest {
             flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             feedbackType = android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_GENERIC
+        }
+        check(RuntimeDataSource.chooseDebugSource(instrumentation.targetContext, AppDataSource.MOCK))
+        instrumentation.uiAutomation.executeShellCommand("am force-stop com.android.chrome").let { command ->
+            try { java.io.FileInputStream(command.fileDescriptor).readBytes() } finally { command.close() }
         }
         instrumentation.targetContext.startActivity(Intent(instrumentation.targetContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         compose.waitUntil(30000) { compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -89,6 +177,7 @@ class RentPaymentFlowTest {
         compose.onNodeWithText("Đăng nhập").performClick()
         waitFor("ledger-screen")
         compose.waitUntil(30000) { compose.onAllNodesWithTag("ledger-payment-entry").fetchSemanticsNodes().isNotEmpty() }
+        probeDemoPay()
         val backend = DemoPaymentClient()
         val before = backend.finance(DemoData.accounts[0].userId)
         compose.onNodeWithTag("ledger-screen").performScrollToNode(hasTestTag("ledger-payment-entry"))
@@ -100,14 +189,10 @@ class RentPaymentFlowTest {
         waitFor("rent-payment-open")
         screenshot("rent-payment-review")
         compose.onNodeWithTag("rent-payment-open").performClick()
-        clickNative("Xác nhận thanh toán") // Explicit browser POST; GET/deep links cannot settle.
-        val confirmedDeadline = android.os.SystemClock.uptimeMillis() + 20000
-        while (nativeNode("Về TrọƠi") == null && android.os.SystemClock.uptimeMillis() < confirmedDeadline) android.os.SystemClock.sleep(250)
+        awaitNative("Xác nhận thanh toán") // Explicit browser POST; GET/deep links cannot settle.
+        clickUntil("Xác nhận thanh toán", untilText = "Về TrọƠi")
         screenshot("rent-payment-browser-confirmed")
-        clickNative("Về TrọƠi")
-        // Chrome may request permission to open the external app once.
-        android.os.SystemClock.sleep(750)
-        nativeNode("Open")?.let { clickNative("Open") }
+        returnFromBrowser()
         waitFor("rent-payment-confirmed")
         screenshot("rent-payment-success")
         val hints = SessionHintsStore(instrumentation.targetContext)
@@ -124,7 +209,9 @@ class RentPaymentFlowTest {
         forgedReturn()
         waitFor("rent-payment-confirmed")
         assertEquals(after.payments, backend.finance(DemoData.accounts[0].userId).payments)
-        compose.onNodeWithTag("rent-payment-done").performClick()
+        // The confirmation action can sit below the fold. A coordinate click misses it; the semantics action still runs.
+        compose.onNodeWithTag("rent-payment-done").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.waitForIdle()
         assertTrue(hints.read()?.pendingCheckouts.isNullOrEmpty())
         compose.onNodeWithTag("ledger-screen").performScrollToNode(hasTestTag("ledger-payment-entry"))
         compose.onNodeWithTag("ledger-payment-entry").performClick()

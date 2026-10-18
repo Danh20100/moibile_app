@@ -13,20 +13,35 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
-import com.trooi.app.R
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.data.TroOiRepositoryImpl
 import com.trooi.app.core.model.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /** Real activity, native photo picker and durable capability; original demo accounts are preserved. */
 class LandlordOnboardingFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    // Developer machines with TROOI_API_BASE_URL default to Backend, whose email login is unsupported.
+    // This flow asserts the local fixture catalog, so pin MOCK before MainActivity reads the source.
+    private val pinFixtureSource = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
+        }
+    }
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(pinFixtureSource).around(compose)
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private val temporaryMedia = mutableListOf<Uri>()
+    private var specimenName = ""
+    private var specimenTakenAt = 0L
     private fun waitFor(tag: String) = compose.waitUntil(20000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun screenshot(name: String) {
         compose.waitForIdle()
@@ -58,15 +73,44 @@ class LandlordOnboardingFlowTest {
         compose.onNodeWithText("Đăng nhập").performClick()
         waitFor("ledger-screen")
     }
-    private fun field(tag: String, value: String) {
-        compose.onNodeWithTag("asset-wizard-scroll").performScrollToNode(hasTestTag(tag))
-        compose.onNodeWithTag(tag).performTextReplacement(value)
+    private fun assertOperatorHome() {
+        compose.waitUntil(20000) {
+            compose.onAllNodesWithTag("v1-owner-properties").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithTag("ledger-screen").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithTag("v1-owner-properties").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Chưa có khu nhà nào trong khu trọ này.").assertExists()
+        } else {
+            compose.onNodeWithText("Tài sản của tôi").assertExists()
+        }
     }
     private fun nativeNodes(): List<AccessibilityNodeInfo> {
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo) { result += node; repeat(node.childCount) { node.getChild(it)?.let(::visit) } }
-        instrumentation.uiAutomation.rootInActiveWindow?.let(::visit)
+        val roots = instrumentation.uiAutomation.windows.mapNotNull { it.root }
+        (roots.ifEmpty { listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow) }).forEach(::visit)
         return result
+    }
+    private fun nodeBlob(node: AccessibilityNodeInfo) =
+        listOf(node.viewIdResourceName, node.text?.toString(), node.contentDescription?.toString()).joinToString(":")
+    private fun normalized(value: String) = value.replace('\u202F', ' ').replace('\u00A0', ' ')
+    private fun specimenLabel(): String {
+        val format = java.text.SimpleDateFormat("MMM d, yyyy, h:mm:ss a", java.util.Locale.US)
+        format.timeZone = java.util.TimeZone.getDefault()
+        return format.format(java.util.Date(specimenTakenAt))
+    }
+    private fun describesSpecimen(node: AccessibilityNodeInfo): Boolean {
+        if (specimenTakenAt == 0L) return false
+        val desc = normalized(node.contentDescription?.toString().orEmpty())
+        return desc.contains(specimenLabel())
+    }
+    private fun specimenThumbnail(nodes: List<AccessibilityNodeInfo>): AccessibilityNodeInfo? {
+        var awaitingThumbnail = false
+        for (node in nodes) {
+            if (describesSpecimen(node)) awaitingThumbnail = true
+            if (awaitingThumbnail && node.viewIdResourceName?.endsWith("icon_thumbnail") == true) return node
+        }
+        return nodes.firstOrNull { describesSpecimen(it) && it.isClickable }
     }
     private fun nativeClick(node: AccessibilityNodeInfo) {
         var current: AccessibilityNodeInfo? = node
@@ -77,18 +121,31 @@ class LandlordOnboardingFlowTest {
         error("Native picker item was not clickable")
     }
     private fun pickSingle(tag: String) {
-        instrumentation.uiAutomation.serviceInfo = instrumentation.uiAutomation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS }
+        instrumentation.uiAutomation.serviceInfo = instrumentation.uiAutomation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        compose.waitUntil(20000) {
+            runCatching { compose.onNodeWithTag(tag).assertIsEnabled(); true }.getOrDefault(false)
+        }
         compose.onNodeWithTag(tag).performClick()
-        val deadline = android.os.SystemClock.uptimeMillis() + 15000
+        val deadline = android.os.SystemClock.uptimeMillis() + 20000
         var photo: AccessibilityNodeInfo? = null
+        var openedAlbum = false
         while (photo == null && android.os.SystemClock.uptimeMillis() < deadline) {
-            photo = nativeNodes().firstOrNull { it.viewIdResourceName?.endsWith("icon_thumbnail") == true || it.contentDescription?.toString()?.startsWith("Photo taken") == true }
+            val nodes = nativeNodes()
+            if (!openedAlbum) {
+                nodes.firstOrNull {
+                    it.text?.toString() == "TroOiOnboardingTest" || it.contentDescription?.toString()?.contains("TroOiOnboardingTest") == true
+                }?.let { nativeClick(it); openedAlbum = true }
+            }
+            val current = nativeNodes()
+            photo = specimenThumbnail(current)
             if (photo == null) android.os.SystemClock.sleep(200)
         }
         nativeClick(requireNotNull(photo) {
-            "Native photo picker did not show media (activeWindow=" +
-                instrumentation.uiAutomation.rootInActiveWindow?.packageName +
-                ", nodes=" + nativeNodes().take(100).map { "${it.viewIdResourceName}:${it.text}:${it.contentDescription}" } + ")"
+            val windows = instrumentation.uiAutomation.windows.joinToString { it.root?.packageName?.toString() ?: "?" }
+            "Native photo picker did not show media (windows=$windows, nodes=" +
+                nativeNodes().take(80).joinToString { nodeBlob(it) } + ")"
         })
         if (tag.startsWith("onboarding-id-")) {
             // Some API 37 Photo Picker builds use an explicit Done confirmation even for
@@ -96,8 +153,12 @@ class LandlordOnboardingFlowTest {
             val pickerDeadline = android.os.SystemClock.uptimeMillis() + 5000
             while (android.os.SystemClock.uptimeMillis() < pickerDeadline) {
                 val root = instrumentation.uiAutomation.rootInActiveWindow
-                if (root?.packageName?.toString()?.contains("photopicker", ignoreCase = true) != true) break
-                val done = nativeNodes().firstOrNull { it.text?.toString() == "Done" || it.viewIdResourceName?.endsWith("button_add") == true }
+                val packageName = root?.packageName?.toString().orEmpty()
+                val stillPicker = packageName.contains("photopicker", ignoreCase = true) || packageName.contains("providers.media", ignoreCase = true)
+                if (!stillPicker) break
+                val done = nativeNodes().firstOrNull {
+                    it.text?.toString() in setOf("Done", "Xong") || it.viewIdResourceName?.endsWith("button_add") == true
+                }
                 if (done != null) { nativeClick(done); break }
                 android.os.SystemClock.sleep(150)
             }
@@ -122,14 +183,21 @@ class LandlordOnboardingFlowTest {
         }
     }
     private fun addImage(name: String, write: (java.io.OutputStream) -> Unit) {
-        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.jpg")
+        specimenName = name
+        specimenTakenAt = System.currentTimeMillis()
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
+            put(MediaStore.Images.Media.TITLE, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TroOiOnboardingTest")
-            put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
-        }))
+            put(MediaStore.Images.Media.DATE_TAKEN, specimenTakenAt)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
         temporaryMedia += uri
         requireNotNull(context.contentResolver.openOutputStream(uri)).use(write)
+        check(context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null) == 1)
+        check(context.contentResolver.openInputStream(uri)?.use { it.read() } != null)
     }
     private fun specimenPhoto(label: String) {
         val bitmap = Bitmap.createBitmap(800, 500, Bitmap.Config.ARGB_8888)
@@ -141,7 +209,7 @@ class LandlordOnboardingFlowTest {
             paint.color = Color.rgb(174, 187, 196)
             drawCircle(400f, 290f, 80f, paint)
         }
-        addImage("identity-specimen") { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        addImage("trooi-specimen-$label-${System.currentTimeMillis()}") { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
         bitmap.recycle()
     }
     @Test fun fullOnboardingCreatesWorkspaceWithoutImplicitAssetAndRestoresOnlyItsOwnCapability() = runBlocking {
@@ -165,7 +233,10 @@ class LandlordOnboardingFlowTest {
                 compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-$side"))
                 pickSingle("onboarding-id-$side")
             }
-            compose.onNodeWithTag("onboarding-next").assertIsEnabled().performClick()
+            compose.waitUntil(20000) {
+                runCatching { compose.onNodeWithTag("onboarding-next").assertIsEnabled(); true }.getOrDefault(false)
+            }
+            compose.onNodeWithTag("onboarding-next").performClick()
             compose.onNodeWithTag("onboarding-name").performTextReplacement("Phạm Thảo Linh Nguyễn")
             compose.onNodeWithTag("onboarding-birthday").performTextReplacement("15/06/1995")
             compose.onNodeWithTag("onboarding-birthday").performImeAction()
@@ -188,8 +259,7 @@ class LandlordOnboardingFlowTest {
             }
             screenshot("onboarding-complete")
             compose.onNodeWithTag("onboarding-next").performClick()
-            waitFor("ledger-screen")
-            compose.onNodeWithText("Tài sản của tôi").assertExists()
+            assertOperatorHome()
             screenshot("onboarding-owner-ledger")
             val repository = TroOiRepositoryImpl(context)
             val session = repository.refreshSessionContext().getOrThrow()
@@ -207,8 +277,7 @@ class LandlordOnboardingFlowTest {
                 assertFalse(personal, prefs.all.values.any { it.toString().contains(personal) })
             }
             compose.activityRule.scenario.recreate()
-            waitFor("ledger-screen")
-            compose.onNodeWithText("Tài sản của tôi").assertExists()
+            assertOperatorHome()
             logout()
             login("onboarding@trooi.local")
             val restored = repository.refreshSessionContext().getOrThrow()

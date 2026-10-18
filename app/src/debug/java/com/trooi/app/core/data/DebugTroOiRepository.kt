@@ -101,6 +101,8 @@ class TroOiRepositoryImpl private constructor(
     override suspend fun createDemoCheckout(tenancyId: String, amount: String, key: String) =
         selected().createDemoCheckout(tenancyId, amount, key)
     override suspend fun getDemoCheckout(id: String) = selected().getDemoCheckout(id)
+    override suspend fun readConfirmedDemoPayment(access: AccessCapabilities, paymentId: String) =
+        selected().readConfirmedDemoPayment(access, paymentId)
     override suspend fun completeLocalLandlordOnboarding(application: LocalLandlordApplication) =
         selected().completeLocalLandlordOnboarding(application)
     override suspend fun saveLocalAsset(asset: LocalRentalAsset, activate: Boolean, publish: Boolean) =

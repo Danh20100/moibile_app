@@ -36,7 +36,7 @@ class SessionHintsStore(
             .putBoolean(KEY_RESTORE, hints.restoreEnabled)
             .putString(KEY_CONTEXT, encodeContext(hints.selectedContext))
             .putString(KEY_PENDING, encodePending(hints.pendingCheckouts))
-            .apply()
+            .commit()
     }
 
     fun clear() {
