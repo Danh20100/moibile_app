@@ -22,15 +22,21 @@ class SeededAccountFlowTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.waitForIdleSync()
         android.os.SystemClock.sleep(750) // Let native IME/window transitions finish before capture.
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        var bitmap: Bitmap? = null
+        for (attempt in 0 until 3) {
+            bitmap = instrumentation.uiAutomation.takeScreenshot()
+            if (bitmap != null) break
+            if (attempt < 2) android.os.SystemClock.sleep(300)
+        }
+        val captured = requireNotNull(bitmap)
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TroOiRuntime")
         }))
-        requireNotNull(resolver.openOutputStream(uri)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        requireNotNull(resolver.openOutputStream(uri)).use { captured.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        captured.recycle()
     }
     private fun logout() {
         compose.onNodeWithTag("nav-tab-profile").performClick()

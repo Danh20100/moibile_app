@@ -164,31 +164,52 @@ class PaymentIntegrationUiTest {
     }
 
     @Test fun paymentInputAndActionRemainReachableWithKeyboard() {
-        var amount by mutableStateOf("")
-        var creates = 0
-        var keyboardHeight = 0
-        compose.setContent {
-            keyboardHeight = WindowInsets.ime.getBottom(LocalDensity.current)
-            ProofFrame(dark = false, fontScale = 1f) {
-                GatewayPaymentPanel(
-                    RentalUiState(tenantMode = true, linkedTenancyStatus = "ACTIVE"),
-                    amount, { amount = it }, { creates++ }, {}, {},
-                )
-            }
-        }
-        val input = compose.onNodeWithTag("gateway-checkout-amount").performScrollTo()
-        input.performClick()
-        compose.waitUntil(5_000) { keyboardHeight > 0 }
-        input.performTextReplacement("1500000")
-        input.assertIsDisplayed().assertIsFocused()
-        compose.onNodeWithTag("gateway-create").performScrollTo().assertIsDisplayed()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
-        compose.onNodeWithTag("gateway-create").assertIsFocused()
-        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
-        compose.waitForIdle()
-        assertEquals(1, creates)
-        proof("payment-keyboard")
+        fun shell(command: String): String = android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+        val original = shell("settings get secure show_ime_with_hard_keyboard").trim()
+        val keyboardHeight = mutableIntStateOf(0)
+        val host = mutableStateOf<android.view.View?>(null)
+        try {
+            shell("settings put secure show_ime_with_hard_keyboard 1")
+            var amount by mutableStateOf("")
+            var creates = 0
+            compose.setContent {
+                val view = androidx.compose.ui.platform.LocalView.current
+                SideEffect { host.value = view }
+                keyboardHeight.intValue = WindowInsets.ime.getBottom(LocalDensity.current)
+                ProofFrame(dark = false, fontScale = 1f) {
+                    GatewayPaymentPanel(
+                        RentalUiState(tenantMode = true, linkedTenancyStatus = "ACTIVE"),
+                        amount, { amount = it }, { creates++ }, {}, {},
+                    )
+                }
+            }
+            val input = compose.onNodeWithTag("gateway-checkout-amount").performScrollTo()
+            input.performClick()
+            compose.runOnIdle {
+                val view = host.value ?: return@runOnIdle
+                val target = view.findFocus() ?: view
+                val imm = view.context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                imm.showSoftInput(target, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+            compose.waitUntil(8_000) {
+                val inset = host.value?.rootWindowInsets?.getInsets(android.view.WindowInsets.Type.ime())?.bottom ?: 0
+                keyboardHeight.intValue > 0 || inset > 0
+            }
+            input.performTextReplacement("1500000")
+            input.assertIsDisplayed().assertIsFocused()
+            compose.onNodeWithTag("gateway-create").performScrollTo().assertIsDisplayed()
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_TAB)
+            compose.onNodeWithTag("gateway-create").assertIsFocused()
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
+            compose.waitForIdle()
+            assertEquals(1, creates)
+            proof("payment-keyboard")
+        } finally {
+            val restore = original.takeIf { it.isNotEmpty() && it != "null" } ?: "0"
+            shell("settings put secure show_ime_with_hard_keyboard $restore")
+        }
     }
 
     @Composable

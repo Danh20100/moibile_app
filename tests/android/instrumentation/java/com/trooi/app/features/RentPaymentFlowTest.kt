@@ -30,7 +30,7 @@ class RentPaymentFlowTest {
     }
     private fun screenshot(name: String) {
         android.os.SystemClock.sleep(750)
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val bitmap = requireNotNull(captureScreenshot())
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
@@ -39,6 +39,13 @@ class RentPaymentFlowTest {
         }))
         requireNotNull(resolver.openOutputStream(uri)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+    }
+    private fun captureScreenshot(): Bitmap? {
+        repeat(3) { attempt ->
+            instrumentation.uiAutomation.takeScreenshot()?.let { return it }
+            if (attempt < 2) android.os.SystemClock.sleep(300)
+        }
+        return null
     }
     private fun nativeNode(text: String): AccessibilityNodeInfo? {
         val matches = mutableListOf<AccessibilityNodeInfo>()
@@ -59,10 +66,24 @@ class RentPaymentFlowTest {
         val extras = listOf("Use without an account", "Accept & continue", "No thanks", "Got it")
         val deadline = android.os.SystemClock.uptimeMillis() + 20000
         while (nativeNode(text) == null && android.os.SystemClock.uptimeMillis() < deadline) {
-            val extra = extras.firstOrNull { nativeNode(it) != null }
-            if (extra != null) clickNative(extra, motion = true) else android.os.SystemClock.sleep(250)
+            val extra = extras.firstNotNullOfOrNull { candidate -> nativeNode(candidate) }
+            if (extra != null) tapBounds(extra) else android.os.SystemClock.sleep(250)
         }
         clickUntil(text, untilGone = true)
+    }
+    private fun tapBounds(node: AccessibilityNodeInfo) {
+        val bounds = android.graphics.Rect()
+        node.getBoundsInScreen(bounds)
+        if (bounds.width() <= 0 || bounds.height() <= 0) return
+        val down = android.os.SystemClock.uptimeMillis()
+        listOf(android.view.MotionEvent.ACTION_DOWN to down, android.view.MotionEvent.ACTION_UP to down + 90).forEach { (action, eventTime) ->
+            android.view.MotionEvent.obtain(down, eventTime, action, bounds.exactCenterX(), bounds.exactCenterY(), 0).apply {
+                source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                instrumentation.uiAutomation.injectInputEvent(this, true)
+                recycle()
+            }
+        }
+        android.os.SystemClock.sleep(400)
     }
     private fun clickUntil(text: String, untilGone: Boolean = false, untilText: String? = null) {
         val deadline = android.os.SystemClock.uptimeMillis() + 25000
@@ -217,8 +238,9 @@ class RentPaymentFlowTest {
         compose.onNodeWithTag("ledger-payment-entry").performClick()
         waitFor("rent-payment-amount")
         compose.onNodeWithTag("rent-payment-amount").performTextReplacement("2000")
-        compose.onNodeWithTag("rent-payment-review").performClick()
-        compose.onNodeWithTag("rent-payment-open").performClick()
+        compose.onNodeWithTag("rent-payment-review").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        waitFor("rent-payment-open")
+        compose.onNodeWithTag("rent-payment-open").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
         // Return before confirmation: a forged success URI still leaves the checkout CREATED.
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         while (hints.read()?.pendingCheckouts?.singleOrNull()?.checkoutId == null && android.os.SystemClock.uptimeMillis() < deadline) android.os.SystemClock.sleep(250)

@@ -17,31 +17,57 @@ Phạm vi là ổn định instrumentation/UI E2E. Không thêm tính năng sả
 - Gợi ý phiên thanh toán được `commit()` để lần đọc ngay sau đó thấy checkout đã rút khỏi danh sách chờ.
 - Onboarding local ở chế độ demo preview không còn bị chặn bởi stub reauthentication. Đường backend vẫn fail-closed trên stub đó. Demo checkout cũng không gọi stub này trước khi tạo checkout thật.
 - Sau khi hoàn tất hồ sơ chủ trọ, app chọn organization được cấp và mở trang tài sản của khu trọ đó.
-- `:app:testDebugUnitTest` **PASS** (48 giây). `git diff --check` **PASS**.
-- Full `:app:connectedDebugAndroidTest` đã chạy hết 112 test trên cùng emulator. Không có Watchdog API 37. Máy này chỉ có API 34.
+- `:app:testDebugUnitTest` **PASS** (48 giây). `git diff --check` **PASS** trước các sửa tiếp theo.
+- Full suite đầu: 112 chạy, 94 PASS, 18 FAIL.
+
+## Sửa 18 lỗi sau suite 94/112
+
+- Debug luôn nạp `fixtures/v1/` từ asset trong `Application.onCreate`, kể cả khi repository vẫn backend-backed. Routing MOCK/BACKEND không đổi. Bản release vẫn no-op.
+- `AssetPublicationFlowTest` và `FixturePortfolioFlowTest` ghim MOCK trước activity. Photo picker chọn ảnh bằng tap thật, rồi chờ nút thêm.
+- Screenshot null được thử lại tối đa 3 lần trong helper của rent, asset, portfolio và seeded account.
+- `NativeRemainingStatesTest` đưa activity về `RESUMED` trước khi `ActivityScenario` đóng.
+- Test bàn phím thanh toán bật `show_ime_with_hard_keyboard` và đọc inset IME từ cửa sổ.
+- Portal người thuê không cần sửa assertion: nhãn vẫn đúng và class này PASS trong suite đầy đủ.
+- Lần mở thanh toán thứ hai dùng semantics click rồi chờ `rent-payment-open`. Màn hình chào Chrome được tap trên node đã tìm thấy, không tìm lại rồi fail nếu node biến mất.
+
+## Suite đầy đủ sau sửa
+
+Pixel 8 API 34, userdata đã wipe, một job `:app:connectedDebugAndroidTest`.
+
+**112 chạy, 106 PASS, 6 FAIL, 0 skip, 33 phút 1 giây.** Không phải 112/112.
+
+Hai lượt trước đó không tính: system UI chết (`FinalizerWatchdogDaemon` trên `HardwareRenderer`) rồi `DeadSystemException` / hộp thoại `Process system isn't responding`. Không phải Watchdog API 37. Máy này chỉ có API 34.
+
+Sáu fail của lượt 112:
+
+- `AccountSecurityUiTest.loginEmailActionIsNextKeyboardFocusAfterBackButton` — ô email không nhận focus.
+- `AccountSecurityUiTest.backendLoginEmailGateCanBeActivatedByKeyboard` — không thấy `Chưa thể thực hiện`.
+- `NativeRemainingStatesTest.reportErrorRetainsCappedNoteReasonAndBusyBlocksSubmission` — hàng lý do không `isChecked`. Lần chạy riêng sau đó method này PASS; các method khác của class fail vì `takeScreenshot()` null.
+- `PaymentIntegrationUiTest.paymentPanelKeepsConfirmationAndWriteGuardsWhileActionsRemainReachable` — activity kẹt `PAUSED` khi đóng.
+- `RentPaymentFlowTest.confirmationRequiresBackendThenRetiresOnlyVerifiedIntent` — Chrome sau wipe hiện `Use without an account` và tap chào không ổn định. Isolated trước wipe đã PASS. Lần riêng sau suite đi qua xác nhận rồi timeout ở `rent-payment-refresh`.
+- `SeededAccountFlowTest.separateAccountsOpenCorrectLedgerAndPublicPhotosWithoutPovSwitch` — `takeScreenshot()` null. Helper đã được thử lại 3 lần sau suite; chưa có suite đầy đủ mới.
+
+16/18 tên fail cũ PASS trong lượt 112. Hai tên còn lại là report `isChecked` và rent Chrome. Bốn test account security cũ và portal PASS.
 
 ## Chưa làm được
 
-- Full suite **không PASS**: 94 PASS, 18 FAIL, 0 skip, 112 đã chạy, khoảng 33 phút 25 giây. Không được coi là 112/112.
-- 12 test account (`AccountReworkTest`, `AccountSecurityUiTest`) fail với `Debug fixture assets must be initialized before use`, từ rất sớm trong suite.
-- `AssetPublicationFlowTest` và `FixturePortfolioFlowTest` timeout.
-- `NativeRemainingStatesTest` không thấy activity về `DESTROYED` (dừng ở `PAUSED`).
-- `NativeTenantStatesTest` timeout.
-- `PaymentIntegrationUiTest` timeout 5 giây.
-- `RentPaymentFlowTest` trong full suite fail vì `takeScreenshot()` trả về null khi emulator đang tải nặng. Bản isolated sau đó vẫn PASS. Không được lấy kết quả suite này làm bằng chứng luồng thanh toán hỏng.
+- Chưa có suite 112/112 trên HEAD cuối.
 - Chưa review độc lập, chưa sync `origin/main`, chưa mở PR, chưa merge.
+- Gate vẫn **NOT_READY**.
 
 ## Lệnh đã chạy
 
 | Lệnh | Kết quả |
 | --- | --- |
-| `LandlordOnboardingFlowTest` isolated | PASS |
-| `RentPaymentFlowTest` isolated | PASS, rồi PASS lại sau khi dọn log tạm |
-| `:app:testDebugUnitTest` | PASS, 48 giây |
-| `:app:connectedDebugAndroidTest` | FAIL, 94/112, 33 phút 25 giây |
-| `git diff --check` | PASS |
+| Nhóm account, asset, portfolio, remaining (30 test) | 28 PASS; account notification và asset picker fail rồi được sửa |
+| `AssetPublicationFlowTest` isolated | PASS |
+| `PaymentIntegrationUiTest` + `NativeTenantStatesTest` | Portal PASS; keyboard fail rồi PASS sau khi đọc inset IME |
+| `RentPaymentFlowTest` isolated trước wipe | PASS |
+| `:app:connectedDebugAndroidTest` sau wipe | 106/112, 33 phút 1 giây |
+| Lượt suite bị `INSTRUMENTATION_ABORTED` | Không đủ 112, system UI chết |
 
 ## Ngoài phạm vi commit
 
 - `docs/TroOi_Android_Instrumentation_Handoff_Duy_Anh_2026-10-17.md` là tài liệu giao việc, không phải kết quả thực hiện.
 - `gradle.properties` local chỉ tăng heap Gradle và đang bị gitignore.
+

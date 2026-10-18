@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.core.demo.DemoData
@@ -248,6 +249,7 @@ class NativeRemainingStatesTest {
                     click("Hủy"); assertNull(submitted)
                 }
                 capture(if (busy) "report-busy" else "report-error", dark)
+                scenario.moveToState(Lifecycle.State.RESUMED)
             }
         }
     }

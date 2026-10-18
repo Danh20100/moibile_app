@@ -55,16 +55,17 @@ class AccountReworkTest {
 
     private fun passwordReauth(expectBoundary: Boolean = false) {
         compose.onNodeWithText("Xác thực bảo mật").assertIsDisplayed()
-        compose.onNodeWithText("Mật khẩu hiện tại").performTextInput("TroOi2026!")
+        compose.onNodeWithText("Mật khẩu hiện tại").performTextReplacement("TroOi2026!")
         compose.onNodeWithTag("reauth-confirm").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
+        // The dialog waits 400ms, then closes. A busy emulator can take longer than 3s.
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
         if (expectBoundary) compose.onNodeWithText("Chưa thể thực hiện").assertExists()
     }
 
     private fun pinReauth() {
-        compose.onNodeWithText("Mã PIN bảo mật").performTextInput("482795")
+        compose.onNodeWithText("Mã PIN bảo mật").performTextReplacement("482795")
         compose.onNodeWithTag("reauth-confirm").performClick()
-        compose.waitUntil(3000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun settingsSixPagesFormsBackAndBoundary() {
