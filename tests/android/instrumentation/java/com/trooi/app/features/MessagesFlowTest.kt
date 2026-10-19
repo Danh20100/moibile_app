@@ -80,7 +80,13 @@ class MessagesFlowTest {
         compose.onAllNodesWithTag("message-local-only").onLast().assertExists()
         screenshot("messages-local-note")
         instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
-        if (compose.onAllNodesWithTag("conversation-detail").fetchSemanticsNodes().isNotEmpty()) compose.onNodeWithContentDescription("Quay lại Tin nhắn").performClick()
+        compose.waitUntil(10000) {
+            compose.onAllNodesWithTag("conversation-detail").fetchSemanticsNodes().isEmpty() ||
+                compose.onAllNodesWithContentDescription("Quay lại Tin nhắn").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithTag("conversation-detail").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithContentDescription("Quay lại Tin nhắn").performClick()
+        }
         logout()
         login("tenant@trooi.local")
         compose.onNodeWithTag("nav-tab-messages").performClick()

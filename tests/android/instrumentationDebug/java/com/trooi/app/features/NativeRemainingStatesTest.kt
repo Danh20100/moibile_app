@@ -135,6 +135,7 @@ class NativeRemainingStatesTest {
                 click("Xem trước tin đăng"); text("Tên tài sản dài giữ nguyên sau lỗi lưu")
                 capture("wizard-preview", dark)
                 shell("input keyevent 4"); text("Bước 6 / 6")
+                scenario.moveToState(Lifecycle.State.RESUMED)
             }
         }
     }
@@ -296,6 +297,11 @@ class NativeRemainingStatesTest {
                 }
                 capture(if (account.access.operatedOrganizationIds.isEmpty()) "context-tenant" else "context-owner", dark)
                 click("← Quay lại"); assertEquals(1, backs)
+                scenario.onActivity { activity ->
+                    val token = activity.currentFocus?.windowToken ?: activity.window.decorView.windowToken
+                    activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                        .hideSoftInputFromWindow(token, 0)
+                }
                 scenario.moveToState(Lifecycle.State.RESUMED)
             }
         }

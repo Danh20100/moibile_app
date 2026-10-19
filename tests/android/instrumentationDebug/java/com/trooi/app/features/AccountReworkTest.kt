@@ -56,9 +56,13 @@ class AccountReworkTest {
     private fun passwordReauth(expectBoundary: Boolean = false) {
         compose.onNodeWithText("Xác thực bảo mật").assertIsDisplayed()
         compose.onNodeWithText("Mật khẩu hiện tại").performTextReplacement("TroOi2026!")
-        compose.onNodeWithTag("reauth-confirm").performClick()
-        // The dialog waits 400ms, then closes. A busy emulator can take longer than 3s.
-        compose.waitUntil(8_000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("reauth-confirm").assertIsEnabled().performClick()
+        compose.waitUntil(8_000) {
+            check(compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isEmpty()) {
+                "Password reauth rejected TroOi2026!"
+            }
+            compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty()
+        }
         if (expectBoundary) compose.onNodeWithText("Chưa thể thực hiện").assertExists()
     }
 

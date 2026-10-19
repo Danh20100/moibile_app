@@ -108,6 +108,8 @@ class NativeTenantStatesTest {
                         }
                     }
                 }
+                scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                tag("rent-payment-amount")
                 assertTrue(tag("rent-payment-amount").performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 repeat(50) {
                     scenario.onActivity { activity ->

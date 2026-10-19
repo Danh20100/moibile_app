@@ -118,7 +118,22 @@ Android CI: https://github.com/onsra520/TroOi-Project/actions/runs/39207103770. 
 
 Vercel trên commit này báo `Deployment was blocked` cho project ngoài repo `quyseggs/tro-oi-landing-page`. Không có `vercel.json` trong repo này, không tạo project Vercel mới.
 
-Gate vẫn **NOT_READY**.
+## Local seven + wipe rerun 19/10/2026 (chiều)
+
+Không deploy Vercel. Emulator Pixel 8 API 34, DemoPay `127.0.0.1:3001`.
+
+Bảy method của job 105/112 chạy riêng đều **PASS**. App debug `com.trooi.app.backenddev` mở được màn chào và form đăng nhập.
+
+Hardening test sau đó: `passwordReauth` fail sớm nếu mật khẩu sai; tenant payment chờ `RESUMED`; Messages chờ nút «Quay lại Tin nhắn»; Remaining ẩn IME trước khi đóng; Owner screenshot có `screencap`; onboarding khớp specimen ±3 giây.
+
+Job đầy đủ sau cold boot + wipe:
+
+1. Lượt không wipe trước đó trong phiên: abort lúc 67/112, system crash. Fail trước abort: Messages back, Remaining PAUSED.
+2. Lượt sau wipe: **abort lúc 81/112**, `INSTRUMENTATION_ABORTED: System has crashed`, khoảng 43 phút. Không đủ 112. Fail trước abort: AssetPublication timeout, LandlordOnboarding specimen picker (media có nhưng khớp giây lệch), NativeOwner screenshot null, PaymentIntegration keyboard/notification.
+
+Bảy fail cũ của job 105/112 **không tái hiện** trong hai lượt abort này (AccountRework/NativeTenant đã qua vùng đầu với 0 fail; Rent/Seeded chưa tới trước khi system chết).
+
+Gate vẫn **NOT_READY**. Không merge PR #12.
 
 ## Ngoài phạm vi commit
 

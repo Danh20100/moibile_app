@@ -102,7 +102,10 @@ class LandlordOnboardingFlowTest {
     private fun describesSpecimen(node: AccessibilityNodeInfo): Boolean {
         if (specimenTakenAt == 0L) return false
         val desc = normalized(node.contentDescription?.toString().orEmpty())
-        return desc.contains(specimenLabel())
+        val format = java.text.SimpleDateFormat("MMM d, yyyy, h:mm:ss a", java.util.Locale.US)
+        format.timeZone = java.util.TimeZone.getDefault()
+        // Picker content description can be one second off DATE_TAKEN.
+        return (-3..3).any { desc.contains(normalized(format.format(java.util.Date(specimenTakenAt + it * 1000L)))) }
     }
     private fun specimenThumbnail(nodes: List<AccessibilityNodeInfo>): AccessibilityNodeInfo? {
         var awaitingThumbnail = false
