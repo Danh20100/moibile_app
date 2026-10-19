@@ -94,11 +94,6 @@ class LandlordOnboardingFlowTest {
     private fun nodeBlob(node: AccessibilityNodeInfo) =
         listOf(node.viewIdResourceName, node.text?.toString(), node.contentDescription?.toString()).joinToString(":")
     private fun normalized(value: String) = value.replace('\u202F', ' ').replace('\u00A0', ' ')
-    private fun specimenLabel(): String {
-        val format = java.text.SimpleDateFormat("MMM d, yyyy, h:mm:ss a", java.util.Locale.US)
-        format.timeZone = java.util.TimeZone.getDefault()
-        return format.format(java.util.Date(specimenTakenAt))
-    }
     private fun describesSpecimen(node: AccessibilityNodeInfo): Boolean {
         if (specimenTakenAt == 0L) return false
         val desc = normalized(node.contentDescription?.toString().orEmpty())
