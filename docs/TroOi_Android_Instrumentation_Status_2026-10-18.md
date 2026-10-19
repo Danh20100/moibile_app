@@ -110,7 +110,15 @@ Bảy fail:
 
 `NativeMessagingStatesTest.rejectedLocalSaveKeepsDraftAndValidatesBeforeCallingTheRepository` isolated PASS sau khi ghim MOCK. Máy này mặc định backend nên counter là `501/4000`, không phải `501/500`.
 
-Hai ảnh tenant null được gắn vòng `screencap` sau job này. Job 105/112 không gồm vòng đó. Gate vẫn **NOT_READY**.
+Hai ảnh tenant null được gắn vòng `screencap` sau job này. Job 105/112 không gồm vòng đó.
+
+PR: https://github.com/onsra520/TroOi-Project/pull/12. Không merge.
+
+Android CI: https://github.com/onsra520/TroOi-Project/actions/runs/39207103770. Job `android` không chạy vì Actions budget. Đó không phải PASS, và workflow này chỉ là unit, lint, assemble.
+
+Vercel trên commit này báo `Deployment was blocked` cho project ngoài repo `quyseggs/tro-oi-landing-page`. Không có `vercel.json` trong repo này, không tạo project Vercel mới.
+
+Gate vẫn **NOT_READY**.
 
 ## Ngoài phạm vi commit
 
