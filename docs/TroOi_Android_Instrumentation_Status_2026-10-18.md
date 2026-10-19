@@ -1,8 +1,8 @@
 # Trạng thái ổn định Android instrumentation — 18/10/2026
 
-Nhánh: `fix/android-instrumentation-stabilization-20261017`  
-HEAD trước các thay đổi này: `aa75c95`  
-Worktree: `D:\Semester 8\EXE2\backend\TroOi-Project`  
+Nhánh: `fix/android-instrumentation-stabilization-20261017`
+HEAD trước các thay đổi này: `aa75c95`
+Worktree: `D:\Semester 8\EXE2\backend\TroOi-Project`
 Kết luận gate: **NOT_READY**
 
 Phạm vi là ổn định instrumentation/UI E2E. Không thêm tính năng sản phẩm, không hạ kiểm soát bảo mật, không dùng SePay Production, không đụng `trooi_finance`.
@@ -11,7 +11,7 @@ Phạm vi là ổn định instrumentation/UI E2E. Không thêm tính năng sả
 
 - `LandlordOnboardingFlowTest` isolated **PASS** trên Pixel 8 API 34. Test ghim nguồn MOCK trước khi mở activity, chọn đúng ảnh specimen trong Photo Picker, chờ OCR xong rồi mới bấm tiếp, và sau khi hoàn tất hồ sơ vào không gian quản lý của organization vừa được cấp.
 - `RentPaymentFlowTest` isolated **PASS** hai lần liên tiếp (1 phút 22 giây và 1 phút 26 giây). Đường đi là checkout CREATED, xác nhận có chữ ký trên DemoPay, deep link `trooi://payment/demo` đưa app trở lại, payment SUCCEEDED đúng 1.000đ, deep link giả không settle thêm, không tự phân bổ deposit/receipt, và checkout thứ hai còn CREATED.
-- DemoPay isolated trên Postgres compose: host `postgres`, database `/trooi_dev`, `SEPAY_ENABLED=false`. `scripts/demo/verify.cjs` chỉ tự gán `DATABASE_URL` bên trong container khi thiếu, và thoát nếu không đúng host/database đó.
+- DemoPay isolated trên Postgres compose: host `postgres`, database `/trooi_dev`, `SEPAY_ENABLED=false`. `scripts/demo/verify.cjs` luôn kiểm tra lại URL sẽ mở, kể cả khi `DATABASE_URL` đã có sẵn, và thoát trước khi query nếu host không phải `postgres` hoặc database không phải `/trooi_dev`.
 - Sổ fixture nhận đúng một payment DemoPay đã settle khi xác nhận. Deposit và receipt không bị đổi theo payment đó.
 - Nút «Về Sổ» được gọi bằng semantics action vì nút nằm dưới fold; click theo tọa độ không tới callback.
 - Gợi ý phiên thanh toán được `commit()` để lần đọc ngay sau đó thấy checkout đã rút khỏi danh sách chờ.
@@ -92,8 +92,27 @@ Sáu tên fail của lượt 106/112 nằm trong nhóm 20/20, nhưng chưa đư�
 | Năm class còn lại của lượt 106/112 | 20/20 PASS, 4 phút 54 giây |
 | `:app:connectedDebugAndroidTest` không lọc | Aborted, 63/112 nhận được, 21 phút 22 giây, system crashed |
 
+## Job đầy đủ 19/10/2026
+
+Pixel 8 API 34, userdata đã wipe lúc boot, một job `:app:connectedDebugAndroidTest` không lọc class. DemoPay isolated: `node scripts/demo/verify.cjs` PASS trước job. Log Gradle: `app/build/reports/androidTests/connected/debug/index.html` (bị ghi đè bởi job instrumentation sau).
+
+**112 chạy, 105 PASS, 7 FAIL, 0 skip, 1 giờ 1 phút 24 giây.** Không `INSTRUMENTATION_ABORTED`. Không phải 112/112.
+
+Bảy fail:
+
+- `AccountReworkTest.phoneVerificationDirtyBackAndReentryAt320dp` — hộp mật khẩu còn sau 8 giây.
+- `AccountReworkTest.notificationSelectionSurvivesBackAndMarketingDoesNotDisableSecurity` — cùng hộp mật khẩu.
+- `NativeTenantStatesTest.paymentFieldKeepsHeaderAndActionAboveDockedKeyboard` — cây accessibility rỗng.
+- `NativeTenantStatesTest.portalKeepsLinkedProjectionAndSelectedNavigationInBothThemes` — `takeScreenshot()` null.
+- `NativeTenantStatesTest.paymentValidationAndRejectedCheckoutRetainAmountWithoutConfirmation` — `takeScreenshot()` null.
+- `RentPaymentFlowTest.confirmationRequiresBackendThenRetiresOnlyVerifiedIntent` — không tới «Xác nhận thanh toán».
+- `SeededAccountFlowTest.separateAccountsOpenCorrectLedgerAndPublicPhotosWithoutPovSwitch` — screenshot null sau cả `screencap`.
+
+`NativeMessagingStatesTest.rejectedLocalSaveKeepsDraftAndValidatesBeforeCallingTheRepository` isolated PASS sau khi ghim MOCK. Máy này mặc định backend nên counter là `501/4000`, không phải `501/500`.
+
+Hai ảnh tenant null được gắn vòng `screencap` sau job này. Job 105/112 không gồm vòng đó. Gate vẫn **NOT_READY**.
+
 ## Ngoài phạm vi commit
 
 - `docs/TroOi_Android_Instrumentation_Handoff_Duy_Anh_2026-10-17.md` là tài liệu giao việc, không phải kết quả thực hiện.
 - `gradle.properties` local chỉ tăng heap Gradle và đang bị gitignore.
-

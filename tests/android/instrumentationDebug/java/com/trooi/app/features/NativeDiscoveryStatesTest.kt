@@ -75,6 +75,25 @@ class NativeDiscoveryStatesTest {
         }
         error("Unreachable $text; nodes=" + visible().joinToString { "${it.className}:${it.text?.toString()?.take(80)}:${it.contentDescription}:scroll=${it.isScrollable}:visible=${it.isVisibleToUser}" })
     }
+    private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
+        instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+    private fun framebuffer(): Bitmap? {
+        val encoded = shell("screencap -p /data/local/tmp/trooi-fallback.png && base64 /data/local/tmp/trooi-fallback.png")
+        val bytes = runCatching { android.util.Base64.decode(encoded, android.util.Base64.DEFAULT) }.getOrNull() ?: return null
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+    private fun capture(directory: File, name: String) {
+        Thread.sleep(500)
+        var bitmap: Bitmap? = null
+        val deadline = android.os.SystemClock.uptimeMillis() + 2000
+        while (bitmap == null && android.os.SystemClock.uptimeMillis() < deadline) {
+            bitmap = instrumentation.uiAutomation.takeScreenshot()
+            if (bitmap == null) Thread.sleep(300)
+        }
+        val captured = checkNotNull(bitmap ?: framebuffer()) { "Screenshot was null after UiAutomation and screencap: $name" }
+        File(directory, name).outputStream().use { captured.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        captured.recycle()
+    }
 
     @Test fun publicDiscoveryFailureHasInlineRetryWithoutFixtureFallback() {
         var retries = 0
@@ -142,12 +161,7 @@ class NativeDiscoveryStatesTest {
                 waitFor("MapLibre · OpenFreeMap")
                 assertTrue(visible().any { it.text?.toString() == "MapLibre · OpenFreeMap" && it.isVisibleToUser })
                 instrumentation.waitForIdleSync()
-                Thread.sleep(500)
-                val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-                File(directory, "map-free-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-                }
-                bitmap.recycle()
+                capture(directory, "map-free-320-font1.3-${if (dark) "dark" else "light"}.png")
             }
         }
     }
@@ -200,10 +214,7 @@ class NativeDiscoveryStatesTest {
                         assertFalse(visible().any { it.className == "android.widget.EditText" })
                     }
                 }
-                Thread.sleep(500)
-                val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-                File(directory, "$case-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                bitmap.recycle()
+                capture(directory, "$case-320-font1.3-${if (dark) "dark" else "light"}.png")
             }
         }
     }
@@ -239,10 +250,7 @@ class NativeDiscoveryStatesTest {
                 while (!close.isClickable) close = close.parent
                 assertTrue(close.performAction(AccessibilityNodeInfo.ACTION_CLICK)); instrumentation.waitForIdleSync()
                 assertEquals("close", events.last())
-                Thread.sleep(500)
-                val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-                File(directory, "search-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                bitmap.recycle()
+                capture(directory, "search-320-font1.3-${if (dark) "dark" else "light"}.png")
             }
         }
     }

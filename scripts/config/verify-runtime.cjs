@@ -15,6 +15,17 @@ function databaseUrlForCompose(env) {
     '@postgres:5432/' + encodeURIComponent(name);
 }
 
+function isolatedDemoDatabaseUrl(env) {
+  const raw = env.DATABASE_URL || databaseUrlForCompose(env);
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw new Error('Refusing demo verification outside the isolated compose database'); }
+  const name = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+  if (parsed.hostname !== 'postgres' || name !== 'trooi_dev') {
+    throw new Error('Refusing demo verification outside the isolated compose database');
+  }
+  return raw;
+}
+
 function validateFinanceRuntime(env, verifier) {
   if (env.NODE_ENV !== 'production' ||
       env.TROOI_DATABASE_MODE !== 'external-finance' ||
@@ -57,4 +68,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { databaseUrlForCompose, validateFinanceRuntime };
+module.exports = { databaseUrlForCompose, isolatedDemoDatabaseUrl, validateFinanceRuntime };

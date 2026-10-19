@@ -24,11 +24,15 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
     private val memoryManagement = mutableMapOf(DemoData.accounts[1].userId to DemoData.ownerManagement)
     private val memoryOrganizations = mutableMapOf<String, String>()
     private val memoryMessages = java.util.concurrent.ConcurrentHashMap<String, List<ConversationMessage>>()
+    private val memoryPayments = java.util.concurrent.ConcurrentHashMap<String, List<PaymentCard>>()
     // ponytail: one local-write lock; use account locks only if concurrent local writes become frequent.
     private val messageWrites = Mutex()
     private fun localMessages(userId: String): List<ConversationMessage> = prefs?.getString("messages:$userId", null)?.let {
         gson.fromJson(it, Array<ConversationMessage>::class.java).toList()
     } ?: memoryMessages[userId].orEmpty()
+    private fun settledPayments(userId: String): List<PaymentCard> = prefs?.getString("demo-payments:$userId", null)?.let {
+        gson.fromJson(it, Array<PaymentCard>::class.java).toList()
+    } ?: memoryPayments[userId].orEmpty()
     private fun management(userId: String): LocalManagement {
         val saved = prefs?.getString("management:$userId", null)
             ?.let { gson.fromJson(it, LocalManagement::class.java) } ?: memoryManagement[userId] ?: LocalManagement()
@@ -90,7 +94,19 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
                 val asset = catalog?.assets?.firstOrNull { it.id == listing.roomId }
                 if (asset == null) listing else listing.copy(title = asset.name, visibility = asset.listingStatus)
             } + additional.map { OperatorListingCard(it.listingId, it.id, it.name, it.listingStatus) })
-        return read
+        val settled = account?.userId?.let(::settledPayments).orEmpty()
+        val finance = read.tenantFinanceByTenancy[DemoData.TENANCY]
+        if (settled.isEmpty() || finance == null || DemoData.TENANCY !in access.linkedTenancyIds) return read
+        val payments = finance.payments.filter { existing -> settled.none { it.paymentId == existing.paymentId } } + settled
+        return read.copy(tenantFinanceByTenancy = read.tenantFinanceByTenancy + (DemoData.TENANCY to finance.copy(payments = payments)))
+    }
+    internal fun rememberConfirmedPayment(card: PaymentCard): FrontendReadSnapshot {
+        val account = currentSession() ?: error("Vui lòng đăng nhập lại.")
+        check(DemoData.TENANCY in account.access.linkedTenancyIds) { "Khoản thuê không thuộc tài khoản hiện tại." }
+        val next = settledPayments(account.userId).filterNot { it.paymentId == card.paymentId } + card
+        check(prefs == null || prefs.edit().putString("demo-payments:${account.userId}", gson.toJson(next)).commit()) { "Chưa lưu được khoản thanh toán." }
+        memoryPayments[account.userId] = next
+        return authorizedRead(account.access)
     }
     private fun validateCatalog(userId: String, next: LocalManagement) {
         check(next.assets.map { it.listingId }.distinct().size == next.assets.size) { "Tin đăng đã được liên kết với tài sản khác." }
@@ -195,12 +211,9 @@ class FixtureTroOiRepository internal constructor(private val prefs: android.con
     override suspend fun readConfirmedDemoPayment(access: AccessCapabilities, paymentId: String) = runCatching {
         val account = currentSession() ?: error("Vui lòng đăng nhập lại.")
         check(account.access == access) { "Quyền truy cập không thuộc tài khoản hiện tại." }
-        val read = authorizedRead(access)
-        val finance = read.tenantFinanceByTenancy[DemoData.TENANCY] ?: error("Chưa có sổ thanh toán cho khoản thuê này.")
         val settled = requireNotNull(payments).finance(account.userId).payments.firstOrNull { it.paymentId == paymentId }
             ?: error("Chưa thấy khoản thanh toán đã xác nhận.")
-        val merged = finance.copy(payments = finance.payments.filterNot { it.paymentId == settled.paymentId } + settled)
-        read.copy(tenantFinanceByTenancy = read.tenantFinanceByTenancy + (DemoData.TENANCY to merged))
+        rememberConfirmedPayment(settled)
     }
 
     override suspend fun login(identifier: String, password: String): Result<UserSession> {

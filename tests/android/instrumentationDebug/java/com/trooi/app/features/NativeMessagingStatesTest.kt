@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.model.FrontendReadSnapshot
 import com.trooi.app.core.model.NotificationCard
@@ -83,8 +85,10 @@ class NativeMessagingStatesTest {
     }
 
     @Test fun rejectedLocalSaveKeepsDraftAndValidatesBeforeCallingTheRepository() {
+        val previous = RuntimeDataSource.currentMode()
+        check(RuntimeDataSource.chooseDebugSource(instrumentation.targetContext, AppDataSource.MOCK))
         val conversation = DemoData.conversations(DemoData.accounts.first().userId).first()
-        for (dark in listOf(false, true)) {
+        try { for (dark in listOf(false, true)) {
             var attempted: Pair<String, String>? = null
             ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
                 scenario.onActivity { activity -> activity.setContent {
@@ -131,7 +135,7 @@ class NativeMessagingStatesTest {
                         it.text?.toString() == "Đã gửi tin nhắn."
                 })
             }
-        }
+        } } finally { check(RuntimeDataSource.chooseDebugSource(instrumentation.targetContext, previous)) }
     }
 
     @Test fun compactFeedbackStatesAndRecoveryActionsWorkInBothThemes() {
