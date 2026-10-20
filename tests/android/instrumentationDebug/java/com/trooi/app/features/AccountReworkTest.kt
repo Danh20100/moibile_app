@@ -57,18 +57,29 @@ class AccountReworkTest {
         compose.onNodeWithText("Xác thực bảo mật").assertIsDisplayed()
         compose.onNodeWithText("Mật khẩu hiện tại").performTextReplacement("TroOi2026!")
         compose.onNodeWithTag("reauth-confirm").assertIsEnabled().performClick()
-        compose.waitUntil(8_000) {
-            check(compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isEmpty()) {
-                "Password reauth rejected TroOi2026!"
+        try {
+            compose.waitUntil(8_000) {
+                check(compose.onAllNodesWithText("Mật khẩu hiện tại không đúng.").fetchSemanticsNodes().isEmpty()) {
+                    "Password reauth rejected TroOi2026!"
+                }
+                compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty()
             }
-            compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty()
+        } catch (error: Throwable) {
+            throw AssertionError(
+                "passwordReauth stuck: ${error.message} | ${FailureEvidenceCapture.diagnosticSummary()}",
+                error,
+            )
         }
         if (expectBoundary) compose.onNodeWithText("Chưa thể thực hiện").assertExists()
     }
 
     private fun pinReauth() {
+        compose.waitUntil(8_000) {
+            runCatching { compose.onAllNodesWithText("Mã PIN bảo mật").fetchSemanticsNodes().isNotEmpty() }
+                .getOrDefault(false)
+        }
         compose.onNodeWithText("Mã PIN bảo mật").performTextReplacement("482795")
-        compose.onNodeWithTag("reauth-confirm").performClick()
+        compose.onNodeWithTag("reauth-confirm").assertIsEnabled().performClick()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("Xác thực bảo mật").fetchSemanticsNodes().isEmpty() }
     }
 

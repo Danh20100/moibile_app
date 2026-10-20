@@ -41,7 +41,8 @@ class NativeTenantStatesTest {
     }
     private fun find(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
         repeat(50) { visible().firstOrNull(predicate)?.let { return it }; Thread.sleep(100) }
-        error("Missing tenant control: " + visible().joinToString { "${it.text}:${it.viewIdResourceName}" })
+        val nodes = visible().joinToString { "${it.text}:${it.viewIdResourceName}" }.ifBlank { "(empty tree)" }
+        error("Missing tenant control: $nodes | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}")
     }
     private fun tag(value: String) = find { it.viewIdResourceName == value }
     private fun click(text: String) {
@@ -72,7 +73,9 @@ class NativeTenantStatesTest {
             bitmap = instrumentation.uiAutomation.takeScreenshot()
             if (bitmap == null) Thread.sleep(300)
         }
-        val captured = checkNotNull(bitmap ?: framebuffer()) { "Screenshot was null after UiAutomation and screencap: $name" }
+        val captured = checkNotNull(bitmap ?: framebuffer()) {
+            "Screenshot was null after UiAutomation and screencap: $name | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}"
+        }
         File(directory, "$name-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
             captured.compress(Bitmap.CompressFormat.PNG, 100, it)
         }

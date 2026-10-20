@@ -84,6 +84,9 @@ android {
         versionCode = 3
         versionName = "1.0.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Test-only: dumps window/power/uiautomator/logcat/screenshot on each failure.
+        testInstrumentationRunnerArguments["listener"] =
+            "com.trooi.app.features.FailureEvidenceListener"
         buildConfigField("String", "BACKEND_API_BASE_URL", "\"$escapedBackendApiBaseUrl\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$escapedGoogleWebClientId\"")
         buildConfigField("String", "PAYMENT_PUBLIC_ORIGIN", "\"$escapedPaymentPublicOrigin\"")

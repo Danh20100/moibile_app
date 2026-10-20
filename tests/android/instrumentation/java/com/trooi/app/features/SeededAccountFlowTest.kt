@@ -41,7 +41,9 @@ class SeededAccountFlowTest {
             bitmap = instrumentation.uiAutomation.takeScreenshot()
             if (bitmap == null) android.os.SystemClock.sleep(300)
         }
-        val captured = requireNotNull(bitmap ?: framebuffer(instrumentation)) { "Screenshot was null after UiAutomation and screencap: $name" }
+        val captured = requireNotNull(bitmap ?: framebuffer(instrumentation)) {
+            "Screenshot was null after UiAutomation and screencap: $name | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}"
+        }
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")

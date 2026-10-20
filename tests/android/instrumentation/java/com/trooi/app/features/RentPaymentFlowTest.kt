@@ -62,15 +62,43 @@ class RentPaymentFlowTest {
         }
         return matches.filter { area(it) > 0 }.maxByOrNull { area(it) + if (it.isClickable) 1_000_000 else 0 }
     }
+    private fun chromeFirstRunLabels() = listOf(
+        "Use without an account", "Accept & continue", "Accept and continue", "No thanks", "Got it",
+        "More", "Continue", "Yes, I'm in", "Không cảm ơn",
+    )
+    private fun dismissChromeFirstRun(deadlineMs: Long = 15000) {
+        val deadline = android.os.SystemClock.uptimeMillis() + deadlineMs
+        while (android.os.SystemClock.uptimeMillis() < deadline) {
+            val extra = chromeFirstRunLabels().firstNotNullOfOrNull { nativeNode(it) } ?: break
+            tapBounds(extra)
+            android.os.SystemClock.sleep(400)
+        }
+    }
+    private fun shell(command: String) {
+        val pipe = instrumentation.uiAutomation.executeShellCommand(command)
+        try { java.io.FileInputStream(pipe.fileDescriptor).readBytes() } finally { pipe.close() }
+    }
+    /** Wipe/pm-clear leaves Chrome unable to take ACTION_VIEW until first-run is dismissed once. */
+    private fun warmChromeForPaymentHandoff() {
+        shell("am start -a android.intent.action.VIEW -d 'about:blank' com.android.chrome")
+        android.os.SystemClock.sleep(1000)
+        dismissChromeFirstRun()
+        shell("am force-stop com.android.chrome")
+        android.os.SystemClock.sleep(300)
+    }
     private fun awaitNative(text: String) {
-        val extras = listOf("Use without an account", "Accept & continue", "No thanks", "Got it")
         val deadline = android.os.SystemClock.uptimeMillis() + 20000
         while (nativeNode(text) == null && android.os.SystemClock.uptimeMillis() < deadline) {
-            val extra = extras.firstNotNullOfOrNull { candidate -> nativeNode(candidate) }
+            val extra = chromeFirstRunLabels().firstNotNullOfOrNull { candidate -> nativeNode(candidate) }
             if (extra != null) tapBounds(extra) else android.os.SystemClock.sleep(250)
+        }
+        check(nativeNode(text) != null) {
+            "Browser never showed '$text' | ${nativeDiag(text)}"
         }
         clickUntil(text, untilGone = true)
     }
+    private fun nativeDiag(lookingFor: String): String =
+        "lookingFor=$lookingFor | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}"
     private fun tapBounds(node: AccessibilityNodeInfo) {
         val bounds = android.graphics.Rect()
         node.getBoundsInScreen(bounds)
@@ -96,13 +124,13 @@ class RentPaymentFlowTest {
                 android.os.SystemClock.sleep(2000)
             } else android.os.SystemClock.sleep(250)
         }
-        check(arrived()) { "Native action did not complete: $text" }
+        check(arrived()) { "Native action did not complete: $text | ${nativeDiag(text)}" }
     }
     private fun clickNative(text: String, motion: Boolean = false) {
         val deadline = android.os.SystemClock.uptimeMillis() + 20000
         var node: AccessibilityNodeInfo?
         do { node = nativeNode(text); if (node != null) break; android.os.SystemClock.sleep(250) } while (android.os.SystemClock.uptimeMillis() < deadline)
-        val target = requireNotNull(node) { "Missing native action: $text" }
+        val target = requireNotNull(node) { "Missing native action: $text | ${nativeDiag(text)}" }
         if (!motion) {
             var current: AccessibilityNodeInfo? = target
             while (current != null) {
@@ -196,9 +224,7 @@ class RentPaymentFlowTest {
             feedbackType = android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_GENERIC
         }
         check(RuntimeDataSource.chooseDebugSource(instrumentation.targetContext, AppDataSource.MOCK))
-        instrumentation.uiAutomation.executeShellCommand("am force-stop com.android.chrome").let { command ->
-            try { java.io.FileInputStream(command.fileDescriptor).readBytes() } finally { command.close() }
-        }
+        warmChromeForPaymentHandoff()
         instrumentation.targetContext.startActivity(Intent(instrumentation.targetContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         compose.waitUntil(30000) { compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
         if (compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty()) {
@@ -228,7 +254,38 @@ class RentPaymentFlowTest {
         compose.onNodeWithTag("rent-payment-review").performClick()
         waitFor("rent-payment-open")
         screenshot("rent-payment-review")
+        probeDemoPay()
         compose.onNodeWithTag("rent-payment-open").performClick()
+        // create()+openBrowser is async; wait for browser, confirm CTA, or rent-payment-error.
+        run {
+            val handoffDeadline = android.os.SystemClock.uptimeMillis() + 25000
+            var sawChrome = false
+            while (android.os.SystemClock.uptimeMillis() < handoffDeadline) {
+                if (nativeNode("Xác nhận thanh toán") != null) break
+                val resumed = resumedActivity()
+                if (resumed.contains("chrome", ignoreCase = true) || resumed.contains("browser", ignoreCase = true)) {
+                    sawChrome = true
+                    dismissChromeFirstRun(deadlineMs = 800)
+                }
+                val openError = runCatching {
+                    compose.onAllNodesWithTag("rent-payment-error").fetchSemanticsNodes().isNotEmpty()
+                }.getOrDefault(false)
+                if (openError) {
+                    // Browser missing after wipe: warm once and tap open again.
+                    if (!sawChrome) {
+                        warmChromeForPaymentHandoff()
+                        compose.onNodeWithTag("rent-payment-open").performClick()
+                        android.os.SystemClock.sleep(500)
+                        continue
+                    }
+                    error("rent-payment-open failed | ${nativeDiag("Xác nhận thanh toán")}")
+                }
+                android.os.SystemClock.sleep(300)
+            }
+            check(nativeNode("Xác nhận thanh toán") != null || sawChrome) {
+                "Payment VIEW never reached Chrome | ${nativeDiag("Xác nhận thanh toán")}"
+            }
+        }
         awaitNative("Xác nhận thanh toán") // Explicit browser POST; GET/deep links cannot settle.
         clickUntil("Xác nhận thanh toán", untilText = "Về TrọƠi")
         screenshot("rent-payment-browser-confirmed")
