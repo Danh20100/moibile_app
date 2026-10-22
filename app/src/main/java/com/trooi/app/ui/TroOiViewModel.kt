@@ -1,6 +1,7 @@
 package com.trooi.app.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.trooi.app.BuildConfig
 import com.trooi.app.core.data.RuntimeDataSource
@@ -699,6 +700,7 @@ class TroOiViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     if (generation == sessionGeneration) {
+                        Log.w("TroOiAuthorizedRead", "refreshAuthorizedRead failed: ${error.message}", error)
                         _state.update { it.copy(runtimeLoading = false, authorizedReadFailed = true) }
                         showMessage("Chưa tải được Sổ. Kiểm tra kết nối rồi thử lại.")
                     }

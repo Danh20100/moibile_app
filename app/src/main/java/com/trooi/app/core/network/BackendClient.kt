@@ -8,6 +8,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ConnectionPool
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -31,13 +32,25 @@ class BackendClient(
     private val rawBaseUrl: String,
     private val tokens: AuthTokenProvider,
     private val allowLocalHttp: Boolean = false,
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
-        .addInterceptor(BearerTokenInterceptor(tokens))
-        .build(),
+    private val client: OkHttpClient = buildClient(tokens, allowLocalHttp),
 ) {
+    companion object {
+        val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
+        // Local emulator/adb-reverse keep-alive sockets often die mid-request ("unexpected end of stream").
+        fun buildClient(tokens: AuthTokenProvider, allowLocalHttp: Boolean): OkHttpClient {
+            val builder = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .addInterceptor(BearerTokenInterceptor(tokens))
+            if (allowLocalHttp) {
+                builder.connectionPool(ConnectionPool(0, 1, TimeUnit.NANOSECONDS))
+            }
+            return builder.build()
+        }
+    }
+
     suspend fun get(
         path: String,
         authenticated: Boolean = false,
@@ -166,9 +179,5 @@ class BackendClient(
 
     private fun warn(message: String) {
         runCatching { Log.w("TroOiBackendClient", message) }
-    }
-
-    private companion object {
-        val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

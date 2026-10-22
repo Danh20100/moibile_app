@@ -84,7 +84,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in your private .env}
       SEPAY_ENABLED: "false"
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+      # Default localhost-only. Set TROOI_BACKEND_BIND=0.0.0.0 in .env for LAN phone debug.
+      - "${TROOI_BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-3000}:3000"
     healthcheck: *backend-health
     restart: unless-stopped
     logging:
@@ -114,7 +115,8 @@ services:
       SEPAY_HANDOFF_SIGNING_KEY: ${SEPAY_HANDOFF_SIGNING_KEY:-}
       SEPAY_FINANCE_DATABASE: ${SEPAY_FINANCE_DATABASE:-}
     ports:
-      - "127.0.0.1:${SEPAY_BACKEND_PORT:-3101}:3000"
+      # LAN bind for emulator/phone debug (same pattern as main backend).
+      - "${TROOI_BACKEND_BIND:-127.0.0.1}:${SEPAY_BACKEND_PORT:-3101}:3000"
     healthcheck: *backend-health
     restart: unless-stopped
     logging:

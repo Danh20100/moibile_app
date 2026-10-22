@@ -2,6 +2,7 @@ package com.trooi.app.core.data
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.trooi.app.core.auth.NoRestoreCredential
 import com.trooi.app.core.auth.RefreshCredentialStore
@@ -292,6 +293,7 @@ class BackendTroOiRepository @Inject constructor(
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         Result.success(loadAuthorizedRead(access).also { check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." } })
     } catch (error: RuntimeException) {
+        Log.w("TroOiAuthorizedRead", "loadAuthorizedRead failed: ${error.message}", error)
         Result.failure(error)
     }
 
@@ -475,9 +477,27 @@ class BackendTroOiRepository @Inject constructor(
     )
 
     private suspend fun loadAuthorizedRead(access: AccessCapabilities): FrontendReadSnapshot {
-        val publicListings = mapPublicListings(api.getPublicListings().required("public listings"))
-        val organizationRows = api.getOrganizations().required("organizations")
-            .filter { it.id in access.operatedOrganizationIds }
+        val financeReadErrors = mutableListOf<String>()
+        // Public catalog is not required to render Sổ; local HTTP flakiness must not blank the ledger.
+        val publicListings = try {
+            mapPublicListings(api.getPublicListings().required("public listings"))
+        } catch (error: RuntimeException) {
+            Log.w("TroOiAuthorizedRead", "public listings soft-fail: ${error.message}")
+            financeReadErrors += "Chưa tải được danh sách tin công khai."
+            emptyList()
+        }
+        // Tenant-only sessions have no operated orgs; skip the org catalog entirely.
+        val organizationRows = if (access.operatedOrganizationIds.isEmpty()) {
+            emptyList()
+        } else {
+            try {
+                api.getOrganizations().required("organizations")
+                    .filter { it.id in access.operatedOrganizationIds }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "getOrganizations failed: ${error.message}", error)
+                throw error
+            }
+        }
 
         val properties = mutableListOf<PropertyTransport>()
         val rooms = mutableListOf<RoomTransport>()
@@ -493,7 +513,6 @@ class BackendTroOiRepository @Inject constructor(
         val operatorDeposits = mutableMapOf<String, MutableList<DepositCard>>()
         val operatorTenancyToOrganization = mutableMapOf<String, String>()
         val operatorReceipts = mutableMapOf<String, MutableList<ReceiptCard>>()
-        val financeReadErrors = mutableListOf<String>()
 
         for (organization in organizationRows) {
             dashboardByOrganization[organization.id] = mapDashboard(
@@ -601,33 +620,60 @@ class BackendTroOiRepository @Inject constructor(
         val noticesByTenancy = mutableMapOf<String, List<TenancyNoticeCard>>()
         val tenantFinance = mutableMapOf<String, TenantFinanceProjection>()
         for (tenancyId in access.linkedTenancyIds) {
-            val tenancy = api.getTenancy(tenancyId).required("tenant tenancy")
+            val tenancy = try {
+                api.getTenancy(tenancyId).required("tenant tenancy")
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "getTenancy($tenancyId) failed: ${error.message}", error)
+                throw error
+            }
             if (tenancy.id != tenancyId) continue
             tenancies[tenancy.id] = tenancy
-            for (incident in api.getIncidents(tenancy.roomId).required("tenant incidents")) {
-                if (incident.roomId != tenancy.roomId) continue
-                incidents[incident.id] = incident
-                incidentEvents[incident.id] = api.getIncidentEvents(incident.id)
-                    .required("tenant incident events")
-                    .filter { it.incidentId == incident.id }
+            try {
+                for (incident in api.getIncidents(tenancy.roomId).required("tenant incidents")) {
+                    if (incident.roomId != tenancy.roomId) continue
+                    incidents[incident.id] = incident
+                    incidentEvents[incident.id] = api.getIncidentEvents(incident.id)
+                        .required("tenant incident events")
+                        .filter { it.incidentId == incident.id }
+                }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "tenant incidents soft-fail ($tenancyId): ${error.message}")
             }
-            val terms = api.getTerms(tenancyId).required("tenancy terms")
-                .filter { it.tenancyId == tenancyId }
-            termsByTenancy[tenancyId] = terms
-            noticesByTenancy[tenancyId] = api.getNotices(tenancyId).required("tenancy notices")
-                .filter { it.tenancyId == tenancyId }
-                .map(::mapNotice)
+            termsByTenancy[tenancyId] = try {
+                api.getTerms(tenancyId).required("tenancy terms").filter { it.tenancyId == tenancyId }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "getTerms soft-fail ($tenancyId): ${error.message}")
+                emptyList()
+            }
+            noticesByTenancy[tenancyId] = try {
+                api.getNotices(tenancyId).required("tenancy notices")
+                    .filter { it.tenancyId == tenancyId }
+                    .map(::mapNotice)
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "getNotices soft-fail ($tenancyId): ${error.message}")
+                emptyList()
+            }
             val charges = try {
                 api.getBillingCycles(tenancyId).required("tenant billing cycles").filter { it.tenancyId == tenancyId }
                     .flatMap { it.charges }.map(::mapCharge).distinctBy { it.chargeId }
-            } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được các khoản cần thanh toán."; emptyList() }
-            val payments = try { api.getPayments(tenancyId).required("tenant payments").filter { it.tenancyId == tenancyId } }
-                catch (_: RuntimeException) { financeReadErrors += "Chưa tải được thanh toán."; emptyList() }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "billing soft-fail ($tenancyId): ${error.message}")
+                financeReadErrors += "Chưa tải được các khoản cần thanh toán."; emptyList()
+            }
+            val payments = try {
+                api.getPayments(tenancyId).required("tenant payments").filter { it.tenancyId == tenancyId }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "payments soft-fail ($tenancyId): ${error.message}")
+                financeReadErrors += "Chưa tải được thanh toán."; emptyList()
+            }
             payments.forEach { paymentsById[it.id] = it }
             val paymentCards = payments.map(::mapPayment).distinctBy { it.paymentId }
             val deposit = try {
                 api.getDeposit(tenancyId).optionalNotFound("tenant deposit")?.takeIf { it.tenancyId == tenancyId }?.let(::mapDeposit)
-            } catch (_: RuntimeException) { financeReadErrors += "Chưa tải được tiền cọc."; null }
+            } catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "deposit soft-fail ($tenancyId): ${error.message}")
+                financeReadErrors += "Chưa tải được tiền cọc."; null
+            }
             tenantFinance[tenancyId] = TenantFinanceProjection(
                 tenancyId = tenancyId,
                 charges = charges,
@@ -637,7 +683,10 @@ class BackendTroOiRepository @Inject constructor(
         }
 
         val receipts = try { api.getReceipts().required("receipts") }
-            catch (_: RuntimeException) { financeReadErrors += "Chưa tải được biên nhận."; emptyList() }
+            catch (error: RuntimeException) {
+                Log.w("TroOiAuthorizedRead", "receipts soft-fail: ${error.message}")
+                financeReadErrors += "Chưa tải được biên nhận."; emptyList()
+            }
         for (receipt in receipts) {
             val payment = paymentsById[receipt.paymentId] ?: continue
             val receiptCard = ReceiptCard(
@@ -655,8 +704,12 @@ class BackendTroOiRepository @Inject constructor(
             }
         }
 
-        val notifications = api.getNotifications().required("notifications")
-            .map(::mapNotification)
+        val notifications = try {
+            api.getNotifications().required("notifications").map(::mapNotification)
+        } catch (error: RuntimeException) {
+            Log.w("TroOiAuthorizedRead", "notifications soft-fail: ${error.message}")
+            emptyList()
+        }
 
         val roomLabels = rooms.associate { it.id to it.nameOrLabel }
         val tenancyCards = tenancies.values.map { tenancy ->

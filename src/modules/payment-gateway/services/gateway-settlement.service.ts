@@ -12,15 +12,27 @@ import {
 
 import { ResourceAuthorizationService } from '../../../common/auth/resource-authorization.service';
 import { PersistenceUniqueViolation } from '../../../persistence/errors';
+import { DecimalString, isNumeric18Scale2NonNegative } from '../../../common/domain/decimal-string';
 import type {
   GatewayCheckoutRecord,
   PaymentRecord,
 } from '../../../persistence/ports/finance.repository';
 import {
   TRANSACTION_MANAGER,
+  type PersistenceRepositories,
   type TransactionManager,
 } from '../../../persistence/ports/transaction-manager';
 import { GATEWAY_CLOCK, VerifiedGatewayEvidence } from '../providers/gateway-provider';
+
+function cents(v: DecimalString): bigint {
+  if (!isNumeric18Scale2NonNegative(v)) return 0n;
+  const [w, f = ''] = v.split('.');
+  return BigInt(w) * 100n + BigInt(f.padEnd(2, '0'));
+}
+
+function money(value: bigint): DecimalString {
+  return `${value / 100n}.${(value % 100n).toString().padStart(2, '0')}`;
+}
 
 @Injectable()
 export class GatewaySettlementService {
@@ -30,6 +42,42 @@ export class GatewaySettlementService {
     @Inject(TRANSACTION_MANAGER) private readonly tx: TransactionManager,
     @Optional() @Inject(GATEWAY_CLOCK) private readonly clock: () => Date = () => new Date(),
   ) {}
+
+  /** ponytail: auto-allocate gateway payments to outstanding charges (RENT first); drop if product wants landlord-only allocate again */
+  private async allocateGatewayPaymentToCharges(
+    repositories: PersistenceRepositories,
+    paymentId: string,
+    tenancyId: string,
+    amount: DecimalString,
+  ): Promise<void> {
+    let remaining = cents(amount);
+    if (remaining <= 0n) return;
+    const cycles = await repositories.finance.findBillingCyclesForTenancy(tenancyId);
+    const charges = [];
+    for (const cycle of cycles) {
+      charges.push(...(await repositories.finance.findChargesForCycle(cycle.billingCycleId)));
+    }
+    charges.sort((a, b) => {
+      const rent = Number(b.chargeType === 'RENT') - Number(a.chargeType === 'RENT');
+      return rent !== 0 ? rent : a.chargeId.localeCompare(b.chargeId);
+    });
+    for (const charge of charges) {
+      if (remaining <= 0n) break;
+      const used = cents(await repositories.finance.sumActiveAllocationsForCharge(charge.chargeId));
+      const due = cents(charge.amount);
+      const outstanding = due > used ? due - used : 0n;
+      if (outstanding <= 0n) continue;
+      const apply = outstanding < remaining ? outstanding : remaining;
+      if (!(await repositories.finance.paymentHasCapacity(paymentId, money(apply)))) break;
+      await repositories.finance.insertPaymentAllocation({
+        paymentAllocationId: randomUUID(),
+        paymentId,
+        chargeId: charge.chargeId,
+        allocatedAmount: money(apply),
+      });
+      remaining -= apply;
+    }
+  }
 
   async settle(evidence: VerifiedGatewayEvidence): Promise<void> {
     if (!VerifiedGatewayEvidence.isVerified(evidence))
@@ -153,6 +201,12 @@ export class GatewaySettlementService {
               : locked.providerRemoteOrderId,
           terminalEvidence: data.observation,
         });
+        await this.allocateGatewayPaymentToCharges(
+          repositories,
+          paymentId,
+          locked.tenancyId,
+          locked.amount,
+        );
         const authorization = new ResourceAuthorizationService({ run: (work) => work(context) });
         try {
           await authorization.assertCanReadTenancy(locked.createdByUserId, locked.tenancyId);
