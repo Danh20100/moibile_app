@@ -40,6 +40,9 @@ interface TroOiRepository {
         Result.failure(IllegalStateException("Thanh toán chưa khả dụng."))
     suspend fun getDemoCheckout(id: String): Result<com.trooi.app.features.shared.GatewayCheckout> =
         Result.failure(IllegalStateException("Thanh toán chưa khả dụng."))
+    /** Adds one settled DemoPay payment to the fixture ledger. Deposits and receipts stay unchanged. */
+    suspend fun readConfirmedDemoPayment(access: AccessCapabilities, paymentId: String): Result<FrontendReadSnapshot> =
+        Result.failure(IllegalStateException("Thanh toán chưa khả dụng."))
     suspend fun completeLocalLandlordOnboarding(application: com.trooi.app.core.model.LocalLandlordApplication): Result<UserSession> =
         Result.failure(IllegalStateException("Tính năng đang được phát triển."))
     suspend fun saveLocalAsset(asset: com.trooi.app.core.model.LocalRentalAsset, activate: Boolean, publish: Boolean): Result<FrontendReadSnapshot> =

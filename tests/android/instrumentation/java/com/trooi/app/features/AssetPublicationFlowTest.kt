@@ -10,22 +10,34 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
 import com.trooi.app.R
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.data.TroOiRepositoryImpl
 import com.trooi.app.core.model.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /** Actual app -> native picker -> persistent catalog -> purchase -> public discovery. */
 class AssetPublicationFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private val pinFixtureSource = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
+        }
+    }
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(pinFixtureSource).around(compose)
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private fun waitFor(tag: String) = compose.waitUntil(20000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun screenshot(name: String) {
         compose.waitForIdle()
         android.os.SystemClock.sleep(750)
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val bitmap = requireNotNull(captureScreenshot())
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
@@ -35,24 +47,36 @@ class AssetPublicationFlowTest {
         requireNotNull(resolver.openOutputStream(uri)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
+    private fun captureScreenshot(): Bitmap? {
+        repeat(3) { attempt ->
+            instrumentation.uiAutomation.takeScreenshot()?.let { return it }
+            if (attempt < 2) android.os.SystemClock.sleep(300)
+        }
+        return null
+    }
     private fun field(tag: String, value: String) {
         compose.onNodeWithTag("asset-wizard-scroll").performScrollToNode(hasTestTag(tag))
         compose.onNodeWithTag(tag).performTextReplacement(value)
     }
     private fun nativeNodes(): List<AccessibilityNodeInfo> {
-        val root = instrumentation.uiAutomation.rootInActiveWindow ?: return emptyList()
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo) { result += node; repeat(node.childCount) { node.getChild(it)?.let(::visit) } }
-        visit(root)
+        val roots = instrumentation.uiAutomation.windows.mapNotNull { it.root }
+        (roots.ifEmpty { listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow) }).forEach(::visit)
         return result
     }
-    private fun nativeClick(node: AccessibilityNodeInfo) {
-        var current: AccessibilityNodeInfo? = node
-        while (current != null) {
-            if (current.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return
-            current = current.parent
-        }
-        error("Native picker item was not clickable")
+    private fun nodeBounds(node: AccessibilityNodeInfo) = android.graphics.Rect().also(node::getBoundsInScreen)
+    private fun shellTap(node: AccessibilityNodeInfo) {
+        val bounds = nodeBounds(node)
+        val x = bounds.centerX().toFloat()
+        val y = bounds.centerY().toFloat()
+        val downTime = android.os.SystemClock.uptimeMillis()
+        val down = android.view.MotionEvent.obtain(downTime, downTime, android.view.MotionEvent.ACTION_DOWN, x, y, 0)
+        val up = android.view.MotionEvent.obtain(downTime, downTime + 60, android.view.MotionEvent.ACTION_UP, x, y, 0)
+        instrumentation.uiAutomation.injectInputEvent(down, true)
+        instrumentation.uiAutomation.injectInputEvent(up, true)
+        down.recycle()
+        up.recycle()
     }
     private fun pickTwoRealPhotos() {
         val resolver = instrumentation.targetContext.contentResolver
@@ -66,23 +90,47 @@ class AssetPublicationFlowTest {
             requireNotNull(resolver.openOutputStream(uri)).use { out -> instrumentation.targetContext.resources.openRawResource(resource).use { it.copyTo(out) } }
         }
         val automation = instrumentation.uiAutomation
-        automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS }
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
         compose.onNodeWithTag("asset-pick-photos").performClick()
         val deadline = android.os.SystemClock.uptimeMillis() + 15000
         var thumbnails: List<AccessibilityNodeInfo>
         do {
-            thumbnails = nativeNodes().filter { it.viewIdResourceName?.endsWith("icon_thumbnail") == true || it.contentDescription?.toString()?.startsWith("Photo taken") == true }
+            thumbnails = nativeNodes().filter { it.viewIdResourceName?.endsWith("icon_thumbnail") == true && nodeBounds(it).width() > 0 }
             if (thumbnails.size >= 2) break
             android.os.SystemClock.sleep(200)
         } while (android.os.SystemClock.uptimeMillis() < deadline)
         check(thumbnails.size >= 2) { "Picker thumbnails missing: ${nativeNodes().map { "${it.viewIdResourceName}:${it.text}:${it.contentDescription}" }}" }
-        nativeClick(thumbnails[0])
-        android.os.SystemClock.sleep(300)
-        nativeClick(nativeNodes().filter { it.viewIdResourceName?.endsWith("icon_thumbnail") == true || it.contentDescription?.toString()?.startsWith("Photo taken") == true }[1])
-        val add = nativeNodes().firstOrNull { it.viewIdResourceName?.endsWith("button_add") == true || it.text?.toString()?.startsWith("Add") == true || it.text?.toString() == "Done" }
+        // Accessibility click reports success on the image without selecting it. A real tap does.
+        shellTap(thumbnails[0])
+        android.os.SystemClock.sleep(400)
+        val second = nativeNodes().filter { it.viewIdResourceName?.endsWith("icon_thumbnail") == true && nodeBounds(it).width() > 0 }
+            .firstOrNull { nodeBounds(it) != nodeBounds(thumbnails[0]) } ?: thumbnails[1]
+        shellTap(second)
+        val confirmDeadline = android.os.SystemClock.uptimeMillis() + 10000
+        var add: AccessibilityNodeInfo? = null
+        do {
+            add = nativeNodes().firstOrNull {
+                it.viewIdResourceName?.endsWith("button_add") == true ||
+                    it.text?.toString()?.startsWith("Add") == true ||
+                    it.text?.toString() in setOf("Done", "Xong")
+            }
+            if (add != null) break
+            android.os.SystemClock.sleep(100)
+        } while (android.os.SystemClock.uptimeMillis() < confirmDeadline)
         checkNotNull(add) { "Picker add action missing: ${nativeNodes().map { "${it.viewIdResourceName}:${it.text}" }}" }
-        nativeClick(add)
-        compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-cover-1").fetchSemanticsNodes().isNotEmpty() }
+        shellTap(add)
+        val returnDeadline = android.os.SystemClock.uptimeMillis() + 15000
+        while (android.os.SystemClock.uptimeMillis() < returnDeadline) {
+            val packageName = instrumentation.uiAutomation.rootInActiveWindow?.packageName?.toString().orEmpty()
+            val stillPicker = packageName.contains("photopicker", ignoreCase = true) || packageName.contains("providers.media", ignoreCase = true)
+            if (!stillPicker) break
+            android.os.SystemClock.sleep(200)
+        }
+        compose.waitUntil(15000) {
+            runCatching { compose.onAllNodesWithTag("asset-cover-1").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+        }
     }
     @Test fun ownerDraftPhotosPurchasePublishRestartAndArchiveUseOneCatalog() = runBlocking {
         compose.waitUntil(20000) { compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -90,6 +138,11 @@ class AssetPublicationFlowTest {
             compose.onNodeWithTag("nav-tab-profile").performClick()
             compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
             compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
         }
         compose.onAllNodesWithText("Đăng nhập").onFirst().performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("owner@trooi.local")
@@ -122,8 +175,17 @@ class AssetPublicationFlowTest {
         compose.onNodeWithTag("asset-pin-center").performClick()
         screenshot("asset-location-pin")
         compose.onNodeWithText("Lưu vị trí").performClick()
-        compose.onNodeWithTag("asset-save-draft").performClick()
-        compose.waitUntil(10000) { compose.onAllNodesWithTag("asset-wizard").fetchSemanticsNodes().isEmpty() }
+        // A draft can only be persisted after valid rent/deposit and a completed physical description.
+        // The production validation must NOT be bypassed to satisfy the old test fixture.
+        compose.onNodeWithTag("asset-next").performClick()
+        compose.onNodeWithTag("asset-wc-PRIVATE").performClick()
+        field("asset-max-occupants", "2")
+        field("asset-description", "Bản nháp đã ghi nhận diện tích và mô tả không gian.")
+        compose.onNodeWithTag("asset-next").performClick()
+        field("asset-rent", "3200000")
+        field("asset-deposit", "3200000")
+        compose.onNodeWithTag("asset-save-draft").assertIsEnabled().performClick()
+        compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-wizard").fetchSemanticsNodes().isEmpty() }
         val draftRead = repository.refreshAuthorizedRead(account.access).getOrThrow()
         val draft = draftRead.localManagement!!.assets.single { asset -> baseline.assets.none { it.id == asset.id } }
         assertEquals(baseline.used, draftRead.localManagement!!.used)
@@ -188,9 +250,10 @@ class AssetPublicationFlowTest {
         compose.onNodeWithTag("ledger-screen").performScrollToNode(hasTestTag("ledger-capacity"))
         compose.onNodeWithTag("ledger-capacity").assertTextEquals("${baseline.used + 1} / ${baseline.capacity() + 1} đang quản lý")
         compose.onNodeWithTag("nav-tab-discovery").performClick()
-        compose.onNodeWithTag("explore-main-feed").performScrollToNode(hasTestTag("explore-card-${published.listingId}"))
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-${published.listingId}"))
         screenshot("published-local-listing")
-        compose.onNodeWithTag("explore-card-${published.listingId}").performClick()
+        compose.onNodeWithTag("discovery-detail-${published.listingId}").performClick()
         compose.onNodeWithText("Phòng C01").assertExists()
         compose.onNodeWithText("18 Đường D5, Phường 25, Bình Thạnh, TP.HCM").assertDoesNotExist()
         screenshot("published-local-detail")

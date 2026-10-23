@@ -5,6 +5,7 @@ import test from 'node:test';
 
 const runtime = require('../../scripts/config/verify-runtime.cjs') as {
   databaseUrlForCompose: (env: Record<string, string>) => string;
+  isolatedDemoDatabaseUrl: (env: Record<string, string>) => string;
   validateFinanceRuntime: (env: Record<string, string>, verify: (env: unknown) => unknown) => void;
 };
 const source = (path: string) => readFileSync(path, 'utf8');
@@ -93,6 +94,27 @@ test('local PostgreSQL URL handles reserved password characters', () => {
   assert.throws(() => runtime.databaseUrlForCompose({
     POSTGRES_USER: 'trooi', POSTGRES_PASSWORD: '', POSTGRES_DB: 'trooi_dev',
   }));
+});
+
+test('demo verification rejects a preset database outside isolated compose', () => {
+  const compose = { POSTGRES_USER: 'trooi', POSTGRES_PASSWORD: 'synthetic-local', POSTGRES_DB: 'trooi_dev' };
+  const composed = new URL(runtime.isolatedDemoDatabaseUrl(compose));
+  assert.equal(composed.hostname, 'postgres');
+  assert.equal(composed.pathname, '/trooi_dev');
+  const preset = 'postgresql://trooi:synthetic-local@postgres:5432/trooi_dev';
+  assert.equal(runtime.isolatedDemoDatabaseUrl({ ...compose, DATABASE_URL: preset, POSTGRES_DB: 'trooi_finance' }), preset);
+  for (const url of [
+    'postgresql://trooi:synthetic-local@postgres:5432/trooi_finance',
+    'postgresql://trooi:synthetic-local@postgres:5432/trooi_test',
+    'postgresql://trooi:synthetic-local@localhost:5432/trooi_dev',
+    'postgresql://trooi:synthetic-local@database.example:5432/trooi_finance',
+    'not a url',
+  ]) {
+    assert.throws(
+      () => runtime.isolatedDemoDatabaseUrl({ DATABASE_URL: url }),
+      (error: Error) => error.message === 'Refusing demo verification outside the isolated compose database' && !error.message.includes('synthetic-local'),
+    );
+  }
 });
 
 test('finance runtime rejects disabled gateway, nonproduction mode and wrong DB', () => {

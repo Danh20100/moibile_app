@@ -6,6 +6,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonPrimitive
 import com.trooi.app.R
 import com.trooi.app.core.demo.*
+import com.trooi.app.core.model.PaymentCard
 import com.trooi.app.features.profile.MockPersonalInfo
 import org.junit.Assert.*
 import org.junit.Test
@@ -190,6 +191,30 @@ class FixtureCatalogTest {
         }
     }
 
+    @Test fun confirmedDemoPaymentSurvivesRefreshAndRestart() = kotlinx.coroutines.runBlocking {
+        val prefs = MemoryPrefs()
+        val repository = com.trooi.app.core.data.FixtureTroOiRepository(prefs, null)
+        val tenant = repository.login("tenant@trooi.local", "TroOi2026!").getOrThrow()
+        val before = repository.refreshAuthorizedRead(tenant.access).getOrThrow().tenantFinanceByTenancy.getValue(DemoData.TENANCY)
+        val card = PaymentCard("payment-confirmed-1", "1.000đ", "Đã xác nhận thanh toán · 19/10/2026 · 10:00")
+        repository.rememberConfirmedPayment(card)
+        val refreshed = repository.refreshAuthorizedRead(tenant.access).getOrThrow().tenantFinanceByTenancy.getValue(DemoData.TENANCY)
+        assertEquals(before.payments.size + 1, refreshed.payments.size)
+        assertTrue(refreshed.payments.any { it.paymentId == card.paymentId && it.amountLabel == "1.000đ" })
+        assertEquals(before.charges, refreshed.charges)
+        assertEquals(before.deposits, refreshed.deposits)
+        assertEquals(before.receipts, refreshed.receipts)
+        repository.rememberConfirmedPayment(card)
+        assertEquals(1, repository.refreshAuthorizedRead(tenant.access).getOrThrow()
+            .tenantFinanceByTenancy.getValue(DemoData.TENANCY).payments.count { it.paymentId == card.paymentId })
+        val restarted = com.trooi.app.core.data.FixtureTroOiRepository(prefs, null)
+        val restored = restarted.refreshAuthorizedRead(tenant.access).getOrThrow().tenantFinanceByTenancy.getValue(DemoData.TENANCY)
+        assertTrue(restored.payments.any { it.paymentId == card.paymentId && it.amountLabel == "1.000đ" })
+        assertEquals(before.charges, restored.charges)
+        assertEquals(before.deposits, restored.deposits)
+        assertEquals(before.receipts, restored.receipts)
+    }
+
     @Test fun changedJsonIsConsumedByRuntimeProjectionWithoutKotlinFallback() {
         val source = JsonParser.parseString(resource("rentals.json")).asJsonObject
         source.getAsJsonArray("rentals")[0].asJsonObject.getAsJsonObject("asset").addProperty("name", "Tên từ JSON")
@@ -199,4 +224,33 @@ class FixtureCatalogTest {
         assertEquals("Tên từ JSON", catalog.domains.read.tenancies.first().roomLabel)
     }
 
+}
+
+private class MemoryPrefs : android.content.SharedPreferences {
+    private val values = linkedMapOf<String, String>()
+    override fun getAll(): MutableMap<String, *> = values.toMutableMap()
+    override fun getString(key: String?, defValue: String?) = values[key] ?: defValue
+    override fun getStringSet(key: String?, defValues: MutableSet<String>?) = defValues
+    override fun getInt(key: String?, defValue: Int) = defValue
+    override fun getLong(key: String?, defValue: Long) = defValue
+    override fun getFloat(key: String?, defValue: Float) = defValue
+    override fun getBoolean(key: String?, defValue: Boolean) = defValue
+    override fun contains(key: String?) = values.containsKey(key)
+    override fun edit(): android.content.SharedPreferences.Editor = Editor()
+    override fun registerOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    override fun unregisterOnSharedPreferenceChangeListener(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener?) {}
+    private inner class Editor : android.content.SharedPreferences.Editor {
+        private val edits = linkedMapOf<String, String?>()
+        override fun putString(key: String, value: String?) = apply { edits[key] = value }
+        override fun putStringSet(key: String, values: MutableSet<String>?) = this
+        override fun putInt(key: String, value: Int) = this
+        override fun putLong(key: String, value: Long) = this
+        override fun putFloat(key: String, value: Float) = this
+        override fun putBoolean(key: String, value: Boolean) = this
+        override fun remove(key: String) = apply { edits[key] = null }
+        override fun clear() = apply { values.clear() }
+        override fun commit() = true.also { flush() }
+        override fun apply() = flush()
+        private fun flush() { edits.forEach { (key, value) -> if (value == null) values.remove(key) else values[key] = value } }
+    }
 }

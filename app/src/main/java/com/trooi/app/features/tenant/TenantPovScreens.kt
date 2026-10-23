@@ -31,6 +31,7 @@ fun V1TenantHomeScreen(
     onIncidents: () -> Unit,
     onContextSwitcher: () -> Unit,
     onOpenSource: (SourceTarget) -> Unit = {},
+    onRetryRead: () -> Unit = {},
 ) {
     val rentals = linkedRentals(state)
     val current = rentals.singleOrNull()
@@ -41,6 +42,8 @@ fun V1TenantHomeScreen(
     val outstanding = finance?.charges?.firstOrNull()?.outstandingLabel
         ?: finance?.charges?.firstOrNull()?.amountLabel
     val paidUp = outstanding == "0.00" || outstanding == "0"
+    val linkedButUnread = state.access.linkedTenancyIds.isNotEmpty() && current == null &&
+        (state.runtimeLoading || state.authorizedReadFailed)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag("tenant-pov-home"),
@@ -54,7 +57,21 @@ fun V1TenantHomeScreen(
                 onContextSwitcher,
                 modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
         }
-        if (current == null) {
+        if (linkedButUnread) {
+            item {
+                if (state.runtimeLoading) {
+                    TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải lượt thuê…")
+                } else {
+                    TroOiStateMessage(
+                        TroOiStateKind.ERROR,
+                        "Chưa tải được lượt thuê. Kiểm tra kết nối rồi thử lại.",
+                        actionText = "Thử lại",
+                        onAction = onRetryRead,
+                        actionModifier = Modifier.testTag("tenant-home-read-retry"),
+                    )
+                }
+            }
+        } else if (current == null) {
             item {
                 TroOiCard("Chưa có lượt thuê") {
                     TroOiFeedback("Tài khoản chưa có lượt thuê nào.")

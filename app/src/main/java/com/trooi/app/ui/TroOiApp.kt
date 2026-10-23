@@ -286,6 +286,7 @@ fun TroOiApp(
                         onIncidents = viewModel::openTenantIncidents,
                         onContextSwitcher = viewModel::openContextSwitcher,
                         onOpenSource = viewModel::openSource,
+                        onRetryRead = viewModel::retryAuthorizedRead,
                     )
                     AppPage.TenantRental -> if (RuntimeDataSource.isBackendBacked()) {
                         val tenancyId = (state.selectedContext as? SelectedContext.Tenant)?.tenancyId

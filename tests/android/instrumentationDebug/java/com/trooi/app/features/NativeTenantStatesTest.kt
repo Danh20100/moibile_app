@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -40,7 +41,8 @@ class NativeTenantStatesTest {
     }
     private fun find(predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
         repeat(50) { visible().firstOrNull(predicate)?.let { return it }; Thread.sleep(100) }
-        error("Missing tenant control: " + visible().joinToString { "${it.text}:${it.viewIdResourceName}" })
+        val nodes = visible().joinToString { "${it.text}:${it.viewIdResourceName}" }.ifBlank { "(empty tree)" }
+        error("Missing tenant control: $nodes | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}")
     }
     private fun tag(value: String) = find { it.viewIdResourceName == value }
     private fun click(text: String) {
@@ -55,14 +57,29 @@ class NativeTenantStatesTest {
         }
         error("Unreachable tenant action: $text")
     }
+    private fun shell(command: String): String = ParcelFileDescriptor.AutoCloseInputStream(
+        instrumentation.uiAutomation.executeShellCommand(command)).bufferedReader().use { it.readText() }
+    private fun framebuffer(): Bitmap? {
+        val encoded = shell("screencap -p /data/local/tmp/trooi-fallback.png && base64 /data/local/tmp/trooi-fallback.png")
+        val bytes = runCatching { android.util.Base64.decode(encoded, android.util.Base64.DEFAULT) }.getOrNull() ?: return null
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
     private fun capture(name: String, dark: Boolean) {
         Thread.sleep(500)
         val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "round5-tenant-states").apply { mkdirs() }
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        File(directory, "$name-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        var bitmap: Bitmap? = null
+        val deadline = android.os.SystemClock.uptimeMillis() + 2000
+        while (bitmap == null && android.os.SystemClock.uptimeMillis() < deadline) {
+            bitmap = instrumentation.uiAutomation.takeScreenshot()
+            if (bitmap == null) Thread.sleep(300)
         }
-        bitmap.recycle()
+        val captured = checkNotNull(bitmap ?: framebuffer()) {
+            "Screenshot was null after UiAutomation and screencap: $name | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}"
+        }
+        File(directory, "$name-320-font1.3-${if (dark) "dark" else "light"}.png").outputStream().use {
+            captured.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        captured.recycle()
     }
     private fun projection(): TroOiUiState {
         val account = DemoData.accounts.first()
@@ -94,6 +111,8 @@ class NativeTenantStatesTest {
                         }
                     }
                 }
+                scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                tag("rent-payment-amount")
                 assertTrue(tag("rent-payment-amount").performAction(AccessibilityNodeInfo.ACTION_CLICK))
                 repeat(50) {
                     scenario.onActivity { activity ->

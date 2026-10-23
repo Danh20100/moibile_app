@@ -8,6 +8,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.data.TroOiRepositoryImpl
 import com.trooi.app.core.demo.DemoRentalGraph
 import com.trooi.app.core.model.*
@@ -24,7 +26,7 @@ class FixturePortfolioFlowTest {
     }
     private fun screenshot(name: String) {
         compose.waitForIdle()
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val bitmap = requireNotNull(captureScreenshot())
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
@@ -34,8 +36,16 @@ class FixturePortfolioFlowTest {
         requireNotNull(resolver.openOutputStream(uri)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
+    private fun captureScreenshot(): Bitmap? {
+        repeat(3) { attempt ->
+            instrumentation.uiAutomation.takeScreenshot()?.let { return it }
+            if (attempt < 2) android.os.SystemClock.sleep(300)
+        }
+        return null
+    }
     @Test fun importedDraftRequiresReviewThenPublishesOneCanonicalListing() = runBlocking {
         val context = instrumentation.targetContext
+        check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         compose.waitUntil(30000) { runCatching { compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty() ||
             compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false) }
@@ -43,6 +53,11 @@ class FixturePortfolioFlowTest {
             compose.onNodeWithTag("nav-tab-profile").performClick()
             compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
             compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
         }
         compose.onAllNodesWithText("Đăng nhập").onFirst().performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextReplacement("owner@trooi.local")
@@ -85,9 +100,9 @@ class FixturePortfolioFlowTest {
         compose.onNodeWithTag("ledger-screen").performScrollToNode(hasTestTag("owner-asset-${asset.id}"))
         screenshot("fixture-graph-owner")
         compose.onNodeWithTag("nav-tab-discovery").performClick()
-        waitFor("explore-main-feed")
-        compose.onNodeWithTag("explore-main-feed").performScrollToNode(hasTestTag("explore-card-demo-studio"))
-        compose.onNodeWithTag("explore-card-demo-studio").performClick()
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-demo-studio"))
+        compose.onNodeWithTag("discovery-detail-demo-studio").performClick()
         waitFor("listing-detail-demo-studio")
         screenshot("fixture-graph-detail")
     }

@@ -7,12 +7,25 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /** Exercises the actual app/repository/session flow, rather than a preview composable. */
 class SeededAccountFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    // Developer machines with TROOI_API_BASE_URL default to Backend, whose email login never opens the ledger.
+    private val pinFixtureSource = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
+        }
+    }
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(pinFixtureSource).around(compose)
 
     private fun waitFor(tag: String) = compose.waitUntil(20000) {
         compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
@@ -22,20 +35,45 @@ class SeededAccountFlowTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.waitForIdleSync()
         android.os.SystemClock.sleep(750) // Let native IME/window transitions finish before capture.
-        val bitmap = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        var bitmap: Bitmap? = null
+        val deadline = android.os.SystemClock.uptimeMillis() + 2000
+        while (bitmap == null && android.os.SystemClock.uptimeMillis() < deadline) {
+            bitmap = instrumentation.uiAutomation.takeScreenshot()
+            if (bitmap == null) android.os.SystemClock.sleep(300)
+        }
+        val captured = requireNotNull(bitmap ?: framebuffer(instrumentation)) {
+            "Screenshot was null after UiAutomation and screencap: $name | ${FailureEvidenceCapture.diagnosticSummary(instrumentation)}"
+        }
         val resolver = instrumentation.targetContext.contentResolver
         val uri = requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.png")
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TroOiRuntime")
         }))
-        requireNotNull(resolver.openOutputStream(uri)).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        requireNotNull(resolver.openOutputStream(uri)).use { captured.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        captured.recycle()
+    }
+    private fun framebuffer(instrumentation: android.app.Instrumentation): Bitmap? {
+        val command = instrumentation.uiAutomation.executeShellCommand(
+            "screencap -p /data/local/tmp/trooi-fallback.png && base64 /data/local/tmp/trooi-fallback.png"
+        )
+        val encoded = try {
+            java.io.FileInputStream(command.fileDescriptor).bufferedReader().use { it.readText() }
+        } finally {
+            command.close()
+        }
+        val bytes = runCatching { android.util.Base64.decode(encoded, android.util.Base64.DEFAULT) }.getOrNull() ?: return null
+        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     }
     private fun logout() {
         compose.onNodeWithTag("nav-tab-profile").performClick()
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
         compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
     }
     private fun login(email: String, capture: String) {
         compose.waitUntil(20000) { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -59,9 +97,11 @@ class SeededAccountFlowTest {
         compose.onNodeWithTag("ledger-mode-owner").assertDoesNotExist()
         screenshot("tenant-ledger")
         compose.onNodeWithTag("nav-tab-discovery").performClick()
-        compose.onNodeWithTag("explore-card-demo-studio").assertExists()
+        waitFor("discovery-results")
+        compose.onNodeWithTag("discovery-results").performScrollToNode(hasTestTag("discovery-card-demo-studio"))
+        compose.onNodeWithTag("discovery-card-demo-studio").assertExists()
         screenshot("explore")
-        compose.onNodeWithTag("explore-card-demo-studio").performClick()
+        compose.onNodeWithTag("discovery-detail-demo-studio").performClick()
         compose.onNodeWithText("Căn hộ An Nhiên").assertExists()
         screenshot("listing-detail-top")
         compose.onNodeWithTag("listing-detail-demo-studio").performScrollToNode(hasText("Điều cần biết"))

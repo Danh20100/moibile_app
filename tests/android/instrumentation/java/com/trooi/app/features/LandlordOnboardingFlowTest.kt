@@ -13,20 +13,35 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.MainActivity
-import com.trooi.app.R
+import com.trooi.app.core.data.AppDataSource
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.data.TroOiRepositoryImpl
 import com.trooi.app.core.model.*
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 
 /** Real activity, native photo picker and durable capability; original demo accounts are preserved. */
 class LandlordOnboardingFlowTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    // Developer machines with TROOI_API_BASE_URL default to Backend, whose email login is unsupported.
+    // This flow asserts the local fixture catalog, so pin MOCK before MainActivity reads the source.
+    private val pinFixtureSource = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            check(RuntimeDataSource.chooseDebugSource(context, AppDataSource.MOCK))
+        }
+    }
+    private val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val rules: RuleChain = RuleChain.outerRule(pinFixtureSource).around(compose)
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val context get() = instrumentation.targetContext
     private val temporaryMedia = mutableListOf<Uri>()
+    private var specimenName = ""
+    private var specimenTakenAt = 0L
     private fun waitFor(tag: String) = compose.waitUntil(20000) { compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty() }
     private fun screenshot(name: String) {
         compose.waitForIdle()
@@ -44,6 +59,11 @@ class LandlordOnboardingFlowTest {
         compose.onNodeWithTag("nav-tab-profile").performClick()
         compose.onNodeWithTag("profile-scroll").performScrollToNode(hasTestTag("account-logout"))
         compose.onNodeWithTag("account-logout").performClick()
+            // Logout is a protected confirmation; the first tap only opens the dialog.
+            compose.onAllNodesWithText("Đăng xuất").onLast().performClick()
+            compose.waitUntil(15000) {
+                runCatching { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }.getOrDefault(false)
+            }
     }
     private fun login(email: String) {
         compose.waitUntil(20000) { compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
@@ -53,15 +73,42 @@ class LandlordOnboardingFlowTest {
         compose.onNodeWithText("Đăng nhập").performClick()
         waitFor("ledger-screen")
     }
-    private fun field(tag: String, value: String) {
-        compose.onNodeWithTag("asset-wizard-scroll").performScrollToNode(hasTestTag(tag))
-        compose.onNodeWithTag(tag).performTextReplacement(value)
+    private fun assertOperatorHome() {
+        compose.waitUntil(20000) {
+            compose.onAllNodesWithTag("v1-owner-properties").fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithTag("ledger-screen").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (compose.onAllNodesWithTag("v1-owner-properties").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithText("Chưa có khu nhà nào trong khu trọ này.").assertExists()
+        } else {
+            compose.onNodeWithText("Tài sản của tôi").assertExists()
+        }
     }
     private fun nativeNodes(): List<AccessibilityNodeInfo> {
         val result = mutableListOf<AccessibilityNodeInfo>()
         fun visit(node: AccessibilityNodeInfo) { result += node; repeat(node.childCount) { node.getChild(it)?.let(::visit) } }
-        instrumentation.uiAutomation.rootInActiveWindow?.let(::visit)
+        val roots = instrumentation.uiAutomation.windows.mapNotNull { it.root }
+        (roots.ifEmpty { listOfNotNull(instrumentation.uiAutomation.rootInActiveWindow) }).forEach(::visit)
         return result
+    }
+    private fun nodeBlob(node: AccessibilityNodeInfo) =
+        listOf(node.viewIdResourceName, node.text?.toString(), node.contentDescription?.toString()).joinToString(":")
+    private fun normalized(value: String) = value.replace('\u202F', ' ').replace('\u00A0', ' ')
+    private fun describesSpecimen(node: AccessibilityNodeInfo): Boolean {
+        if (specimenTakenAt == 0L) return false
+        val desc = normalized(node.contentDescription?.toString().orEmpty())
+        val format = java.text.SimpleDateFormat("MMM d, yyyy, h:mm:ss a", java.util.Locale.US)
+        format.timeZone = java.util.TimeZone.getDefault()
+        // Picker content description can be one second off DATE_TAKEN.
+        return (-3..3).any { desc.contains(normalized(format.format(java.util.Date(specimenTakenAt + it * 1000L)))) }
+    }
+    private fun specimenThumbnail(nodes: List<AccessibilityNodeInfo>): AccessibilityNodeInfo? {
+        var awaitingThumbnail = false
+        for (node in nodes) {
+            if (describesSpecimen(node)) awaitingThumbnail = true
+            if (awaitingThumbnail && node.viewIdResourceName?.endsWith("icon_thumbnail") == true) return node
+        }
+        return nodes.firstOrNull { describesSpecimen(it) && it.isClickable }
     }
     private fun nativeClick(node: AccessibilityNodeInfo) {
         var current: AccessibilityNodeInfo? = node
@@ -72,15 +119,48 @@ class LandlordOnboardingFlowTest {
         error("Native picker item was not clickable")
     }
     private fun pickSingle(tag: String) {
-        instrumentation.uiAutomation.serviceInfo = instrumentation.uiAutomation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS }
+        instrumentation.uiAutomation.serviceInfo = instrumentation.uiAutomation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        compose.waitUntil(20000) {
+            runCatching { compose.onNodeWithTag(tag).assertIsEnabled(); true }.getOrDefault(false)
+        }
         compose.onNodeWithTag(tag).performClick()
-        val deadline = android.os.SystemClock.uptimeMillis() + 15000
+        val deadline = android.os.SystemClock.uptimeMillis() + 20000
         var photo: AccessibilityNodeInfo? = null
+        var openedAlbum = false
         while (photo == null && android.os.SystemClock.uptimeMillis() < deadline) {
-            photo = nativeNodes().firstOrNull { it.viewIdResourceName?.endsWith("icon_thumbnail") == true || it.contentDescription?.toString()?.startsWith("Photo taken") == true }
+            val nodes = nativeNodes()
+            if (!openedAlbum) {
+                nodes.firstOrNull {
+                    it.text?.toString() == "TroOiOnboardingTest" || it.contentDescription?.toString()?.contains("TroOiOnboardingTest") == true
+                }?.let { nativeClick(it); openedAlbum = true }
+            }
+            val current = nativeNodes()
+            photo = specimenThumbnail(current)
             if (photo == null) android.os.SystemClock.sleep(200)
         }
-        nativeClick(requireNotNull(photo) { "Native photo picker did not show media" })
+        nativeClick(requireNotNull(photo) {
+            val windows = instrumentation.uiAutomation.windows.joinToString { it.root?.packageName?.toString() ?: "?" }
+            "Native photo picker did not show media (windows=$windows, nodes=" +
+                nativeNodes().take(80).joinToString { nodeBlob(it) } + ")"
+        })
+        if (tag.startsWith("onboarding-id-")) {
+            // Some API 37 Photo Picker builds use an explicit Done confirmation even for
+            // a single selection. Only press it when the *native picker* is still foreground.
+            val pickerDeadline = android.os.SystemClock.uptimeMillis() + 5000
+            while (android.os.SystemClock.uptimeMillis() < pickerDeadline) {
+                val root = instrumentation.uiAutomation.rootInActiveWindow
+                val packageName = root?.packageName?.toString().orEmpty()
+                val stillPicker = packageName.contains("photopicker", ignoreCase = true) || packageName.contains("providers.media", ignoreCase = true)
+                if (!stillPicker) break
+                val done = nativeNodes().firstOrNull {
+                    it.text?.toString() in setOf("Done", "Xong") || it.viewIdResourceName?.endsWith("button_add") == true
+                }
+                if (done != null) { nativeClick(done); break }
+                android.os.SystemClock.sleep(150)
+            }
+        }
         if (tag == "asset-pick-photos") {
             val confirmDeadline = android.os.SystemClock.uptimeMillis() + 15000
             var confirm: AccessibilityNodeInfo? = null
@@ -91,18 +171,31 @@ class LandlordOnboardingFlowTest {
             nativeClick(requireNotNull(confirm) { "Native picker confirmation did not appear" })
             compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-cover-0").fetchSemanticsNodes().isNotEmpty() }
         } else {
-            compose.waitUntil(15000) { compose.onAllNodes(hasTestTag(tag) and hasText("Thay ảnh")).fetchSemanticsNodes().isNotEmpty() }
+            // The native picker temporarily removes the Compose root while closing.
+            // The current ScanPhotoTile updates its action to "Đổi ảnh" after a successful read.
+            compose.waitUntil(15000) {
+                runCatching {
+                    compose.onAllNodes(hasTestTag(tag) and hasText("Đổi ảnh")).fetchSemanticsNodes().isNotEmpty()
+                }.getOrDefault(false)
+            }
         }
     }
     private fun addImage(name: String, write: (java.io.OutputStream) -> Unit) {
-        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, "$name-${System.currentTimeMillis()}.jpg")
+        specimenName = name
+        specimenTakenAt = System.currentTimeMillis()
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "$name.jpg")
+            put(MediaStore.Images.Media.TITLE, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
             put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/TroOiOnboardingTest")
-            put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
-        }))
+            put(MediaStore.Images.Media.DATE_TAKEN, specimenTakenAt)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values))
         temporaryMedia += uri
         requireNotNull(context.contentResolver.openOutputStream(uri)).use(write)
+        check(context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null) == 1)
+        check(context.contentResolver.openInputStream(uri)?.use { it.read() } != null)
     }
     private fun specimenPhoto(label: String) {
         val bitmap = Bitmap.createBitmap(800, 500, Bitmap.Config.ARGB_8888)
@@ -114,10 +207,10 @@ class LandlordOnboardingFlowTest {
             paint.color = Color.rgb(174, 187, 196)
             drawCircle(400f, 290f, 80f, paint)
         }
-        addImage("identity-specimen") { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        addImage("trooi-specimen-$label-${System.currentTimeMillis()}") { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }
         bitmap.recycle()
     }
-    @Test fun fullOnboardingCreatesOnePrivateAssetAndRestoresOnlyItsOwnCapability() = runBlocking {
+    @Test fun fullOnboardingCreatesWorkspaceWithoutImplicitAssetAndRestoresOnlyItsOwnCapability() = runBlocking {
         compose.waitUntil(20000) { compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty() || compose.onAllNodesWithText("Đăng nhập").fetchSemanticsNodes().isNotEmpty() }
         if (compose.onAllNodesWithTag("nav-tab-profile").fetchSemanticsNodes().isNotEmpty()) logout()
         // Only this dedicated QA fixture is reset; original tenant/owner catalogs remain untouched.
@@ -132,16 +225,19 @@ class LandlordOnboardingFlowTest {
             compose.onNodeWithTag("profile-landlord-cta").performClick()
             screenshot("onboarding-intro")
             compose.onNodeWithTag("onboarding-next").performClick()
-            compose.onNodeWithTag("onboarding-name").performTextReplacement("Phạm Thảo Linh Nguyễn")
-            compose.onNodeWithTag("onboarding-birthday").performTextReplacement("15/06/1995")
-            compose.onNodeWithTag("onboarding-birthday").performImeAction()
-            screenshot("onboarding-personal")
-            compose.onNodeWithTag("onboarding-next").performClick()
-            listOf("front", "back", "selfie").forEach { side ->
+            // Current onboarding requires both ID images before the user reviews any OCR output.
+            listOf("front", "back").forEach { side ->
                 specimenPhoto(side)
                 compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-$side"))
                 pickSingle("onboarding-id-$side")
             }
+            compose.waitUntil(20000) {
+                runCatching { compose.onNodeWithTag("onboarding-next").assertIsEnabled(); true }.getOrDefault(false)
+            }
+            compose.onNodeWithTag("onboarding-next").performClick()
+            compose.onNodeWithTag("onboarding-name").performTextReplacement("Phạm Thảo Linh Nguyễn")
+            compose.onNodeWithTag("onboarding-birthday").performTextReplacement("15/06/1995")
+            compose.onNodeWithTag("onboarding-birthday").performImeAction()
             compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-identity-accept"))
             compose.onNodeWithTag("onboarding-identity-accept").performClick()
             screenshot("onboarding-identity-local")
@@ -150,67 +246,41 @@ class LandlordOnboardingFlowTest {
             compose.onNodeWithTag("onboarding-email").performTextReplacement("linh@example.test")
             compose.onNodeWithTag("onboarding-email").performImeAction()
             compose.onNodeWithTag("onboarding-contact-confirm").performClick()
-            screenshot("onboarding-contact")
-            compose.onNodeWithTag("onboarding-next").performClick()
-            compose.onNodeWithTag("onboarding-first-asset").performClick()
-            compose.onNodeWithTag("asset-type-Căn hộ").performClick()
-            compose.onNodeWithTag("asset-next").performClick()
-            field("asset-name", "Căn hộ L01")
-            field("asset-address", "24 Đường D5, Bình Thạnh, TP.HCM")
-            field("asset-public-area", "Bình Thạnh, TP.HCM")
-            field("asset-area", "34")
-            compose.onNodeWithTag("asset-area").performImeAction()
-            compose.onNodeWithTag("asset-next").performClick()
-            field("asset-bedrooms", "1")
-            field("asset-bathrooms", "1")
-            field("asset-max-occupants", "2")
-            field("asset-floor", "3")
-            field("asset-description", "Căn hộ thoáng sáng, có bếp riêng. Phù hợp thuê dài hạn.")
-            compose.onNodeWithTag("asset-next").performClick()
-            field("asset-rent", "4200000")
-            field("asset-deposit", "4200000")
-            compose.onNodeWithTag("asset-next").performClick()
-            compose.onNodeWithTag("asset-next").performClick()
-            addImage("rental-space") { output -> context.resources.openRawResource(R.drawable.rental_studio).use { it.copyTo(output) } }
-            pickSingle("asset-pick-photos")
-            compose.onNodeWithTag("asset-next").performClick()
-            compose.onNodeWithTag("asset-save-active").performClick()
-            compose.waitUntil(15000) { compose.onAllNodesWithTag("asset-wizard").fetchSemanticsNodes().isEmpty() }
-            screenshot("onboarding-first-asset")
-            assertNull(prefs.getString("organization:fixture-user-linh", null))
-            compose.onNodeWithTag("onboarding-next").performClick()
             compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-acknowledgement"))
             compose.onNodeWithTag("onboarding-acknowledgement").performClick()
-            screenshot("onboarding-review")
-            compose.onNodeWithTag("onboarding-next").performClick()
-            compose.waitUntil(15000) { compose.onAllNodesWithText("Bạn đã sẵn sàng").fetchSemanticsNodes().isNotEmpty() }
+            screenshot("onboarding-contact")
+            // Operator capability is granted at submission, not during identity/photo capture.
+            assertNull(prefs.getString("organization:fixture-user-linh", null))
+            compose.onNodeWithTag("onboarding-next").assertIsEnabled().performClick()
+            compose.waitUntil(15000) {
+                compose.onAllNodesWithText("Hồ sơ chủ trọ đã sẵn sàng.").fetchSemanticsNodes().isNotEmpty()
+            }
             screenshot("onboarding-complete")
             compose.onNodeWithTag("onboarding-next").performClick()
-            waitFor("ledger-screen")
-            compose.onNodeWithText("Tài sản của tôi").assertExists()
+            assertOperatorHome()
             screenshot("onboarding-owner-ledger")
             val repository = TroOiRepositoryImpl(context)
             val session = repository.refreshSessionContext().getOrThrow()
             assertEquals(setOf("local-organization-fixture-user-linh"), session.access.operatedOrganizationIds)
             val read = repository.refreshAuthorizedRead(session.access).getOrThrow()
-            val asset = read.localManagement!!.assets.single()
-            assertEquals("Căn hộ L01", asset.name)
-            assertEquals(1, read.localManagement!!.used)
-            assertEquals(ListingVisibility.DRAFT, asset.listingStatus)
-            assertEquals(listOf(asset.id), read.operationalRooms.map { it.roomId })
+            // First asset creation was moved to the Operator Workspace. Onboarding must not
+            // silently create a room, listing, tenancy, receivable, or payment.
+            assertTrue(read.localManagement!!.assets.isEmpty())
+            assertEquals(0, read.localManagement!!.used)
+            assertTrue(read.operationalRooms.isEmpty())
             assertTrue(read.tenancies.isEmpty())
             assertTrue(read.operatorFinanceByOrganization.isEmpty())
-            assertTrue(read.publicListings.none { it.listingId == asset.listingId })
             assertEquals(originalOwnerCatalog, prefs.getString("management:fixture-user-ha", null))
             listOf("Phạm Thảo Linh Nguyễn", "15/06/1995", "1995-06-15", "0901234567", "linh@example.test").forEach { personal ->
                 assertFalse(personal, prefs.all.values.any { it.toString().contains(personal) })
             }
             compose.activityRule.scenario.recreate()
-            waitFor("ledger-screen")
-            compose.onNodeWithText("Tài sản của tôi").assertExists()
+            assertOperatorHome()
             logout()
             login("onboarding@trooi.local")
-            compose.onNodeWithText("Căn hộ L01").assertExists()
+            val restored = repository.refreshSessionContext().getOrThrow()
+            assertEquals(setOf("local-organization-fixture-user-linh"), restored.access.operatedOrganizationIds)
+            assertTrue(repository.refreshAuthorizedRead(restored.access).getOrThrow().localManagement!!.assets.isEmpty())
             logout()
             login("tenant@trooi.local")
             compose.onNodeWithText("Tài sản đang thuê").assertExists()

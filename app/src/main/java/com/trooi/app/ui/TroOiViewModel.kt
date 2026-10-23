@@ -1,6 +1,7 @@
 package com.trooi.app.ui
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.trooi.app.BuildConfig
 import com.trooi.app.core.data.RuntimeDataSource
@@ -256,7 +257,21 @@ class TroOiViewModel @Inject constructor(
     fun openOperations() = openContext(AppContext.OPERATIONS, AppPage.OwnerDashboard)
     fun openOwnerProperties() = openContext(AppContext.OPERATIONS, AppPage.OwnerProperties)
     /** Operator Workspace may create the first Organization; access is still enforced on Backend. */
-    fun openOperatorWorkspaceFromAccount() = open(AppPage.OwnerProperties)
+    fun openOperatorWorkspaceFromAccount() {
+        val current = _state.value
+        val selected = (current.selectedContext as? SelectedContext.Operations)?.organizationId
+            ?.takeIf { it in current.access.operatedOrganizationIds }
+        val organizationId = selected ?: current.access.operatedOrganizationIds.firstOrNull()
+        if (organizationId == null) {
+            open(AppPage.OwnerProperties)
+            return
+        }
+        _state.update { state ->
+            val next = applySelection(state, SelectedContext.Operations(organizationId), keepPage = true, page = AppPage.OwnerProperties)
+            persistHints(next.backendUserId, next.selectedContext)
+            next
+        }
+    }
     fun openOwnerFinance() = openContext(AppContext.OPERATIONS, AppPage.OwnerFinance)
     fun openOwnerIncidents() = openContext(AppContext.OPERATIONS, AppPage.OwnerIncidents)
 
@@ -685,6 +700,7 @@ class TroOiViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     if (generation == sessionGeneration) {
+                        Log.w("TroOiAuthorizedRead", "refreshAuthorizedRead failed: ${error.message}", error)
                         _state.update { it.copy(runtimeLoading = false, authorizedReadFailed = true) }
                         showMessage("Chưa tải được Sổ. Kiểm tra kết nối rồi thử lại.")
                     }
@@ -698,7 +714,6 @@ class TroOiViewModel @Inject constructor(
         ?.pendingCheckouts?.firstOrNull()?.takeIf { it.tenancyId in _state.value.access.linkedTenancyIds }
 
     suspend fun createDemoPayment(tenancyId: String, amount: String): Result<com.trooi.app.features.shared.GatewayCheckout> = runCatching {
-        com.trooi.app.features.profile.requireBackendReauthentication()
         val current = _state.value
         val generation = sessionGeneration
         check(_state.value.demoPreview && current.isAuthenticated && tenancyId in current.access.linkedTenancyIds)
@@ -724,7 +739,7 @@ class TroOiViewModel @Inject constructor(
         check(generation == sessionGeneration)
         check(com.trooi.app.features.tenancy.checkoutMatchesIntent(checkout, hint, "DEMO"))
         if (isConfirmedGatewayPayment(checkout)) {
-            val read = repository.refreshAuthorizedRead(current.access).getOrThrow()
+            val read = repository.readConfirmedDemoPayment(current.access, requireNotNull(checkout.resultingPaymentId)).getOrThrow()
             check(generation == sessionGeneration)
             check(read.tenantFinanceByTenancy[hint.tenancyId]?.payments?.any { it.paymentId == checkout.resultingPaymentId } == true)
             _state.update { it.copy(read = read) }
@@ -735,9 +750,10 @@ class TroOiViewModel @Inject constructor(
 
     fun finishDemoPayment() {
         val hints = hintsStore.read()
-        val hint = rememberedDemoPayment()
-        if (hints != null && hint?.checkoutId != null && verifiedDemoCheckout == (_state.value.backendUserId to hint.checkoutId)) {
-            hintsStore.write(hints.copy(pendingCheckouts = hints.pendingCheckouts.filterNot { it.checkoutId == hint.checkoutId }))
+        val verified = verifiedDemoCheckout
+        val userId = _state.value.backendUserId
+        if (hints != null && verified != null && verified.first == userId) {
+            hintsStore.write(hints.copy(pendingCheckouts = hints.pendingCheckouts.filterNot { it.checkoutId == verified.second }))
             verifiedDemoCheckout = null
         }
         openCoreWorkspace()
@@ -815,8 +831,10 @@ class TroOiViewModel @Inject constructor(
     suspend fun completeLocalLandlordOnboarding(application: LocalLandlordApplication): Result<Unit> {
         val generation = sessionGeneration
         if (!_state.value.isAuthenticated) return Result.failure(IllegalStateException("Vui lòng đăng nhập lại."))
-        val reauthentication = runCatching { com.trooi.app.features.profile.requireBackendReauthentication() }
-        reauthentication.exceptionOrNull()?.let { return Result.failure(it) }
+        if (!_state.value.demoPreview) {
+            val reauthentication = runCatching { com.trooi.app.features.profile.requireBackendReauthentication() }
+            reauthentication.exceptionOrNull()?.let { return Result.failure(it) }
+        }
         val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             repository.completeLocalLandlordOnboarding(application).mapCatching { session ->
                 session to repository.refreshAuthorizedRead(session.access).getOrThrow()
