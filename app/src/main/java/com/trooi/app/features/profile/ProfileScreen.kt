@@ -6,6 +6,8 @@ import com.trooi.app.ui.components.TroOiPageHeader
 import com.trooi.app.ui.components.TroOiScreenScaffold
 
 import com.trooi.app.ui.components.TroOiConfirmDialog
+import com.trooi.app.ui.components.TroOiInlineAction
+import com.trooi.app.ui.components.TroOiInlineActionStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -85,7 +87,8 @@ fun ProfileScreen(
     }
     val avatarAction: (@Composable () -> Unit)? = if (onUploadAvatar == null) null else {
         {
-            Button(
+            TroOiInlineAction(
+                style = TroOiInlineActionStyle.FILLED,
                 onClick = { avatarPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 enabled = !state.profileAvatarUploading,
                 modifier = Modifier.testTag("profile-avatar-change"),

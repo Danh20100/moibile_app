@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.trooi.app.ui.components.TroOiInlineAction
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +47,7 @@ fun NativeMapView(
                 style = MaterialTheme.typography.labelMedium,
             )
             if (mapsKey.isNotBlank()) {
-                TextButton(
+                TroOiInlineAction(
                     onClick = {
                         provider = if (provider == MapProvider.GOOGLE)
                             MapProvider.MAPLIBRE else MapProvider.GOOGLE

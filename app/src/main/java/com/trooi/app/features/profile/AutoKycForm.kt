@@ -23,6 +23,7 @@ import com.trooi.app.core.network.dto.TransportOutcome
 import com.trooi.app.features.messages.prepareMessagePhoto
 import com.trooi.app.ui.components.TroOiButton
 import com.trooi.app.ui.components.TroOiButtonStyle
+import com.trooi.app.ui.components.TroOiInlineAction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.ByteArrayOutputStream
 import java.util.Base64
@@ -207,7 +208,7 @@ internal fun AutoKycForm(
         TroOiButton(if (selfie == null) "Chọn ảnh selfie" else "✓ Đã có ảnh selfie",
             { selected = "selfie"; picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth().testTag("kyc-selfie"))
-        TextButton(onClick = { camera.launch(null) }, modifier = Modifier.fillMaxWidth()) {
+        TroOiInlineAction(onClick = { camera.launch(null) }, modifier = Modifier.fillMaxWidth()) {
             Text("Hoặc chụp selfie bằng camera")
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

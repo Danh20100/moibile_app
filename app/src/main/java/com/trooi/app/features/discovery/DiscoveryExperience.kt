@@ -34,6 +34,8 @@ import com.trooi.app.ui.components.LocalRentalPhoto
 import com.trooi.app.ui.components.TroOiCard
 import com.trooi.app.ui.components.TroOiButton
 import com.trooi.app.ui.components.TroOiButtonStyle
+import com.trooi.app.ui.components.TroOiInlineAction
+import com.trooi.app.ui.components.TroOiInlineActionStyle
 import com.trooi.app.ui.components.TroOiStateKind
 import com.trooi.app.ui.components.TroOiStateMessage
 import java.math.BigDecimal
@@ -180,7 +182,7 @@ fun DiscoveryExperience(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        TextButton(onClick = ::clearFilters) { Text("Xóa lọc") }
+                        TroOiInlineAction(onClick = ::clearFilters) { Text("Xóa lọc") }
                     }
                 }
             }
@@ -196,7 +198,7 @@ fun DiscoveryExperience(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = onOpenMap, modifier = Modifier.testTag("discovery-open-map")) {
+                    TroOiInlineAction(onClick = onOpenMap, modifier = Modifier.testTag("discovery-open-map")) {
                         Icon(Icons.Rounded.Map, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Bản đồ")
@@ -304,8 +306,8 @@ fun DiscoveryExperience(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Đã chọn ${compareIds.size}/3 phòng",
                         Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    TextButton(onClick = { compareIds = emptyList() }) { Text("Bỏ chọn") }
-                    Button(onClick = { showCompare = true }, enabled = compareIds.size >= 2,
+                    TroOiInlineAction(onClick = { compareIds = emptyList() }) { Text("Bỏ chọn") }
+                    TroOiInlineAction(style = TroOiInlineActionStyle.FILLED, onClick = { showCompare = true }, enabled = compareIds.size >= 2,
                         modifier = Modifier.testTag("discovery-compare-open")) { Text("So sánh") }
                 }
             }
@@ -369,7 +371,7 @@ fun DiscoveryExperience(
                                     CompareLine("Loại", detail?.type ?: item.category)
                                     CompareLine("Nội thất", detail?.furnishing)
                                     CompareLine("Cọc dự kiến", detail?.advertisedDeposit?.takeIf { it.isNotBlank() }?.let(::rentalPriceLabel))
-                                    TextButton(onClick = { showCompare = false; onOpenListing(item.listingId) }) {
+                                    TroOiInlineAction(onClick = { showCompare = false; onOpenListing(item.listingId) }) {
                                         Text("Xem chi tiết")
                                     }
                                 }
@@ -454,7 +456,7 @@ private fun DiscoveryDecisionCard(
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween) {
-                    OutlinedButton(onClick = onCompare,
+                    TroOiInlineAction(style = TroOiInlineActionStyle.OUTLINED, onClick = onCompare,
                         enabled = compared || !compareFull,
                         modifier = Modifier.testTag("discovery-compare-" + item.listingId)) {
                         Icon(if (compared) Icons.Rounded.CheckCircle else Icons.AutoMirrored.Rounded.CompareArrows,
@@ -462,7 +464,7 @@ private fun DiscoveryDecisionCard(
                         Spacer(Modifier.width(5.dp))
                         Text(if (compared) "Đã chọn" else "So sánh")
                     }
-                    TextButton(onClick = onOpen, modifier = Modifier.testTag("discovery-detail-" + item.listingId)) {
+                    TroOiInlineAction(onClick = onOpen, modifier = Modifier.testTag("discovery-detail-" + item.listingId)) {
                         Text("Xem chi tiết")
                         Icon(Icons.Rounded.ChevronRight, null)
                     }

@@ -51,6 +51,30 @@ fun TroOiButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier
     }
 }
 
+enum class TroOiInlineActionStyle { TEXT, OUTLINED, FILLED }
+
+/** Compact actions with custom icon/text slots still share the app's themed action family. */
+@Composable
+fun TroOiInlineAction(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    style: TroOiInlineActionStyle = TroOiInlineActionStyle.TEXT,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val target = modifier.heightIn(min = TroOiDimens.actionMinHeight)
+    when (style) {
+        TroOiInlineActionStyle.TEXT ->
+            TextButton(onClick = onClick, modifier = target, enabled = enabled, content = content)
+        TroOiInlineActionStyle.OUTLINED ->
+            OutlinedButton(onClick = onClick, modifier = target, enabled = enabled,
+                shape = MaterialTheme.shapes.medium, content = content)
+        TroOiInlineActionStyle.FILLED ->
+            Button(onClick = onClick, modifier = target, enabled = enabled,
+                shape = MaterialTheme.shapes.medium, content = content)
+    }
+}
+
 /** Grouped generic content. Domain ledger/media surfaces keep their own composition. */
 @Composable
 fun TroOiCard(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {

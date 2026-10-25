@@ -133,7 +133,7 @@ internal fun OwnerLedgerDashboard(
     val ownedRoomIds = roomNames.keys
 
     if (showPlan) {
-        AlertDialog(
+        TroOiActionDialog(
             onDismissRequest = { showPlan = false },
             title = { Text("Mở rộng chỗ quản lý") },
             text = {
@@ -148,7 +148,7 @@ internal fun OwnerLedgerDashboard(
                 }
             },
             confirmButton = {
-                TextButton(
+                TroOiInlineAction(
                     onClick = {
                         paymentScope.launch {
                             paymentBusy = true
@@ -171,7 +171,7 @@ internal fun OwnerLedgerDashboard(
                 ) { Text(if (paymentBusy) "Đang xử lý…" else "Thanh toán 259.000đ") }
             },
             dismissButton = {
-                TextButton(onClick = { showPlan = false }, modifier = Modifier.testTag("owner-plan-close")) {
+                TroOiInlineAction(onClick = { showPlan = false }, modifier = Modifier.testTag("owner-plan-close")) {
                     Text("Đóng")
                 }
             },
@@ -231,7 +231,7 @@ internal fun OwnerLedgerDashboard(
                             },
                             modifier = Modifier.fillMaxWidth().testTag("owner-add-room-primary"),
                         )
-                        TextButton(
+                        TroOiInlineAction(
                             onClick = { showPlan = true },
                             modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp).testTag("owner-see-plan"),
                         ) { Text("Mua thêm chỗ · 259.000đ/năm") }

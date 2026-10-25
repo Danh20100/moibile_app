@@ -202,7 +202,7 @@ fun ListingDetailScreen(
                         }
                     }
                     item {
-                        TextButton(onClick = { onOpenReport(listingId) },
+                        TroOiInlineAction(onClick = { onOpenReport(listingId) },
                             modifier = Modifier.fillMaxWidth().testTag("listing-report-action")) {
                             Text("Báo cáo tin đăng")
                         }
