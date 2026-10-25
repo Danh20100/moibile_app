@@ -423,7 +423,6 @@ fun LoginScreen(
         title = "chào mừng trở lại",
         subtitle = "Đăng nhập để tiếp tục với TrọƠi",
     ) {
-        if (!backendOnly) {
         if (demoBackend) {
             Text(
                 "DEMO BACKEND · chỉ dùng test account; không phải đăng nhập Google",
@@ -463,6 +462,7 @@ fun LoginScreen(
             text = "Quên mật khẩu?",
             onClick = onForgotPassword,
             modifier = Modifier.align(Alignment.End),
+            enabled = !backendOnly && !authInProgress,
             style = TroOiButtonStyle.TERTIARY,
         )
 
@@ -474,11 +474,12 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            enabled = identifierOk && passwordOk && !authInProgress,
+            // Keep the familiar form visible; real password auth is pending OTP integration.
+            enabled = identifierOk && passwordOk && !authInProgress && !backendOnly,
         )
-        } else {
+        if (backendOnly) {
             Text(
-                "Hiện TrọƠi hỗ trợ đăng nhập bằng Google. Email và mật khẩu sẽ được mở khi hoàn tất tích hợp OTP.",
+                "Đăng nhập email/mật khẩu và khôi phục mật khẩu chưa khả dụng. Vui lòng sử dụng Google trong thời gian chờ tích hợp OTP.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -486,7 +487,6 @@ fun LoginScreen(
         }
 
         if (onSignInWithGoogle != null) {
-        if (!backendOnly) {
         // Divider: ──────────── hoặc ────────────
         Row(
             modifier = Modifier
@@ -508,7 +508,6 @@ fun LoginScreen(
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
             )
-        }
         }
 
         // Google provider action: Red button with white text
