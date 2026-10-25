@@ -314,8 +314,11 @@ fun AccountSettingsFlow(
             }
             page == "password" -> sectionItem { PasswordForm(state.backendUserId, state.demoPreview, retry, { retry = it }, onDirty = { passwordDirty = it }, onSubmit = { boundary = title }, onRecovery = { recovery = true }) }
             page == "pin" -> sectionItem {
-                PinForm(configured = when (method) { ReauthenticationMethod.PIN -> true; ReauthenticationMethod.UNKNOWN -> null; else -> false },
-                    onStartEditing = { start -> protect(start) }, onDirty = { passwordDirty = it }, onSubmit = { boundary = title }, onRecovery = { recovery = true })
+                if (state.demoPreview) {
+                    PinForm(configured = method == ReauthenticationMethod.PIN,
+                        onStartEditing = { start -> protect(start) }, onDirty = { passwordDirty = it },
+                        onSubmit = { boundary = title }, onRecovery = { recovery = true })
+                } else BackendPinSettings(state.backendUserId)
             }
             page == "login-email" -> sectionItem {
                 TroOiInformationRow("Email đăng nhập", state.email ?: "Chưa cung cấp")

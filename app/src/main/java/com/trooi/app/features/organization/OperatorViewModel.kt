@@ -2,8 +2,6 @@ package com.trooi.app.features.organization
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.content.Context
-import com.trooi.app.core.auth.GoogleCredentialAuth
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.ApiOutcome
 import com.trooi.app.core.model.AccessCapabilities
@@ -49,6 +47,8 @@ data class OperatorUiState(
     val errorKind: String? = null,
     val success: String? = null,
     val organizationCreatedRevision: Int = 0,
+    val pendingOrganizationName: String? = null,
+    val pinConfiguredForConfirmation: Boolean? = null,
     val organizations: List<V1Organization> = emptyList(),
     val organization: V1Organization? = null,
     val dashboard: DashboardTransport? = null,
@@ -68,7 +68,6 @@ data class OperatorUiState(
 class OperatorViewModel @Inject constructor(
     private val api: V1ContractGateway,
     private val identityApi: BackendApi,
-    private val googleCredentialAuth: GoogleCredentialAuth,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(OperatorUiState())
     val ui: StateFlow<OperatorUiState> = _ui.asStateFlow()
@@ -193,6 +192,43 @@ class OperatorViewModel @Inject constructor(
         }
     }
 
+    fun prepareOrganizationConfirmation(name: String) {
+        if (_ui.value.busy || name.isBlank()) return
+        val requestId = ++revision
+        _ui.update { it.copy(busy = true, error = null, errorKind = null,
+            pendingOrganizationName = null, pinConfiguredForConfirmation = null) }
+        viewModelScope.launch {
+            try {
+                val hasPin = when (val response = identityApi.getSecurityPinStatus()) {
+                    is ApiOutcome.Data -> response.value.pinConfigured
+                    is ApiOutcome.Failure -> throw V1RequestException(response.kind, response.httpStatus)
+                }
+                if (requestId == revision) _ui.update {
+                    it.copy(busy = false, pendingOrganizationName = name.trim(), pinConfiguredForConfirmation = hasPin)
+                }
+            } catch (error: Exception) { fail(requestId, error) }
+        }
+    }
+
+    fun dismissOrganizationConfirmation() {
+        _ui.update { it.copy(pendingOrganizationName = null, pinConfiguredForConfirmation = null) }
+    }
+
+    fun createOrganizationWithPin(name: String, pin: String) = write {
+        require(pin.matches(Regex("[0-9]{6}"))) { "Mã PIN phải có 6 chữ số." }
+        val challenge = organizationCreateChallenge()
+        val proof = when (val result = identityApi.completeOrganizationCreatePinReauth(pin, challenge)) {
+            is ApiOutcome.Data -> result.value.proof?.takeIf(String::isNotBlank)
+                ?: error("Không thể xác nhận mã PIN.")
+            is ApiOutcome.Failure -> {
+                if (result.httpStatus == 403) error("Mã PIN không đúng.")
+                if (result.httpStatus == 429) error("Thử quá nhiều lần. Vui lòng thử lại sau.")
+                throw V1RequestException(result.kind, result.httpStatus)
+            }
+        }
+        finishCreateOrganization(name, proof)
+    }
+
     fun createOrganizationWithPassword(name: String, password: String) = write {
         require(name.isNotBlank()) { "Nhập tên khu trọ" }
         require(password.isNotEmpty()) { "Nhập mật khẩu hiện tại." }
@@ -204,25 +240,6 @@ class OperatorViewModel @Inject constructor(
                 // Wrong password is a denied operation, NOT an expired app session.
                 if (result.httpStatus == 403) error("Mật khẩu không đúng hoặc yêu cầu xác nhận đã hết hạn.")
                 if (result.httpStatus == 429) error("Thử quá nhiều lần. Vui lòng thử lại sau 15 phút.")
-                throw V1RequestException(result.kind, result.httpStatus)
-            }
-        }
-        finishCreateOrganization(name, proof)
-    }
-
-    fun createOrganizationWithGoogle(name: String, context: Context) = write {
-        require(name.isNotBlank()) { "Nhập tên khu trọ" }
-        val challenge = organizationCreateChallenge()
-        val idToken = googleCredentialAuth.reacquireForReauthentication(context, challenge).getOrThrow()
-        val proof = when (val result = identityApi.completeOrganizationCreateReauth(idToken, challenge)) {
-            is ApiOutcome.Data -> result.value.proof?.takeIf(String::isNotBlank)
-                ?: error("Google chưa xác nhận xác thực mới trong thời hạn cho phép.")
-            is ApiOutcome.Failure -> {
-                // A rejected Google reauthentication proof is NOT a revoked application session.
-                // Verify the current session before invoking the global onUnauthorized/logout handler.
-                if (result.httpStatus == 403) {
-                    error("Google đã từ chối xác thực lại. Hãy chọn đúng tài khoản Google liên kết với tài khoản TrọƠi đang đăng nhập.")
-                }
                 throw V1RequestException(result.kind, result.httpStatus)
             }
         }

@@ -70,6 +70,7 @@ data class IdentitySessionTransport(
     val tokenType: String, val expiresInSeconds: Int, val refreshExpiresAt: String,
 )
 data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
+data class SecurityPinStatusTransport(val pinConfigured: Boolean)
 
 data class SessionContextTransport(
     val userId: String,

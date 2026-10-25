@@ -58,6 +58,32 @@ class BackendRuntimeContractTest {
         }
     }
 
+    @Test fun securityPinStatusAndPinConfirmationUseBackendWithoutSessionLogout() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"pinConfigured":false}"""))
+            server.enqueue(MockResponse().setBody("""{"pinConfigured":true}"""))
+            server.enqueue(MockResponse().setResponseCode(403).setBody("{}"))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("verified-session") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            assertFalse(api.getSecurityPinStatus().requireData().pinConfigured)
+            assertTrue(api.configureSecurityPin("existing-password", "482795").requireData().pinConfigured)
+            val failed = api.completeOrganizationCreatePinReauth("000000", "one-time-nonce")
+            assertTrue(failed is ApiOutcome.Failure)
+            assertEquals(403, (failed as ApiOutcome.Failure).httpStatus)
+            assertEquals("verified-session", tokens.token())
+            assertEquals("/api/v1/identity-access/security/pin", server.takeRequest().path)
+            val setup = server.takeRequest()
+            assertEquals("/api/v1/identity-access/security/pin", setup.path)
+            assertEquals("Bearer verified-session", setup.getHeader("Authorization"))
+            assertTrue(setup.body.readUtf8().contains("482795"))
+            val verify = server.takeRequest()
+            assertEquals("/api/v1/identity-access/reauth/organization-create/pin", verify.path)
+            assertEquals("Bearer verified-session", verify.getHeader("Authorization"))
+            assertTrue(verify.body.readUtf8().contains("one-time-nonce"))
+        }
+    }
+
     @Test fun publicListingTimeoutRetriesOnceThenRepositoryReturnsNetworkUnavailable() = runBlocking {
         MockWebServer().use { server ->
             repeat(2) { server.enqueue(MockResponse().setHeadersDelay(250, TimeUnit.MILLISECONDS).setBody("{}")) }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Length, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
 export class AuthChallengeRequestDto {
   @ApiProperty({ enum: ['LOGIN', 'REGISTER'] })
@@ -28,6 +28,18 @@ export class PasswordLoginDto {
 }
 
 export class ReauthenticationProofDto extends GoogleSessionRequestDto {}
+export class SecurityPinSetupDto {
+  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(1024)
+  password!: string;
+  @ApiProperty() @IsString() @Matches(/^[0-9]{6}$/)
+  pin!: string;
+}
+export class PinReauthenticationDto {
+  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(256)
+  nonce!: string;
+  @ApiProperty() @IsString() @Matches(/^[0-9]{6}$/)
+  pin!: string;
+}
 export class PasswordReauthenticationDto {
   @ApiProperty({ description: 'One-time challenge nonce for organization creation' })
   @IsString() @IsNotEmpty() @MaxLength(256)

@@ -3,7 +3,7 @@ import { ForbiddenException, HttpException, HttpStatus, Inject, Injectable, Opti
 import { sql, type Kysely } from 'kysely';
 import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
 import type { Database } from '../../../infrastructure/database/schema.types';
-import { verify as verifyArgon2 } from '@node-rs/argon2';
+import { hash as hashArgon2, verify as verifyArgon2 } from '@node-rs/argon2';
 
 import { normalizeLoginEmail } from '../../../common/identity/normalize-login-email';
 import { verifyGoogleIdToken } from '../../../integrations/google-identity/verify-token';
@@ -124,6 +124,9 @@ export class IdentitySessionService {
     if (!userId || !sessionId || !this.database) {
       throw new UnauthorizedException('Application session is required');
     }
+    if ((await this.securityPinStatus(userId)).pinConfigured) {
+      throw new ForbiddenException('Security PIN confirmation is required');
+    }
     const recent = await sql<{ attempts: number }>`
       SELECT count(*)::integer AS attempts FROM identity_security_events
       WHERE user_id = ${userId}::uuid
@@ -186,13 +189,120 @@ export class IdentitySessionService {
     return { proof, expiresAt };
   }
 
-  private async recordPasswordReauthRejected(userId: string, sessionId: string): Promise<void> {
+  private async recordPasswordReauthRejected(userId: string, sessionId: string, method: 'password' | 'pin' = 'password'): Promise<void> {
     const now = new Date().toISOString();
     await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
       eventId: randomUUID(), userId, sessionId,
       eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED',
-      occurredAt: now, requestMetadata: { method: 'password', reason: 'invalid_confirmation' },
+      occurredAt: now, requestMetadata: { method, reason: 'invalid_confirmation' },
     }));
+  }
+
+  async securityPinStatus(userId: string): Promise<{ pinConfigured: boolean }> {
+    this.requireEnabled();
+    if (!this.database || !userId) throw new UnauthorizedException('Application session required');
+    const record = await sql`SELECT 1 FROM identity_security_pins WHERE user_id=${userId}::uuid`.execute(this.database);
+    return { pinConfigured: record.rows.length > 0 };
+  }
+
+  async configureSecurityPin(
+    input: { password: string; pin: string }, userId: string, sessionId: string,
+  ): Promise<{ pinConfigured: boolean }> {
+    this.requireEnabled();
+    if (!this.database || !userId || !sessionId) throw new UnauthorizedException('Application session required');
+    if (!/^[0-9]{6}$/.test(input.pin)) throw new ForbiddenException('Invalid security PIN');
+    await this.enforceReauthLimit(userId, 'password');
+    const email = await this.database.selectFrom('user_emails').select('normalized_email')
+      .where('user_id', '=', userId).executeTakeFirst();
+    const snapshot = email ? await this.transactions.run(({ repositories }) =>
+      repositories.identityFoundation.findPrimaryLogin(email.normalized_email)) : null;
+    const credential = snapshot?.credential;
+    let verified = false;
+    if (snapshot?.email.userId === userId && credential?.passwordHash) {
+      try { verified = await verifyArgon2(credential.passwordHash, input.password); }
+      catch { verified = false; }
+    }
+    if (!verified || !snapshot || !credential) {
+      await this.recordPasswordReauthRejected(userId, sessionId);
+      throw new ForbiddenException('Incorrect password');
+    }
+    const encoded = await hashArgon2(input.pin, { algorithm: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    const saved = await this.database.transaction().execute(async (tx) => {
+      const current = await sql<{ email_revision: string; credential_revision: string }>`
+        SELECT e.email_revision::text, p.credential_revision::text
+        FROM user_emails e
+        JOIN password_credentials p ON p.user_id = e.user_id
+        WHERE e.user_id = ${userId}::uuid AND e.normalized_email = ${snapshot.email.normalizedEmail}
+        FOR UPDATE OF e, p
+      `.execute(tx);
+      if (current.rows[0]?.email_revision !== snapshot.email.emailRevision ||
+          current.rows[0]?.credential_revision !== credential.credentialRevision) return false;
+      const result = await sql`
+        INSERT INTO identity_security_pins(user_id, pin_hash)
+        VALUES (${userId}::uuid, ${encoded})
+        ON CONFLICT (user_id) DO NOTHING RETURNING user_id
+      `.execute(tx);
+      return result.rows.length === 1;
+    });
+    if (!saved) throw new ForbiddenException('Security PIN already configured');
+    return { pinConfigured: true };
+  }
+
+  private async enforceReauthLimit(userId: string, method: 'pin' | 'password') {
+    if (!this.database) throw new ServiceUnavailableException('Identity database unavailable');
+    const recent = await sql<{ attempts: number }>`
+      SELECT count(*)::integer AS attempts FROM identity_security_events
+      WHERE user_id = ${userId}::uuid AND event_code='REAUTH_REJECTED'
+        AND occurred_at >= now() - interval '15 minutes'
+        AND request_metadata->>'method' = ${method}
+    `.execute(this.database);
+    if ((recent.rows[0]?.attempts ?? 0) >= 5)
+      throw new HttpException('Too many confirmations. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+  }
+
+  async completeOrganizationCreatePinReauth(
+    input: { nonce: string; pin: string }, userId: string, sessionId: string,
+  ): Promise<OrganizationCreateReauthProof> {
+    this.requireEnabled();
+    if (!userId || !sessionId || !this.database) throw new UnauthorizedException('Application session required');
+    if (!/^[0-9]{6}$/.test(input.pin)) throw new ForbiddenException('Invalid security PIN');
+    await this.enforceReauthLimit(userId, 'pin');
+    const credential = await sql<{ pin_hash: string; revision: string }>`
+      SELECT pin_hash, revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid
+    `.execute(this.database);
+    const row = credential.rows[0];
+    if (!row) throw new ForbiddenException('Security PIN not configured');
+    let valid = false;
+    try { valid = await verifyArgon2(row.pin_hash, input.pin); }
+    catch { valid = false; }
+    if (!valid) {
+      await this.recordPasswordReauthRejected(userId, sessionId, 'pin');
+      throw new ForbiddenException('Incorrect security PIN');
+    }
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
+    const proof = randomBytes(32).toString('base64url');
+    const issued = await this.transactions.run(async ({ repositories }) => {
+      const current = await sql<{ revision: string }>`
+        SELECT revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid FOR UPDATE
+      `.execute(this.database!);
+      if (current.rows[0]?.revision !== row.revision) return false;
+      const challenge = await repositories.identitySessions.consumeChallenge({
+        nonceSha256: digest(input.nonce), purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString(),
+      });
+      if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
+      await repositories.identitySessions.createChallenge({
+        challengeId: randomUUID(), purpose: 'REAUTH_ORGANIZATION_CREATE',
+        nonceSha256: digest(proof), userId, sessionId, createdAt: now.toISOString(), expiresAt,
+      });
+      await repositories.identitySessions.appendSecurityEvent({
+        eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_ISSUED', outcome: 'SUCCESS',
+        occurredAt: now.toISOString(), requestMetadata: { phase: 'operation_proof', operation: 'organization.create', method: 'pin' },
+      });
+      return true;
+    });
+    if (!issued) throw new ForbiddenException('Reauthentication challenge expired or invalid');
+    return { proof, expiresAt };
   }
 
   async authenticateGoogle(input: { idToken: string; nonce: string }): Promise<IdentitySessionResponse> {

@@ -11,7 +11,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,7 +41,6 @@ fun V1OperatorWorkspace(
     model: OperatorViewModel = hiltViewModel(),
 ) {
     val ui by model.ui.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     LaunchedEffect(access, organizationId, entry) { model.begin(access, organizationId, entry) }
     DisposableEffect(Unit) { onDispose { model.reset() } }
     LaunchedEffect(ui.errorKind) { if (ui.errorKind == "AUTH_EXPIRED") onUnauthorized() }
@@ -54,8 +52,7 @@ fun V1OperatorWorkspace(
     var description by remember(ui.route) { mutableStateOf("") }
     var price by remember(ui.route) { mutableStateOf("") }
     var locationForm by remember(ui.route) { mutableStateOf(LocationFormState()) }
-    var confirmationName by remember { mutableStateOf<String?>(null) }
-    var confirmationPassword by remember { mutableStateOf("") }
+    var confirmationSecret by remember { mutableStateOf("") }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
         V1RentalWorkspace(
@@ -123,8 +120,8 @@ fun V1OperatorWorkspace(
                     TroOiCard("Tạo khu trọ") {
                         TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên workspace") }, modifier = Modifier.fillMaxWidth().testTag("organization-name"), singleLine = true)
                         TroOiButton("Tạo khu trọ", {
-                            confirmationPassword = ""
-                            confirmationName = name.trim()
+                            confirmationSecret = ""
+                            model.prepareOrganizationConfirmation(name)
                         }, enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -571,46 +568,48 @@ fun V1OperatorWorkspace(
             }
         }
     }
-    if (confirmationName != null && ui.route == OperatorRoute.Organizations) {
-        val pendingName = confirmationName.orEmpty()
+    if (ui.pendingOrganizationName != null && ui.pinConfiguredForConfirmation != null &&
+        ui.route == OperatorRoute.Organizations) {
+        val pendingName = ui.pendingOrganizationName.orEmpty()
+        val usePin = ui.pinConfiguredForConfirmation == true
         TroOiActionDialog(
-            onDismissRequest = { if (!ui.busy) { confirmationPassword = ""; confirmationName = null } },
+            onDismissRequest = {
+                if (!ui.busy) {
+                    confirmationSecret = ""
+                    model.dismissOrganizationConfirmation()
+                }
+            },
             title = { Text("Xác nhận tạo khu trọ") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Nhập mật khẩu tài khoản TrọƠi hiện tại để tạo khu trọ “$pendingName”.")
-                    TroOiFormField(
-                        value = confirmationPassword,
-                        onValueChange = { confirmationPassword = it },
-                        label = { Text("Mật khẩu hiện tại") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth().testTag("organization-confirm-password"),
-                        singleLine = true,
-                    )
-                }
+                TroOiFormField(
+                    value = confirmationSecret,
+                    onValueChange = { value ->
+                        confirmationSecret = if (usePin) value.filter { it in '0'..'9' }.take(6) else value
+                    },
+                    label = { Text(if (usePin) "Mã PIN bảo mật" else "Mật khẩu hiện tại") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType =
+                        if (usePin) KeyboardType.NumberPassword else KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth().testTag("organization-confirm-secret"),
+                    singleLine = true,
+                )
             },
             confirmButton = {
                 TroOiButton("Xác nhận tạo", {
-                    val password = confirmationPassword
-                    confirmationPassword = ""
-                    confirmationName = null
-                    model.createOrganizationWithPassword(pendingName, password)
-                }, enabled = !ui.busy && confirmationPassword.isNotEmpty(),
+                    val submitted = confirmationSecret
+                    confirmationSecret = ""
+                    model.dismissOrganizationConfirmation()
+                    if (usePin) model.createOrganizationWithPin(pendingName, submitted)
+                    else model.createOrganizationWithPassword(pendingName, submitted)
+                }, enabled = !ui.busy && (if (usePin) confirmationSecret.matches(Regex("[0-9]{6}"))
+                    else confirmationSecret.isNotBlank()),
                     modifier = Modifier.fillMaxWidth().testTag("organization-confirm-create"))
             },
             dismissButton = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TroOiButton("Hủy", {
-                        confirmationPassword = ""
-                        confirmationName = null
-                    }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
-                    TroOiButton("Dùng Google", {
-                        confirmationPassword = ""
-                        confirmationName = null
-                        model.createOrganizationWithGoogle(pendingName, context)
-                    }, enabled = !ui.busy, style = TroOiButtonStyle.TERTIARY, modifier = Modifier.fillMaxWidth())
-                }
+                TroOiButton("Hủy", {
+                    confirmationSecret = ""
+                    model.dismissOrganizationConfirmation()
+                }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
             },
         )
     }

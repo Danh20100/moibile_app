@@ -18,6 +18,8 @@ import {
   IdentitySessionDto,
   ReauthenticationProofDto,
   PasswordReauthenticationDto,
+  PinReauthenticationDto,
+  SecurityPinSetupDto,
   ReauthenticationChallengeDto,
   ReauthenticationResponseDto,
 } from '../dto';
@@ -129,6 +131,30 @@ export class IdentityAccessController {
   ): Promise<ReauthenticationResponseDto> {
     if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
     return this.identitySessionService.completeOrganizationCreatePasswordReauth(dto, user.userId, user.sessionId);
+  }
+
+  @Get('security/pin')
+  async getSecurityPinStatus(@CurrentUser() user?: VerifiedPrincipal): Promise<{ pinConfigured: boolean }> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.securityPinStatus(user.userId);
+  }
+
+  @Post('security/pin')
+  async configureSecurityPin(
+    @Body() dto: SecurityPinSetupDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<{ pinConfigured: boolean }> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.configureSecurityPin(dto, user.userId, user.sessionId);
+  }
+
+  @Post('reauth/organization-create/pin')
+  async completeOrganizationCreatePinReauth(
+    @Body() dto: PinReauthenticationDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ReauthenticationResponseDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.completeOrganizationCreatePinReauth(dto, user.userId, user.sessionId);
   }
 
   @Get('me')

@@ -40,6 +40,9 @@ interface BackendApi {
     suspend fun issueOrganizationCreateReauthChallenge(): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun completeOrganizationCreateReauth(idToken: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun completeOrganizationCreatePasswordReauth(password: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getSecurityPinStatus(): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun configureSecurityPin(password: String, pin: String): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun completeOrganizationCreatePinReauth(pin: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ProfileAvatarUploadTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -227,6 +230,22 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
     override suspend fun completeOrganizationCreatePasswordReauth(password: String, nonce: String) = client.postJson(
         "identity-access/reauth/organization-create/password",
         "{\"nonce\":${messagingGson.toJson(nonce)},\"password\":${messagingGson.toJson(password)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
+
+    override suspend fun getSecurityPinStatus() =
+        client.get("identity-access/security/pin", authenticated = true)
+            .decode { messagingGson.fromJson(it, SecurityPinStatusTransport::class.java) }
+
+    override suspend fun configureSecurityPin(password: String, pin: String) = client.postJson(
+        "identity-access/security/pin",
+        "{\"password\":${messagingGson.toJson(password)},\"pin\":${messagingGson.toJson(pin)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, SecurityPinStatusTransport::class.java) }
+
+    override suspend fun completeOrganizationCreatePinReauth(pin: String, nonce: String) = client.postJson(
+        "identity-access/reauth/organization-create/pin",
+        "{\"nonce\":${messagingGson.toJson(nonce)},\"pin\":${messagingGson.toJson(pin)}}",
         authenticated = true,
     ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
 

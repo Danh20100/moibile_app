@@ -204,6 +204,46 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
     }), ForbiddenException);
     assert.equal(await database.selectFrom('organizations').selectAll()
       .where('primary_owner_user_id', '=', registeredUserId).execute().then((rows) => rows.length), 2);
+    // Security PIN starts absent: password is the only permitted confirmation method.
+    assert.deepEqual(await identity.securityPinStatus(registeredUserId), { pinConfigured: false });
+    await assert.rejects(identity.configureSecurityPin({
+      password: 'wrong-password', pin: '482795',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException);
+    assert.deepEqual(await identity.securityPinStatus(registeredUserId), { pinConfigured: false });
+    assert.deepEqual(await identity.configureSecurityPin({
+      password: 'isolated-test-password-2026', pin: '482795',
+    }, registeredUserId, loggedIn.sessionId), { pinConfigured: true });
+    const passwordAfterPin = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
+    await assert.rejects(identity.completeOrganizationCreatePasswordReauth({
+      nonce: passwordAfterPin.nonce, password: 'isolated-test-password-2026',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException,
+    'once PIN exists the organization creation operation requires PIN, not password');
+    const storedPin = await sql<{ pin_hash: string }>`
+      SELECT pin_hash FROM identity_security_pins WHERE user_id=${registeredUserId}::uuid
+    `.execute(database);
+    assert.ok(storedPin.rows[0]?.pin_hash.startsWith('$argon2id$'));
+    assert.ok(!storedPin.rows[0]?.pin_hash.includes('482795'));
+    await assert.rejects(identity.configureSecurityPin({
+      password: 'isolated-test-password-2026', pin: '111111',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException);
+    const pinChallenge = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
+    await assert.rejects(identity.completeOrganizationCreatePinReauth({
+      nonce: pinChallenge.nonce, pin: '000000',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException);
+    assert.equal(await sessionGuard.canActivate(protectedRequest(loggedIn.accessToken).context), true);
+    const pinProof = await identity.completeOrganizationCreatePinReauth({
+      nonce: pinChallenge.nonce, pin: '482795',
+    }, registeredUserId, loggedIn.sessionId);
+    const pinOrg = await organizations.createWithReauthentication({
+      name: 'PIN confirmed workspace', primaryOwnerUserId: registeredUserId,
+      sessionId: loggedIn.sessionId, reauthProof: pinProof.proof,
+    });
+    assert.equal(pinOrg.primaryOwnerUserId, registeredUserId);
+    await assert.rejects(organizations.createWithReauthentication({
+      name: 'PIN proof replay', primaryOwnerUserId: registeredUserId,
+      sessionId: loggedIn.sessionId, reauthProof: pinProof.proof,
+    }), ForbiddenException);
+
     const staleReauth = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
     claims = { ...claims, nonce: staleReauth.nonce, authTime: Math.floor(Date.now() / 1000) - 600 };
     await assert.rejects(identity.completeOrganizationCreateReauth(
