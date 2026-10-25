@@ -351,6 +351,43 @@ internal fun LandlordOnboardingScreen(
                             )
                         }
                     }
+                    3 -> {
+                        item {
+                            Text(
+                                "Kiểm tra họ tên và ngày sinh đọc từ mặt trước CCCD. Nếu OCR chưa nhận diện được, bạn có thể nhập thủ công.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        item {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                OnboardingField("Họ và tên", fullName, "onboarding-name") {
+                                    fullName = it
+                                    cardReviewed = false
+                                }
+                                OnboardingField("Ngày sinh (dd/MM/yyyy)", birthDate, "onboarding-birthday") {
+                                    birthDate = it
+                                    cardReviewed = false
+                                }
+                                if (birthDate.isNotBlank() && !birthValid) {
+                                    Text(
+                                        "Nhập ngày sinh hợp lệ theo định dạng dd/MM/yyyy.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                                OnboardingCheck(
+                                    "Tôi đã đối chiếu họ tên và ngày sinh với CCCD.",
+                                    cardReviewed,
+                                    "onboarding-identity-accept",
+                                    enabled = nameValid && birthValid,
+                                ) { cardReviewed = it }
+                            }
+                        }
+                    }
                     4 -> {
                         if (backendVerification) {
                             item {

@@ -51,6 +51,19 @@ class ProfilePresentationTest {
         assertTrue(settings.contains("backendVerification = RuntimeDataSource.isBackendBacked()"))
     }
 
+    @Test fun stepThreeReviewFormIsRenderedAndGatesContinuation() {
+        val source = File("src/main/java/com/trooi/app/features/profile/LandlordOnboardingScreen.kt").readText()
+        val reviewStep = source.substringAfter("                    3 -> {").substringBefore("                    4 -> {")
+        assertTrue(reviewStep.contains("onboarding-name"))
+        assertTrue(reviewStep.contains("onboarding-birthday"))
+        assertTrue(reviewStep.contains("onboarding-identity-accept"))
+        assertTrue(reviewStep.contains("cardReviewed = it"))
+        assertTrue(reviewStep.contains("enabled = nameValid && birthValid"))
+        assertTrue(source.contains("3 -> nameValid && birthValid && cardReviewed && !busy"))
+        assertTrue(source.contains("1 -> cardFront != null"))
+        assertTrue(source.contains("2 -> cardBack != null"))
+    }
+
     @Test fun onboardingDoesNotPersistIdentityMediaOrOfferInstantUnlock() {
         val source = File("src/main/java/com/trooi/app/features/profile/LandlordOnboardingScreen.kt").readText()
         assertTrue(source.contains("TakePicturePreview"))
