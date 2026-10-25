@@ -12,6 +12,7 @@ import {
   UploadProfileAvatarDto,
   AuthChallengeRequestDto,
   GoogleSessionRequestDto,
+  PasswordLoginDto,
   RefreshSessionRequestDto,
   IdentityChallengeDto,
   IdentitySessionDto,
@@ -64,6 +65,16 @@ export class IdentityAccessController {
   async registerWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.registerGoogle(dto);
+  }
+
+  @Public()
+  @Post('auth/password')
+  @ApiOperation({ summary: 'Sign in with a previously verified email and password' })
+  @ApiResponse({ status: 200, type: IdentitySessionDto })
+  @ApiResponse({ status: 401, description: 'Email or password is incorrect' })
+  async authenticatePassword(@Body() dto: PasswordLoginDto): Promise<IdentitySessionDto> {
+    if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
+    return this.identitySessionService.authenticatePassword(dto);
   }
 
   // For synthetic local development accounts only. Not an identity-verification endpoint.

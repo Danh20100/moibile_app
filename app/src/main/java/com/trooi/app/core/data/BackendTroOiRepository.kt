@@ -476,9 +476,32 @@ class BackendTroOiRepository @Inject constructor(
         }
     }
 
-    // Email/password will be available only after the real OTP branch is integrated.
-    // Backend-backed Debug and Release must NEVER invoke the legacy local-demo endpoint.
-    override suspend fun login(identifier: String, password: String): Result<UserSession> = unsupportedAuth()
+    // Verified password credentials use the same opaque sessions as Google. Never use local-demo.
+    override suspend fun login(identifier: String, password: String): Result<UserSession> {
+        return try {
+            val identitySession = api.authenticatePassword(identifier.trim(), password).required("password login")
+            require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
+            tokens.setToken(identitySession.accessToken)
+            refreshCredentials?.write(identitySession.refreshToken)
+            val session = api.getSessionContext().required("session context")
+            check(session.userId == identitySession.userId) { "Authenticated User does not match issued session" }
+            Result.success(
+                UserSession(
+                    userId = session.userId,
+                    displayName = session.name ?: session.email ?: session.userId,
+                    email = session.email,
+                    pictureUrl = session.pictureUrl,
+                    access = AccessCapabilities(
+                        linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                        operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+                    ),
+                ),
+            )
+        } catch (error: RuntimeException) {
+            clearSession()
+            Result.failure(error)
+        }
+    }
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> = unsupportedAuth()
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> = unsupportedAuth()
 

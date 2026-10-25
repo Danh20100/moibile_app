@@ -1,5 +1,9 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { sql, type Kysely } from 'kysely';
+import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
+import type { Database } from '../../../infrastructure/database/schema.types';
+import { verify as verifyArgon2 } from '@node-rs/argon2';
 
 import { normalizeLoginEmail } from '../../../common/identity/normalize-login-email';
 import { verifyGoogleIdToken } from '../../../integrations/google-identity/verify-token';
@@ -36,6 +40,7 @@ export class IdentitySessionService {
   constructor(
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
     @Optional() @Inject(GOOGLE_ID_TOKEN_VERIFIER) private readonly verifier?: GoogleIdTokenVerifier,
+    @Optional() @Inject(DATABASE_CLIENT) private readonly database?: Kysely<Database>,
   ) {}
 
   async issueChallenge(purpose: 'LOGIN' | 'REGISTER'): Promise<IdentityAuthChallenge> {
@@ -113,6 +118,87 @@ export class IdentitySessionService {
 
   async registerGoogle(input: { idToken: string; nonce: string }): Promise<IdentitySessionResponse> {
     return this.completeGoogle(input, 'REGISTER');
+  }
+
+  /**
+   * Password login uses only verified email + Argon2id credentials from Identity Foundation.
+   * Never exchanges local_dev_accounts credentials or creates accounts implicitly.
+   */
+  async authenticatePassword(input: { email: string; password: string }): Promise<IdentitySessionResponse> {
+    this.requireEnabled();
+    let normalizedEmail: string;
+    try {
+      normalizedEmail = normalizeLoginEmail(input.email);
+    } catch {
+      await this.recordRejected('AUTHENTICATION_REJECTED', 'invalid_credentials');
+      throw new UnauthorizedException('Email or password is incorrect');
+    }
+    const loginKey = digest('password-login:' + normalizedEmail);
+    if (this.database) {
+      const recent = await sql<{ attempts: number }>`
+        SELECT count(*)::integer AS attempts FROM identity_security_events
+        WHERE event_code = 'AUTHENTICATION_REJECTED'
+          AND occurred_at >= now() - interval '15 minutes'
+          AND request_metadata->>'loginKey' = ${loginKey}
+      `.execute(this.database);
+      if ((recent.rows[0]?.attempts ?? 0) >= 5)
+        throw new HttpException('Too many sign-in attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    const snapshot = await this.transactions.run(({ repositories }) =>
+      repositories.identityFoundation.findPrimaryLogin(normalizedEmail),
+    );
+    const credential = snapshot?.credential;
+    let valid = false;
+    if (credential?.passwordHash && input.password) {
+      try {
+        valid = await verifyArgon2(credential.passwordHash, input.password);
+      } catch {
+        valid = false;
+      }
+    }
+    if (!snapshot || !credential || !valid) {
+      await this.recordRejected('AUTHENTICATION_REJECTED', 'invalid_credentials', loginKey);
+      throw new UnauthorizedException('Email or password is incorrect');
+    }
+
+    const now = new Date();
+    const accessToken = randomBytes(32).toString('base64url');
+    const refreshToken = randomBytes(32).toString('base64url');
+    const sessionId = randomUUID();
+    const createdAt = now.toISOString();
+    const absoluteExpiresAt = new Date(now.getTime() + ABSOLUTE_LIFETIME_MS).toISOString();
+    try {
+      await this.transactions.run(async ({ repositories }) => {
+        // Prevent login with a password revoked or replaced while Argon2 was running.
+        await repositories.identityFoundation.validateLoginSnapshot({
+          userId: snapshot.email.userId,
+          userEmailId: snapshot.email.userEmailId,
+          emailRevision: snapshot.email.emailRevision,
+          normalizedEmail,
+          credentialRevision: credential.credentialRevision,
+        });
+        await repositories.identitySessions.createSession({
+          sessionId, familyId: sessionId, userId: snapshot.email.userId,
+          accessTokenSha256: digest(accessToken),
+          accessExpiresAt: new Date(now.getTime() + ACCESS_LIFETIME_MS).toISOString(),
+          refreshTokenSha256: digest(refreshToken), createdAt,
+          idleExpiresAt: new Date(now.getTime() + IDLE_LIFETIME_MS).toISOString(),
+          absoluteExpiresAt, authenticatedAt: createdAt,
+        });
+        await repositories.identitySessions.appendSecurityEvent({
+          eventId: randomUUID(), userId: snapshot.email.userId, sessionId,
+          eventCode: 'SESSION_CREATED', outcome: 'SUCCESS',
+          occurredAt: createdAt, requestMetadata: { purpose: 'PASSWORD_LOGIN' },
+        });
+      });
+    } catch {
+      await this.recordRejected('AUTHENTICATION_REJECTED', 'stale_credentials', loginKey);
+      throw new UnauthorizedException('Email or password is incorrect');
+    }
+    return {
+      userId: snapshot.email.userId, sessionId, accessToken, refreshToken,
+      tokenType: 'Bearer', expiresInSeconds: 900, refreshExpiresAt: absoluteExpiresAt,
+    };
   }
 
   /** Issue a session for an isolated local fixture; NOT a Google/KYC verification. */
@@ -301,11 +387,11 @@ export class IdentitySessionService {
     return age >= -60_000 && age <= MAX_AUTH_AGE_MS;
   }
 
-  private async recordRejected(eventCode: 'AUTHENTICATION_REJECTED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_REJECTED' | 'IDENTITY_COLLISION', reason: string): Promise<void> {
+  private async recordRejected(eventCode: 'AUTHENTICATION_REJECTED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_REJECTED' | 'IDENTITY_COLLISION', reason: string, loginKey?: string): Promise<void> {
     const now = new Date().toISOString();
     await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
       eventId: randomUUID(), userId: null, sessionId: null, eventCode, outcome: 'REJECTED',
-      occurredAt: now, requestMetadata: { reason: reason.slice(0, 48) },
+      occurredAt: now, requestMetadata: { reason: reason.slice(0, 48), ...(loginKey ? { loginKey } : {}) },
     }));
   }
 

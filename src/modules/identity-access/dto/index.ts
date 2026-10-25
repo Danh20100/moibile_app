@@ -17,6 +17,16 @@ export class GoogleSessionRequestDto {
   nonce!: string;
 }
 
+export class PasswordLoginDto {
+  @ApiProperty({ description: 'Previously verified email address' })
+  @IsString() @IsNotEmpty() @MaxLength(254)
+  email!: string;
+
+  @ApiProperty({ description: 'Password associated with an existing Argon2id credential' })
+  @IsString() @IsNotEmpty() @MaxLength(1024)
+  password!: string;
+}
+
 export class ReauthenticationProofDto extends GoogleSessionRequestDto {}
 export class ReauthenticationChallengeDto { @ApiProperty() nonce!: string; @ApiProperty() expiresAt!: string }
 export class ReauthenticationResponseDto { @ApiProperty() proof!: string; @ApiProperty() expiresAt!: string }

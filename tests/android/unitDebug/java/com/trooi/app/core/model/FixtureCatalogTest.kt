@@ -74,6 +74,7 @@ class FixtureCatalogTest {
     @Test fun mockLoginDoesNotAuthorizeBackendOrInstallBearerTokens() = kotlinx.coroutines.runBlocking {
         okhttp3.mockwebserver.MockWebServer().use { server ->
             server.start(java.net.InetAddress.getLoopbackAddress(), 0)
+            server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(401).setBody("{}"))
             val tokens = com.trooi.app.core.network.InMemoryAuthTokenProvider()
             val backend = com.trooi.app.core.data.BackendTroOiRepository(
                 com.trooi.app.core.network.OkHttpBackendApi(com.trooi.app.core.network.BackendClient(
@@ -81,9 +82,9 @@ class FixtureCatalogTest {
             assertNotNull(DemoData.authenticate("tenant@trooi.local", "TroOi2026!"))
             assertTrue(backend.login("tenant@trooi.local", "TroOi2026!").isFailure)
             assertNull(tokens.token())
-            // Backend-backed Debug must reject email/password locally.
-            // Neither a demo endpoint request nor a bearer token is allowed.
-            assertEquals(0, server.requestCount)
+            // Only the verified password endpoint may be called; fixture credentials cannot grant a session.
+            assertEquals(1, server.requestCount)
+            assertTrue(server.takeRequest().path!!.contains("identity-access/auth/password"))
             assertTrue(backend.initialSnapshot().read.tenancies.isEmpty())
         }
     }

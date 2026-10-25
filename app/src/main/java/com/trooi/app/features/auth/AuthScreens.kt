@@ -415,7 +415,7 @@ fun LoginScreen(
     var identifier by remember(initialIdentifier, prefillKey) { mutableStateOf(initialIdentifier) }
     var password by remember(initialPassword, prefillKey) { mutableStateOf(initialPassword) }
     var showPassword by remember { mutableStateOf(false) }
-    val identifierOk = isValidIdentifier(identifier)
+    val identifierOk = if (backendOnly) isValidEmail(identifier) else isValidIdentifier(identifier)
     val passwordOk = isValidPassword(password)
 
     AuthFormScaffold(
@@ -434,7 +434,7 @@ fun LoginScreen(
         AuthTextField(
             value = identifier,
             onValueChange = { identifier = it },
-            label = "Email hoặc số điện thoại",
+            label = if (backendOnly) "Email" else "Email hoặc số điện thoại",
             icon = Icons.Rounded.Person,
             keyboardType = KeyboardType.Email,
         )
@@ -474,18 +474,8 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            // Keep the familiar form visible; real password auth is pending OTP integration.
-            enabled = identifierOk && passwordOk && !authInProgress && !backendOnly,
+            enabled = identifierOk && passwordOk && !authInProgress,
         )
-        if (backendOnly) {
-            Text(
-                "Đăng nhập email/mật khẩu và khôi phục mật khẩu chưa khả dụng. Vui lòng sử dụng Google trong thời gian chờ tích hợp OTP.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(20.dp))
-        }
-
         if (onSignInWithGoogle != null) {
         // Divider: ──────────── hoặc ────────────
         Row(
@@ -667,14 +657,6 @@ fun SignUpScreen(
             )
         }
         Spacer(Modifier.height(10.dp))
-        if (googleBacked) {
-            Text(
-                "Đăng ký bằng email chưa khả dụng. Bạn có thể tạo tài khoản thật bằng Google bên dưới.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(10.dp))
-        }
         TroOiButton(
             text = if (authInProgress) "Đang tạo tài khoản…" else "Tạo tài khoản",
             onClick = { /* Reserved for verified email registration when a real provider is integrated. */ },
