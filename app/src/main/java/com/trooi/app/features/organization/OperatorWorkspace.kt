@@ -36,6 +36,7 @@ fun V1OperatorWorkspace(
     organizationId: String,
     entry: OperatorRoute? = null,
     onUnauthorized: () -> Unit,
+    onExitToProfile: () -> Unit = {},
     onMessageContext: (String, String) -> Unit = { _, _ -> },
     onWorkspaceCreated: () -> Unit,
     model: OperatorViewModel = hiltViewModel(),
@@ -47,12 +48,17 @@ fun V1OperatorWorkspace(
     LaunchedEffect(ui.organizationCreatedRevision) {
         if (ui.organizationCreatedRevision > 0) onWorkspaceCreated()
     }
-    BackHandler(enabled = ui.stack.size > 1) { model.back() }
+    BackHandler(enabled = true) { if (!model.back()) onExitToProfile() }
     var name by remember(ui.route) { mutableStateOf("") }
     var description by remember(ui.route) { mutableStateOf("") }
     var price by remember(ui.route) { mutableStateOf("") }
     var locationForm by remember(ui.route) { mutableStateOf(LocationFormState()) }
     var confirmationSecret by remember { mutableStateOf("") }
+    var editingOrganizationName by remember(ui.route) { mutableStateOf(false) }
+    var propertyLocationStep by remember(ui.route) { mutableIntStateOf(0) }
+    LaunchedEffect(ui.success, ui.route) {
+        if (ui.success == "Đã tạo phòng." && ui.route is OperatorRoute.Rooms) name = ""
+    }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
         V1RentalWorkspace(
@@ -78,6 +84,8 @@ fun V1OperatorWorkspace(
                 when (route) {
                     OperatorRoute.Organizations -> "Không gian vận hành"
                     is OperatorRoute.Organization -> "Khu trọ"
+                    is OperatorRoute.OrganizationCreated -> "Tạo khu trọ thành công"
+                    is OperatorRoute.CreateProperty -> "Thêm khu nhà"
                     is OperatorRoute.Dashboard -> "Tổng quan"
                     is OperatorRoute.Properties -> "Khu nhà"
                     is OperatorRoute.Property -> "Chi tiết khu nhà"
@@ -89,10 +97,10 @@ fun V1OperatorWorkspace(
                     is OperatorRoute.Inquiries -> "Yêu cầu liên hệ"
                     is OperatorRoute.Inquiry -> "Chi tiết liên hệ"
                 },
-                "Quản lý thông tin và trạng thái vận hành.",
+                if (route is OperatorRoute.CreateProperty) if (propertyLocationStep == 0) "Bước 1/2" else "Bước 2/2" else "",
+                onBack = { if (!model.back()) onExitToProfile() },
             )
         }
-        if (ui.stack.size > 1) item { TroOiButton("← Quay lại", { model.back() }, style = TroOiButtonStyle.TERTIARY) }
         if (ui.busy) item { TroOiStateMessage(TroOiStateKind.LOADING, "", Modifier.testTag("operator-loading")) }
         if (ui.error != null) item {
             TroOiCard("Không thể hoàn thành yêu cầu") {
@@ -101,9 +109,8 @@ fun V1OperatorWorkspace(
             }
         }
         if (ui.success != null) item {
-            TroOiCard("Đã xác nhận") {
-                Text(ui.success.orEmpty(), modifier = Modifier.testTag("operator-success"))
-            }
+            Text(ui.success.orEmpty(), modifier = Modifier.testTag("operator-success"),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         }
         when (route) {
             is OperatorRoute.Rentals -> Unit // Rendered above as a separate nested workflow.
@@ -126,14 +133,55 @@ fun V1OperatorWorkspace(
                     }
                 }
             }
+            is OperatorRoute.OrganizationCreated -> {
+                ui.organization?.takeIf { it.id == route.id }?.let { org ->
+                    item {
+                        TroOiCard("Khu trọ đã sẵn sàng") {
+                            Text(org.name, style = MaterialTheme.typography.titleMedium)
+                            Text("Thêm khu nhà trước, sau đó tạo phòng; hoặc để sau.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TroOiButton("Tiếp tục tạo phòng", {
+                                model.open(OperatorRoute.CreateProperty(org.id))
+                            }, modifier = Modifier.fillMaxWidth().testTag("owner-setup-continue"))
+                            TroOiButton("Để sau", onExitToProfile,
+                                modifier = Modifier.fillMaxWidth().testTag("owner-setup-later"),
+                                style = TroOiButtonStyle.SECONDARY)
+                        }
+                    }
+                }
+            }
             is OperatorRoute.Organization -> {
                 ui.organization?.takeIf { it.id == route.id }?.let { org ->
                     item {
                         TroOiCard(org.name) {
-                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu trọ mới") }, modifier = Modifier.fillMaxWidth().testTag("organization-edit-name"), singleLine = true)
-                            TroOiButton("Lưu tên", { model.renameOrganization(org.id, name) }, enabled = !ui.busy && name.isNotBlank())
-                            TroOiButton("Tổng quan", { model.open(OperatorRoute.Dashboard(org.id)) })
-                            TroOiButton("Quản lý khu nhà", { model.open(OperatorRoute.Properties(org.id)) })
+                            Text("Quản lý khu nhà, phòng và hoạt động cho thuê.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TroOiButton("Quản lý khu nhà và phòng", {
+                                model.open(OperatorRoute.Properties(org.id))
+                            }, modifier = Modifier.fillMaxWidth())
+                            TroOiButton("Xem tổng quan", {
+                                model.open(OperatorRoute.Dashboard(org.id))
+                            }, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                    item {
+                        if (editingOrganizationName) {
+                            TroOiCard("Đổi tên khu trọ") {
+                                TroOiFormField(name, { name = it }, label = { Text("Tên mới") },
+                                    modifier = Modifier.fillMaxWidth().testTag("organization-edit-name"), singleLine = true)
+                                TroOiButton("Lưu tên", {
+                                    model.renameOrganization(org.id, name)
+                                    editingOrganizationName = false
+                                }, enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
+                                TroOiButton("Hủy", { editingOrganizationName = false },
+                                    style = TroOiButtonStyle.TERTIARY)
+                            }
+                        } else {
+                            TroOiButton("Đổi tên khu trọ", {
+                                name = org.name
+                                editingOrganizationName = true
+                            }, style = TroOiButtonStyle.TERTIARY)
                         }
                     }
                 }
@@ -141,73 +189,101 @@ fun V1OperatorWorkspace(
             is OperatorRoute.Dashboard -> {
                 ui.dashboard?.takeIf { it.organizationId == route.organizationId }?.let { dashboard ->
                     item {
-                        TroOiCard("Tổng quan") {
-                            TroOiInformationRow("Phòng trống", dashboard.roomsByState.vacant.toString())
-                            TroOiInformationRow("Có người thuê", dashboard.roomsByState.occupied.toString())
-                            TroOiInformationRow("Đang bảo trì", dashboard.roomsByState.maintenance.toString())
-                            TroOiInformationRow("Ngừng sử dụng", dashboard.roomsByState.inactive.toString())
-                            TroOiInformationRow("Lượt thuê đang hoạt động", dashboard.activeTenancyCount.toString())
-                            TroOiInformationRow("Sự cố đang mở", dashboard.openIncidentCount.toString())
-                            TroOiInformationRow(
-                                "Khoản còn cần thu",
-                                dashboard.outstandingReceivable ?: "Chưa có số liệu tổng hợp",
-                            )
-                            TroOiInformationRow(
-                                "Tiền đã nhận",
-                                dashboard.confirmedPaymentTotal ?: "Chưa có số liệu tổng hợp",
-                            )
+                        TroOiCard("Tình trạng phòng") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OwnerMetric("Phòng trống", dashboard.roomsByState.vacant.toString(), Modifier.weight(1f))
+                                OwnerMetric("Có người thuê", dashboard.roomsByState.occupied.toString(), Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OwnerMetric("Bảo trì", dashboard.roomsByState.maintenance.toString(), Modifier.weight(1f))
+                                OwnerMetric("Ngừng sử dụng", dashboard.roomsByState.inactive.toString(), Modifier.weight(1f))
+                            }
                         }
+                    }
+                    item {
+                        TroOiCard("Hoạt động") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OwnerMetric("Lượt thuê", dashboard.activeTenancyCount.toString(), Modifier.weight(1f))
+                                OwnerMetric("Sự cố đang mở", dashboard.openIncidentCount.toString(), Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    item {
+                        TroOiCard("Tài chính") {
+                            TroOiInformationRow("Còn cần thu", dashboard.outstandingReceivable ?: "Chưa có dữ liệu")
+                            TroOiInformationRow("Đã nhận", dashboard.confirmedPaymentTotal ?: "Chưa có dữ liệu")
+                        }
+                    }
+                    item {
+                        TroOiButton("Quản lý khu nhà và phòng",
+                            { model.open(OperatorRoute.Properties(route.organizationId)) },
+                            modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
             is OperatorRoute.Properties -> {
-                if (!ui.busy && ui.properties.isEmpty()) item { TroOiCard("Khu nhà") { TroOiStateMessage(TroOiStateKind.EMPTY, "Chưa có khu nhà trong khu trọ này.") } }
+                if (!ui.busy && ui.properties.isEmpty()) item {
+                    TroOiCard("Chưa có khu nhà") {
+                        Text("Thêm khu nhà đầu tiên để quản lý phòng.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 items(ui.properties, key = { "property-" + it.id }) { property ->
-                    TroOiListRow(property.name, "Mở khu nhà", action = "Mở chi tiết →", modifier = Modifier.testTag("property-" + property.id), onClick = {
+                    TroOiListRow(property.name, "Quản lý phòng", onClick = {
                         model.open(OperatorRoute.Property(property.id, route.organizationId))
-                    })
+                    }, modifier = Modifier.testTag("property-" + property.id))
                 }
                 item {
-                    TroOiCard("Tạo khu nhà") {
-                        Text("Địa chỉ vận hành được giữ riêng với vị trí công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu nhà") }, modifier = Modifier.fillMaxWidth().testTag("property-name"), singleLine = true)
-                        TroOiFormField(
-                            value = locationForm.privateLocation.address,
-                            onValueChange = { locationForm = setPrivateAddress(locationForm, it) },
-                            label = { Text("Địa chỉ vận hành (riêng tư)") },
-                            modifier = Modifier.fillMaxWidth().testTag("private-address"), singleLine = true,
-                        )
-                        LocationPickerMap(
-                            "pin vận hành",
-                            locationForm.privateLocation.point,
-                            { locationForm = setPrivatePin(locationForm, it) },
-                            "private-pin-map",
-                        )
-                        LocationPickerMap(
-                            "pin công khai",
-                            locationForm.publicLocation.point,
-                            { locationForm = setPublicPin(locationForm, it) },
-                            "public-pin-map",
-                        )
-                        TroOiButton(
-                            if (locationForm.publicLocation.confirmed) "Đã xác nhận pin công khai" else "Xác nhận pin công khai",
-                            { locationForm = confirmPublicPin(locationForm) },
-                            enabled = locationForm.publicLocation.point != null && !locationForm.publicLocation.confirmed,
-                            modifier = Modifier.fillMaxWidth().testTag("confirm-public-pin"),
-                        )
-                        TroOiFeedback("Pin công khai phải chọn và xác nhận riêng; không sao chép từ địa chỉ hoặc pin vận hành.")
-                        TroOiButton("Tạo khu nhà", {
-                            val privatePoint = locationForm.privateLocation.point ?: return@TroOiButton
-                            val publicPoint = locationForm.publicLocation.point ?: return@TroOiButton
-                            model.createProperty(
-                                route.organizationId,
-                                name,
-                                locationForm.privateLocation.address,
-                                privatePoint,
-                                publicPoint,
+                    TroOiButton("Thêm khu nhà", {
+                        model.open(OperatorRoute.CreateProperty(route.organizationId))
+                    }, modifier = Modifier.fillMaxWidth().testTag("owner-add-property"))
+                }
+            }
+            is OperatorRoute.CreateProperty -> {
+                item {
+                    TroOiCard(if (propertyLocationStep == 0) "Thông tin khu nhà" else "Vị trí công khai") {
+                        if (propertyLocationStep == 0) {
+                            TroOiFormField(
+                                value = name, onValueChange = { name = it },
+                                label = { Text("Tên khu nhà") },
+                                modifier = Modifier.fillMaxWidth().testTag("property-name"), singleLine = true)
+                            TroOiFormField(
+                                value = locationForm.privateLocation.address,
+                                onValueChange = { locationForm = setPrivateAddress(locationForm, it) },
+                                label = { Text("Địa chỉ vận hành (riêng tư)") },
+                                modifier = Modifier.fillMaxWidth().testTag("private-address"), singleLine = true)
+                            Text("Vị trí vận hành", style = MaterialTheme.typography.titleSmall)
+                            LocationPickerMap("pin vận hành", locationForm.privateLocation.point,
+                                { locationForm = setPrivatePin(locationForm, it) }, "private-pin-map")
+                            TroOiButton("Tiếp tục", { propertyLocationStep = 1 },
+                                enabled = name.isNotBlank() &&
+                                    locationForm.privateLocation.address.isNotBlank() &&
+                                    locationForm.privateLocation.point != null,
+                                modifier = Modifier.fillMaxWidth().testTag("owner-property-next"))
+                        } else {
+                            Text("Chọn vị trí hiển thị trên tin đăng.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            LocationPickerMap("pin công khai", locationForm.publicLocation.point,
+                                { locationForm = setPublicPin(locationForm, it) }, "public-pin-map")
+                            TroOiButton(
+                                "Xác nhận vị trí công khai",
+                                { locationForm = confirmPublicPin(locationForm) },
+                                enabled = locationForm.publicLocation.point != null &&
+                                    !locationForm.publicLocation.confirmed,
+                                style = TroOiButtonStyle.SECONDARY,
+                                modifier = Modifier.fillMaxWidth().testTag("confirm-public-pin"),
                             )
-                        }, enabled = !ui.busy && canCreateProperty(name, locationForm),
-                            modifier = Modifier.fillMaxWidth())
+                            TroOiButton("Tạo khu nhà", {
+                                val privatePoint = locationForm.privateLocation.point ?: return@TroOiButton
+                                val publicPoint = locationForm.publicLocation.point ?: return@TroOiButton
+                                model.createProperty(
+                                    route.organizationId, name,
+                                    locationForm.privateLocation.address, privatePoint, publicPoint)
+                            }, enabled = !ui.busy && canCreateProperty(name, locationForm),
+                                modifier = Modifier.fillMaxWidth().testTag("owner-property-create"))
+                            TroOiButton("Quay lại thông tin", { propertyLocationStep = 0 },
+                                style = TroOiButtonStyle.TERTIARY)
+                        }
                     }
                 }
             }
@@ -215,14 +291,13 @@ fun V1OperatorWorkspace(
                 ui.property?.takeIf { it.id == route.id }?.let { property ->
                     item {
                         TroOiCard(property.name) {
-                            Text("Địa chỉ vận hành không xuất hiện trên tin đăng công khai.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên khu nhà mới") }, modifier = Modifier.fillMaxWidth().testTag("property-edit-name"), singleLine = true)
-                            TroOiButton("Lưu tên", {
-                                model.renameProperty(route.id, route.organizationId, name)
-                            }, enabled = !ui.busy && name.isNotBlank())
-                            TroOiButton("Danh sách phòng", {
+                            Text("Khu nhà đã được lưu. Tiếp tục thêm và quản lý các phòng.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TroOiButton("Tạo và quản lý phòng", {
                                 model.open(OperatorRoute.Rooms(route.id, route.organizationId))
-                            })
+                            }, modifier = Modifier.fillMaxWidth().testTag("owner-property-rooms"))
+                            TroOiButton("Để sau", onExitToProfile,
+                                style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -612,6 +687,18 @@ fun V1OperatorWorkspace(
                 }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
             },
         )
+    }
+}
+
+@Composable
+private fun OwnerMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface)
+        }
     }
 }
 

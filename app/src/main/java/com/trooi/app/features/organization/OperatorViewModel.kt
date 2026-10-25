@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 sealed interface OperatorRoute {
     data object Organizations : OperatorRoute
     data class Organization(val id: String) : OperatorRoute
+    data class OrganizationCreated(val id: String) : OperatorRoute
+    data class CreateProperty(val organizationId: String) : OperatorRoute
     data class Dashboard(val organizationId: String) : OperatorRoute
     data class Properties(val organizationId: String) : OperatorRoute
     data class Property(val id: String, val organizationId: String) : OperatorRoute
@@ -80,7 +82,15 @@ class OperatorViewModel @Inject constructor(
     fun begin(capabilities: AccessCapabilities, organizationId: String, entry: OperatorRoute? = null) {
         val scoped = organizationId.takeIf { it in capabilities.operatedOrganizationIds }.orEmpty()
         val nextEntry = entry?.toString().orEmpty()
-        if (started && access == capabilities && selectedOrganizationId == scoped && entryKey == nextEntry) return
+        val permissionsPreserved = capabilities.operatedOrganizationIds.containsAll(access.operatedOrganizationIds)
+        if (started && permissionsPreserved && entryKey == nextEntry &&
+            (selectedOrganizationId == scoped ||
+                (selectedOrganizationId.isEmpty() && scoped.isNotEmpty() &&
+                    _ui.value.stack.any { it is OperatorRoute.OrganizationCreated && it.id == scoped }))) {
+            access = capabilities
+            selectedOrganizationId = scoped
+            return
+        }
         revision++
         started = true
         access = capabilities
@@ -109,6 +119,8 @@ class OperatorViewModel @Inject constructor(
         val authorized = when (route) {
             is OperatorRoute.Organizations -> true
             is OperatorRoute.Organization -> route.id in access.operatedOrganizationIds
+            is OperatorRoute.OrganizationCreated -> route.id in access.operatedOrganizationIds
+            is OperatorRoute.CreateProperty -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Dashboard -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Properties -> route.organizationId in access.operatedOrganizationIds
             is OperatorRoute.Property -> route.organizationId in access.operatedOrganizationIds
@@ -153,6 +165,8 @@ class OperatorViewModel @Inject constructor(
                         publish(requestId) { it.copy(organizations = data) }
                     }
                     is OperatorRoute.Organization -> publish(requestId) { it.copy(organization = api.organization(route.id)) }
+                    is OperatorRoute.OrganizationCreated -> publish(requestId) { it.copy(organization = api.organization(route.id)) }
+                    is OperatorRoute.CreateProperty -> publish(requestId) { it }
                     is OperatorRoute.Dashboard -> publish(requestId) {
                         val dashboard = api.dashboard(route.organizationId)
                         require(dashboard.organizationId == route.organizationId) { "Dashboard không thuộc Organization hiện tại." }
@@ -259,8 +273,12 @@ class OperatorViewModel @Inject constructor(
         val granted = api.sessionAccess()
         require(refreshed.id in granted.operatedOrganizationIds) { "Backend chưa cấp relationship cho Organization mới." }
         access = granted
-        _ui.update { it.copy(organization = refreshed, stack = it.stack + OperatorRoute.Organization(refreshed.id),
-            organizationCreatedRevision = it.organizationCreatedRevision + 1) }
+        _ui.update { it.copy(
+            organization = refreshed,
+            stack = listOf(OperatorRoute.Organizations, OperatorRoute.OrganizationCreated(refreshed.id)),
+            success = null,
+            organizationCreatedRevision = it.organizationCreatedRevision + 1,
+        ) }
     }
 
     fun renameOrganization(id: String, name: String) = write {
@@ -278,7 +296,12 @@ class OperatorViewModel @Inject constructor(
     ) = write {
         require(organizationId in access.operatedOrganizationIds && name.isNotBlank() && address.isNotBlank()) { "Điền đủ thông tin khu nhà" }
         val created = api.createProperty(organizationId, name.trim(), address.trim(), operational, public)
-        _ui.update { it.copy(property = api.property(created.id), stack = it.stack + OperatorRoute.Property(created.id, organizationId)) }
+        _ui.update { it.copy(
+            property = api.property(created.id),
+            stack = listOf(OperatorRoute.Organizations, OperatorRoute.Organization(organizationId),
+                OperatorRoute.Properties(organizationId), OperatorRoute.Property(created.id, organizationId)),
+            success = null,
+        ) }
     }
 
     fun renameProperty(id: String, organizationId: String, name: String) = write {
@@ -290,7 +313,13 @@ class OperatorViewModel @Inject constructor(
     fun createRoom(propertyId: String, organizationId: String, label: String) = write {
         require(organizationId in access.operatedOrganizationIds && label.isNotBlank()) { "Thiếu tên phòng" }
         val created = api.createRoom(propertyId, label.trim())
-        _ui.update { it.copy(room = api.room(created.id), stack = it.stack + OperatorRoute.Room(created.id, propertyId, organizationId)) }
+        _ui.update { it.copy(
+            rooms = api.rooms(propertyId).filter { room -> room.propertyId == propertyId },
+            stack = listOf(OperatorRoute.Organizations, OperatorRoute.Organization(organizationId),
+                OperatorRoute.Properties(organizationId), OperatorRoute.Property(propertyId, organizationId),
+                OperatorRoute.Rooms(propertyId, organizationId)),
+            success = "Đã tạo phòng.",
+        ) }
     }
 
     fun renameRoom(id: String, label: String) = write {
@@ -360,7 +389,11 @@ class OperatorViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 operation()
-                if (revision == current) _ui.update { it.copy(busy = false, success = "Đã lưu thay đổi.") }
+                if (revision == current) _ui.update { state ->
+                    state.copy(busy = false,
+                        success = if (state.route is OperatorRoute.OrganizationCreated ||
+                            state.route is OperatorRoute.Property) null else state.success ?: "Đã lưu thay đổi.")
+                }
             } catch (error: Exception) { fail(current, error) }
         }
     }

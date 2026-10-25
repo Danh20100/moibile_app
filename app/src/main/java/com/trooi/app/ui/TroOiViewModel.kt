@@ -264,10 +264,12 @@ class TroOiViewModel @Inject constructor(
         val organizationId = selected ?: current.access.operatedOrganizationIds.firstOrNull()
         if (organizationId == null) {
             open(AppPage.OwnerProperties)
+            _state.update { it.copy(authorizedSource = null) }
             return
         }
         _state.update { state ->
             val next = applySelection(state, SelectedContext.Operations(organizationId), keepPage = true, page = AppPage.OwnerProperties)
+                .copy(authorizedSource = null)
             persistHints(next.backendUserId, next.selectedContext)
             next
         }
@@ -993,7 +995,7 @@ class TroOiViewModel @Inject constructor(
         )
     }
 
-    fun refreshSessionContext() {
+    fun refreshSessionContext(keepOperatorWorkspace: Boolean = false) {
         if (!_state.value.isAuthenticated) return
         val generation = sessionGeneration
         viewModelScope.launch {
@@ -1002,7 +1004,13 @@ class TroOiViewModel @Inject constructor(
                     if (generation == sessionGeneration) {
                         sessionGeneration++
                         _state.update { current ->
-                            applyReconciledAccess(current, session.displayName, session.access).copy(pictureUrl = session.pictureUrl, email = session.email)
+                            val reconciled = applyReconciledAccess(current, session.displayName, session.access)
+                                .copy(pictureUrl = session.pictureUrl, email = session.email)
+                            if (keepOperatorWorkspace &&
+                                current.page in setOf(AppPage.OwnerProperties, AppPage.Account) &&
+                                session.access.operatedOrganizationIds.isNotEmpty()) {
+                                reconciled.copy(page = current.page)
+                            } else reconciled
                         }
                         refreshAuthorizedRead(session.access)
                     }

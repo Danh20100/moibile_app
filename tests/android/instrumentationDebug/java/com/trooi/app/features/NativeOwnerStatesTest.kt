@@ -194,7 +194,6 @@ class NativeOwnerStatesTest {
             val model = OperatorViewModel(
                 V1ContractGateway(BackendClient("http://127.0.0.1:1", tokens, true, client)),
                 identityApi,
-                GoogleCredentialAuth(identityApi),
             )
             var created = 0
             ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->

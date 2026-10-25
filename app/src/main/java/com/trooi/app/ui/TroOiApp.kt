@@ -355,19 +355,11 @@ fun TroOiApp(
                         V1OperatorWorkspace(
                             state.access,
                             organizationId,
-                            entry = state.authorizedSource?.let(::operatorEntry)
-                                ?: organizationId.takeIf { it.isNotBlank() }?.let { orgId ->
-                                    val properties = accessibleProperties(state.read, state.access)
-                                        .filter { it.organizationId == orgId }
-                                    if (properties.size == 1) {
-                                        OperatorRoute.Rooms(properties.single().propertyId, orgId)
-                                    } else {
-                                        OperatorRoute.Properties(orgId)
-                                    }
-                                },
+                            entry = state.authorizedSource?.let(::operatorEntry),
                             onUnauthorized = viewModel::logout,
-                                onMessageContext = viewModel::openMessageContext,
-                            onWorkspaceCreated = viewModel::refreshSessionContext,
+                            onExitToProfile = viewModel::openAccount,
+                            onMessageContext = viewModel::openMessageContext,
+                            onWorkspaceCreated = { viewModel.refreshSessionContext(keepOperatorWorkspace = true) },
                         )
                     } else V1OwnerPropertiesScreen(state)
                     AppPage.OwnerFinance -> V1OwnerFinanceScreen(state, viewModel::openSource)
