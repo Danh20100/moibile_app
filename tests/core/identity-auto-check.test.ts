@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
-import { autoCheckState, decodeKycJpeg } from '../../src/modules/identity-verification/auto-identity-check.service';
+import { autoCheckState, decodeKycJpeg, faceMatchThreshold } from '../../src/modules/identity-verification/auto-identity-check.service';
 import { loadCompreFaceConfig } from '../../src/integrations/compreface/compreface-verifier';
 
 test('auto face check needs actual bounded matching evidence; never blindly approves', () => {
@@ -10,6 +10,29 @@ test('auto face check needs actual bounded matching evidence; never blindly appr
   assert.equal(autoCheckState(1), 'AUTO_CHECK_PASSED');
   for (const value of [NaN, -1, Infinity, 1.01]) {
     assert.throws(() => autoCheckState(value), BadRequestException);
+  }
+});
+
+test('local Compose MVP allows 0.38 but production remains 0.90', () => {
+  const local = {
+    TROOI_LOCAL_KYC_FACE_THRESHOLD: '0.38',
+    TROOI_DATABASE_MODE: 'compose-postgres',
+    TROOI_LOCAL_COMPREFACE_LAB: 'true',
+    COMPREFACE_ENABLED: 'true',
+    COMPREFACE_ORIGIN: 'http://compreface-fe',
+  };
+  assert.equal(faceMatchThreshold(local), 0.38);
+  assert.equal(autoCheckState(0.39588, local), 'AUTO_CHECK_PASSED');
+  assert.equal(autoCheckState(0.37999, local), 'NEEDS_RETRY');
+  assert.equal(autoCheckState(0.39588), 'NEEDS_RETRY');
+  for (const invalid of [
+    { ...local, TROOI_DATABASE_MODE: 'external-finance' },
+    { ...local, TROOI_LOCAL_COMPREFACE_LAB: 'false' },
+    { ...local, COMPREFACE_ORIGIN: 'https://face.example.com' },
+    { ...local, TROOI_LOCAL_KYC_FACE_THRESHOLD: '0.20' },
+    { ...local, TROOI_LOCAL_KYC_FACE_THRESHOLD: 'n/a' },
+  ]) {
+    assert.throws(() => faceMatchThreshold(invalid));
   }
 });
 

@@ -28,13 +28,34 @@ export interface AutoCheckImages {
 const MAX_IMAGE_BYTES = 1_500_000;
 const MAX_DAILY_ATTEMPTS = 5;
 const FACE_MATCH_THRESHOLD = 0.90;
+const LOCAL_MVP_FACE_THRESHOLD = 0.38;
+
+/**
+ * Optional relaxed face-similarity gate for the private Compose demo only.
+ * External/finance environments always retain the original 0.90 threshold.
+ * This is NOT verification of ID-document authenticity or liveness.
+ */
+export function faceMatchThreshold(env: NodeJS.ProcessEnv = {}): number {
+  const override = env.TROOI_LOCAL_KYC_FACE_THRESHOLD?.trim();
+  if (!override) return FACE_MATCH_THRESHOLD;
+  if (
+    override !== String(LOCAL_MVP_FACE_THRESHOLD) ||
+    env.TROOI_DATABASE_MODE !== 'compose-postgres' ||
+    env.TROOI_LOCAL_COMPREFACE_LAB !== 'true' ||
+    env.COMPREFACE_ENABLED !== 'true' ||
+    env.COMPREFACE_ORIGIN !== 'http://compreface-fe'
+  ) {
+    throw new ServiceUnavailableException('Local-only KYC threshold override is invalid');
+  }
+  return LOCAL_MVP_FACE_THRESHOLD;
+}
 
 /** A similarity-only outcome; never equivalent to document authenticity or liveness. */
-export function autoCheckState(similarity: number): AutoCheckState {
+export function autoCheckState(similarity: number, env: NodeJS.ProcessEnv = {}): AutoCheckState {
   if (!Number.isFinite(similarity) || similarity < 0 || similarity > 1) {
     throw new BadRequestException('Invalid face similarity evidence');
   }
-  return similarity >= FACE_MATCH_THRESHOLD ? 'AUTO_CHECK_PASSED' : 'NEEDS_RETRY';
+  return similarity >= faceMatchThreshold(env) ? 'AUTO_CHECK_PASSED' : 'NEEDS_RETRY';
 }
 
 export function decodeKycJpeg(value: unknown): Uint8Array {
@@ -93,9 +114,12 @@ export class AutoIdentityCheckService {
       // An unavailable or malformed third-party response NEVER produces a passed check.
       throw new ServiceUnavailableException('Automatic face comparison is unavailable');
     }
-    const state = autoCheckState(similarity);
+    const threshold = faceMatchThreshold(process.env);
+    const state = autoCheckState(similarity, process.env);
     const id = randomUUID();
-    const reasonCode = state === 'AUTO_CHECK_PASSED' ? 'FACE_SIMILARITY_MATCHED' : 'FACE_SIMILARITY_LOW';
+    const reasonCode = state === 'AUTO_CHECK_PASSED'
+      ? (threshold === LOCAL_MVP_FACE_THRESHOLD ? 'FACE_SIMILARITY_MATCHED_LOCAL_MVP' : 'FACE_SIMILARITY_MATCHED')
+      : 'FACE_SIMILARITY_LOW';
     const row = await this.database.transaction().execute(async (tx) => {
       const locked = await sql`SELECT user_id FROM users WHERE user_id = ${userId}::uuid FOR UPDATE`.execute(tx);
       if (!locked.rows.length) throw new BadRequestException('Authenticated user unavailable');
