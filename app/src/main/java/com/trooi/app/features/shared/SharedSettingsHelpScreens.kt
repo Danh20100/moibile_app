@@ -5,6 +5,7 @@ import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.features.profile.AccountSettingsFlow
 import com.trooi.app.features.profile.LandlordOnboardingScreen
 import com.trooi.app.core.model.LocalLandlordApplication
+import com.trooi.app.core.data.RuntimeDataSource
 
 @Composable
 fun SettingsScreen(
@@ -24,7 +25,7 @@ fun SettingsScreen(
     if (onboarding) LandlordOnboardingScreen(state.displayName, { onboarding = false }, {
         onboarding = false
         onOpenWorkspace()
-    }, onCompleteLandlord)
+    }, onCompleteLandlord, backendVerification = RuntimeDataSource.isBackendBacked())
 }
 
 @Composable

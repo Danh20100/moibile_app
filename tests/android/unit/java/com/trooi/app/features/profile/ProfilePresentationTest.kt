@@ -35,6 +35,22 @@ class ProfilePresentationTest {
         assertEquals(setOf("t"), operator.access.linkedTenancyIds)
     }
 
+    @Test fun verifiedNewAccountGetsEmptyOwnerWorkspaceWithoutInheritingDemoOrganization() {
+        val fresh = TroOiUiState(isAuthenticated = true, backendUserId = "new-verified-user", access = AccessCapabilities())
+        assertEquals(LandlordEntry.ONBOARDING, profilePresentation(fresh).landlordEntry)
+        assertFalse(profilePresentation(fresh).hasOperator)
+        assertTrue(canOpenPage(AppPage.OwnerProperties, true, fresh.access))
+        assertFalse(canOpenPage(AppPage.OwnerFinance, true, fresh.access))
+        val model = File("src/main/java/com/trooi/app/ui/TroOiViewModel.kt").readText()
+        assertTrue(model.contains("if (organizationId == null) {"))
+        assertTrue(model.contains("open(AppPage.OwnerProperties)"))
+        val operator = File("src/main/java/com/trooi/app/features/organization/OperatorWorkspace.kt").readText()
+        assertTrue(operator.contains("ui.organizations.isEmpty()"))
+        assertTrue(operator.contains("model.createOrganization(name, context)"))
+        val settings = File("src/main/java/com/trooi/app/features/shared/SharedSettingsHelpScreens.kt").readText()
+        assertTrue(settings.contains("backendVerification = RuntimeDataSource.isBackendBacked()"))
+    }
+
     @Test fun onboardingDoesNotPersistIdentityMediaOrOfferInstantUnlock() {
         val source = File("src/main/java/com/trooi/app/features/profile/LandlordOnboardingScreen.kt").readText()
         assertTrue(source.contains("TakePicturePreview"))
