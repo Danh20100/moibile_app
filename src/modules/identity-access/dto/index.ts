@@ -28,6 +28,18 @@ export class PasswordLoginDto {
 }
 
 export class ReauthenticationProofDto extends GoogleSessionRequestDto {}
+export class SecurityPinChangeDto {
+  @ApiProperty() @IsString() @Matches(/^[0-9]{6}$/)
+  currentPin!: string;
+  @ApiProperty() @IsString() @Matches(/^[0-9]{6}$/)
+  newPin!: string;
+}
+export class PasswordChangeDto {
+  @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(1024)
+  currentPassword!: string;
+  @ApiProperty() @IsString() @Length(8, 1024)
+  newPassword!: string;
+}
 export class SecurityPinSetupDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(1024)
   password!: string;

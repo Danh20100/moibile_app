@@ -35,6 +35,22 @@ class ProfilePresentationTest {
         assertEquals(setOf("t"), operator.access.linkedTenancyIds)
     }
 
+    @Test fun releaseSecurityPagesUseBackendCredentialAndIdentitySources() {
+        val flow = File("src/main/java/com/trooi/app/features/profile/AccountSettingsFlow.kt").readText()
+        val pin = File("src/main/java/com/trooi/app/features/profile/BackendPinSettings.kt").readText()
+        val account = File("src/main/java/com/trooi/app/features/profile/BackendAccountSecurityScreens.kt").readText()
+        assertTrue(flow.contains("BackendPinSettings(state.backendUserId)"))
+        assertTrue(flow.contains("BackendAccountSecurityScreen(state.backendUserId, \"password\""))
+        assertTrue(flow.contains("BackendAccountSecurityScreen(state.backendUserId, \"login-email\")"))
+        assertTrue(flow.contains("BackendAccountSecurityScreen(state.backendUserId, \"google\")"))
+        assertTrue(pin.contains("backend.changeSecurityPin(currentPin, newPin)"))
+        assertTrue(pin.contains("Đổi mã PIN"))
+        assertTrue(account.contains("backend.changePassword(current, next)"))
+        assertTrue(account.contains("backend.getAccountSecurityStatus()"))
+        assertFalse(account.contains("Chưa có email trong phiên"))
+        assertFalse(account.contains("Chưa thể thực hiện"))
+    }
+
     @Test fun verifiedNewAccountGetsEmptyOwnerWorkspaceWithoutInheritingDemoOrganization() {
         val fresh = TroOiUiState(isAuthenticated = true, backendUserId = "new-verified-user", access = AccessCapabilities())
         assertEquals(LandlordEntry.ONBOARDING, profilePresentation(fresh).landlordEntry)

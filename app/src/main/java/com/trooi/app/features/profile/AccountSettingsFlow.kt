@@ -179,7 +179,7 @@ fun AccountSettingsFlow(
     ) {
         sectionItem { TroOiPageHeader(title, onBack = { requestBack() }) }
         when {
-            requiresEditReauthentication(page) && !canEdit -> sectionItem {
+            requiresEditReauthentication(page) && !canEdit && (state.demoPreview || page != "password") -> sectionItem {
                 Text("Xác thực bảo mật trước khi chỉnh sửa thông tin.")
                 TroOiButton("Xác thực để chỉnh sửa", { protect { editGrant = page } }, modifier = Modifier.fillMaxWidth())
             }
@@ -306,13 +306,16 @@ fun AccountSettingsFlow(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         SettingsNavRow(Icons.Rounded.Password, "Mật khẩu", "Tạo hoặc thay đổi mật khẩu", { open("password") })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        SettingsNavRow(Icons.Rounded.Email, "Email đăng nhập", state.email ?: "Chưa có email được cung cấp", { open("login-email") })
+                        SettingsNavRow(Icons.Rounded.Email, "Email đăng nhập", state.email ?: "Xem email đăng nhập", { open("login-email") })
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         SettingsNavRow(Icons.Rounded.Link, "Tài khoản liên kết", "Quản lý phương thức đăng nhập", { open("google") })
                     }
                 }
             }
-            page == "password" -> sectionItem { PasswordForm(state.backendUserId, state.demoPreview, retry, { retry = it }, onDirty = { passwordDirty = it }, onSubmit = { boundary = title }, onRecovery = { recovery = true }) }
+            page == "password" -> sectionItem {
+                if (state.demoPreview) PasswordForm(state.backendUserId, true, retry, { retry = it }, onDirty = { passwordDirty = it }, onSubmit = { boundary = title }, onRecovery = { recovery = true })
+                else BackendAccountSecurityScreen(state.backendUserId, "password", onDirty = { passwordDirty = it })
+            }
             page == "pin" -> sectionItem {
                 if (state.demoPreview) {
                     PinForm(configured = method == ReauthenticationMethod.PIN,
@@ -321,24 +324,12 @@ fun AccountSettingsFlow(
                 } else BackendPinSettings(state.backendUserId)
             }
             page == "login-email" -> sectionItem {
-                TroOiInformationRow("Email đăng nhập", state.email ?: "Chưa cung cấp")
-                Text("Đổi email đăng nhập cần xác thực lại, OTP cho hộp thư mới và kiểm tra trùng tài khoản.")
-                TroOiButton("Thay đổi email", { boundary = "Không thể thay đổi email đăng nhập lúc này. Vui lòng thử lại sau." },
-                    modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
+                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "login-email")
+                else TroOiInformationRow("Email đăng nhập", state.email ?: "Chưa cung cấp")
             }
             page == "google" -> sectionItem {
-                if (!state.demoPreview) {
-                    TroOiInformationRow("Tài khoản sử dụng", state.email ?: "Chưa có email trong phiên")
-                    Text("Phiên đăng nhập hiện tại được xác thực qua Google và Backend TrọƠi.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Liên kết thêm hoặc ngắt tài khoản Google chưa có API quản lý phương thức đăng nhập; không thể thao tác tại đây.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text("Google · Chưa thể kiểm tra trạng thái liên kết")
-                    TroOiButton("Liên kết Google", { protect() }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
-                    TroOiButton("Ngắt liên kết", { protect() }, style = TroOiButtonStyle.TERTIARY)
-                }
+                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "google")
+                else TroOiInformationRow("Tài khoản sử dụng", state.email ?: "Chưa cung cấp")
             }
             page == "privacy" -> {
                 sectionItem { SettingsPreviewNotice("Quyền riêng tư của bạn được bảo vệ theo chính sách TrọƠi.") }

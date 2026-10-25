@@ -305,6 +305,107 @@ export class IdentitySessionService {
     return { proof, expiresAt };
   }
 
+  async accountSecurityStatus(userId: string): Promise<{
+    email: string | null; googleLinked: boolean; passwordConfigured: boolean;
+  }> {
+    this.requireEnabled();
+    if (!this.database || !userId) throw new UnauthorizedException('Application session required');
+    const [email, google, credential] = await Promise.all([
+      this.database.selectFrom('user_emails').select('email_address')
+        .where('user_id', '=', userId).executeTakeFirst(),
+      this.database.selectFrom('auth_identities').select('auth_identity_id')
+        .where('user_id', '=', userId).where('provider', '=', 'google').executeTakeFirst(),
+      this.database.selectFrom('password_credentials').select('user_id')
+        .where('user_id', '=', userId).executeTakeFirst(),
+    ]);
+    return { email: email?.email_address ?? null, googleLinked: !!google, passwordConfigured: !!credential };
+  }
+
+  async changeSecurityPin(
+    input: { currentPin: string; newPin: string }, userId: string, sessionId: string,
+  ): Promise<{ pinConfigured: boolean }> {
+    this.requireEnabled();
+    if (!this.database || !userId || !sessionId) throw new UnauthorizedException('Application session required');
+    if (!/^[0-9]{6}$/.test(input.currentPin) || !/^[0-9]{6}$/.test(input.newPin) ||
+        input.currentPin === input.newPin) throw new ForbiddenException('Invalid security PIN');
+    await this.enforceReauthLimit(userId, 'pin');
+    const old = await sql<{ pin_hash: string; revision: string }>`
+      SELECT pin_hash, revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid
+    `.execute(this.database);
+    let valid = false;
+    if (old.rows[0]) {
+      try { valid = await verifyArgon2(old.rows[0].pin_hash, input.currentPin); }
+      catch { valid = false; }
+    }
+    if (!valid) {
+      await this.recordPasswordReauthRejected(userId, sessionId, 'pin');
+      throw new ForbiddenException('Incorrect security PIN');
+    }
+    const nextHash = await hashArgon2(input.newPin, { algorithm: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    const now = new Date().toISOString();
+    const changed = await this.database.transaction().execute(async (tx) => {
+      const current = await sql<{ revision: string }>`
+        SELECT revision::text FROM identity_security_pins
+        WHERE user_id=${userId}::uuid FOR UPDATE
+      `.execute(tx);
+      if (current.rows[0]?.revision !== old.rows[0]?.revision) return false;
+      await sql`
+        UPDATE identity_security_pins SET pin_hash=${nextHash}, revision=revision+1, changed_at=${now}
+        WHERE user_id=${userId}::uuid
+      `.execute(tx);
+      await sql`
+        INSERT INTO identity_security_events(event_id, user_id, session_id, event_code, outcome, occurred_at, request_metadata)
+        VALUES (${randomUUID()}::uuid, ${userId}::uuid, ${sessionId}::uuid, 'REAUTH_ISSUED',
+                'SUCCESS', ${now}::timestamptz, '{"operation":"pin.change"}'::jsonb)
+      `.execute(tx);
+      return true;
+    });
+    if (!changed) throw new ForbiddenException('Security PIN has changed. Try again');
+    return { pinConfigured: true };
+  }
+
+  async changeOwnPassword(
+    input: { currentPassword: string; newPassword: string }, userId: string, sessionId: string,
+  ): Promise<{ changed: boolean }> {
+    this.requireEnabled();
+    if (!this.database || !userId || !sessionId) throw new UnauthorizedException('Application session required');
+    if (input.newPassword.length < 8 || input.newPassword.length > 1024 ||
+        input.newPassword === input.currentPassword) throw new ForbiddenException('Invalid new password');
+    await this.enforceReauthLimit(userId, 'password');
+    const email = await this.database.selectFrom('user_emails').select('normalized_email')
+      .where('user_id', '=', userId).executeTakeFirst();
+    const snapshot = email ? await this.transactions.run(({ repositories }) =>
+      repositories.identityFoundation.findPrimaryLogin(email.normalized_email)) : null;
+    let valid = false;
+    if (snapshot?.email.userId === userId && snapshot.credential?.passwordHash) {
+      try { valid = await verifyArgon2(snapshot.credential.passwordHash, input.currentPassword); }
+      catch { valid = false; }
+    }
+    if (!valid || !snapshot?.credential) {
+      await this.recordPasswordReauthRejected(userId, sessionId);
+      throw new ForbiddenException('Incorrect password');
+    }
+    const encoded = await hashArgon2(input.newPassword, { algorithm: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+    const now = new Date().toISOString();
+    await this.transactions.run(async ({ repositories }) => {
+      await repositories.identityFoundation.validateLoginSnapshot({
+        userId, userEmailId: snapshot.email.userEmailId, normalizedEmail: snapshot.email.normalizedEmail,
+        emailRevision: snapshot.email.emailRevision,
+        credentialRevision: snapshot.credential!.credentialRevision,
+      });
+      await repositories.identityFoundation.replacePasswordCredential({
+        userId, expectedRevision: snapshot.credential!.credentialRevision,
+        encodedHash: encoded, kind: 'change', now,
+      });
+      await repositories.identitySessions.appendSecurityEvent({
+        eventId: randomUUID(), userId, sessionId, occurredAt: now,
+        eventCode: 'REAUTH_ISSUED', outcome: 'SUCCESS',
+        requestMetadata: { operation: 'password.change' },
+      });
+    });
+    return { changed: true };
+  }
+
   async authenticateGoogle(input: { idToken: string; nonce: string }): Promise<IdentitySessionResponse> {
     return this.completeGoogle(input, 'LOGIN');
   }

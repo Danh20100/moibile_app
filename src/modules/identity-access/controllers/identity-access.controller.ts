@@ -20,6 +20,8 @@ import {
   PasswordReauthenticationDto,
   PinReauthenticationDto,
   SecurityPinSetupDto,
+  SecurityPinChangeDto,
+  PasswordChangeDto,
   ReauthenticationChallengeDto,
   ReauthenticationResponseDto,
 } from '../dto';
@@ -131,6 +133,30 @@ export class IdentityAccessController {
   ): Promise<ReauthenticationResponseDto> {
     if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
     return this.identitySessionService.completeOrganizationCreatePasswordReauth(dto, user.userId, user.sessionId);
+  }
+
+  @Get('security/account')
+  async getAccountSecurityStatus(@CurrentUser() user?: VerifiedPrincipal) {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.accountSecurityStatus(user.userId);
+  }
+
+  @Patch('security/password')
+  async changePassword(
+    @Body() dto: PasswordChangeDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ) {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.changeOwnPassword(dto, user.userId, user.sessionId);
+  }
+
+  @Patch('security/pin')
+  async changeSecurityPin(
+    @Body() dto: SecurityPinChangeDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ) {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.changeSecurityPin(dto, user.userId, user.sessionId);
   }
 
   @Get('security/pin')

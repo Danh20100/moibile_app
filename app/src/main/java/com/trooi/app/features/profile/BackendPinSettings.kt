@@ -23,6 +23,7 @@ internal data class PinSettingsState(
     val configured: Boolean? = null,
     val busy: Boolean = false,
     val error: String? = null,
+    val success: String? = null,
 )
 
 @HiltViewModel
@@ -34,6 +35,21 @@ internal class BackendPinSettingsModel @Inject constructor(private val backend: 
         when (val result = backend.getSecurityPinStatus()) {
             is ApiOutcome.Data -> mutableState.update { it.copy(configured = result.value.pinConfigured, error = null) }
             is ApiOutcome.Failure -> mutableState.update { it.copy(error = "Không thể tải trạng thái PIN.") }
+        }
+    }
+
+    fun change(currentPin: String, newPin: String) {
+        if (mutableState.value.busy || mutableState.value.configured != true) return
+        mutableState.update { it.copy(busy = true, error = null, success = null) }
+        viewModelScope.launch {
+            when (val result = backend.changeSecurityPin(currentPin, newPin)) {
+                is ApiOutcome.Data -> mutableState.update { it.copy(busy = false, error = null, success = "Đã đổi mã PIN.") }
+                is ApiOutcome.Failure -> mutableState.update { it.copy(busy = false, error = when (result.httpStatus) {
+                    403 -> "Mã PIN hiện tại không đúng."
+                    429 -> "Thử quá nhiều lần. Vui lòng thử lại sau."
+                    else -> "Không thể đổi mã PIN."
+                }) }
+            }
         }
     }
 
@@ -65,6 +81,8 @@ internal fun BackendPinSettings(userId: String, model: BackendPinSettingsModel =
     var password by remember(userId) { mutableStateOf("") }
     var pin by remember(userId) { mutableStateOf("") }
     var again by remember(userId) { mutableStateOf("") }
+    var currentPin by remember(userId) { mutableStateOf("") }
+    LaunchedEffect(state.success) { if (state.success != null) { currentPin = ""; pin = ""; again = "" } }
     LaunchedEffect(userId) { model.load() }
     LaunchedEffect(state.configured) {
         if (state.configured == true) {
@@ -76,7 +94,16 @@ internal fun BackendPinSettings(userId: String, model: BackendPinSettingsModel =
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         when (state.configured) {
             null -> CircularProgressIndicator()
-            true -> Text("Đã thiết lập mã PIN bảo mật")
+            true -> {
+                SecretField(currentPin, { currentPin = it }, "Mã PIN hiện tại", pin = true, enabled = !state.busy)
+                SecretField(pin, { pin = it }, "Mã PIN mới", pin = true, enabled = !state.busy)
+                SecretField(again, { again = it }, "Nhập lại mã PIN", pin = true, enabled = !state.busy,
+                    error = if (again.isNotEmpty() && again != pin) "Mã PIN không khớp." else "")
+                TroOiButton("Đổi mã PIN", { model.change(currentPin, pin) },
+                    enabled = !state.busy && validSecurityPin(currentPin) && validSecurityPin(pin) &&
+                        currentPin != pin && pin == again,
+                    busy = state.busy, modifier = Modifier.fillMaxWidth())
+            }
             false -> {
                 SecretField(password, { password = it }, "Mật khẩu hiện tại", enabled = !state.busy)
                 SecretField(pin, { pin = it }, "Mã PIN mới", pin = true, enabled = !state.busy)
@@ -90,5 +117,6 @@ internal fun BackendPinSettings(userId: String, model: BackendPinSettingsModel =
             }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.success?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
 }

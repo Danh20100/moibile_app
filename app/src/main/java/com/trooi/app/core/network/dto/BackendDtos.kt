@@ -71,6 +71,8 @@ data class IdentitySessionTransport(
 )
 data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
 data class SecurityPinStatusTransport(val pinConfigured: Boolean)
+data class AccountSecurityStatusTransport(val email: String?, val googleLinked: Boolean, val passwordConfigured: Boolean)
+data class PasswordChangedTransport(val changed: Boolean)
 
 data class SessionContextTransport(
     val userId: String,

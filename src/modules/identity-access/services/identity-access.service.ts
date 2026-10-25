@@ -1,4 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import type { Kysely } from 'kysely';
+import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
+import type { Database } from '../../../infrastructure/database/schema.types';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { SessionContext, UserReference, VerifiedPrincipal } from '../contracts';
 import { VerifyGoogleTokenDto } from '../dto';
@@ -12,6 +15,7 @@ export class IdentityAccessService {
   constructor(
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
     @Optional() @Inject(GooglePrincipalResolver) googlePrincipalResolver?: Pick<GooglePrincipalResolver, 'resolve'>,
+    @Optional() @Inject(DATABASE_CLIENT) private readonly database?: Kysely<Database>,
   ) {
     this.googlePrincipalResolver = googlePrincipalResolver ?? new GooglePrincipalResolver(transactions);
   }
@@ -68,6 +72,8 @@ export class IdentityAccessService {
       return [orgs, parts];
     });
 
+    const verifiedEmail = this.database ? await this.database.selectFrom('user_emails')
+      .select('email_address').where('user_id', '=', principal.userId).executeTakeFirst() : null;
     const operatedOrganizationIds = Array.from(
       new Set(organizations.map((org) => org.organizationId)),
     ).sort();
@@ -80,7 +86,8 @@ export class IdentityAccessService {
       userId: principal.userId,
       operatedOrganizationIds,
       linkedTenancyIds,
-      ...(principal.email !== undefined ? { email: principal.email } : {}),
+      ...(verifiedEmail?.email_address ? { email: verifiedEmail.email_address } :
+        principal.email !== undefined ? { email: principal.email } : {}),
       ...(ownProfile.displayName !== null ? { name: ownProfile.displayName } : {}),
       ...(principal.pictureUrl !== undefined ? { pictureUrl: principal.pictureUrl } : {}),
     };

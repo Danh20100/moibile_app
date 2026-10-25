@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { hash as hashArgon2 } from '@node-rs/argon2';
+import { hash as hashArgon2, verify as verifyArgon2 } from '@node-rs/argon2';
 import { sql } from 'kysely';
 
 import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
 import { PostgresTransactionManager } from '../../../src/infrastructure/database/postgres-transaction-manager';
 import { createRepositorySet } from '../../../src/infrastructure/database/repositories/repository-set';
 import { IdentitySessionService } from '../../../src/modules/identity-access/services/identity-session.service';
+import { IdentityAccessService } from '../../../src/modules/identity-access/services/identity-access.service';
 import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { googlePrincipalUserId } from '../../../src/common/identity/deterministic-user-id';
 import { ForbiddenException, UnauthorizedException, ServiceUnavailableException, type ExecutionContext } from '@nestjs/common';
@@ -243,6 +244,45 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
       name: 'PIN proof replay', primaryOwnerUserId: registeredUserId,
       sessionId: loggedIn.sessionId, reauthProof: pinProof.proof,
     }), ForbiddenException);
+
+    assert.deepEqual(await identity.accountSecurityStatus(registeredUserId), {
+      email: 'new.register@example.test', googleLinked: true, passwordConfigured: true,
+    });
+    const account = new IdentityAccessService(transactions, undefined, database);
+    const accountContext = await account.getSessionContext({
+      userId: registeredUserId, provider: 'local_demo', issuer: 'password',
+      subject: registeredUserId, sessionId: loggedIn.sessionId,
+    });
+    assert.equal(accountContext.email, 'new.register@example.test',
+      'verified User email appears even when current session has no Google email claims');
+
+    await assert.rejects(identity.changeSecurityPin({
+      currentPin: '000000', newPin: '719204',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException);
+    assert.deepEqual(await identity.changeSecurityPin({
+      currentPin: '482795', newPin: '719204',
+    }, registeredUserId, loggedIn.sessionId), { pinConfigured: true });
+    const changedPin = await sql<{ pin_hash: string; revision: string }>`
+      SELECT pin_hash, revision::text FROM identity_security_pins WHERE user_id=${registeredUserId}::uuid
+    `.execute(database);
+    assert.equal(changedPin.rows[0]?.revision, '2');
+    assert.ok(await verifyArgon2(changedPin.rows[0]!.pin_hash, '719204'));
+    assert.ok(!await verifyArgon2(changedPin.rows[0]!.pin_hash, '482795'));
+    assert.equal(await sessionGuard.canActivate(protectedRequest(loggedIn.accessToken).context), true);
+
+    await assert.rejects(identity.changeOwnPassword({
+      currentPassword: 'wrong-password', newPassword: 'new-secure-password-2026',
+    }, registeredUserId, loggedIn.sessionId), ForbiddenException);
+    assert.deepEqual(await identity.changeOwnPassword({
+      currentPassword: 'isolated-test-password-2026', newPassword: 'new-secure-password-2026',
+    }, registeredUserId, loggedIn.sessionId), { changed: true });
+    const changedPassword = await database.selectFrom('password_credentials')
+      .select(['password_hash', 'credential_revision'])
+      .where('user_id', '=', registeredUserId).executeTakeFirstOrThrow();
+    assert.equal(changedPassword.credential_revision, '2');
+    assert.ok(await verifyArgon2(changedPassword.password_hash, 'new-secure-password-2026'));
+    assert.ok(!await verifyArgon2(changedPassword.password_hash, 'isolated-test-password-2026'));
+    assert.equal(await sessionGuard.canActivate(protectedRequest(loggedIn.accessToken).context), true);
 
     const staleReauth = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
     claims = { ...claims, nonce: staleReauth.nonce, authTime: Math.floor(Date.now() / 1000) - 600 };

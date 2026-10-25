@@ -42,6 +42,9 @@ interface BackendApi {
     suspend fun completeOrganizationCreatePasswordReauth(password: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSecurityPinStatus(): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun configureSecurityPin(password: String, pin: String): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun changeSecurityPin(currentPin: String, newPin: String): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun changePassword(currentPassword: String, newPassword: String): ApiOutcome<PasswordChangedTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getAccountSecurityStatus(): ApiOutcome<AccountSecurityStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun completeOrganizationCreatePinReauth(pin: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -248,6 +251,22 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
         "{\"nonce\":${messagingGson.toJson(nonce)},\"pin\":${messagingGson.toJson(pin)}}",
         authenticated = true,
     ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
+
+    override suspend fun changeSecurityPin(currentPin: String, newPin: String) = client.patchJson(
+        "identity-access/security/pin",
+        "{\"currentPin\":${messagingGson.toJson(currentPin)},\"newPin\":${messagingGson.toJson(newPin)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, SecurityPinStatusTransport::class.java) }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String) = client.patchJson(
+        "identity-access/security/password",
+        "{\"currentPassword\":${messagingGson.toJson(currentPassword)},\"newPassword\":${messagingGson.toJson(newPassword)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, PasswordChangedTransport::class.java) }
+
+    override suspend fun getAccountSecurityStatus() =
+        client.get("identity-access/security/account", authenticated = true)
+            .decode { messagingGson.fromJson(it, AccountSecurityStatusTransport::class.java) }
 
     override suspend fun getSessionContext(expectedToken: String?) =
         client.get("identity-access/me", authenticated = true, expectedToken = expectedToken).decode(BackendJsonCodec::sessionContext)
