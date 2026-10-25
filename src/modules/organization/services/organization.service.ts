@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import {
   TRANSACTION_MANAGER,
   type TransactionManager,
@@ -53,7 +53,7 @@ export class OrganizationService {
         primaryOwnerUserId: value.primaryOwnerUserId });
       return true;
     });
-    if (!accepted) throw new UnauthorizedException('Reauthentication proof is invalid, expired, or already used');
+    if (!accepted) throw new ForbiddenException('Reauthentication proof is invalid, expired, or already used');
     return structuredClone(value);
   }
 

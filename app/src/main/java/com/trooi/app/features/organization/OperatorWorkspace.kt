@@ -4,6 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -51,6 +54,8 @@ fun V1OperatorWorkspace(
     var description by remember(ui.route) { mutableStateOf("") }
     var price by remember(ui.route) { mutableStateOf("") }
     var locationForm by remember(ui.route) { mutableStateOf(LocationFormState()) }
+    var confirmationName by remember { mutableStateOf<String?>(null) }
+    var confirmationPassword by remember { mutableStateOf("") }
     if (ui.route is OperatorRoute.Rentals) {
         val rental = ui.route as OperatorRoute.Rentals
         V1RentalWorkspace(
@@ -117,8 +122,10 @@ fun V1OperatorWorkspace(
                 item {
                     TroOiCard("Tạo khu trọ") {
                         TroOiFormField(value = name, onValueChange = { name = it }, label = { Text("Tên workspace") }, modifier = Modifier.fillMaxWidth().testTag("organization-name"), singleLine = true)
-                        TroOiButton("Tạo khu trọ", { model.createOrganization(name, context) },
-                            enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
+                        TroOiButton("Tạo khu trọ", {
+                            confirmationPassword = ""
+                            confirmationName = name.trim()
+                        }, enabled = !ui.busy && name.isNotBlank(), modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -563,6 +570,49 @@ fun V1OperatorWorkspace(
                 }
             }
         }
+    }
+    if (confirmationName != null && ui.route == OperatorRoute.Organizations) {
+        val pendingName = confirmationName.orEmpty()
+        TroOiActionDialog(
+            onDismissRequest = { if (!ui.busy) { confirmationPassword = ""; confirmationName = null } },
+            title = { Text("Xác nhận tạo khu trọ") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Nhập mật khẩu tài khoản TrọƠi hiện tại để tạo khu trọ “$pendingName”.")
+                    TroOiFormField(
+                        value = confirmationPassword,
+                        onValueChange = { confirmationPassword = it },
+                        label = { Text("Mật khẩu hiện tại") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth().testTag("organization-confirm-password"),
+                        singleLine = true,
+                    )
+                }
+            },
+            confirmButton = {
+                TroOiButton("Xác nhận tạo", {
+                    val password = confirmationPassword
+                    confirmationPassword = ""
+                    confirmationName = null
+                    model.createOrganizationWithPassword(pendingName, password)
+                }, enabled = !ui.busy && confirmationPassword.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().testTag("organization-confirm-create"))
+            },
+            dismissButton = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TroOiButton("Hủy", {
+                        confirmationPassword = ""
+                        confirmationName = null
+                    }, enabled = !ui.busy, style = TroOiButtonStyle.SECONDARY, modifier = Modifier.fillMaxWidth())
+                    TroOiButton("Dùng Google", {
+                        confirmationPassword = ""
+                        confirmationName = null
+                        model.createOrganizationWithGoogle(pendingName, context)
+                    }, enabled = !ui.busy, style = TroOiButtonStyle.TERTIARY, modifier = Modifier.fillMaxWidth())
+                }
+            },
+        )
     }
 }
 

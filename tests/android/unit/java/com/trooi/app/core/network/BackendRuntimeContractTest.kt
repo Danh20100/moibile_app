@@ -39,6 +39,25 @@ class BackendRuntimeContractTest {
         }
     }
 
+    @Test fun rejectedPasswordReauthenticationNeverClearsValidLoginSession() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(403).setBody("{}"))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("valid-existing-token") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            val result = api.completeOrganizationCreatePasswordReauth("wrong-password", "fresh-nonce")
+            assertTrue(result is ApiOutcome.Failure)
+            assertEquals(403, (result as ApiOutcome.Failure).httpStatus)
+            assertEquals("valid-existing-token", tokens.token())
+            val request = server.takeRequest()
+            assertEquals("/api/v1/identity-access/reauth/organization-create/password", request.path)
+            assertEquals("Bearer valid-existing-token", request.getHeader("Authorization"))
+            val payload = request.body.readUtf8()
+            assertTrue(payload.contains("fresh-nonce"))
+            assertTrue(payload.contains("wrong-password"))
+        }
+    }
+
     @Test fun publicListingTimeoutRetriesOnceThenRepositoryReturnsNetworkUnavailable() = runBlocking {
         MockWebServer().use { server ->
             repeat(2) { server.enqueue(MockResponse().setHeadersDelay(250, TimeUnit.MILLISECONDS).setBody("{}")) }

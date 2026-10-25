@@ -28,6 +28,15 @@ export class PasswordLoginDto {
 }
 
 export class ReauthenticationProofDto extends GoogleSessionRequestDto {}
+export class PasswordReauthenticationDto {
+  @ApiProperty({ description: 'One-time challenge nonce for organization creation' })
+  @IsString() @IsNotEmpty() @MaxLength(256)
+  nonce!: string;
+
+  @ApiProperty({ description: 'Existing verified account password' })
+  @IsString() @IsNotEmpty() @MaxLength(1024)
+  password!: string;
+}
 export class ReauthenticationChallengeDto { @ApiProperty() nonce!: string; @ApiProperty() expiresAt!: string }
 export class ReauthenticationResponseDto { @ApiProperty() proof!: string; @ApiProperty() expiresAt!: string }
 

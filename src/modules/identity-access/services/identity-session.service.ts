@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { sql, type Kysely } from 'kysely';
 import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
 import type { Database } from '../../../infrastructure/database/schema.types';
@@ -82,10 +82,10 @@ export class IdentitySessionService {
     this.requireEnabled();
     let identity: Awaited<ReturnType<typeof verifyGoogleIdToken>>;
     try { identity = await verifyGoogleIdToken(this.verifier, input.idToken); }
-    catch { await this.recordReauthRejected(userId, sessionId, 'proof_invalid'); throw new UnauthorizedException('Reauthentication was rejected'); }
+    catch { await this.recordReauthRejected(userId, sessionId, 'proof_invalid'); throw new ForbiddenException('Reauthentication was rejected'); }
     if (!this.matchesFreshNonce(input.nonce, identity.nonce) || !this.isRecentAuth(identity.authTime)) {
       await this.recordReauthRejected(userId, sessionId, 'proof_stale_or_nonce_invalid');
-      throw new UnauthorizedException('Fresh Google authentication is required');
+      throw new ForbiddenException('Fresh Google authentication is required');
     }
     const proof = randomBytes(32).toString('base64url');
     const now = new Date();
@@ -107,9 +107,92 @@ export class IdentitySessionService {
     });
     if (!issued) {
       await this.recordReauthRejected(userId, sessionId, 'challenge_scope_invalid');
-      throw new UnauthorizedException('Reauthentication challenge is invalid or expired');
+      throw new ForbiddenException('Reauthentication challenge is invalid or expired');
     }
     return { proof, expiresAt };
+  }
+
+  /**
+   * Reauthenticate using the current session's verified password credential.
+   * The nonce and resulting one-use proof are both bound to this session and operation.
+   * A rejected password MUST NOT revoke or reclassify an otherwise valid session.
+   */
+  async completeOrganizationCreatePasswordReauth(
+    input: { nonce: string; password: string }, userId: string, sessionId: string,
+  ): Promise<OrganizationCreateReauthProof> {
+    this.requireEnabled();
+    if (!userId || !sessionId || !this.database) {
+      throw new UnauthorizedException('Application session is required');
+    }
+    const recent = await sql<{ attempts: number }>`
+      SELECT count(*)::integer AS attempts FROM identity_security_events
+      WHERE user_id = ${userId}::uuid
+        AND event_code = 'REAUTH_REJECTED'
+        AND occurred_at >= now() - interval '15 minutes'
+        AND request_metadata->>'method' = 'password'
+    `.execute(this.database);
+    if ((recent.rows[0]?.attempts ?? 0) >= 5) {
+      throw new HttpException('Too many password confirmations. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    const email = await this.database.selectFrom('user_emails')
+      .select(['normalized_email'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    const snapshot = email ? await this.transactions.run(({ repositories }) =>
+      repositories.identityFoundation.findPrimaryLogin(email.normalized_email),
+    ) : null;
+    let valid = false;
+    if (snapshot?.email.userId === userId && snapshot.credential?.passwordHash && input.password) {
+      try { valid = await verifyArgon2(snapshot.credential.passwordHash, input.password); }
+      catch { valid = false; }
+    }
+    if (!valid || !snapshot?.credential) {
+      await this.recordPasswordReauthRejected(userId, sessionId);
+      throw new ForbiddenException('Incorrect password');
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
+    const proof = randomBytes(32).toString('base64url');
+    const issued = await this.transactions.run(async ({ repositories }) => {
+      await repositories.identityFoundation.validateLoginSnapshot({
+        userId, userEmailId: snapshot.email.userEmailId,
+        emailRevision: snapshot.email.emailRevision,
+        normalizedEmail: snapshot.email.normalizedEmail,
+        credentialRevision: snapshot.credential!.credentialRevision,
+      });
+      const challenge = await repositories.identitySessions.consumeChallenge({
+        nonceSha256: digest(input.nonce),
+        purpose: 'REAUTH_ORGANIZATION_CREATE',
+        now: now.toISOString(),
+      });
+      if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
+      await repositories.identitySessions.createChallenge({
+        challengeId: randomUUID(), purpose: 'REAUTH_ORGANIZATION_CREATE',
+        nonceSha256: digest(proof), userId, sessionId,
+        createdAt: now.toISOString(), expiresAt,
+      });
+      await repositories.identitySessions.appendSecurityEvent({
+        eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_ISSUED',
+        outcome: 'SUCCESS', occurredAt: now.toISOString(),
+        requestMetadata: { phase: 'operation_proof', operation: 'organization.create', method: 'password' },
+      });
+      return true;
+    }).catch(() => false);
+    if (!issued) {
+      await this.recordPasswordReauthRejected(userId, sessionId);
+      throw new ForbiddenException('Reauthentication challenge expired or invalid');
+    }
+    return { proof, expiresAt };
+  }
+
+  private async recordPasswordReauthRejected(userId: string, sessionId: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
+      eventId: randomUUID(), userId, sessionId,
+      eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED',
+      occurredAt: now, requestMetadata: { method: 'password', reason: 'invalid_confirmation' },
+    }));
   }
 
   async authenticateGoogle(input: { idToken: string; nonce: string }): Promise<IdentitySessionResponse> {

@@ -193,19 +193,50 @@ class OperatorViewModel @Inject constructor(
         }
     }
 
-    fun createOrganization(name: String, context: Context) = write {
+    fun createOrganizationWithPassword(name: String, password: String) = write {
         require(name.isNotBlank()) { "Nhập tên khu trọ" }
-        val challenge = when (val result = identityApi.issueOrganizationCreateReauthChallenge()) {
-            is ApiOutcome.Data -> result.value.nonce?.takeIf(String::isNotBlank)
-                ?: error("Backend returned an invalid reauthentication challenge.")
-            is ApiOutcome.Failure -> throw V1RequestException(result.kind, result.httpStatus)
+        require(password.isNotEmpty()) { "Nhập mật khẩu hiện tại." }
+        val challenge = organizationCreateChallenge()
+        val proof = when (val result = identityApi.completeOrganizationCreatePasswordReauth(password, challenge)) {
+            is ApiOutcome.Data -> result.value.proof?.takeIf(String::isNotBlank)
+                ?: error("Backend không trả về xác nhận hợp lệ.")
+            is ApiOutcome.Failure -> {
+                // Wrong password is a denied operation, NOT an expired app session.
+                if (result.httpStatus == 403) error("Mật khẩu không đúng hoặc yêu cầu xác nhận đã hết hạn.")
+                if (result.httpStatus == 429) error("Thử quá nhiều lần. Vui lòng thử lại sau 15 phút.")
+                throw V1RequestException(result.kind, result.httpStatus)
+            }
         }
+        finishCreateOrganization(name, proof)
+    }
+
+    fun createOrganizationWithGoogle(name: String, context: Context) = write {
+        require(name.isNotBlank()) { "Nhập tên khu trọ" }
+        val challenge = organizationCreateChallenge()
         val idToken = googleCredentialAuth.reacquireForReauthentication(context, challenge).getOrThrow()
         val proof = when (val result = identityApi.completeOrganizationCreateReauth(idToken, challenge)) {
             is ApiOutcome.Data -> result.value.proof?.takeIf(String::isNotBlank)
                 ?: error("Google chưa xác nhận xác thực mới trong thời hạn cho phép.")
+            is ApiOutcome.Failure -> {
+                // A rejected Google reauthentication proof is NOT a revoked application session.
+                // Verify the current session before invoking the global onUnauthorized/logout handler.
+                if (result.httpStatus == 403) {
+                    error("Google đã từ chối xác thực lại. Hãy chọn đúng tài khoản Google liên kết với tài khoản TrọƠi đang đăng nhập.")
+                }
+                throw V1RequestException(result.kind, result.httpStatus)
+            }
+        }
+        finishCreateOrganization(name, proof)
+    }
+
+    private suspend fun organizationCreateChallenge(): String =
+        when (val result = identityApi.issueOrganizationCreateReauthChallenge()) {
+            is ApiOutcome.Data -> result.value.nonce?.takeIf(String::isNotBlank)
+                ?: error("Backend không trả về challenge hợp lệ.")
             is ApiOutcome.Failure -> throw V1RequestException(result.kind, result.httpStatus)
         }
+
+    private suspend fun finishCreateOrganization(name: String, proof: String) {
         val created = api.createOrganization(name.trim(), proof)
         val refreshed = api.organization(created.id)
         val granted = api.sessionAccess()

@@ -17,6 +17,7 @@ import {
   IdentityChallengeDto,
   IdentitySessionDto,
   ReauthenticationProofDto,
+  PasswordReauthenticationDto,
   ReauthenticationChallengeDto,
   ReauthenticationResponseDto,
 } from '../dto';
@@ -118,6 +119,16 @@ export class IdentityAccessController {
   ): Promise<ReauthenticationResponseDto> {
     if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
     return this.identitySessionService.completeOrganizationCreateReauth(dto, user.userId, user.sessionId);
+  }
+
+  @Post('reauth/organization-create/password')
+  @ApiOperation({ summary: 'Confirm organization creation with the existing account password' })
+  async completeOrganizationCreatePasswordReauth(
+    @Body() dto: PasswordReauthenticationDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<ReauthenticationResponseDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.completeOrganizationCreatePasswordReauth(dto, user.userId, user.sessionId);
   }
 
   @Get('me')

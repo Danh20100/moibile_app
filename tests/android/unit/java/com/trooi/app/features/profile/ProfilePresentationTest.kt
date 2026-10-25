@@ -46,7 +46,9 @@ class ProfilePresentationTest {
         assertTrue(model.contains("open(AppPage.OwnerProperties)"))
         val operator = File("src/main/java/com/trooi/app/features/organization/OperatorWorkspace.kt").readText()
         assertTrue(operator.contains("ui.organizations.isEmpty()"))
-        assertTrue(operator.contains("model.createOrganization(name, context)"))
+        assertTrue(operator.contains("model.createOrganizationWithPassword(pendingName, password)"))
+        assertTrue(operator.contains("model.createOrganizationWithGoogle(pendingName, context)"))
+        assertTrue(operator.contains("organization-confirm-password"))
         val settings = File("src/main/java/com/trooi/app/features/shared/SharedSettingsHelpScreens.kt").readText()
         assertTrue(settings.contains("backendVerification = RuntimeDataSource.isBackendBacked()"))
     }

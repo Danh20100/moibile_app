@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
+import { hash as hashArgon2 } from '@node-rs/argon2';
 import { sql } from 'kysely';
 
 import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
@@ -9,7 +10,7 @@ import { createRepositorySet } from '../../../src/infrastructure/database/reposi
 import { IdentitySessionService } from '../../../src/modules/identity-access/services/identity-session.service';
 import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { googlePrincipalUserId } from '../../../src/common/identity/deterministic-user-id';
-import { UnauthorizedException, ServiceUnavailableException, type ExecutionContext } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException, ServiceUnavailableException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '../../../src/common/guards/auth.guard';
 import { GooglePrincipalResolver } from '../../../src/modules/identity-access/services/google-principal-resolver';
@@ -121,7 +122,7 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
       email: 'new.register@example.test', emailVerified: true, name: 'New owner',
       nonce: '', authTime: Math.floor(Date.now() / 1000), issuedAt: Math.floor(Date.now() / 1000),
     };
-    const identity = new IdentitySessionService(transactions, { verify: async () => claims });
+    const identity = new IdentitySessionService(transactions, { verify: async () => claims }, database);
     const registrationChallenge = await identity.issueChallenge('REGISTER');
     claims = { ...claims, nonce: registrationChallenge.nonce };
     const registered = await identity.registerGoogle({ idToken: 'test-only-google-proof', nonce: registrationChallenge.nonce });
@@ -167,17 +168,47 @@ test('Identity challenge consumption, refresh rotation/reuse, revocation and app
       primaryOwnerUserId: registeredUserId, sessionId: loggedIn.sessionId, reauthProof: reauthProof.proof });
     assert.equal(organization.primaryOwnerUserId, registeredUserId);
     await assert.rejects(organizations.createWithReauthentication({ name: 'Replay',
-      primaryOwnerUserId: registeredUserId, sessionId: loggedIn.sessionId, reauthProof: reauthProof.proof }), UnauthorizedException);
+      primaryOwnerUserId: registeredUserId, sessionId: loggedIn.sessionId, reauthProof: reauthProof.proof }), ForbiddenException);
     assert.equal(await database.selectFrom('organizations').selectAll()
       .where('primary_owner_user_id', '=', registeredUserId).execute().then((rows) => rows.length), 1,
     'consumed operation proof cannot create a second Organization');
     assert.ok(await database.selectFrom('identity_security_events').selectAll().where('session_id', '=', loggedIn.sessionId)
       .where('event_code', '=', 'REAUTH_ISSUED').executeTakeFirst());
+    // Password-based reauthentication must work for the same verified User and app session.
+    const passwordHash = await hashArgon2('isolated-test-password-2026', {
+      algorithm: 2, memoryCost: 19456, timeCost: 2, parallelism: 1,
+    });
+    await transactions.run(({ repositories }) => repositories.identityFoundation.insertPasswordCredential({
+      userId: registeredUserId, encodedHash: passwordHash, now: new Date().toISOString(),
+    }));
+    const passwordChallenge = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
+    await assert.rejects(
+      identity.completeOrganizationCreatePasswordReauth(
+        { nonce: passwordChallenge.nonce, password: 'incorrect-password' }, registeredUserId, loggedIn.sessionId,
+      ),
+      ForbiddenException, 'incorrect confirmation must not revoke the active app session',
+    );
+    assert.equal(await sessionGuard.canActivate(protectedRequest(loggedIn.accessToken).context), true);
+    const passwordProof = await identity.completeOrganizationCreatePasswordReauth(
+      { nonce: passwordChallenge.nonce, password: 'isolated-test-password-2026' },
+      registeredUserId, loggedIn.sessionId,
+    );
+    const passwordOrganization = await organizations.createWithReauthentication({
+      name: 'Password confirmed workspace', primaryOwnerUserId: registeredUserId,
+      sessionId: loggedIn.sessionId, reauthProof: passwordProof.proof,
+    });
+    assert.equal(passwordOrganization.primaryOwnerUserId, registeredUserId);
+    await assert.rejects(organizations.createWithReauthentication({
+      name: 'Password proof replay', primaryOwnerUserId: registeredUserId,
+      sessionId: loggedIn.sessionId, reauthProof: passwordProof.proof,
+    }), ForbiddenException);
+    assert.equal(await database.selectFrom('organizations').selectAll()
+      .where('primary_owner_user_id', '=', registeredUserId).execute().then((rows) => rows.length), 2);
     const staleReauth = await identity.issueOrganizationCreateReauthChallenge(registeredUserId, loggedIn.sessionId);
     claims = { ...claims, nonce: staleReauth.nonce, authTime: Math.floor(Date.now() / 1000) - 600 };
     await assert.rejects(identity.completeOrganizationCreateReauth(
       { idToken: 'test-only-google-proof', nonce: staleReauth.nonce }, registeredUserId, loggedIn.sessionId,
-    ), UnauthorizedException, 'stale Google authentication cannot mint an Organization proof');
+    ), ForbiddenException, 'stale Google authentication cannot mint an Organization proof');
     await assert.rejects(identity.authenticateGoogle(loginRequest), UnauthorizedException,
       'the Google nonce cannot create a second session after replay');
     assert.deepEqual(await identity.logout(loggedIn.accessToken), { revoked: true });
