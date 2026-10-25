@@ -214,19 +214,20 @@ test('configuration preflight checks only enabled profiles and never invents pro
     POSTGRES_PASSWORD: 'synthetic-local',
     POSTGRES_DB: 'trooi_dev',
     POSTGRES_TEST_DB: 'trooi_test',
+    MINIO_ROOT_PASSWORD: 'synthetic-minio',
+    TROOI_COMPREFACE_DB_PASSWORD: 'synthetic-compreface',
   };
   assert.doesNotThrow(() => validateLocalConfig(local));
   assert.throws(() => validateLocalConfig({ ...local, POSTGRES_PASSWORD: '' }));
-  assert.throws(() => validateLocalConfig(local, ['local-infra']));
-  assert.doesNotThrow(() =>
-    validateLocalConfig(
-      {
-        ...local,
-        MINIO_ROOT_PASSWORD: 'synthetic-minio',
-      },
-      ['local-infra'],
-    ),
-  );
+  assert.throws(() => validateLocalConfig({ ...local, MINIO_ROOT_PASSWORD: '' }));
+  assert.throws(() => validateLocalConfig({ ...local, TROOI_COMPREFACE_DB_PASSWORD: '' }));
+  assert.throws(() => validateLocalConfig({ ...local, COMPREFACE_ENABLED: 'true' }));
+  assert.doesNotThrow(() => validateLocalConfig({
+    ...local, COMPREFACE_ENABLED: 'true',
+    COMPREFACE_ORIGIN: 'http://compreface-fe',
+    COMPREFACE_API_KEY: 'synthetic-only',
+  }));
+  assert.doesNotThrow(() => validateLocalConfig(local, ['local-infra']));
   assert.throws(() => validateLocalConfig(local, ['messaging-test']));
   assert.throws(() => validateLocalConfig(local, ['sepay-isolated']));
   assert.throws(() => validateLocalConfig(local, ['finance-production']));

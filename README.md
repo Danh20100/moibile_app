@@ -42,7 +42,7 @@ git check-ignore -v .env
 ### Một nguồn cấu hình, một Compose
 
 - **`.env` (local, untracked):** cấu hình Backend/Docker/Google/Maps/SePay và những profile test cần thiết. Chỉ có một template `.env.example` được track.
-- **`docker-compose.yml`:** file Compose duy nhất, với các profile `local-infra`, `messaging-test`, `sepay-isolated`, `finance-production`. Các DB test dùng container/volume riêng.
+- **`docker-compose.yml`:** file Compose duy nhất, với các service mặc định (Backend, PostGIS, MinIO, Redis, CompreFace) và profile cô lập `messaging-test`, `sepay-isolated`, `finance-production`. Các DB test dùng container/volume riêng.
 - **Gradle:** `app/build.gradle.kts` chỉ đọc các biến **client allowlist** qua `-P` → environment → root `.env`. `gradle.properties.example` là mẫu cấu hình Gradle; `local.properties.example` dành cho SDK và `keystore.properties.example` dành cho signing — mỗi loại chỉ một mẫu. Các file thật bị ignore.
 - **Không** copy `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, `SEPAY_HANDOFF_SIGNING_KEY`, `POSTGRES_PASSWORD` hoặc private signing key vào APK.
 
@@ -54,9 +54,11 @@ Với các profile phụ, **phải điền mật khẩu riêng** trong `.env`; k
 node --env-file=.env scripts/config/check-local.cjs
 docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d --build --wait
-docker compose ps
-curl.exe -i http://localhost:3000/api/v1/health
+docker compose ps -a
+# Host port lấy từ BACKEND_PORT trong .env (mặc định 3000, máy phát triển đang dùng 3101)
+curl.exe -i http://localhost:3101/api/v1/health
 docker compose logs --tail=100 backend
+# KYC/Redis/MinIO đều đã thuộc Compose mặc định; chi tiết: docs/configuration/single-compose-runtime.md
 ```
 
 Backend khởi chạy migrations theo `docker-entrypoint.sh`. PostgreSQL dùng named volume, dữ liệu được giữ khi `docker compose down` **không có `-v`**.
@@ -65,8 +67,8 @@ Các profile tùy chọn:
 
 ```powershell
 # Cache và object storage (cấp MINIO_ROOT_PASSWORD riêng trong .env)
-node --env-file=.env scripts/config/check-local.cjs local-infra
-docker compose --env-file .env --profile local-infra up -d --build --wait
+node --env-file=.env scripts/config/check-local.cjs
+docker compose up -d
 
 # Messaging test: chỉ 2 service cô lập; không khởi động Backend mặc định
 node --env-file=.env scripts/config/check-local.cjs messaging-test
@@ -198,7 +200,7 @@ Run this preflight **before** starting a profile (no secrets are printed):
 node --env-file=.env scripts/config/check-local.cjs
 docker compose --env-file .env config --quiet
 # Optional services require additional credentials
-node --env-file=.env scripts/config/check-local.cjs local-infra
+node --env-file=.env scripts/config/check-local.cjs
 node --env-file=.env scripts/config/check-local.cjs messaging-test
 node --env-file=.env scripts/config/check-local.cjs sepay-isolated
 ```

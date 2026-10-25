@@ -12,8 +12,16 @@ function validateLocalConfig(env, profiles = []) {
   for (const field of ['POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'POSTGRES_TEST_DB']) {
     if (!env[field]?.trim()) throw new Error('Required local database setting is missing: ' + field);
   }
+  // MinIO and CompreFace are now default Compose dependencies, not optional profiles.
+  for (const field of ['MINIO_ROOT_PASSWORD', 'TROOI_COMPREFACE_DB_PASSWORD']) {
+    if (!env[field]?.trim()) throw new Error('Required default Compose secret is missing: ' + field);
+  }
+  if (env.COMPREFACE_ENABLED === 'true') {
+    for (const field of ['COMPREFACE_ORIGIN', 'COMPREFACE_API_KEY']) {
+      if (!env[field]?.trim()) throw new Error('Enabled CompreFace setting is missing: ' + field);
+    }
+  }
   if (enabled.has('local-infra')) {
-    if (!env.MINIO_ROOT_PASSWORD?.trim()) throw new Error('MINIO_ROOT_PASSWORD is required for local-infra');
     if (env.OBJECT_STORAGE_ENABLED === 'true') {
       for (const field of [
         'OBJECT_STORAGE_ENDPOINT', 'OBJECT_STORAGE_REGION', 'OBJECT_STORAGE_BUCKET',

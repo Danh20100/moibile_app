@@ -21,19 +21,17 @@ Implementation date: 2026-10-24. **Not government ID authentication, anti-spoofi
 - Android Debug APK builds and installs using existing package/SHA-1 and loopback backend at `127.0.0.1:3101`.
 - No genuine CCCD or selfie was uploaded, and no verification result was forged for an actual user.
 
-## After local Docker container recreation
+## Default Compose after integration (2026-10-25)
 
-The separate verification network is not guaranteed to survive a TrọƠi backend container recreation. Run:
+The separate `trooi-verify-lab` stack is retired. All five CompreFace services are in the primary `docker-compose.yml`. The default command is:
 
 ```powershell
 cd D:\Projects\TroOi-Project
-powershell -ExecutionPolicy Bypass -File .\scripts\dev\connect-local-kyc-lab.ps1
-adb reverse tcp:3101 tcp:3101
-adb shell am start -n com.trooi.app/.MainActivity
+docker compose up -d
+docker compose ps -a
 ```
 
-Private `.env` (untracked) must contain `COMPREFACE_ENABLED=true`, `COMPREFACE_ORIGIN=http://compreface-fe`, `TROOI_LOCAL_COMPREFACE_LAB=true` and its lab-only API key. **Never commit the key.** This HTTP exception is only permitted for the exact `compreface-fe` alias with `TROOI_DATABASE_MODE=compose-postgres`. Remote/prod HTTP is still blocked.
-
+The backend reaches `http://compreface-fe` through the same private Compose network. No manual network connect or extra startup script is required. The former `connect-local-kyc-lab.ps1` delegates to the root Compose for compatibility. The migrated local CompreFace database keeps the existing Verification Service API key in its separate volume. See [single Compose runtime](../../configuration/single-compose-runtime.md) for the backup, migration, privacy and fresh-install key provisioning details.
 ## Security limitations and next acceptance
 
 - **AUTO_CHECK_PASSED ≠ VERIFIED identity**. The back CCCD image is received and size-checked but the document authenticity, MRZ/QR signature, identity number and liveness are NOT validated. A user may select a pre-existing selfie photo; no proof of live capture. The app explicitly labels this as face similarity only.
