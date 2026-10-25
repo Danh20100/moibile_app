@@ -408,6 +408,7 @@ fun LoginScreen(
     initialPassword: String = "",
     prefillKey: Long = 0L,
     demoBackend: Boolean = false,
+    backendOnly: Boolean = false,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -422,6 +423,7 @@ fun LoginScreen(
         title = "chào mừng trở lại",
         subtitle = "Đăng nhập để tiếp tục với TrọƠi",
     ) {
+        if (!backendOnly) {
         if (demoBackend) {
             Text(
                 "DEMO BACKEND · chỉ dùng test account; không phải đăng nhập Google",
@@ -474,8 +476,17 @@ fun LoginScreen(
                 .height(52.dp),
             enabled = identifierOk && passwordOk && !authInProgress,
         )
+        } else {
+            Text(
+                "Hiện TrọƠi hỗ trợ đăng nhập bằng Google. Email và mật khẩu sẽ được mở khi hoàn tất tích hợp OTP.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(20.dp))
+        }
 
         if (onSignInWithGoogle != null) {
+        if (!backendOnly) {
         // Divider: ──────────── hoặc ────────────
         Row(
             modifier = Modifier
@@ -497,6 +508,7 @@ fun LoginScreen(
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
             )
+        }
         }
 
         // Google provider action: Red button with white text

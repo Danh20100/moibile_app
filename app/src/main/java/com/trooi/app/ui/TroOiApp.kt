@@ -53,7 +53,7 @@ fun TroOiApp(
     debugTestCommand: DebugTestCommand? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED
+    val demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED && !RuntimeDataSource.isBackendBacked()
     val snackbar = remember { SnackbarHostState() }
     val accountDrafts = rememberSaveableStateHolder()
     val discoveryStates = rememberSaveableStateHolder()
@@ -185,13 +185,14 @@ fun TroOiApp(
                         onSignUp = viewModel::openSignUp,
                         onForgotPassword = viewModel::openForgotPassword,
                         onLogin = viewModel::login,
-                        onSignInWithGoogle = if (BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED) null
+                        onSignInWithGoogle = if (demoBackend) null
                             else { { viewModel.onGoogleLoginTapped(context) } },
                         authInProgress = state.authInProgress,
                         initialIdentifier = debugTestCommand?.takeIf { it.route == "login" }?.identifier.orEmpty(),
                         initialPassword = debugTestCommand?.takeIf { it.route == "login" }?.password.orEmpty(),
                         prefillKey = debugTestCommand?.id ?: 0L,
-                        demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED,
+                        demoBackend = demoBackend,
+                        backendOnly = RuntimeDataSource.isBackendBacked(),
                     )
                     AppPage.AuthSignUp -> SignUpScreen(
                         onBack = viewModel::goBack,

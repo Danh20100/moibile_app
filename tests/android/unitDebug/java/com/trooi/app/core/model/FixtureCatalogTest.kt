@@ -81,9 +81,9 @@ class FixtureCatalogTest {
             assertNotNull(DemoData.authenticate("tenant@trooi.local", "TroOi2026!"))
             assertTrue(backend.login("tenant@trooi.local", "TroOi2026!").isFailure)
             assertNull(tokens.token())
-            // Debug backend attempts local-demo auth over HTTP, but a rejected response
-            // must never install a session token or gain fixture tenancy access.
-            assertEquals(1, server.requestCount)
+            // Backend-backed Debug must reject email/password locally.
+            // Neither a demo endpoint request nor a bearer token is allowed.
+            assertEquals(0, server.requestCount)
             assertTrue(backend.initialSnapshot().read.tenancies.isEmpty())
         }
     }

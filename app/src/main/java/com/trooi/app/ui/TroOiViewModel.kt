@@ -850,6 +850,9 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun login(identifier: String, password: String) {
+        if (RuntimeDataSource.isBackendBacked()) {
+            return showMessage("Email/mật khẩu chưa hỗ trợ trên Backend. Hãy đăng nhập bằng Google.")
+        }
         if (!isValidIdentifier(identifier) || !isValidPassword(password)) {
             return showMessage("Thông tin đăng nhập chưa hợp lệ.")
         }

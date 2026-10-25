@@ -476,32 +476,9 @@ class BackendTroOiRepository @Inject constructor(
         }
     }
 
-    override suspend fun login(identifier: String, password: String): Result<UserSession> {
-        if (!com.trooi.app.BuildConfig.DEBUG || !RuntimeDataSource.isBackendBacked()) return unsupportedAuth()
-        return try {
-            val identitySession = api.authenticateLocalDemo(identifier, password).required("Local demo authentication")
-            require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
-            tokens.setToken(identitySession.accessToken)
-            refreshCredentials?.write(identitySession.refreshToken)
-            val session = api.getSessionContext().required("local demo session context")
-            check(session.userId == identitySession.userId)
-            Result.success(
-                UserSession(
-                    userId = session.userId,
-                    displayName = session.name ?: session.userId,
-                    email = session.email ?: identifier,
-                    pictureUrl = session.pictureUrl,
-                    access = AccessCapabilities(
-                        linkedTenancyIds = session.linkedTenancyIds.toSet(),
-                        operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
-                    ),
-                ),
-            )
-        } catch (error: RuntimeException) {
-            clearSession()
-            Result.failure(error)
-        }
-    }
+    // Email/password will be available only after the real OTP branch is integrated.
+    // Backend-backed Debug and Release must NEVER invoke the legacy local-demo endpoint.
+    override suspend fun login(identifier: String, password: String): Result<UserSession> = unsupportedAuth()
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> = unsupportedAuth()
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> = unsupportedAuth()
 
