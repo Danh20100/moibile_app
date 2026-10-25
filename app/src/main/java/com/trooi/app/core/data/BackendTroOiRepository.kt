@@ -756,14 +756,27 @@ class BackendTroOiRepository @Inject constructor(
             )
         }
 
+        // Failure to load entitlements is not equivalent to having purchased zero.
+        // Preserve this distinction so the owner cannot be shown a false quota.
+        val loadedSlots = if (access.operatedOrganizationIds.isEmpty()) {
+            emptyList<LocalSlotEntitlement>()
+        } else try {
+            api.slotEntitlements().required("slot entitlements").map {
+                LocalSlotEntitlement(it.purchaseId, java.time.Instant.parse(it.validUntil).toEpochMilli())
+            }
+        } catch (error: RuntimeException) {
+            safeAuthorizedReadWarning("slot entitlements read failed: ${error.message}", error)
+            financeReadErrors += "Chưa tải được chỗ quản lý đã mua."
+            null
+        }
         return FrontendReadSnapshot(
             localManagement = LocalManagement(
                 assets = managedAssets.distinctBy { it.id },
-                entitlements = try {
-                    api.slotEntitlements().required("slot entitlements").map {
-                        LocalSlotEntitlement(it.purchaseId, java.time.Instant.parse(it.validUntil).toEpochMilli())
-                    }
-                } catch (_: RuntimeException) { emptyList() },
+                managedRoomCount = rooms.distinctBy { it.id }.count {
+                    it.recordLifecycle.equals("active", ignoreCase = true)
+                },
+                entitlements = loadedSlots.orEmpty(),
+                entitlementsLoaded = loadedSlots != null,
             ),
             publicListings = publicListings,
             organizations = organizationRows.map { OrganizationCard(it.id, it.name) },

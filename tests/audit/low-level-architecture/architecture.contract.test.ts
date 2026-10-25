@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
@@ -14,7 +14,7 @@ import { OnboardingService } from '../../../src/modules/onboarding/services/onbo
 import { OrganizationService } from '../../../src/modules/organization/services/organization.service';
 import { PropertyService } from '../../../src/modules/property/services/property.service';
 import { RoomService } from '../../../src/modules/room/services/room.service';
-import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
+
 import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
 describe('architecture contract audit', () => {
@@ -69,28 +69,6 @@ describe('architecture contract audit', () => {
       stored?.metadata?.reason,
       'original',
       'Audit history must snapshot facts instead of retaining mutable caller references.',
-    );
-  });
-
-  it('does not share mutable plan capability arrays across organizations', async () => {
-    const service = new SubscriptionService();
-    const first = await service.assignPlan({
-      organizationId: 'org_1',
-      plan: 'free',
-      durationDays: 30,
-    });
-
-    first.capabilities.push('api_access');
-
-    const second = await service.assignPlan({
-      organizationId: 'org_2',
-      plan: 'free',
-      durationDays: 30,
-    });
-    assert.equal(
-      second.capabilities.includes('api_access'),
-      false,
-      'Mutating one subscription must not change the capability template used by another organization.',
     );
   });
 

@@ -81,7 +81,9 @@ class FixtureCatalogTest {
             assertNotNull(DemoData.authenticate("tenant@trooi.local", "TroOi2026!"))
             assertTrue(backend.login("tenant@trooi.local", "TroOi2026!").isFailure)
             assertNull(tokens.token())
-            assertEquals(0, server.requestCount)
+            // Debug backend attempts local-demo auth over HTTP, but a rejected response
+            // must never install a session token or gain fixture tenancy access.
+            assertEquals(1, server.requestCount)
             assertTrue(backend.initialSnapshot().read.tenancies.isEmpty())
         }
     }
@@ -117,6 +119,13 @@ class FixtureCatalogTest {
             } else if (element.isJsonArray) element.asJsonArray.forEach(::normalize)
         }
         normalize(actual)
+        // New optional public copy is absent from the pre-migration fixture contract.
+        // Compare the frozen projection while separately asserting the new field is empty.
+        actual.asJsonObject.getAsJsonArray("publicListings").forEach { listing ->
+            val copy = listing.asJsonObject
+            assertEquals("", copy.get("publicDescription")?.asString)
+            copy.remove("publicDescription")
+        }
         assertEquals(expected, actual)
         assertEquals(listOf(DemoData.ROOM, DemoRentalGraph.AN_NHIEN), DemoData.ownerManagement.assets.map { it.id })
         assertEquals("fixture-history-an-nhien-capacity", DemoData.ownerManagement.entitlements.single().purchaseId)

@@ -262,7 +262,7 @@ fun TroOiApp(
                         onOpenListing = viewModel::openListing,
                         onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                     )
-                    AppPage.GuestActivity -> V1GuestActivityScreen(state)
+
                     is AppPage.ListingDetail -> {
                         val publicListing = state.read.publicListings.firstOrNull { it.listingId == page.listingId }
                         val presentation = publicListing?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }

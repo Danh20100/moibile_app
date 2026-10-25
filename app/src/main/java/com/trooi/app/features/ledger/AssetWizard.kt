@@ -100,6 +100,7 @@ fun AssetWizard(
     var pin by remember { mutableStateOf(false) }
     var capacityStage by rememberSaveable { mutableIntStateOf(0) }
     var pendingPublish by rememberSaveable { mutableStateOf(false) }
+    var pendingActivate by rememberSaveable { mutableStateOf(false) }
     var purchaseId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
     val context = LocalContext.current
     val focus = LocalFocusManager.current
@@ -125,11 +126,23 @@ fun AssetWizard(
         scope.launch {
             busy = true
             error = null
-            val full = activate && catalog.used >= catalog.capacity() && catalog.assets.none { it.id == asset.id && it.status == ManagedAssetStatus.ACTIVE }
-            val result = onSave(asset, if (full) false else activate, if (full) false else publish)
-            result.onSuccess {
-                if (full) { pendingPublish = publish; capacityStage = 1 } else onClose()
-            }.onFailure { error = it.message ?: "Chưa lưu được tài sản. Vui lòng kiểm tra thông tin và thử lại." }
+            // Creating a backend Room consumes a slot even when its listing is a draft.
+            val newRoom = catalog.assets.none { it.id == asset.id }
+            if (newRoom && !catalog.entitlementsLoaded) {
+                error = "Chưa xác minh được chỗ quản lý. Hãy tải lại dữ liệu trước khi lưu tài sản mới."
+                busy = false
+                return@launch
+            }
+            if (newRoom && catalog.used >= catalog.capacity()) {
+                pendingActivate = activate
+                pendingPublish = publish
+                capacityStage = 1
+                busy = false
+                return@launch
+            }
+            onSave(asset, activate, publish)
+                .onSuccess { onClose() }
+                .onFailure { error = it.message ?: "Chưa lưu được tài sản. Vui lòng kiểm tra thông tin và thử lại." }
             busy = false
         }
     }
@@ -323,17 +336,17 @@ fun AssetWizard(
                 if (capacityStage < 3) {
                     Text("+1 slot quản lý", style = MaterialTheme.typography.titleLarge)
                     Text("259.000đ / 1 năm", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Mỗi tài sản đang quản lý dùng 1 slot. Bản nháp và tài sản ngừng quản lý không dùng slot.")
+                    Text("Mỗi phòng đã tạo trên hệ thống dùng 1 slot, kể cả tin đăng nháp. Phòng được lưu trữ không tính vào quota.")
                 } else Text("Dung lượng có hiệu lực 1 năm. Tiếp tục để ${if (pendingPublish) "đăng cho thuê" else "quản lý"} tài sản.")
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (busy) TroOiStateMessage(TroOiStateKind.LOADING, "")
             } },
-            confirmButton = { TroOiButton(when (capacityStage) { 1 -> "Mở thêm 1 slot"; 2 -> "Xác nhận thanh toán"; else -> "Tiếp tục" }, { when (capacityStage) {
+            confirmButton = { TroOiButton(when (capacityStage) { 1 -> "Mở thêm 1 slot"; 2 -> "Mở trang thanh toán SePay"; else -> "Tiếp tục" }, { when (capacityStage) {
                 1 -> capacityStage = 2
                 2 -> scope.launch { busy = true; error = null; onPurchase(purchaseId).onSuccess { capacityStage = 3 }.onFailure { error = it.message ?: "Chưa mở được dung lượng. Vui lòng thử lại." }; busy = false }
-                else -> { capacityStage = 0; purchaseId = UUID.randomUUID().toString(); save(true, pendingPublish) }
+                else -> { capacityStage = 0; purchaseId = UUID.randomUUID().toString(); save(pendingActivate, pendingPublish) }
             } }, enabled = !busy, modifier = Modifier.testTag("capacity-confirm")) },
-            dismissButton = { TroOiButton("Để sau · đã lưu nháp", { capacityStage = 0 }, enabled = !busy, style = TroOiButtonStyle.SECONDARY) })
+            dismissButton = { TroOiButton("Để sau", { capacityStage = 0 }, enabled = !busy, style = TroOiButtonStyle.SECONDARY) })
     }
 }
 

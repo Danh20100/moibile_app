@@ -30,7 +30,7 @@ class LedgerPresentationTest {
         assertTrue(ledgerTenancies(empty).isEmpty())
         assertTrue(ledgerTenancies(empty.copy(demoPreview = false)).isEmpty())
         assertEquals(LedgerMode.TENANT, ledgerPresentation(empty).resolve(null))
-        assertTrue(source("features/ledger/LedgerScreen.kt").contains("Bạn chưa có tài sản thuê nào được liên kết."))
+        assertTrue(source("features/ledger/LedgerScreen.kt").contains("Chưa có lượt thuê được liên kết với tài khoản."))
     }
 
     @Test fun linkedAssetsAndSelectorUseSeparateFinanceProjections() {
@@ -47,7 +47,8 @@ class LedgerPresentationTest {
         assertNull(ledgerTenancies(tenant).first().roomId)
         assertTrue(ledgerTenancies(state.copy(isAuthenticated = false)).isEmpty())
         val screen = source("features/ledger/LedgerScreen.kt")
-        tenantLedgerSections.forEach { assertTrue(it, screen.contains(it)) }
+        listOf("Tổng quan", "Tiền cọc", "Thanh toán / xác nhận", "Sự cố", "Lịch sử")
+            .forEach { assertTrue(it, screen.contains(it)) }
         assertTrue(screen.contains("tenantFinanceByTenancy[selected.tenancyId]"))
         assertTrue(screen.contains("selectedId = asset.tenancyId"))
     }
@@ -75,11 +76,11 @@ class LedgerPresentationTest {
         val screen = source("features/ledger/LedgerScreen.kt")
         assertFalse(screen.contains("Hóa đơn đã tất toán"))
         assertTrue(screen.contains("Thanh toán đã được xác nhận"))
-        assertTrue(screen.contains("Chưa có dữ liệu phân bổ"))
-        assertTrue(screen.contains("onFinance(selected.tenancyId)"))
+        assertTrue(screen.contains("Việc ghi nhận thanh toán không xác định khoản phải trả đã được phân bổ đầy đủ."))
+        assertTrue(screen.contains("LedgerTenantOverview(state, selected, onFinance)"))
         listOf("createPayment", "createCharge", "createReceipt", "Gateway", "repository", "BackendApi").forEach { assertFalse(it, screen.contains(it)) }
         ownerLedgerSections.forEach { assertTrue(it, screen.contains(it)) }
-        assertFalse(screen.contains("khu trọ"))
+        assertFalse(screen.contains("createOrganization("))
     }
 
     @Test fun detailedWorkspacesKeepLedgerTabSelected() {
@@ -96,6 +97,6 @@ class LedgerPresentationTest {
         val nav = source("ui/navigation/TroOiBottomNavigation.kt")
         listOf("nav-tab-discovery", "nav-tab-core", "nav-tab-messages", "nav-tab-profile", "animatedCenterX", "notch_center_x").forEach { assertTrue(nav.contains(it)) }
         assertFalse(nav.contains("nav-tab-favorites"))
-        assertTrue(source("ui/TroOiApp.kt").contains("AppPage.CoreWorkspace -> LedgerScreen("))
+        assertTrue(source("ui/TroOiApp.kt").contains("AppPage.CoreWorkspace, AppPage.OwnerDashboard -> LedgerScreen("))
     }
 }

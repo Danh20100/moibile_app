@@ -9,22 +9,13 @@ enum class AppDataSource { MOCK, BACKEND }
 object RuntimeDataSource {
     private const val PREFS = "trooi_developer_settings"
     private const val KEY_MODE = "data_source"
-    private val debugDefault =
-        if (BuildConfig.DEMO_BACKEND_ENABLED || BuildConfig.BACKEND_API_BASE_URL.isNotBlank()) AppDataSource.BACKEND
-        else AppDataSource.MOCK
-
+    // Debug and Release both start against the real backend. A prior
+    // instrumentation fixture preference must never leak into a user session.
     @Volatile
-    private var selected: AppDataSource =
-        if (BuildConfig.DEBUG) debugDefault else AppDataSource.BACKEND
+    private var selected: AppDataSource = AppDataSource.BACKEND
 
     fun initialize(context: Context) {
-        selected = if (BuildConfig.DEBUG) {
-            val name = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getString(KEY_MODE, debugDefault.name)
-            if (name == AppDataSource.BACKEND.name) AppDataSource.BACKEND else AppDataSource.MOCK
-        } else {
-            AppDataSource.BACKEND
-        }
+        selected = AppDataSource.BACKEND
     }
 
     fun currentMode(): AppDataSource =

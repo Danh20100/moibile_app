@@ -33,7 +33,9 @@ class DiscoveryCardsTest {
         val app = File("src/main/java/com/trooi/app/ui/TroOiApp.kt").readText()
         listOf("onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null",
             "onResetSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::reloadPublicListings else null",
-            "allowDemoFallback = !RuntimeDataSource.isBackendBacked()", "useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)",
-            "else V1ListingDetailScreen(").forEach { assertTrue(app.contains(it)) }
+            "allowDemoFallback = !RuntimeDataSource.isBackendBacked()",
+            "state.read.publicListings.firstOrNull { it.listingId == page.listingId }",
+            "com.trooi.app.features.discovery.publicRentalDetail(it)",
+            ".takeIf { state.demoPreview }", "ListingDetailScreen(").forEach { assertTrue(it, app.contains(it)) }
     }
 }

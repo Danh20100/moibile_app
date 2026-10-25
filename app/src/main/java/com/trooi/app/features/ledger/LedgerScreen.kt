@@ -66,6 +66,7 @@ fun LedgerScreen(
             onOpenIncidents = onOwnerIncidents,
             onNotifications = onNotifications,
             onRetryRead = onRetryRead,
+            onPurchaseSlot = onPurchaseCapacity,
         )
         if (wizardOpen && catalog != null) AssetWizard(editAsset, catalog, state.displayName,
             { wizardOpen = false }, onSaveAsset, onPurchaseCapacity)

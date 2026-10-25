@@ -166,39 +166,6 @@ fun V1GuestMapScreen(
     }
 }
 
-@Composable
-fun V1GuestActivityScreen(state: TroOiUiState) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().testTag("guest-activity"),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { TroOiPageHeader("Hoạt động", "Các lần liên hệ với tin đăng công khai") }
-        items(activityDecisions(), key = { "activity-" + it.id }) { decision ->
-            TroOiCard(decision.id) {
-                TroOiButton(decision.id, {}, enabled = decision.enabled, modifier = Modifier.testTag("activity-" + decision.id))
-                if (!decision.enabled) TroOiFeedback(decision.reason)
-            }
-        }
-        if (state.isAuthenticated && state.read.notifications.isNotEmpty()) {
-            item {
-                LedgerSectionTitle(
-                    "Thông báo liên quan",
-                    "Các thông báo gần đây liên quan đến tài khoản của bạn.",
-                )
-            }
-            items(state.read.notifications.take(5), key = { "guest-activity-notification-" + it.notificationId }) { row ->
-                LedgerAttentionRow(
-                    title = row.category,
-                    supporting = row.message,
-                    tone = if (row.readAtLabel == null) LedgerTone.Clay else LedgerTone.Neutral,
-                )
-                LedgerDivider()
-            }
-        }
-    }
-}
-
 @SuppressLint("MissingPermission")
 private fun lastKnownPublicCenter(context: Context): PublicGeoPoint? {
     val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null

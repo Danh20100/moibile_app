@@ -15,7 +15,7 @@ sealed interface AppPage {
     data object CoreWorkspace : AppPage
     data object Messages : AppPage
     data object GuestMap : AppPage
-    data object GuestActivity : AppPage
+
     data class ListingDetail(val listingId: String) : AppPage
     data class TrustReport(val listingId: String) : AppPage
     data object TenantHome : AppPage
@@ -121,7 +121,7 @@ fun rootNavigationVisible(state: TroOiUiState): Boolean =
         state.page in setOf(AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages) || when (state.activeContext) {
         AppContext.DISCOVERY -> state.page in setOf(
             AppPage.Discovery, AppPage.Favorites, AppPage.CoreWorkspace, AppPage.Messages,
-            AppPage.GuestMap, AppPage.GuestActivity, AppPage.Account,
+            AppPage.GuestMap, AppPage.Account,
         )
         AppContext.TENANT -> state.page in setOf(
             AppPage.TenantHome, AppPage.TenantRental, AppPage.TenantFinance,

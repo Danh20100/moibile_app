@@ -73,8 +73,11 @@ data class LocalSlotEntitlement(val purchaseId: String, val validUntilEpochMilli
 data class LocalManagement(
     val assets: List<LocalRentalAsset> = emptyList(),
     val entitlements: List<LocalSlotEntitlement> = emptyList(),
+    val entitlementsLoaded: Boolean = true,
+    // When backed by PostgreSQL, count ACTIVE Room records rather than UI asset drafts.
+    val managedRoomCount: Int? = null,
 ) {
-    val used: Int get() = assets.count { it.status == ManagedAssetStatus.ACTIVE }
+    val used: Int get() = managedRoomCount ?: assets.count { it.status == ManagedAssetStatus.ACTIVE }
     fun capacity(now: Long = System.currentTimeMillis()): Int = 1 + entitlements.count { it.validUntilEpochMillis > now }
     fun purchase(purchaseId: String, now: Long = System.currentTimeMillis()): LocalManagement {
         require(purchaseId.isNotBlank()) { "Thiếu mã xác nhận mua dung lượng." }

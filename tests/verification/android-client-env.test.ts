@@ -14,9 +14,11 @@ const clientKeys = [
 test('Gradle copies only allowlisted Android client settings from the root env file', () => {
   const gradle = readFileSync('app/build.gradle.kts', 'utf8');
   const example = readFileSync('.env.example', 'utf8');
+  const optional = readFileSync('docs/configuration/optional-environment.md', 'utf8');
   for (const key of clientKeys) {
     assert.match(gradle, new RegExp(key));
-    assert.match(example, new RegExp(`^${key}=`, 'm'));
+    assert.ok(new RegExp(`^${key}=`, 'm').test(example) || optional.includes('`' + key + '`'),
+      `${key} must be in the minimal template or the optional settings guide`);
   }
   assert.match(gradle, /GOOGLE_CLIENT_ID/);
   assert.doesNotMatch(gradle, /SEPAY_SECRET_KEY|POSTGRES_PASSWORD|MINIO_ROOT_PASSWORD|DATABASE_URL/);

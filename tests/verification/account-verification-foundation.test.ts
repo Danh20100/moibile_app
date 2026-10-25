@@ -113,22 +113,24 @@ test('verification component business inputs and simulated outcomes come from va
   );
 });
 
-test('verification primitives stay inactive with no production callers, HTTP routes or automatic verification result', () => {
-  const marker =
-    /(?:compreface-verifier|manual-verification\.workflow|private-s3-object-storage\.adapter|CompreFaceVerifier|startManualReview|submitVerification|decideManualReview|createObjectStorageAdapter|PrivateS3ObjectStorageAdapter)/;
-  for (const file of sourceFiles('src')) {
+test('the mounted KYC MVP checks face similarity only and keeps manual review unmounted', () => {
+  const app = readFileSync('src/app.module.ts', 'utf8');
+  const module = readFileSync('src/modules/identity-verification/identity-verification.module.ts', 'utf8');
+  const controller = readFileSync('src/modules/identity-verification/auto-identity-check.controller.ts', 'utf8');
+  const service = readFileSync('src/modules/identity-verification/auto-identity-check.service.ts', 'utf8');
+  assert.match(app, /IdentityVerificationModule/);
+  assert.match(module, /AutoIdentityCheckController/);
+  assert.match(controller, /@Post\('auto-check'\)/);
+  assert.match(controller, /Authentication required/);
+  assert.match(service, /Explicit KYC processing consent required/);
+  assert.match(service, /decodeKycJpeg\(input\.backImageBase64\)/);
+  assert.match(service, /new CompreFaceVerifier\(config\)\.compare\(front, selfie\)/);
+  assert.match(service, /MAX_DAILY_ATTEMPTS/);
+  assert.match(service, /FACE_SIMILARITY_ONLY/);
+  assert.doesNotMatch(service, /documentAuthenticityVerified|livenessVerified/);
+  for (const file of implementationFiles) {
     const source = readFileSync(file, 'utf8');
-    if (implementationFiles.includes(file)) {
-      assert.doesNotMatch(source, /@(?:Controller|Module|Get|Post|Put|Delete|Patch)\b/);
-    } else {
-      // Messaging and Listing may import shared private storage; verification workflows remain inactive.
-      const forbidden =
-        file === 'src/modules/messaging/messaging.module.ts' ||
-        file === 'src/infrastructure/object-storage/object-storage.module.ts'
-          ? /(?:compreface-verifier|manual-verification\.workflow|CompreFaceVerifier|startManualReview|submitVerification|decideManualReview)/
-          : marker;
-      assert.doesNotMatch(source, forbidden, `${file} must not activate KYC primitives`);
-    }
+    assert.doesNotMatch(source, /@(?:Controller|Module|Get|Post|Put|Delete|Patch)\b/);
   }
   const face = readFileSync(implementationFiles[1], 'utf8');
   assert.doesNotMatch(face, /\bVERIFIED\b|\bverified\s*:/);

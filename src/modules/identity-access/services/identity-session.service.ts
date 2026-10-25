@@ -118,7 +118,8 @@ export class IdentitySessionService {
   /** Issue a session for an isolated local fixture; NOT a Google/KYC verification. */
   async issueLocalDemoSession(userId: string): Promise<IdentitySessionResponse> {
     this.requireEnabled();
-    if (process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
+    if (process.env.NODE_ENV === 'production' ||
+        process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
         process.env.TROOI_DATABASE_MODE !== 'compose-postgres') {
       throw new ServiceUnavailableException('Local demo sessions are disabled');
     }

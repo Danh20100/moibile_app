@@ -24,7 +24,8 @@ export class LocalDemoAuthService {
   ) {}
 
   private requireLocal(): void {
-    if (process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
+    if (process.env.NODE_ENV === 'production' ||
+        process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
         process.env.TROOI_DATABASE_MODE !== 'compose-postgres') {
       throw new ServiceUnavailableException('Local demo login is disabled');
     }

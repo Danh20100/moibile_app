@@ -33,7 +33,8 @@ Docker already sets `PORT=3000`, `NODE_ENV=production`, `TROOI_BIND_HOST=0.0.0.0
 | Direct host NestJS | `NODE_ENV`, `PORT`, `TROOI_BIND_HOST`, `DATABASE_URL`, `DATABASE_POOL_MAX`, `DATABASE_CONNECTION_TIMEOUT_MS` |
 | Docker overrides | `TROOI_BACKEND_BIND`, `TROOI_BACKEND_IMAGE`, `POSTGRES_PORT`, `TROOI_DATABASE_MODE` (normally set by Compose) |
 | SePay isolated test lab | `TROOI_STANDALONE_DB_PASSWORD`, `SEPAY_ISOLATED_DB_PORT` |
-| Test-only identity fixture | `TROOI_DEMO_CLAIM_USER_ID` |
+| Test-only identity fixture | `TROOI_DEMO_CLAIM_USER_ID`, `TROOI_LOCAL_DEMO_AUTH`, `TROOI_LOCAL_DEV_SEED_PASSWORD` |
+| Isolated local media/face-match labs | `TROOI_LOCAL_MEDIA_DEMO`, `TROOI_LOCAL_COMPREFACE_LAB` |
 
 **Important:** the existing `finance-production` Compose profile explicitly uses a **separate finance database**, a current security/settlement boundary. Do not point it at the single `tro-oi` database without an approved backend change. `SEPAY_BACKEND_PORT=3101` (default) also conflicts with the main backend if the main backend uses host port 3101.
 

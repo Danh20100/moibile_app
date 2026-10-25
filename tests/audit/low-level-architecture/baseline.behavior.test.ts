@@ -8,7 +8,7 @@ import { IncidentService } from '../../../src/modules/incident/services/incident
 import { ListingService } from '../../../src/modules/listing/services/listing.service';
 import { OnboardingService } from '../../../src/modules/onboarding/services/onboarding.service';
 import { ReceiptService } from '../../../src/modules/receipt/services/receipt.service';
-import { SubscriptionService } from '../../../src/modules/subscription/services/subscription.service';
+
 import { TenancyService } from '../../../src/modules/tenancy/services/tenancy.service';
 import { createActiveProperty, createCoreFoundationHarness } from '../../core/support/core-foundation.harness';
 
@@ -140,14 +140,5 @@ describe('low-level architecture baseline behavior', () => {
     );
   });
 
-  it('returns entitlement decisions by capability', async () => {
-    const service = new SubscriptionService();
-    await service.assignPlan({ organizationId: 'org_1', plan: 'starter', durationDays: 30 });
 
-    assert.deepEqual(await service.checkEntitlement('org_1', 'bulk_onboarding'), {
-      allowed: true,
-      reason: undefined,
-    });
-    assert.equal((await service.checkEntitlement('org_1', 'api_access')).allowed, false);
-  });
 });

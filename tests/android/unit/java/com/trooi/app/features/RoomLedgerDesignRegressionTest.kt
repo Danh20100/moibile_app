@@ -49,7 +49,7 @@ class RoomLedgerDesignRegressionTest {
         val app = source("com/trooi/app/ui/TroOiApp.kt")
         val discoveryNav = source("com/trooi/app/ui/navigation/TroOiBottomNavigation.kt")
         assertTrue(app.contains("AppPage.GuestMap"))
-        assertTrue(app.contains("AppPage.GuestActivity"))
+        assertFalse(app.contains("AppPage.GuestActivity"))
         listOf("Khám phá", "Tin nhắn", "Hồ sơ").forEach {
             assertTrue(discoveryNav.contains("\"$it\""))
         }

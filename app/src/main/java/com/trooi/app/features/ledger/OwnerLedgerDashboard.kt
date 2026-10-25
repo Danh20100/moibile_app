@@ -11,6 +11,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.trooi.app.core.data.SlotCheckoutPending
+import kotlinx.coroutines.launch
+import java.util.UUID
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,10 +119,15 @@ internal fun OwnerLedgerDashboard(
     onOpenIncidents: () -> Unit,
     onNotifications: () -> Unit,
     onRetryRead: () -> Unit,
+    onPurchaseSlot: suspend (String) -> Result<Unit>,
 ) {
     val summary = remember(state.read, state.access) { summarizeOwnerHome(state) }
     var section by remember(state.backendUserId) { mutableStateOf<OwnerSection?>(null) }
     var showPlan by remember(state.backendUserId) { mutableStateOf(false) }
+    var purchaseId by rememberSaveable(state.backendUserId) { mutableStateOf(UUID.randomUUID().toString()) }
+    var paymentBusy by remember { mutableStateOf(false) }
+    var paymentMessage by remember { mutableStateOf<String?>(null) }
+    val paymentScope = rememberCoroutineScope()
     val catalog = state.read.localManagement
     val roomNames = accessibleRooms(state.read, state.access).associateBy { it.roomId }
     val ownedRoomIds = roomNames.keys
@@ -129,16 +138,41 @@ internal fun OwnerLedgerDashboard(
             title = { Text("Mở rộng chỗ quản lý") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Phương án: 249.000đ / 3 tháng", style = MaterialTheme.typography.headlineSmall,
+                    Text("259.000đ / 1 năm / 1 chỗ", style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text("Gói mở rộng chỉ tăng số phòng/căn được quản lý. Các chức năng Sổ cơ bản vẫn được sử dụng.")
-                    Text("Giá và thời hạn này chưa đồng bộ với cổng thanh toán backend. Hiện chưa thể đặt mua; không phát sinh thanh toán.",
+                    Text("Thanh toán qua SePay khi cổng đang kết nối. Chỗ quản lý chỉ được cộng sau khi backend xác nhận đã thanh toán.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    paymentMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             },
             confirmButton = {
+                TextButton(
+                    onClick = {
+                        paymentScope.launch {
+                            paymentBusy = true
+                            paymentMessage = null
+                            val result = onPurchaseSlot(purchaseId)
+                            result.onSuccess {
+                                showPlan = false
+                                purchaseId = UUID.randomUUID().toString()
+                                onRetryRead()
+                            }.onFailure { error ->
+                                paymentMessage = if (error is SlotCheckoutPending)
+                                    "Đã mở trang thanh toán. Sau khi hoàn tất, hãy tải lại Sổ."
+                                else error.message ?: "Chưa mở được thanh toán. Bạn có thể thử lại."
+                            }
+                            paymentBusy = false
+                        }
+                    },
+                    enabled = !paymentBusy,
+                    modifier = Modifier.testTag("owner-plan-pay"),
+                ) { Text(if (paymentBusy) "Đang xử lý…" else "Thanh toán 259.000đ") }
+            },
+            dismissButton = {
                 TextButton(onClick = { showPlan = false }, modifier = Modifier.testTag("owner-plan-close")) {
-                    Text("Đã hiểu")
+                    Text("Đóng")
                 }
             },
             modifier = Modifier.testTag("owner-slot-plan"),
@@ -170,8 +204,8 @@ internal fun OwnerLedgerDashboard(
                 Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Chỗ quản lý", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        if (catalog == null) {
-                            Text("Chưa có dữ liệu gói quản lý từ hệ thống.",
+                        if (catalog == null || !catalog.entitlementsLoaded) {
+                            Text("Chưa tải được số chỗ quản lý. Hãy thử tải lại.",
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.testTag("owner-quota-unavailable"))
                             Text("Bạn vẫn có thể xem và quản lý các phòng đã được cấp quyền.",
@@ -200,7 +234,7 @@ internal fun OwnerLedgerDashboard(
                         TextButton(
                             onClick = { showPlan = true },
                             modifier = Modifier.align(Alignment.End).heightIn(min = 48.dp).testTag("owner-see-plan"),
-                        ) { Text("Xem phương án 249.000đ / 3 tháng") }
+                        ) { Text("Mua thêm chỗ · 259.000đ/năm") }
                     }
                 }
             }

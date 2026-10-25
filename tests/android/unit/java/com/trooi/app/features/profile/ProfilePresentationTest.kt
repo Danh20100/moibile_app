@@ -41,7 +41,8 @@ class ProfilePresentationTest {
         assertTrue(source.contains("identityPhoto(context, uri)"))
         assertTrue(source.contains("onComplete(application)"))
         listOf("CHẾ ĐỘ DEMO", "Dữ liệu minh họa", "readOnly = true", "rememberSaveable", "SharedPreferences", "createOrganization").forEach { assertFalse(it, source.contains(it)) }
-        assertFalse(source.contains("khu trọ"))
+        // UX copy can mention khu trọ; only persisted ownership is authoritative.
+        assertTrue(source.contains("firstAsset = null"))
     }
     @Test fun existingRoutesAndUnsupportedActionsRemainExplicit() {
         fun source(path: String) = File("src/main/java/com/trooi/app/$path").readText()

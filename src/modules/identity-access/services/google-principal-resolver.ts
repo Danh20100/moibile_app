@@ -47,13 +47,24 @@ export class GooglePrincipalResolver {
     }));
     if (!session) throw new UnauthorizedException('Application session is invalid or expired');
     let isLocalDev = false;
-    if (this.localDevDatabase && process.env.TROOI_LOCAL_DEMO_AUTH === 'true' &&
-        process.env.TROOI_DATABASE_MODE === 'compose-postgres') {
-      const rows = await sql<{ exists: boolean }>`
-        SELECT EXISTS(SELECT 1 FROM local_dev_accounts
-          WHERE user_id = ${session.userId}::uuid AND mode = 'LOCAL_DEMO_ONLY') AS exists
+    if (this.localDevDatabase) {
+      // A local-demo token cannot silently become a Google principal when
+      // the demo feature is disabled or a production build is deployed.
+      const table = await sql<{ exists: boolean }>`
+        SELECT to_regclass('public.local_dev_accounts') IS NOT NULL AS exists
       `.execute(this.localDevDatabase);
-      isLocalDev = rows.rows[0]?.exists === true;
+      if (table.rows[0]?.exists) {
+        const rows = await sql<{ exists: boolean }>`
+          SELECT EXISTS(SELECT 1 FROM local_dev_accounts
+            WHERE user_id = ${session.userId}::uuid AND mode = 'LOCAL_DEMO_ONLY') AS exists
+        `.execute(this.localDevDatabase);
+        isLocalDev = rows.rows[0]?.exists === true;
+        if (isLocalDev && (process.env.NODE_ENV === 'production' ||
+            process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
+            process.env.TROOI_DATABASE_MODE !== 'compose-postgres')) {
+          throw new UnauthorizedException('Local demo session is disabled');
+        }
+      }
     }
     return {
       userId: session.userId,

@@ -147,7 +147,7 @@ class TroOiViewModel @Inject constructor(
             "favorites" -> openFavorites()
             "messages" -> openMessages()
             "workspace" -> openCoreWorkspace()
-            "activity" -> openGuestActivity()
+
             "account" -> openAccount()
             "settings" -> openSettings()
             "help" -> openHelp()
@@ -230,7 +230,7 @@ class TroOiViewModel @Inject constructor(
         }
     }
     fun openGuestMap() = openContext(AppContext.DISCOVERY, AppPage.GuestMap)
-    fun openGuestActivity() = openContext(AppContext.DISCOVERY, AppPage.GuestActivity)
+
     fun openAccount() {
         open(AppPage.Account)
         refreshProfileAvatar()

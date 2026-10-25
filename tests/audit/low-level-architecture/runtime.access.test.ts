@@ -110,6 +110,14 @@ describe('runtime HTTP access audit', () => {
         ...env,
         PORT: String(port),
         DATABASE_URL: databaseUrl,
+        // Audit authentication and discovery, not optional local media/face-match labs.
+        OBJECT_STORAGE_ENABLED: 'false',
+        TROOI_LOCAL_MEDIA_DEMO: 'false',
+        COMPREFACE_ENABLED: 'false',
+        TROOI_LOCAL_COMPREFACE_LAB: 'false',
+        DEMO_PAYMENT_ENABLED: 'false',
+        SEPAY_ENABLED: 'false',
+        TROOI_LOCAL_DEMO_AUTH: 'false',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

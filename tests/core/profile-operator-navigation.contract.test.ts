@@ -80,9 +80,10 @@ test('Finance and Operator routes remain available without fabricating transacti
     'OperatorRoute.RoomHistory',
   ]) assert.ok(operator.includes(route), 'Missing operator workspace: ' + route);
   for (const title of [
-    'Quét căn cước công dân', 'Kiểm tra thông tin', 'Thông tin liên hệ',
-    'Bước $step / 3', 'scanCitizenId(bitmap)', 'firstAsset = null',
-  ]) assert.ok(onboarding.includes(title), 'Missing three-step owner onboarding: ' + title);
+    'Quét mặt trước CCCD', 'Quét mặt sau CCCD', 'Kiểm tra thông tin',
+    'Selfie và đối chiếu khuôn mặt', 'Bước $step / 4',
+    'scanCitizenId(bitmap)', 'firstAsset = null',
+  ]) assert.ok(onboarding.includes(title), 'Missing four-step owner onboarding: ' + title);
 
 });
 
@@ -132,9 +133,10 @@ test('Support and legal material use one offline profile catalog', () => {
   assert.match(settings, /profileCatalog\?\.legal/);
 });
 
-test('Three-step onboarding does not require a first property and keeps OCR separate from KYC', () => {
-  assert.match(onboarding, /Bước \$step \/ 3/);
+test('Four-step onboarding keeps OCR separate from selfie-to-document face matching', () => {
+  assert.match(onboarding, /Bước \$step \/ 4/);
   assert.match(onboarding, /scanCitizenId\(bitmap\)/);
+  assert.match(onboarding, /verifyForOnboarding\(/);
   assert.match(onboarding, /firstAsset = null/);
   assert.doesNotMatch(onboarding, /"Bước \$step \/ 5"/);
   assert.match(read('app/src/main/java/com/trooi/app/features/profile/CitizenIdOcr.kt'), /NOT identity verification/);
