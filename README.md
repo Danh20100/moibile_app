@@ -4,11 +4,15 @@
 
 **Thứ tự đọc contract:** [Database v1 canonical](docs/database/v1/canonical.md) → [frozen conceptual ERD](docs/database/v1/erd/conceptual.json) → [contexts](docs/contexts/) → implementation and tests. **Payment is actual money inflow. Receipt is not the Payment record.** Các module Subscription/Pricing/Quota và CSV/Excel import là FUTURE, không phải chức năng core đã nghiệm thu.
 
+## Release-first (quyết định 24/10/2026)
+
+**Không sử dụng Mock/Demo để chạy hay nghiệm thu sản phẩm.** Android Release ↔ NestJS ↔ một PostgreSQL/PostGIS `tro-oi`; Google OAuth, dữ liệu và thanh toán phải được kiểm chứng trên hệ thống thật. Debug-only fixture được giữ cho các bài test nội bộ, không thay thế API và không được đưa vào Release. Chạy `pnpm release:check` trước khi phát hành; hiện tại HTTPS, signing và Identity Session cutover chưa hoàn tất nên **chưa có Release PASS**. Xem [Release-first policy](docs/configuration/release-first.md).
+
 ## Cấu trúc repository
 
 | Đường dẫn | Nội dung |
 | --- | --- |
-| `app/` | Android Kotlin + Jetpack Compose; Debug hỗ trợ MOCK/BACKEND, Release sử dụng Backend |
+| `app/` | Android Kotlin + Jetpack Compose; **Release dùng backend thật**; Debug fixtures chỉ dành cho automated tests, không nghiệm thu sản phẩm |
 | `src/modules/` | Nghiệp vụ NestJS: Identity, Organization, Room, Listing, Tenancy, Billing, Payment, Incident… |
 | `src/infrastructure/`, `src/persistence/` | Database adapter và các service hạ tầng |
 | `database/` | Migrations và seed phát triển |
@@ -130,7 +134,7 @@ MapLibre được chia sẻ cho màn **Guest Discovery và Owner Location Picker
 
 1. Vào [Google Cloud Console](https://console.cloud.google.com/), tạo/chọn project và cấu hình OAuth consent.
 2. Tạo **Web OAuth Client ID** cho Backend Google ID-token verification: `GOOGLE_CLIENT_ID`. Android Credential Manager dùng cùng Web Client ID qua `TROOI_GOOGLE_WEB_CLIENT_ID`.
-3. Tạo **Android OAuth Client ID** cho package Debug `com.trooi.app.backenddev` và SHA-1 Debug; Release dùng `com.trooi.app` và release SHA-1 khác. Cấu hình màn hình đồng ý, tester và audience theo Google Cloud.
+3. Android OAuth Client đã được đăng ký cho **`com.trooi.app`** và SHA-1 **`B7:21:C0:57:38:35:FA:3C:73:8D:84:EA:71:11:F5:78:51:50:E4:8B`**. Phải giữ nguyên cặp này khi build local Google Login; không thêm hậu tố `applicationIdSuffix`, không thay debug signing key. Khi ký Release bằng khóa khác về sau phải đăng ký fingerprint tương ứng và nghiệm thu riêng, không tự đổi OAuth Client hiện có.
 4. Bật Maps SDK for Android, cấp `TROOI_MAPS_API_KEY` **giới hạn package + SHA-1 + API**.
 5. Test login Google thật, nonce, refresh, logout và phân quyền; Debug Mock login không được dùng để khẳng định OAuth E2E PASS.
 

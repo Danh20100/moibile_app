@@ -17,11 +17,26 @@ database/
 │   ├── development.ts                  # seed development chạy trên schema đã migrate
 │   └── seed-data.ts
 └── dev/
-    └── 01-create-test-db.sql           # bootstrap database test cho môi trường dev
+    └── 01-create-test-db.sh            # bootstrap DB test cũ (skip nếu trùng DB chính)
 ```
 
 Migration được chạy qua `scripts/database/migrate.ts` (`pnpm db:migrate`), seed qua
 `pnpm db:seed`, và PostgreSQL/PostGIS dev environment qua `pnpm db:dev:up`.
+
+## Active local database: `tro-oi` (single application DB)
+
+The local PostGIS 16 instance uses a **single application database named `tro-oi`** for app runtime and controlled manual/smoke testing. Docker Compose publishes PostgreSQL to `127.0.0.1:5432`, with data persisted in `trooi-project_postgres_persistence_data`. Connection credentials live exclusively in the ignored local `.env`, not in this document.
+
+- Start: `docker compose up -d postgres`.
+- Read status: `docker compose ps postgres`.
+- Apply additive migrations only: `node --env-file=.env --import tsx scripts/database/migrate.ts up` or `pnpm db:migrate` when `DATABASE_URL` is exported into the process.
+- Read-only checks and transactional smoke tests may use the same database.
+- **Never** set `TEST_DATABASE_URL` to `tro-oi` for destructive integration suites. The shared DB is explicitly blocked from `resetPublicSchema()`; E2E seed/reset also refuses it.
+- `db:migrate:down` is blocked for `tro-oi` to avoid dropping schema or data in a shared app runtime.
+- Development `db:seed` intentionally accepts only `trooi_dev`. Do not bypass it to mix synthetic finance data into `tro-oi`.
+- Full destructive migration/integration tests still require an isolated disposable database; they are **not** part of the one-DB runtime. Unit, static, UI and read-only smoke tests do not need one.
+- Back up before migrations, data repair or high-risk testing. Keep dumps outside Git. Verify restore on a separate temporary instance before relying on them.
+- Starting this database does **not** start the backend API, turn on Google Identity sessions, configure Release HTTPS, or activate SePay.
 
 ## Authority
 

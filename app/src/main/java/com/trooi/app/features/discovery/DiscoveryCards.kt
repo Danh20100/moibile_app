@@ -24,7 +24,7 @@ fun discoveryCards(
             listingId = listing.listingId,
             title = listing.title,
             publicAreaLabel = listing.publicAreaLabel,
-            askingPriceLabel = listing.askingPriceLabel ?: "Liên hệ để biết giá",
+            askingPriceLabel = listing.askingPriceLabel?.let(::rentalPriceLabel) ?: "Liên hệ để biết giá",
             metadataLabel = listOfNotNull(
                 listing.publicAreaLabel.takeIf { it.isNotBlank() },
                 listing.distanceMeters?.let { "%.1f km".format(it / 1000.0) },
@@ -51,7 +51,9 @@ fun publicRentalDetail(listing: PublicListingCard): ListingFixture {
             if (it.type == "Căn hộ") listOf("${it.bedrooms} phòng ngủ", "${it.bathrooms} phòng tắm")
             else listOfNotNull(when (it.bathroomArrangement) { BathroomArrangement.PRIVATE -> "WC riêng"; BathroomArrangement.SHARED -> "WC chung"; null -> null })
             ).plus(listOfNotNull(it.maxOccupants?.let { count -> "Tối đa $count người" }, it.floorLabel?.takeIf(String::isNotBlank)?.let { floor -> "Tầng $floor" })).joinToString(" · ") }.orEmpty(),
-        host = detail?.host.orEmpty(), description = detail?.description.orEmpty(), amenities = listing.amenities,
+        host = detail?.host.orEmpty(), description = detail?.description?.takeIf(String::isNotBlank)
+            ?: com.trooi.app.core.model.roomDescriptionWithoutPublicAddress(listing.publicDescription),
+        amenities = listing.amenities,
         publicGeoPoint = com.trooi.app.core.model.publicMapPoint(listing),
         locationDescription = "Vị trí công khai ở mức khu vực. Địa chỉ chi tiết được trao đổi khi hẹn xem.",
         rules = detail?.rules.orEmpty().map(String::trim).filter(String::isNotBlank), reviewCount = 0,

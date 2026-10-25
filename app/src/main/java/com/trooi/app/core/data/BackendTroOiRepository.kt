@@ -19,6 +19,14 @@ import kotlinx.coroutines.withContext
 class SlotCheckoutPending(val payUrl: String) :
     IllegalStateException("Chờ xác nhận chuyển khoản 259.000đ. Trang thanh toán đã được mở.")
 
+/** Logging must never change repository success/failure semantics in Android JVM tests. */
+private fun safeAuthorizedReadWarning(message: String, error: Throwable? = null) {
+    runCatching {
+        if (error == null) Log.w("TroOiAuthorizedRead", message)
+        else Log.w("TroOiAuthorizedRead", message, error)
+    }
+}
+
 /** Backend-backed repository. All authorization and canonical writes remain server-side. */
 class BackendTroOiRepository @Inject constructor(
     private val api: BackendApi,
@@ -293,7 +301,7 @@ class BackendTroOiRepository @Inject constructor(
         val credential = requireNotNull(tokens.token()).also { require(it.isNotBlank()) }
         Result.success(loadAuthorizedRead(access).also { check(tokens.token() == credential) { "Phiên đăng nhập đã thay đổi." } })
     } catch (error: RuntimeException) {
-        Log.w("TroOiAuthorizedRead", "loadAuthorizedRead failed: ${error.message}", error)
+        safeAuthorizedReadWarning("loadAuthorizedRead failed: ${error.message}", error)
         Result.failure(error)
     }
 
@@ -468,7 +476,32 @@ class BackendTroOiRepository @Inject constructor(
         }
     }
 
-    override suspend fun login(identifier: String, password: String): Result<UserSession> = unsupportedAuth()
+    override suspend fun login(identifier: String, password: String): Result<UserSession> {
+        if (!com.trooi.app.BuildConfig.DEBUG || !RuntimeDataSource.isBackendBacked()) return unsupportedAuth()
+        return try {
+            val identitySession = api.authenticateLocalDemo(identifier, password).required("Local demo authentication")
+            require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
+            tokens.setToken(identitySession.accessToken)
+            refreshCredentials?.write(identitySession.refreshToken)
+            val session = api.getSessionContext().required("local demo session context")
+            check(session.userId == identitySession.userId)
+            Result.success(
+                UserSession(
+                    userId = session.userId,
+                    displayName = session.name ?: session.userId,
+                    email = session.email ?: identifier,
+                    pictureUrl = session.pictureUrl,
+                    access = AccessCapabilities(
+                        linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                        operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+                    ),
+                ),
+            )
+        } catch (error: RuntimeException) {
+            clearSession()
+            Result.failure(error)
+        }
+    }
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> = unsupportedAuth()
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> = unsupportedAuth()
 
@@ -482,7 +515,7 @@ class BackendTroOiRepository @Inject constructor(
         val publicListings = try {
             mapPublicListings(api.getPublicListings().required("public listings"))
         } catch (error: RuntimeException) {
-            Log.w("TroOiAuthorizedRead", "public listings soft-fail: ${error.message}")
+            safeAuthorizedReadWarning("public listings soft-fail: ${error.message}")
             financeReadErrors += "Chưa tải được danh sách tin công khai."
             emptyList()
         }
@@ -494,7 +527,7 @@ class BackendTroOiRepository @Inject constructor(
                 api.getOrganizations().required("organizations")
                     .filter { it.id in access.operatedOrganizationIds }
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "getOrganizations failed: ${error.message}", error)
+                safeAuthorizedReadWarning("getOrganizations failed: ${error.message}", error)
                 throw error
             }
         }
@@ -623,7 +656,7 @@ class BackendTroOiRepository @Inject constructor(
             val tenancy = try {
                 api.getTenancy(tenancyId).required("tenant tenancy")
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "getTenancy($tenancyId) failed: ${error.message}", error)
+                safeAuthorizedReadWarning("getTenancy($tenancyId) failed: ${error.message}", error)
                 throw error
             }
             if (tenancy.id != tenancyId) continue
@@ -637,12 +670,12 @@ class BackendTroOiRepository @Inject constructor(
                         .filter { it.incidentId == incident.id }
                 }
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "tenant incidents soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("tenant incidents soft-fail ($tenancyId): ${error.message}")
             }
             termsByTenancy[tenancyId] = try {
                 api.getTerms(tenancyId).required("tenancy terms").filter { it.tenancyId == tenancyId }
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "getTerms soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("getTerms soft-fail ($tenancyId): ${error.message}")
                 emptyList()
             }
             noticesByTenancy[tenancyId] = try {
@@ -650,20 +683,20 @@ class BackendTroOiRepository @Inject constructor(
                     .filter { it.tenancyId == tenancyId }
                     .map(::mapNotice)
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "getNotices soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("getNotices soft-fail ($tenancyId): ${error.message}")
                 emptyList()
             }
             val charges = try {
                 api.getBillingCycles(tenancyId).required("tenant billing cycles").filter { it.tenancyId == tenancyId }
                     .flatMap { it.charges }.map(::mapCharge).distinctBy { it.chargeId }
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "billing soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("billing soft-fail ($tenancyId): ${error.message}")
                 financeReadErrors += "Chưa tải được các khoản cần thanh toán."; emptyList()
             }
             val payments = try {
                 api.getPayments(tenancyId).required("tenant payments").filter { it.tenancyId == tenancyId }
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "payments soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("payments soft-fail ($tenancyId): ${error.message}")
                 financeReadErrors += "Chưa tải được thanh toán."; emptyList()
             }
             payments.forEach { paymentsById[it.id] = it }
@@ -671,7 +704,7 @@ class BackendTroOiRepository @Inject constructor(
             val deposit = try {
                 api.getDeposit(tenancyId).optionalNotFound("tenant deposit")?.takeIf { it.tenancyId == tenancyId }?.let(::mapDeposit)
             } catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "deposit soft-fail ($tenancyId): ${error.message}")
+                safeAuthorizedReadWarning("deposit soft-fail ($tenancyId): ${error.message}")
                 financeReadErrors += "Chưa tải được tiền cọc."; null
             }
             tenantFinance[tenancyId] = TenantFinanceProjection(
@@ -684,7 +717,7 @@ class BackendTroOiRepository @Inject constructor(
 
         val receipts = try { api.getReceipts().required("receipts") }
             catch (error: RuntimeException) {
-                Log.w("TroOiAuthorizedRead", "receipts soft-fail: ${error.message}")
+                safeAuthorizedReadWarning("receipts soft-fail: ${error.message}")
                 financeReadErrors += "Chưa tải được biên nhận."; emptyList()
             }
         for (receipt in receipts) {
@@ -707,7 +740,7 @@ class BackendTroOiRepository @Inject constructor(
         val notifications = try {
             api.getNotifications().required("notifications").map(::mapNotification)
         } catch (error: RuntimeException) {
-            Log.w("TroOiAuthorizedRead", "notifications soft-fail: ${error.message}")
+            safeAuthorizedReadWarning("notifications soft-fail: ${error.message}")
             emptyList()
         }
 
@@ -764,11 +797,12 @@ class BackendTroOiRepository @Inject constructor(
             PublicListingCard(
                 listingId = listing.id,
                 title = listing.publicTitle,
-                publicAreaLabel = "Vị trí công khai",
+                publicAreaLabel = com.trooi.app.core.model.publicAreaNameFromPublishedDescription(listing.publicDescription),
                 publicGeoPoint = PublicGeoPoint(listing.publicLocation.latitude, listing.publicLocation.longitude),
                 askingPriceLabel = listing.publicPriceProjection,
                 visibility = visibility,
                 publicPhotoIds = listing.publicPhotoIds,
+                publicDescription = listing.publicDescription,
                 amenities = listing.publicAmenityIds.map(AmenityCatalog::label),
             )
         }
@@ -776,12 +810,13 @@ class BackendTroOiRepository @Inject constructor(
     private fun mapPublicSearchResult(value: PublicListingSearchResultTransport) = PublicListingCard(
         listingId = value.listingId,
         title = value.publicTitle,
-        publicAreaLabel = "Vị trí công khai",
+        publicAreaLabel = com.trooi.app.core.model.publicAreaNameFromPublishedDescription(value.publicDescription),
         publicGeoPoint = PublicGeoPoint(value.publicLocation.latitude, value.publicLocation.longitude),
         askingPriceLabel = value.publicPriceProjection,
         visibility = ListingVisibility.PUBLISHED,
         distanceMeters = value.distanceMeters,
         publicPhotoIds = value.publicPhotoIds,
+        publicDescription = value.publicDescription,
         amenities = value.publicAmenityIds.map(AmenityCatalog::label),
     )
 

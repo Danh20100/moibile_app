@@ -179,12 +179,10 @@ fun ListingDetailScreen(
                     }
                 }
                 item {
-                    DetailSectionCard("Khu vực công khai", "listing-section-location",
+                    DetailSectionCard("Bản đồ", "listing-section-location",
                         Modifier.padding(horizontal = 20.dp)) {
                         Text(fixture.card.publicAreaLabel, style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold)
-                        if (fixture.locationDescription.isNotBlank())
-                            Text(fixture.locationDescription, style = MaterialTheme.typography.bodyMedium)
                         DetailPublicLocationNote()
                         if (!preview) fixture.publicGeoPoint?.let { publicPoint ->
                             StreetMapPicker(fixture.card.publicAreaLabel, publicPoint, {}, readOnly = true)

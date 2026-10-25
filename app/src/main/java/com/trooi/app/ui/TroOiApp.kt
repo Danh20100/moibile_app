@@ -199,7 +199,6 @@ fun TroOiApp(
                         onSignUp = viewModel::signUp,
                         onGoogleRegister = { viewModel.registerWithGoogle(context) },
                         googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
-                        mockMode = state.demoPreview,
                         authInProgress = state.authInProgress,
                         initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),
                         initialPhone = debugTestCommand?.takeIf { it.route == "signup" }?.phone.orEmpty(),
@@ -233,7 +232,7 @@ fun TroOiApp(
                     AppPage.Favorites -> FavoritesPlaceholderScreen(
                         onExplore = viewModel::openDiscovery,
                     )
-                    AppPage.CoreWorkspace -> LedgerScreen(
+                    AppPage.CoreWorkspace, AppPage.OwnerDashboard -> LedgerScreen(
                         state = state,
                         onExplore = viewModel::openDiscovery,
                         onFinance = { tenancyId ->
@@ -241,11 +240,15 @@ fun TroOiApp(
                             viewModel.openTenantFinance()
                         },
                         onOperations = viewModel::openOwnerProperties,
+                        onOwnerFinance = viewModel::openOwnerFinance,
                         onSaveAsset = viewModel::saveLocalAsset,
                         onPurchaseCapacity = viewModel::purchaseLocalCapacity,
                         onArchiveAsset = viewModel::archiveLocalAsset,
                         onMessageContext = viewModel::openMessageContext,
                         onRetryRead = viewModel::retryAuthorizedRead,
+                        onTenantIncidents = viewModel::openTenantIncidents,
+                        onOwnerIncidents = viewModel::openOwnerIncidents,
+                        onNotifications = viewModel::openNotifications,
                     )
                     AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
                         viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage,
@@ -260,19 +263,21 @@ fun TroOiApp(
                         onSearch = if (RuntimeDataSource.isBackendBacked()) viewModel::searchPublicListings else null,
                     )
                     AppPage.GuestActivity -> V1GuestActivityScreen(state)
-                    is AppPage.ListingDetail -> if (state.read.publicListings.any { it.listingId == page.listingId && it.rentalDetails != null } || useFixtureDetail(page.listingId, state.read.publicListings, state.demoPreview)) {
-                        ListingDetailScreen(page.listingId, viewModel::goBack,
-                            state.read.publicListings.firstOrNull { it.listingId == page.listingId }?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }
-                                ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId),
+                    is AppPage.ListingDetail -> {
+                        val publicListing = state.read.publicListings.firstOrNull { it.listingId == page.listingId }
+                        val presentation = publicListing?.let { com.trooi.app.features.discovery.publicRentalDetail(it) }
+                            ?: com.trooi.app.features.discovery.ListingFixtures.resolve(page.listingId)
+                                .takeIf { state.demoPreview }
+                        ListingDetailScreen(
+                            listingId = page.listingId,
+                            onBack = viewModel::goBack,
+                            presentation = presentation,
                             state = state,
                             onOpenLogin = viewModel::openLogin,
                             onSubmitInquiry = viewModel::submitInquiry,
-                            onOpenReport = viewModel::openTrustReport)
-                    } else V1ListingDetailScreen(
-                        state = state, listingId = page.listingId, onBack = viewModel::goBack,
-                        onOpenLogin = viewModel::openLogin, onSubmitInquiry = viewModel::submitInquiry, onMessageContext = viewModel::openMessageContext,
-                        onOpenReport = viewModel::openTrustReport,
-                    )
+                            onOpenReport = viewModel::openTrustReport,
+                        )
+                    }
                     is AppPage.TrustReport -> TrustReportScreen(
                         state = state,
                         listingId = page.listingId,
@@ -344,13 +349,21 @@ fun TroOiApp(
                             onCompleteLandlord = viewModel::completeLocalLandlordOnboarding)
                     }
                     AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack)
-                    AppPage.OwnerDashboard -> V1OwnerDashboardScreen(state, viewModel::openSource)
                     AppPage.OwnerProperties -> if (RuntimeDataSource.isBackendBacked()) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
                         V1OperatorWorkspace(
                             state.access,
                             organizationId,
-                            entry = state.authorizedSource?.let(::operatorEntry),
+                            entry = state.authorizedSource?.let(::operatorEntry)
+                                ?: organizationId.takeIf { it.isNotBlank() }?.let { orgId ->
+                                    val properties = accessibleProperties(state.read, state.access)
+                                        .filter { it.organizationId == orgId }
+                                    if (properties.size == 1) {
+                                        OperatorRoute.Rooms(properties.single().propertyId, orgId)
+                                    } else {
+                                        OperatorRoute.Properties(orgId)
+                                    }
+                                },
                             onUnauthorized = viewModel::logout,
                                 onMessageContext = viewModel::openMessageContext,
                             onWorkspaceCreated = viewModel::refreshSessionContext,

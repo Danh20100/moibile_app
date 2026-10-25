@@ -567,7 +567,6 @@ fun SignUpScreen(
     initialEmail: String = "",
     initialPassword: String = "",
     prefillKey: Long = 0L,
-    mockMode: Boolean = false,
     authInProgress: Boolean = false,
     onGoogleRegister: () -> Unit = {},
     googleBacked: Boolean = false,
@@ -582,32 +581,18 @@ fun SignUpScreen(
     var legalDocument by remember { mutableStateOf<LegalDocumentType?>(null) }
     legalDocument?.let { LegalDocumentOverlay(it, onDismiss = { legalDocument = null }) }
     val valid = isValidSignup(fullName, phone, email, password, confirmPassword, accepted)
-    val otp = rememberContactOtpForm(email)
-
     AuthFormScaffold(
         onBack = onBack,
         title = "chào mừng thành viên mới",
         subtitle = "Tạo tài khoản để bắt đầu với TrọƠi.",
     ) {
-        if (googleBacked) {
-            Text(
-                "Đăng ký bằng Google đã xác minh email. TrọƠi sẽ không tạo tài khoản nếu email chưa được Google xác minh hoặc chưa đủ điều kiện bảo mật.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(12.dp))
-            TroOiButton(
-                text = if (authInProgress) "Đang xác minh Google…" else "Đăng ký bằng Google",
-                onClick = onGoogleRegister,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                enabled = !authInProgress,
-            )
-        } else {
         AuthTextField(fullName, { fullName = it }, "Họ và tên", Icons.Rounded.Badge)
         Spacer(Modifier.height(10.dp))
         AuthTextField(phone, { phone = it.filter { c -> c.isDigit() }.take(11) }, "Số điện thoại", Icons.Rounded.Phone, keyboardType = KeyboardType.Phone)
         Spacer(Modifier.height(10.dp))
-        EmailOtpPanel(email, mockMode, onValueChange = { email = it }, form = otp)
+        // A real email-OTP endpoint does not exist yet; never issue fixture OTPs in the Release registration flow.
+        EmailOtpPanel(email, mockMode = false, onValueChange = { email = it },
+            allowSend = false)
         Spacer(Modifier.height(10.dp))
         AuthTextField(
             password, { password = it }, "Mật khẩu (tối thiểu 8 ký tự)", Icons.Rounded.Lock,
@@ -671,12 +656,40 @@ fun SignUpScreen(
             )
         }
         Spacer(Modifier.height(10.dp))
+        if (googleBacked) {
+            Text(
+                "Đăng ký bằng email chưa khả dụng. Bạn có thể tạo tài khoản thật bằng Google bên dưới.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+        }
         TroOiButton(
             text = if (authInProgress) "Đang tạo tài khoản…" else "Tạo tài khoản",
-            onClick = { if (otp.validateOnSubmit(email, mockMode)) onSignUp(fullName, phone, email, password) },
+            onClick = { /* Reserved for verified email registration when a real provider is integrated. */ },
             modifier = Modifier.fillMaxWidth().height(52.dp),
-            enabled = valid && !authInProgress,
+            enabled = false,
         )
+        if (googleBacked) {
+            Spacer(Modifier.height(18.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                HorizontalDivider(Modifier.weight(1f))
+                Text("hoặc", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider(Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(18.dp))
+            GoogleAuthButton(
+                onClick = onGoogleRegister,
+                text = "Đăng ký bằng Google",
+                enabled = !authInProgress,
+                authInProgress = authInProgress,
+            )
+        }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Text("Đã có tài khoản? ", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
@@ -689,7 +702,6 @@ fun SignUpScreen(
                     .clickable(onClick = onLogin)
                     .heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically),
             )
-        }
         }
     }
 }

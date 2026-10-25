@@ -115,6 +115,36 @@ export class IdentitySessionService {
     return this.completeGoogle(input, 'REGISTER');
   }
 
+  /** Issue a session for an isolated local fixture; NOT a Google/KYC verification. */
+  async issueLocalDemoSession(userId: string): Promise<IdentitySessionResponse> {
+    this.requireEnabled();
+    if (process.env.TROOI_LOCAL_DEMO_AUTH !== 'true' ||
+        process.env.TROOI_DATABASE_MODE !== 'compose-postgres') {
+      throw new ServiceUnavailableException('Local demo sessions are disabled');
+    }
+    const now = new Date();
+    const accessToken = randomBytes(32).toString('base64url');
+    const refreshToken = randomBytes(32).toString('base64url');
+    const sessionId = randomUUID();
+    const createdAt = now.toISOString();
+    const absoluteExpiresAt = new Date(now.getTime() + ABSOLUTE_LIFETIME_MS).toISOString();
+    await this.transactions.run(async ({ repositories }) => {
+      if (!await repositories.identity.userExists(userId)) {
+        throw new UnauthorizedException('Local demo user does not exist');
+      }
+      await repositories.identitySessions.createSession({
+        sessionId, familyId: sessionId, userId,
+        accessTokenSha256: digest(accessToken),
+        accessExpiresAt: new Date(now.getTime() + ACCESS_LIFETIME_MS).toISOString(),
+        refreshTokenSha256: digest(refreshToken), createdAt,
+        idleExpiresAt: new Date(now.getTime() + IDLE_LIFETIME_MS).toISOString(),
+        absoluteExpiresAt, authenticatedAt: createdAt,
+      });
+    });
+    return { userId, sessionId, accessToken, refreshToken,
+      tokenType: 'Bearer', expiresInSeconds: 900, refreshExpiresAt: absoluteExpiresAt };
+  }
+
   async refresh(refreshToken: string): Promise<IdentitySessionResponse> {
     this.requireEnabled();
     if (!refreshToken?.trim()) throw new UnauthorizedException('Refresh credential is invalid');

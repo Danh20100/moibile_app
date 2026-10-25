@@ -122,7 +122,7 @@ fun ProfileScreen(
     if (onboarding) LandlordOnboardingScreen(presentation.name, { onboarding = false }, {
         onboarding = false
         onOpenWorkspace()
-    }, onCompleteLandlord)
+    }, onCompleteLandlord, backendVerification = googleOnly)
     detail?.let { title -> ProfileDetail(title, { detail = null }) {
         if (title == "Xem hồ sơ") {
             item {

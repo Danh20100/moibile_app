@@ -20,6 +20,28 @@ fun ledgerPresentation(state: TroOiUiState): LedgerPresentation {
     return LedgerPresentation(owner, false, if (owner) LedgerMode.OWNER else LedgerMode.TENANT)
 }
 
+
+/**
+ * An Organization membership alone is not an operational record. Keep the
+ * illustrated first-use state until this operator has actual managed data.
+ * Do not suppress existing properties, rooms or financial records.
+ */
+internal fun ownerLedgerHasOperationalContent(state: TroOiUiState): Boolean {
+    val access = state.access
+    val read = state.read
+    if (read.localManagement?.assets?.isNotEmpty() == true ||
+        accessibleRooms(read, access).isNotEmpty() ||
+        accessibleOperatorListings(read, access).isNotEmpty()) return true
+
+    return access.operatedOrganizationIds.any { organizationId ->
+        read.operatorFinanceByOrganization[organizationId]?.let {
+            it.charges.isNotEmpty() || it.confirmedPayments.isNotEmpty() ||
+                it.allocations.isNotEmpty() || it.deposits.isNotEmpty() ||
+                it.receipts.isNotEmpty()
+        } == true
+    }
+}
+
 val tenantLedgerSections = listOf("Tài sản đang thuê", "Khoản cần thanh toán", "Tiền cọc", "Thanh toán / xác nhận", "Sự cố", "Lịch sử")
 val ownerLedgerSections = listOf("Tổng quan vận hành", "Tài sản của tôi", "Người thuê", "Công nợ / khoản phải thu", "Sự cố", "Hoạt động gần đây")
 

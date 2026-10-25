@@ -453,7 +453,9 @@ class TroOiViewModel @Inject constructor(
         }
         _state.update { it.copy(inquiryCompletedListingId = null, inquiryCompletedId = null, inquiryError = null) }
         open(AppPage.ListingDetail(listingId))
-        if (listing.publicPhotoIds.isNotEmpty() && listing.photoUris.isEmpty()) {
+        // Discovery eagerly caches only the cover. The detail gallery must fetch every
+        // approved public image even when the cover is already available.
+        if (listing.publicPhotoIds.isNotEmpty() && listing.photoUris.size < listing.publicPhotoIds.size) {
             val generation = sessionGeneration
             viewModelScope.launch {
                 repository.loadPublicListingPhotos(listingId, listing.publicPhotoIds).fold(

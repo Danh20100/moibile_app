@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>TrọƠi — POV Prototype · Landlord & Tenant</title>
+<style>
+:root{--canvas:#EAF0E3;--paper:#FFFFFF;--surface:#DCE6D4;--selected:#D4E8D6;--primary:#235A46;--ink:#202D25;--muted:#52634F;--line:#94A58D;--warn:#7D5318;--warn-bg:#F8EDD7;--bad:#A23631;--bad-bg:#FAE7E2;--ok:#286145;--shade:rgba(32,45,37,.1)}
+*{box-sizing:border-box}body{margin:0;background:#d9dfd6;font-family:Roboto,"Noto Sans",Arial,sans-serif;color:var(--ink);font-size:14px;line-height:1.48}
+body.dark{--canvas:#171D1A;--paper:#202823;--surface:#2C352E;--selected:#314C3A;--primary:#A9D0B4;--ink:#ECEDE5;--muted:#BBC5BC;--line:#4B594E;--warn:#F3CC85;--warn-bg:#423822;--bad:#FFB6A8;--bad-bg:#4A302C;--ok:#B0D8B8;--shade:rgba(0,0,0,.15);background:#101512}
+button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid var(--warn);outline-offset:3px}button:disabled{cursor:not-allowed;opacity:.58}
+.stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;gap:30px;padding:30px}
+.phone{width:min(414px,100%);height:min(870px,calc(100vh - 60px));min-height:640px;background:var(--canvas);border:7px solid #272d28;border-radius:36px;box-shadow:0 24px 70px #18241a35;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.bar-top{height:25px;flex-shrink:0;font-size:11px;font-weight:700;display:flex;justify-content:space-between;padding:5px 24px 0;color:var(--ink)}
+.bar-top span:last-child{letter-spacing:2px}
+.app-head{padding:12px 20px 9px;display:flex;gap:10px;justify-content:space-between;align-items:center}
+.mark{width:34px;height:34px;display:grid;place-items:center;background:var(--primary);color:var(--paper);border-radius:8px 8px 14px 8px;font-size:19px;font-weight:900;flex-shrink:0}
+.brand{font-size:18px;line-height:1.2;font-weight:750}.micro{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+.scope{background:var(--selected);border:1px solid transparent;color:var(--primary);border-radius:30px;padding:7px 10px;font-size:11px;font-weight:700;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scroll{min-height:0;flex:1;overflow-y:auto;padding:8px 20px 25px;scrollbar-width:thin}
+.scroll[hidden]{display:none}.tagline{font-size:11px;font-weight:750;letter-spacing:.11em;color:var(--muted);text-transform:uppercase;margin:9px 0 7px}
+h1{font-size:25px;line-height:1.19;margin:2px 0 9px;letter-spacing:-.45px}h2{font-size:17px;line-height:1.3;margin:0}p{margin:0}small{font-size:12px;color:var(--muted)}
+.row-between{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sub{font-size:12px;color:var(--muted);margin:4px 0 0}
+.section{margin-top:23px}.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px;gap:12px}
+.link{color:var(--primary);background:transparent;border:0;padding:3px 0;font-size:12px;font-weight:800}
+.summary{background:var(--paper);border:1px solid color-mix(in srgb,var(--line) 30%,transparent);border-radius:13px;padding:17px;position:relative}
+.summary strong{font-size:31px;letter-spacing:-.9px;line-height:1.25;font-weight:800}
+.amount{font-variant-numeric:tabular-nums}.pill{font-size:11px;border-radius:30px;padding:4px 8px;background:var(--surface);color:var(--muted);font-weight:700;white-space:nowrap}
+.pill.warn{color:var(--warn);background:var(--warn-bg)}.pill.ok{color:var(--ok);background:var(--selected)}.pill.bad{color:var(--bad);background:var(--bad-bg)}
+.divide{height:1px;background:color-mix(in srgb,var(--line) 36%,transparent);margin:15px 0}
+.action{width:100%;min-height:48px;border-radius:10px;border:none;background:var(--primary);color:var(--paper);font-weight:750;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+body.dark .action{color:#163827}.secondary{background:var(--selected);color:var(--primary)}
+.item{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;border-bottom:1px solid color-mix(in srgb,var(--line) 32%,transparent);background:transparent;padding:13px 0;min-height:63px;color:var(--ink)}
+.item:last-child{border-bottom:0}.item-text{flex:1;min-width:0}.item-title{font-size:14px;font-weight:750;line-height:1.25}.item-desc{font-size:12px;color:var(--muted);margin-top:5px}.item-meta{text-align:right;min-width:62px;flex-shrink:0}.item-meta strong{display:block;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}.chev{color:var(--muted);font-size:20px}
+.dot{height:9px;width:9px;border-radius:50%;background:var(--primary);flex-shrink:0}.dot.warn{background:#aa7b29}.dot.bad{background:#b44740}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.metric{background:var(--paper);border-radius:9px;padding:10px 6px;text-align:center}.metric .n{font-size:19px;line-height:1.2;font-weight:800;font-variant-numeric:tabular-nums}.metric .l{font-size:10px;color:var(--muted);margin-top:4px;word-break:break-word}
+.record{background:var(--paper);border-radius:12px;padding:14px 15px;border:1px solid color-mix(in srgb,var(--line) 24%,transparent)}
+.record+.record{margin-top:9px}.notebox{padding:12px 13px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12px;display:flex;gap:9px;margin:14px 0}
+.empty{padding:30px 15px;background:var(--paper);border-radius:12px;text-align:center;margin-top:22px}.empty b{display:block;font-size:16px;margin:5px 0}.empty p{font-size:12px;color:var(--muted);margin:8px auto 15px;max-width:280px}
+.bottom{background:var(--paper);flex-shrink:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:9px 7px 15px;box-shadow:0 -1px 0 var(--shade)}
+.tab{min-height:52px;background:transparent;border:0;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;font-weight:700}
+.tab .ico{font-size:19px;height:24px}.tab.active{color:var(--primary)}.tab.active .ico{background:var(--selected);border-radius:50%;width:37px;height:33px;display:grid;place-items:center;margin-top:-7px}
+.tools{width:280px;background:#f7faf5;border-radius:18px;padding:22px;align-self:flex-start;box-shadow:0 10px 20px #10201215;color:#202d25}
+.tools h2{font-size:20px;margin-bottom:5px}.tools p{font-size:13px;color:#536450}.control{display:flex;gap:5px;background:#e9eee6;border-radius:10px;padding:4px;margin-top:12px}
+.control button{border:0;background:transparent;border-radius:7px;padding:9px 8px;font-size:12px;flex:1;font-weight:700;color:#4f6056}
+.control button.active{background:white;color:#235a46;box-shadow:0 2px 4px #23452815}.tool-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#52634f;margin-top:18px;font-weight:800}
+.tool-hint{font-size:12px;color:#667466;margin-top:12px;border-top:1px solid #dce6d4;padding-top:12px}
+.hidden{display:none!important}.tiny-cta{padding:5px 8px;background:var(--selected);color:var(--primary);border:0;border-radius:7px;font-size:11px;font-weight:700}
+.back{background:transparent;border:0;color:var(--primary);font-size:23px;padding:0 8px 0 0}.detail-top{display:flex;align-items:center;gap:4px;margin:6px 0 20px}.detail-panel{background:var(--paper);border-radius:12px;padding:16px}
+.detail-panel .item{cursor:default}.detail-panel .item:last-child{border-bottom:0}
+.mode-partial .mode-normal-only,.mode-empty .mode-normal-only,.mode-normal .mode-partial-only,.mode-empty .mode-partial-only,.mode-normal .mode-empty-only,.mode-partial .mode-empty-only{display:none!important}
+@media(max-width:780px){.stage{padding:0;display:block}.tools{width:auto;border-radius:0;box-shadow:none;padding:10px 14px}.tools h2,.tools>p,.tools .tool-label,.tool-hint{display:none}.tools .control{margin:0}.phone{margin:auto;border:0;border-radius:0;width:100%;height:calc(100dvh - 67px);min-height:440px;box-shadow:none}}
+.item-title,.item-desc{display:block}
+</style>
+</head>
+<body>
+<div class="stage">
+<aside class="tools" aria-label="Bảng điều khiển bản mẫu">
+<h2>TrọƠi · UX Lab</h2>
+<p>Prototype thao tác độc lập. Không kết nối backend; mọi số liệu là minh họa.</p>
+<div class="tool-label">Góc nhìn</div>
+<div class="control" id="roles">
+<button type="button" data-role="owner" class="active">Chủ trọ</button>
+<button type="button" data-role="tenant">Người thuê</button>
+</div>
+<div class="tool-label">Dữ liệu thử nghiệm</div>
+<div class="control" id="modes">
+<button type="button" data-mode="normal" class="active">Đủ</button>
+<button type="button" data-mode="partial">Thiếu</button>
+<button type="button" data-mode="empty">Trống</button>
+</div>
+<div class="tool-label">Giao diện</div>
+<div class="control" id="themes">
+<button type="button" data-theme="light" class="active">Sáng</button>
+<button type="button" data-theme="dark">Tối</button>
+</div>
+<div class="tool-hint">Thử bấm mục cần xử lý, một phòng, một khoản tiền hoặc sự cố. Nút thử không thực hiện giao dịch và không đại diện API thật. Giữ kiến trúc bốn tab hiện có.</div>
+</aside>
+<main id="app" class="phone mode-normal" aria-label="TrọƠi prototype">
+<div class="bar-top"><span>9:41</span><span>◆ ▣ ▰</span></div>
+<div class="app-head">
+<div style="display:flex;align-items:center;gap:9px"><div class="mark">Ơ</div><div><div class="brand">TrọƠi</div><div class="micro">SỔ THUÊ & VẬN HÀNH</div></div></div>
+<button type="button" class="scope" id="scope-btn">Nhà trọ An Bình ▾</button>
+</div>
+<div class="scroll" id="owner-view">
+<div class="tagline">KHÔNG GIAN CHỦ TRỌ</div>
+<h1>Việc cần xử lý<br>hôm nay.</h1>
+<p class="sub">Theo dõi tình trạng phòng và các khoản cần giải quyết.</p>
+<div class="mode-normal-only">
+<div class="section">
+<div class="section-head"><h2>Cần chú ý <span class="pill warn">3 việc</span></h2><button class="link" data-detail="Việc cần xử lý">Xem tất cả →</button></div>
+<button class="item" data-detail="Khoản phải thu · Phòng 203"><span class="dot warn"></span><span class="item-text"><span class="item-title">Phòng 203 · Khoản phải thu</span><span class="item-desc">Kỳ 10/2026 · Còn cần đối chiếu</span></span><span class="item-meta"><strong>1.800.000 ₫</strong><span class="chev">›</span></span></button>
+<button class="item" data-detail="Sự cố · Phòng 105"><span class="dot bad"></span><span class="item-text"><span class="item-title">Phòng 105 · Vòi nước rò</span><span class="item-desc">Sự cố đang xử lý · 22/10</span></span><span class="item-meta"><span class="pill bad">Đang xử lý</span></span></button>
+<button class="item" data-detail="Kỳ thu · Phòng 201"><span class="dot warn"></span><span class="item-text"><span class="item-title">Phòng 201 · Sắp đến kỳ thu</span><span class="item-desc">Kỳ 11/2026 · Cần kiểm tra</span></span><span class="item-meta"><span class="chev">›</span></span></button>
+</div>
+<div class="section">
+<div class="section-head"><h2>Phòng đang quản lý</h2><button class="link" data-detail="Danh sách phòng">Xem phòng →</button></div>
+<div class="grid"><div class="metric"><div class="n">8</div><div class="l">Có người thuê</div></div><div class="metric"><div class="n">3</div><div class="l">Trống</div></div><div class="metric"><div class="n">1</div><div class="l">Bảo trì</div></div><div class="metric"><div class="n">0</div><div class="l">Ngừng dùng</div></div></div>
+</div>
+<div class="section">
+<div class="section-head"><h2>Phòng gần đây</h2><button class="link" data-detail="Danh sách phòng">Danh sách →</button></div>
+<button class="item" data-detail="Chi tiết phòng 203"><span class="item-text"><span class="item-title">Phòng 203</span><span class="item-desc">Tầng 2 · Có người thuê</span></span><span class="chev">›</span></button>
+<button class="item" data-detail="Chi tiết phòng 105"><span class="item-text"><span class="item-title">Phòng 105</span><span class="item-desc">Tầng 1 · Có sự cố cần xử lý</span></span><span class="chev">›</span></button>
+</div>
+</div>
+<div class="mode-partial-only"><div class="notebox">⚠ Một số dữ liệu công nợ không tải được. Các khoản hiển thị không đủ để xác định tổng phải thu.</div><div class="section"><h2>Phòng đang quản lý</h2><div class="grid" style="margin-top:12px"><div class="metric"><div class="n">8</div><div class="l">Có người thuê</div></div><div class="metric"><div class="n">3</div><div class="l">Trống</div></div><div class="metric"><div class="n">1</div><div class="l">Bảo trì</div></div><div class="metric"><div class="n">0</div><div class="l">Ngừng dùng</div></div></div></div><div class="section"><button class="action secondary" data-detail="Kiểm tra kết nối">Kiểm tra và tải lại</button></div></div>
+<div class="mode-empty-only"><div class="empty"><div style="font-size:30px">⌂</div><b>Chưa có phòng quản lý</b><p>Hiện không có phòng nào trong không gian này. Chỉ hiển thị thao tác tạo phòng khi tài khoản có quyền.</p><button class="action" data-detail="Thêm phòng">Thêm phòng</button></div></div>
+</div>
+<div class="scroll" id="tenant-view" hidden>
+<div class="tagline">SỔ THUÊ CÁ NHÂN</div>
+<h1>Sổ thuê của tôi.</h1>
+<p class="sub">Một nơi để xem căn phòng, thanh toán và lịch sử thuê.</p>
+<div class="mode-normal-only">
+<div class="section"><div class="summary">
+<div class="row-between"><span class="micro">NHÀ CỦA TÔI</span><span class="pill ok">Đang thuê</span></div>
+<h2 style="font-size:21px;margin:8px 0 3px">Phòng 203</h2>
+<div class="sub">Nhà trọ An Bình · Tầng 2</div>
+<div class="divide"></div>
+<div class="row-between"><small>Thời hạn thuê</small><strong style="font-size:12px">01/09/2026 – 31/08/2027</strong></div>
+<button type="button" class="link" data-detail="Chi tiết lượt thuê" style="margin-top:8px">Xem lượt thuê →</button>
+</div></div>
+<div class="section">
+<div class="section-head"><h2>Kỳ thanh toán hiện tại</h2><span class="pill warn">Cần thanh toán</span></div>
+<div class="summary">
+<span class="micro">CÒN CẦN THANH TOÁN · KỲ 10/2026</span>
+<div style="margin:6px 0 3px"><strong class="amount">1.800.000 ₫</strong></div>
+<div class="sub">Hạn dự kiến: 05/11/2026 · Dữ liệu minh họa</div>
+<div class="divide"></div>
+<button class="action" data-detail="Chi tiết khoản cần thanh toán">Xem khoản cần thanh toán →</button>
+</div>
+</div>
+<div class="section">
+<div class="section-head"><h2>Sổ của tôi</h2></div>
+<button class="item" data-detail="Tiền cọc"><span class="item-text"><span class="item-title">Tiền cọc</span><span class="item-desc">Đang giữ: 2.000.000 ₫ · Minh họa</span></span><span class="chev">›</span></button>
+<button class="item" data-detail="Điều khoản thuê"><span class="item-text"><span class="item-title">Điều khoản thuê</span><span class="item-desc">Xem phiên bản điều khoản của lượt thuê</span></span><span class="chev">›</span></button>
+<button class="item" data-detail="Theo dõi sự cố"><span class="item-text"><span class="item-title">Theo dõi sự cố</span><span class="item-desc">1 sự cố đang xử lý</span></span><span class="chev">›</span></button>
+<button class="item" data-detail="Thanh toán và biên nhận"><span class="item-text"><span class="item-title">Thanh toán & biên nhận</span><span class="item-desc">Xem khoản tiền được xác nhận và chứng từ</span></span><span class="chev">›</span></button>
+<button class="item" data-detail="Lịch sử thuê"><span class="item-text"><span class="item-title">Lịch sử thuê</span><span class="item-desc">Thông báo, thay đổi và các lượt thuê trước</span></span><span class="chev">›</span></button>
+</div>
+</div>
+<div class="mode-partial-only">
+<div class="section"><div class="summary"><span class="micro">NHÀ CỦA TÔI</span><h2 style="font-size:22px;margin:8px 0 3px">Phòng 203</h2><span class="pill ok">Đang thuê</span></div></div>
+<div class="section"><div class="summary"><span class="micro">KỲ THANH TOÁN HIỆN TẠI</span><h2 style="margin:9px 0">Chưa đủ dữ liệu để xác định khoản còn phải trả</h2><p class="sub">Không thể tải khoản thu. Đây không phải trạng thái đã thanh toán.</p><button class="action secondary" style="margin-top:13px" data-detail="Thử lại dữ liệu tài chính">Tải lại dữ liệu</button></div></div>
+</div>
+<div class="mode-empty-only"><div class="empty"><div style="font-size:30px">▤</div><b>Chưa có lượt thuê liên kết</b><p>Bạn chỉ xem được sổ thuê khi một lượt thuê đã được liên kết với tài khoản. Có thể tìm phòng tại Khám phá.</p><button class="action secondary" id="go-discover">Khám phá phòng</button></div></div>
+</div>
+<div class="scroll" id="detail-view" hidden>
+<div class="detail-top"><button class="back" id="back" aria-label="Quay lại">←</button><div><div class="tagline" style="margin:0">BẢN GHI CHI TIẾT · MINH HỌA</div><h2 id="detail-title" style="margin-top:3px">Chi tiết</h2></div></div>
+<div class="detail-panel">
+<p id="detail-context" class="sub">Bản mẫu minh họa cấu trúc, chưa có kết nối dữ liệu.</p>
+<div class="divide"></div>
+<div class="item"><span class="item-text"><span class="item-title">Ngữ cảnh</span><span class="item-desc" id="detail-scope">Tài sản và lượt thuê hiện tại</span></span></div>
+<div class="item"><span class="item-text"><span class="item-title">Nguồn dữ liệu</span><span class="item-desc">Chỉ bản ghi được backend xác thực mới có giá trị nghiệp vụ</span></span></div>
+<div class="item"><span class="item-text"><span class="item-title">Trạng thái</span><span class="item-desc">Bản mẫu — chưa phát sinh hành động thật</span></span><span class="pill warn">DEMO</span></div>
+</div>
+<div class="notebox">Không thể thanh toán, xác nhận khoản thu, phát hành biên nhận hoặc cập nhật sự cố trong prototype này.</div>
+<button class="action secondary" id="back-second">Quay lại Sổ</button>
+</div>
+<div class="scroll" id="placeholder-view" hidden><div class="empty"><div style="font-size:30px">◈</div><b id="placeholder-title">Đang thiết kế</b><p>Phần này nằm ngoài phạm vi prototype Landlord và Tenant Sổ. Không đại diện chức năng backend.</p><button class="action secondary" id="placeholder-back">Trở về Sổ</button></div></div>
+<nav class="bottom" aria-label="Điều hướng chính">
+<button type="button" class="tab" data-tab="discovery"><span class="ico">⌕</span><span>Khám phá</span></button>
+<button type="button" class="tab active" data-tab="book"><span class="ico">▤</span><span>Sổ</span></button>
+<button type="button" class="tab" data-tab="messages"><span class="ico">☏</span><span>Tin nhắn</span></button>
+<button type="button" class="tab" data-tab="profile"><span class="ico">◯</span><span>Hồ sơ</span></button>
+</nav>
+</main>
+</div>
+<script>
+(function(){
+"use strict";
+var role=new URLSearchParams(window.location.search).get("role")==="tenant"?"tenant":"owner",mode="normal",theme="light",activeTab="book";
+var app=document.getElementById("app"),owner=document.getElementById("owner-view"),tenant=document.getElementById("tenant-view");
+var detail=document.getElementById("detail-view"),placeholder=document.getElementById("placeholder-view");
+function select(selector,key,value){document.querySelectorAll(selector+" button").forEach(function(b){b.classList.toggle("active",b.dataset[key]===value);});}
+function home(){detail.hidden=true;placeholder.hidden=true;owner.hidden=role!=="owner";tenant.hidden=role!=="tenant";document.getElementById("scope-btn").textContent=role==="owner"?"Nhà trọ An Bình ▾":"Phòng 203 · Đang thuê ▾";app.querySelectorAll(".scroll").forEach(function(el){el.scrollTop=0;});}
+function openDetail(title){activeTab="book";updateTabs();owner.hidden=true;tenant.hidden=true;placeholder.hidden=true;detail.hidden=false;document.getElementById("detail-title").textContent=title;document.getElementById("detail-scope").textContent=role==="owner"?"Nhà trọ An Bình · Phòng / Organization":"Phòng 203 · Lượt thuê hiện tại";detail.scrollTop=0;}
+function updateTabs(){document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("active",b.dataset.tab===activeTab);});}
+function tab(name){activeTab=name;updateTabs();if(name==="book"){home();return;}owner.hidden=true;tenant.hidden=true;detail.hidden=true;placeholder.hidden=false;document.getElementById("placeholder-title").textContent=name==="discovery"?"Khám phá":name==="messages"?"Tin nhắn":"Hồ sơ";}
+document.getElementById("roles").addEventListener("click",function(e){var b=e.target.closest("[data-role]");if(!b)return;role=b.dataset.role;select("#roles","role",role);activeTab="book";updateTabs();home();});
+document.getElementById("modes").addEventListener("click",function(e){var b=e.target.closest("[data-mode]");if(!b)return;mode=b.dataset.mode;app.classList.remove("mode-normal","mode-partial","mode-empty");app.classList.add("mode-"+mode);select("#modes","mode",mode);activeTab="book";updateTabs();home();});
+document.getElementById("themes").addEventListener("click",function(e){var b=e.target.closest("[data-theme]");if(!b)return;theme=b.dataset.theme;document.body.classList.toggle("dark",theme==="dark");select("#themes","theme",theme);});
+document.getElementById("scope-btn").addEventListener("click",function(){openDetail(role==="owner"?"Đổi phạm vi vận hành":"Đổi lượt thuê");});
+document.querySelectorAll("[data-detail]").forEach(function(el){el.addEventListener("click",function(){openDetail(el.dataset.detail);});});
+document.querySelectorAll("[data-tab]").forEach(function(el){el.addEventListener("click",function(){tab(el.dataset.tab);});});
+["back","back-second","placeholder-back"].forEach(function(id){document.getElementById(id).addEventListener("click",function(){tab("book");});});
+document.getElementById("go-discover").addEventListener("click",function(){tab("discovery");});
+window.addEventListener("keydown",function(e){if(e.key==="Escape"&&!detail.hidden)tab("book");});
+select("#roles","role",role);
+home();
+})();
+</script>
+</body>
+</html>

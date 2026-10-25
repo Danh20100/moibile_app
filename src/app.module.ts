@@ -9,6 +9,7 @@ import { BillingModule } from './modules/billing';
 import { DashboardModule } from './modules/dashboard';
 import { HistoryModule } from './modules/history';
 import { IdentityAccessModule } from './modules/identity-access';
+import { IdentityVerificationModule } from './modules/identity-verification/identity-verification.module';
 import { IncidentModule } from './modules/incident';
 import { ListingModule } from './modules/listing';
 import { OrganizationModule } from './modules/organization';
@@ -33,6 +34,7 @@ import { PaymentGatewayModule } from './modules/payment-gateway';
     HistoryModule,
     ReceiptModule,
     IdentityAccessModule,
+    IdentityVerificationModule,
     IncidentModule,
     ListingModule,
     RentalLifecycleModule,

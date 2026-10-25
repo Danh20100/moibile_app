@@ -3,7 +3,7 @@ export interface UserReference {
 }
 
 export interface VerifiedPrincipal extends UserReference {
-  provider: 'google';
+  provider: 'google' | 'local_demo';
   issuer: string;
   subject: string;
   email?: string;

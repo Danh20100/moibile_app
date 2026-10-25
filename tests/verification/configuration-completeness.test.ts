@@ -91,6 +91,10 @@ test('local PostgreSQL URL handles reserved password characters', () => {
   assert.equal(parsed.hostname, 'postgres');
   assert.equal(decodeURIComponent(parsed.password), password);
   assert.equal(parsed.pathname, '/trooi_dev');
+  const shared = new URL(runtime.databaseUrlForCompose({
+    POSTGRES_USER: 'trooi', POSTGRES_PASSWORD: password, POSTGRES_DB: 'tro-oi',
+  }));
+  assert.equal(shared.pathname, '/tro-oi');
   assert.throws(() => runtime.databaseUrlForCompose({
     POSTGRES_USER: 'trooi', POSTGRES_PASSWORD: '', POSTGRES_DB: 'trooi_dev',
   }));

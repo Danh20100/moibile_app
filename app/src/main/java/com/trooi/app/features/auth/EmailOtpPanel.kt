@@ -53,14 +53,14 @@ fun rememberContactOtpForm(contact: String): ContactOtpForm = rememberSaveable(s
 
 @Composable
 fun EmailOtpPanel(email: String, mockMode: Boolean, onValueChange: (String) -> Unit = {}, phone: Boolean = false,
-    form: ContactOtpForm = rememberContactOtpForm(email)) {
+    form: ContactOtpForm = rememberContactOtpForm(email), allowSend: Boolean = true) {
     val state = form.state
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     val contactFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val mock = mockMode && MockEmailOtp.available
+    val mock = allowSend && mockMode && MockEmailOtp.available
     val valid = if (phone) !email.contains('@') && isValidIdentifier(email) else isValidEmail(email)
     LaunchedEffect(email, mock) { form.change(email); if (!mock) { form.state = EmailOtpState(email.trim()); form.code = "" } }
     LaunchedEffect(Unit) {
@@ -101,7 +101,7 @@ fun EmailOtpPanel(email: String, mockMode: Boolean, onValueChange: (String) -> U
             isError = state.expiresAt == 0L && state.error.isNotEmpty(),
             supportingText = { if (state.expiresAt == 0L && state.error.isNotEmpty()) Text(state.error) },
             trailingIcon = { TroOiButton(if (state.status == EmailOtpStatus.SENDING) "Đang gửi" else "Gửi mã", ::send,
-                enabled = valid && state.expiresAt == 0L && state.status != EmailOtpStatus.SENDING,
+                enabled = allowSend && valid && state.expiresAt == 0L && state.status != EmailOtpStatus.SENDING,
                 modifier = Modifier.testTag("otp-send"), style = TroOiButtonStyle.TERTIARY) })
         if (state.status == EmailOtpStatus.SENDING) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.expiresAt > 0L) {

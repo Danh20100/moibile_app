@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -24,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.*
@@ -44,10 +47,11 @@ import java.time.format.DateTimeFormatter
 import java.time.format.ResolverStyle
 
 /**
- * Three-step identity-assisted operator setup:
- *   1. Scan ID (OCR on device, no server-side verification claim)
- *   2. Review/correct prefilled information
- *   3. Contact details and submit
+ * Four-step identity-assisted operator setup:
+ *   1. Capture ID front and run OCR, 2. Capture ID back,
+ *   3. Review/correct OCR, 4. selfie with backend auto-check
+ *   (or contact details in isolated demo mode).
+ * Scanning is a visual guide, not government document authenticity verification.
  * Organization and first asset are managed in Operator Workspace after setup.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,6 +61,7 @@ internal fun LandlordOnboardingScreen(
     onDismiss: () -> Unit,
     onFinish: () -> Unit,
     onComplete: suspend (LocalLandlordApplication) -> Result<Unit>,
+    backendVerification: Boolean = false,
 ) {
     var step by remember { mutableIntStateOf(0) }
     var fullName by remember { mutableStateOf("") }
@@ -65,9 +70,11 @@ internal fun LandlordOnboardingScreen(
     var email by remember { mutableStateOf("") }
     var cardFront by remember { mutableStateOf<Bitmap?>(null) }
     var cardBack by remember { mutableStateOf<Bitmap?>(null) }
+    var selfie by remember { mutableStateOf<Bitmap?>(null) }
     var cardReviewed by remember { mutableStateOf(false) }
     var contactConfirmed by remember { mutableStateOf(false) }
     var termsAccepted by remember { mutableStateOf(false) }
+    val kycModel: AutoKycViewModel? = if (backendVerification) androidx.hilt.navigation.compose.hiltViewModel(key = "landlord-kyc") else null
     var scanning by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -82,6 +89,7 @@ internal fun LandlordOnboardingScreen(
 
     fun acceptBitmap(bitmap: Bitmap) {
         val side = picking
+        if (side == "selfie") { selfie = bitmap; return }
         if (side == "front") cardFront = bitmap else cardBack = bitmap
         cardReviewed = false
         scope.launch {
@@ -119,40 +127,70 @@ internal fun LandlordOnboardingScreen(
     val phoneValid = phone.replace(" ", "").matches(Regex("(0|\\+84)\\d{9,10}"))
     val emailValid = email.trim().matches(Regex("[^\\s@]+@[^\\s@]+\\.[^\\s@]+"))
     val canProceed = when (step) {
-        1 -> cardFront != null && cardBack != null && !scanning && !busy
-        2 -> nameValid && birthValid && cardReviewed && !busy
-        3 -> phoneValid && emailValid && contactConfirmed && termsAccepted && !busy
+        1 -> cardFront != null && !scanning && !busy
+        2 -> cardBack != null && !scanning && !busy
+        3 -> nameValid && birthValid && cardReviewed && !busy
+        4 -> if (backendVerification) selfie != null && termsAccepted && !busy
+             else phoneValid && emailValid && contactConfirmed && termsAccepted && !busy
         else -> true
     }
 
-    val titles = listOf("Trở thành chủ trọ", "Quét căn cước công dân", "Kiểm tra thông tin", "Thông tin liên hệ", "Sẵn sàng quản lý")
+    val titles = listOf(
+        "Trở thành chủ trọ",
+        "Quét mặt trước CCCD",
+        "Quét mặt sau CCCD",
+        "Kiểm tra thông tin",
+        if (backendVerification) "Selfie và đối chiếu khuôn mặt" else "Thông tin liên hệ",
+        "Sẵn sàng quản lý",
+    )
     LaunchedEffect(step) { scroll.scrollToItem(0); error = null }
 
     fun advance() {
         focus.clearFocus()
         keyboard?.hide()
         when (step) {
-            0, 1, 2 -> step++
-            3 -> scope.launch {
+            0, 1, 2, 3 -> step++
+            4 -> scope.launch {
                 busy = true
-                val application = LocalLandlordApplication(
-                    fullName = fullName.trim(),
-                    birthDate = requireNotNull(birthday).toString(),
-                    phone = phone.trim(),
-                    email = email.trim(),
-                    identityDetailsReviewed = cardReviewed,
-                    contactConfirmed = contactConfirmed,
-                    termsAccepted = termsAccepted,
-                    firstAsset = null,
-                    publish = false,
-                )
-                onComplete(application).onSuccess {
-                    cardFront = null
-                    cardBack = null
-                    step = 4
-                }.onFailure {
-                    error = it.message?.takeIf(String::isNotBlank)
-                        ?: "Không thể hoàn tất hồ sơ. Vui lòng thử lại."
+                if (backendVerification) {
+                    val result = runCatching {
+                        val photos = withContext(Dispatchers.Default) {
+                            listOf(
+                                encodeKycBitmap(requireNotNull(cardFront)),
+                                encodeKycBitmap(requireNotNull(cardBack)),
+                                encodeKycBitmap(requireNotNull(selfie)),
+                            )
+                        }
+                        requireNotNull(kycModel).verifyForOnboarding(photos[0], photos[1], photos[2]).getOrThrow()
+                    }
+                    result.onSuccess {
+                        cardFront = null
+                        cardBack = null
+                        selfie = null
+                        step = 5
+                    }.onFailure {
+                        error = it.message ?: "Chưa thể kiểm tra khuôn mặt. Hãy thử lại."
+                    }
+                } else {
+                    val application = LocalLandlordApplication(
+                        fullName = fullName.trim(),
+                        birthDate = requireNotNull(birthday).toString(),
+                        phone = phone.trim(),
+                        email = email.trim(),
+                        identityDetailsReviewed = cardReviewed,
+                        contactConfirmed = contactConfirmed,
+                        termsAccepted = termsAccepted,
+                        firstAsset = null,
+                        publish = false,
+                    )
+                    onComplete(application).onSuccess {
+                        cardFront = null
+                        cardBack = null
+                        step = 5
+                    }.onFailure {
+                        error = it.message?.takeIf(String::isNotBlank)
+                            ?: "Không thể hoàn tất hồ sơ. Vui lòng thử lại."
+                    }
                 }
                 busy = false
             }
@@ -166,7 +204,7 @@ internal fun LandlordOnboardingScreen(
     ) {
         BackHandler {
             if (!busy && !scanning) {
-                if (step == 4) onFinish()
+                if (step == 5) onFinish()
                 else if (step > 0) step--
                 else exitReview = true
             }
@@ -176,11 +214,11 @@ internal fun LandlordOnboardingScreen(
             contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 TroOiPageTopAppBar(
-                    title = { Text(if (step in 1..3) "Bước $step / 3" else "Trở thành chủ trọ") },
+                    title = { Text(if (step in 1..4) "Bước $step / 4" else "Trở thành chủ trọ") },
                     navigationIcon = {
                         IconButton(
                             onClick = {
-                                if (step == 4) onFinish()
+                                if (step == 5) onFinish()
                                 else if (step > 0) step--
                                 else exitReview = true
                             },
@@ -188,13 +226,18 @@ internal fun LandlordOnboardingScreen(
                         ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Quay lại") }
                     },
                     actions = {
-                        if (step != 4) TroOiButton("Đóng", { exitReview = true },
+                        if (step != 5) TroOiButton("Đóng", { exitReview = true },
                             enabled = !busy && !scanning, style = TroOiButtonStyle.TERTIARY)
                     },
                 )
             },
             bottomBar = {
-                Surface(shadowElevation = 2.dp) {
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.testTag("onboarding-footer"),
+                ) {
                     Column(
                         Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -203,8 +246,8 @@ internal fun LandlordOnboardingScreen(
                         TroOiButton(
                             text = when (step) {
                                 0 -> "Bắt đầu"
-                                3 -> "Hoàn tất hồ sơ"
-                                4 -> "Vào không gian quản lý"
+                                4 -> if (backendVerification) "Kiểm tra khuôn mặt" else "Hoàn tất hồ sơ"
+                                5 -> "Vào không gian quản lý"
                                 else -> "Tiếp tục"
                             },
                             onClick = ::advance,
@@ -223,8 +266,8 @@ internal fun LandlordOnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 item {
-                    if (step in 1..3) {
-                        LinearProgressIndicator(progress = { step / 3f }, modifier = Modifier.fillMaxWidth())
+                    if (step in 1..4) {
+                        LinearProgressIndicator(progress = { step / 4f }, modifier = Modifier.fillMaxWidth())
                         Spacer(Modifier.height(24.dp))
                     }
                     Text(titles[step], style = MaterialTheme.typography.headlineMedium,
@@ -246,11 +289,16 @@ internal fun LandlordOnboardingScreen(
                     }
                     1 -> {
                         item {
-                            Text("Chụp hai mặt CCCD hoặc chọn ảnh từ thiết bị. Thông tin đọc được sẽ được điền vào biểu mẫu để bạn kiểm tra.",
-                                style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "Đặt mặt trước CCCD trong khung hướng dẫn. Chụp đủ bốn góc, rõ ảnh chân dung, họ tên và ngày sinh.",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                         item {
-                            ScanPhotoTile("Mặt trước CCCD", cardFront, busy || scanning,
+                            IdentityCardGuide(
+                                front = true,
+                                bitmap = cardFront,
+                                busy = busy || scanning,
                                 onPick = {
                                     picking = "front"
                                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -262,8 +310,27 @@ internal fun LandlordOnboardingScreen(
                                 tag = "onboarding-id-front",
                             )
                         }
+                        if (scanning) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
                         item {
-                            ScanPhotoTile("Mặt sau CCCD", cardBack, busy || scanning,
+                            Text(
+                                "Khung chỉ giúp định hướng ảnh; OCR hỗ trợ nhập liệu, không xác thực tính thật giả của CCCD.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    2 -> {
+                        item {
+                            Text(
+                                "Lật CCCD sang mặt sau, giữ giấy tờ ngang và đặt đủ bốn góc trong khung. Tránh phản chiếu ánh sáng.",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        item {
+                            IdentityCardGuide(
+                                front = false,
+                                bitmap = cardBack,
+                                busy = busy || scanning,
                                 onPick = {
                                     picking = "back"
                                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -277,38 +344,43 @@ internal fun LandlordOnboardingScreen(
                         }
                         if (scanning) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
                         item {
-                            Text("Ảnh chỉ được xử lý để hỗ trợ nhập thông tin. Kết quả quét không phải xác nhận danh tính.",
+                            Text(
+                                "Mặt sau không thay thế bước so khớp selfie. Không cần đăng lại ảnh mặt trước.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
-                    2 -> {
-                        item {
-                            Text("Kiểm tra họ tên và ngày sinh. Bạn có thể chỉnh sửa nếu ảnh được đọc chưa chính xác.",
-                                style = MaterialTheme.typography.bodyMedium)
-                        }
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                                OnboardingField("Họ và tên", fullName, "onboarding-name") {
-                                    fullName = it
-                                    cardReviewed = false
-                                }
-                                OnboardingField("Ngày sinh · dd/MM/yyyy", birthDate, "onboarding-birthday") {
-                                    birthDate = it
-                                    cardReviewed = false
-                                }
-                                if (birthDate.isNotBlank() && !birthValid) {
-                                    Text("Vui lòng kiểm tra lại ngày sinh.",
-                                        color = MaterialTheme.colorScheme.error)
-                                }
-                                OnboardingCheck("Tôi đã kiểm tra họ tên và ngày sinh đã nhập.",
-                                    cardReviewed, "onboarding-identity-accept", nameValid && birthValid) {
-                                    cardReviewed = it
-                                }
+                    4 -> {
+                        if (backendVerification) {
+                            item {
+                                Text("Bước cuối: Chụp selfie để so khớp khuôn mặt với ảnh mặt trước CCCD.",
+                                    style = MaterialTheme.typography.bodyMedium)
+                                Spacer(Modifier.height(8.dp))
+                                Text("Kết quả chỉ đánh giá tương đồng khuôn mặt; không xác minh CCCD thật hay phát hiện ảnh giả.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall)
                             }
-                        }
-                    }
-                    3 -> {
+                            item {
+                                ScanPhotoTile("Ảnh selfie", selfie, busy || scanning,
+                                    onPick = {
+                                        picking = "selfie"
+                                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    },
+                                    onCamera = {
+                                        picking = "selfie"
+                                        camera.launch(null)
+                                    },
+                                    tag = "onboarding-selfie",
+                                )
+                            }
+                            item {
+                                OnboardingCheck(
+                                    "Tôi đồng ý gửi tạm thời ảnh CCCD và selfie lên backend để so khớp. Ảnh không được lưu vào PostgreSQL.",
+                                    termsAccepted, "onboarding-kyc-consent",
+                                ) { termsAccepted = it }
+                            }
+                        } else {
                         item {
                             Text("Cung cấp thông tin để người thuê có thể liên hệ với bạn.",
                                 style = MaterialTheme.typography.bodyMedium)
@@ -333,14 +405,15 @@ internal fun LandlordOnboardingScreen(
                                 }
                             }
                         }
+                        }
                     }
-                    4 -> item {
+                    5 -> item {
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Icon(Icons.Rounded.CheckCircle, null, Modifier.size(54.dp),
                                 tint = MaterialTheme.colorScheme.primary)
-                            Text("Hồ sơ chủ trọ đã sẵn sàng.",
+                            Text(if (backendVerification) "Đã đạt kiểm tra tương đồng khuôn mặt." else "Hồ sơ chủ trọ đã sẵn sàng.",
                                 style = MaterialTheme.typography.titleLarge)
-                            Text("Bạn có thể tạo khu nhà và thêm phòng đầu tiên trong không gian quản lý.")
+                            Text(if (backendVerification) "Đây chưa phải xác minh CCCD chính thức. Bạn có thể mở không gian vận hành để tạo khu trọ bằng API thật." else "Bạn có thể tạo khu nhà và thêm phòng đầu tiên trong không gian quản lý.")
                         }
                     }
                 }
@@ -353,6 +426,7 @@ internal fun LandlordOnboardingScreen(
             confirmButton = { TroOiButton("Đóng đăng ký", {
                 cardFront = null
                 cardBack = null
+                selfie = null
                 onDismiss()
             }, style = TroOiButtonStyle.DESTRUCTIVE) },
             dismissButton = { TroOiButton("Tiếp tục đăng ký", { exitReview = false },
@@ -371,6 +445,140 @@ private fun FeatureSummary(icon: androidx.compose.ui.graphics.vector.ImageVector
                 Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(description, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/**
+ * Static orientation aid for the *screen*, not a live-camera overlay.
+ * Front illustration highlights the portrait; back illustration highlights the reverse.
+ */
+@Composable
+private fun IdentityCardGuide(
+    front: Boolean,
+    bitmap: Bitmap?,
+    busy: Boolean,
+    onPick: () -> Unit,
+    onCamera: () -> Unit,
+    tag: String,
+) {
+    val cardShape = RoundedCornerShape(18.dp)
+    val primary = MaterialTheme.colorScheme.primary
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth().testTag("onboarding-guide-" + if (front) "front" else "back"),
+    ) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(if (front) "MẶT TRƯỚC" else "MẶT SAU",
+                color = primary, style = MaterialTheme.typography.labelLarge)
+            Box(
+                modifier = Modifier.fillMaxWidth().aspectRatio(1.586f)
+                    .clip(cardShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .5f))
+                    .border(1.5.dp, primary.copy(alpha = .7f), cardShape)
+                    .testTag(if (front) "onboarding-card-frame-front" else "onboarding-card-frame-back"),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap.asImageBitmap(),
+                        contentDescription = if (front) "Ảnh mặt trước CCCD đã chọn" else "Ảnh mặt sau CCCD đã chọn",
+                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        contentScale = ContentScale.Fit,
+                    )
+                } else {
+                    Column(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("CCCD  •  MINH HỌA",
+                            color = primary, style = MaterialTheme.typography.labelSmall)
+                        if (front) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Surface(
+                                    color = primary.copy(alpha = .12f),
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Person,
+                                        "Vùng ảnh chân dung ở mặt trước",
+                                        Modifier.size(72.dp).padding(12.dp),
+                                        tint = primary,
+                                    )
+                                }
+                                Column(
+                                    Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                                ) {
+                                    Text("ẢNH CHÂN DUNG", style = MaterialTheme.typography.labelSmall, color = primary)
+                                    Text("HỌ TÊN  •  NGÀY SINH",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = muted)
+                                    HorizontalDivider(color = primary.copy(alpha = .25f))
+                                    HorizontalDivider(color = primary.copy(alpha = .25f))
+                                }
+                            }
+                        } else {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Surface(
+                                    color = primary.copy(alpha = .12f),
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.QrCode2,
+                                        "Minh họa vùng mã trên mặt sau",
+                                        Modifier.size(72.dp).padding(12.dp),
+                                        tint = primary,
+                                    )
+                                }
+                                Column(
+                                    Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(7.dp),
+                                ) {
+                                    Text("MÃ / THÔNG TIN MẶT SAU",
+                                        style = MaterialTheme.typography.labelSmall, color = primary)
+                                    HorizontalDivider(color = primary.copy(alpha = .25f))
+                                    HorizontalDivider(color = primary.copy(alpha = .25f))
+                                    HorizontalDivider(color = primary.copy(alpha = .25f))
+                                }
+                            }
+                        }
+                        Text("Đặt đủ 4 góc của thẻ trong khung",
+                            style = MaterialTheme.typography.labelSmall, color = muted)
+                    }
+                }
+            }
+            Text(if (bitmap == null) "Đủ sáng • Không lóa • Không mất góc"
+                 else "Ảnh đã chọn • Kiểm tra độ rõ nét trước khi tiếp tục",
+                style = MaterialTheme.typography.bodySmall, color = muted)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                TroOiButton(
+                    "Chụp ảnh", onCamera,
+                    Modifier.weight(1f).testTag("$tag-camera"),
+                    enabled = !busy,
+                )
+                TroOiButton(
+                    if (bitmap == null) "Chọn ảnh" else "Đổi ảnh",
+                    onPick,
+                    Modifier.weight(1f).testTag(tag),
+                    enabled = !busy,
+                    style = TroOiButtonStyle.SECONDARY,
+                )
             }
         }
     }
@@ -453,5 +661,14 @@ private fun OnboardingCheck(
     ) {
         Checkbox(checked, null, enabled = enabled)
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Bound transient JPEG memory before passing images to the authenticated API. */
+private fun encodeKycBitmap(bitmap: Bitmap): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    require(bitmap.compress(Bitmap.CompressFormat.JPEG, 80, output)) { "Không chuyển được ảnh sang JPEG." }
+    return output.toByteArray().also {
+        require(it.size in 100..1_500_000) { "Ảnh quá lớn. Hãy thử ảnh nhỏ hơn 1,5 MB." }
     }
 }

@@ -4,6 +4,10 @@ export async function runMigrations(
   direction: 'up' | 'down',
   databaseUrl: string,
 ): Promise<void> {
+  const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.replace(/^\//, ''));
+  if (direction === 'down' && databaseName === 'tro-oi') {
+    throw new Error('Refusing migration rollback on shared tro-oi database');
+  }
   const { runner } = await import('node-pg-migrate');
   await runner({
     databaseUrl,

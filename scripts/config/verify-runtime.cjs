@@ -6,7 +6,7 @@ function databaseUrlForCompose(env) {
   const password = env.POSTGRES_PASSWORD || '';
   const name = env.POSTGRES_DB || '';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(user) ||
-      !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) ||
+      !/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(name) ||
       !password.trim()) {
     throw new Error('Missing or invalid local PostgreSQL configuration');
   }

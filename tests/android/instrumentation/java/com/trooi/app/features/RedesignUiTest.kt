@@ -93,8 +93,11 @@ class RedesignUiTest {
         compose.onNodeWithText("CHẾ ĐỘ DEMO").assertDoesNotExist()
         // Step 0 intro leads to mandatory CCCD capture; birthday is on the next guarded step.
         compose.onNodeWithTag("onboarding-next").performClick()
+        compose.onNodeWithText("Bước 1 / 4").assertExists()
         compose.onNodeWithTag("onboarding-id-front").assertExists()
-        compose.onNodeWithTag("onboarding-id-back").assertExists()
+        compose.onNodeWithTag("onboarding-card-frame-front").assertExists()
+        compose.onNodeWithTag("onboarding-id-back").assertDoesNotExist()
+        compose.onNodeWithTag("onboarding-card-frame-back").assertDoesNotExist()
         compose.onNodeWithTag("onboarding-next").assertIsNotEnabled()
         compose.onNodeWithTag("onboarding-birthday").assertDoesNotExist()
         assertEquals(0, completions)

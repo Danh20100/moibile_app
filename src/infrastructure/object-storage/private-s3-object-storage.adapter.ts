@@ -43,6 +43,13 @@ export class PrivateS3ObjectStorageAdapter implements ObjectStoragePort {
     } catch {
       throw new PrivateObjectStorageError();
     }
+    // Only the explicitly opted-in local Compose development database may use
+    // the fixed internal MinIO HTTP origin for demo photos. External finance mode
+    // and arbitrary HTTP hosts remain rejected.
+    const localDemoMinio =
+      process.env.TROOI_LOCAL_MEDIA_DEMO === 'true' &&
+      process.env.TROOI_DATABASE_MODE === 'compose-postgres' &&
+      endpoint.origin === 'http://minio:9000';
     if (
       !['http:', 'https:'].includes(endpoint.protocol) ||
       !endpoint.hostname ||
@@ -51,7 +58,7 @@ export class PrivateS3ObjectStorageAdapter implements ObjectStoragePort {
       endpoint.search ||
       endpoint.hash ||
       endpoint.pathname !== '/' ||
-      (endpoint.protocol === 'http:' &&
+      (endpoint.protocol === 'http:' && !localDemoMinio &&
         !['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname))
     ) {
       throw new PrivateObjectStorageError();

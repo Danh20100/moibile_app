@@ -1,6 +1,7 @@
 package com.trooi.app.features
 
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -104,7 +105,7 @@ class NativeAuthLayoutTest {
         }
     }
 
-    @Test fun backendSignupOffersExplicitGoogleRegistrationWithoutMockOtpForm() {
+    @Test fun backendSignupShowsGoogleAndFullEmailFormWithoutClaimingEmailIsAvailable() {
         var registered = false
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             scenario.onActivity { activity -> activity.setContent {
@@ -118,12 +119,31 @@ class NativeAuthLayoutTest {
             }
             instrumentation.waitForIdleSync()
             val screenNodes = nodes(instrumentation.uiAutomation.rootInActiveWindow)
-            var action = screenNodes.firstOrNull { it.text?.toString() == "Đăng ký bằng Google" }
+            assertTrue(screenNodes.any { it.text?.toString() == "Họ và tên" })
+            assertTrue(screenNodes.any { it.text?.toString() == "Số điện thoại" })
+            assertTrue(screenNodes.any { it.text?.toString()?.contains("Mật khẩu") == true })
+            assertTrue(screenNodes.any { it.text?.toString() == "Gửi mã" })
+            assertTrue(screenNodes.any { it.text?.toString()?.contains("Đăng ký bằng email chưa khả dụng") == true })
+            val primary = screenNodes.firstOrNull { it.text?.toString() == "Tạo tài khoản" }
+            val google = screenNodes.firstOrNull { it.text?.toString() == "Đăng ký bằng Google" }
+            assertNotNull(primary)
+            assertNotNull(google)
+            val primaryBounds = Rect()
+            val googleBounds = Rect()
+            primary!!.getBoundsInScreen(primaryBounds)
+            google!!.getBoundsInScreen(googleBounds)
+            assertTrue("Google registration must follow the email form and primary action",
+                googleBounds.top >= primaryBounds.bottom)
+            val scrolling = screenNodes.firstOrNull { it.isScrollable }
+            repeat(4) {
+                scrolling?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                instrumentation.waitForIdleSync()
+            }
+            var action = nodes(instrumentation.uiAutomation.rootInActiveWindow)
+                .firstOrNull { it.text?.toString() == "Đăng ký bằng Google" }
             assertNotNull(action)
             while (action != null && !action.isClickable) action = action.parent
             assertTrue(action?.isEnabled == true)
-            assertFalse(screenNodes.any { it.text?.toString()?.contains("Mật khẩu") == true })
-            assertFalse(screenNodes.any { it.text?.toString() == "Gửi mã" })
             assertTrue(action!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             instrumentation.waitForIdleSync()
             assertTrue(registered)

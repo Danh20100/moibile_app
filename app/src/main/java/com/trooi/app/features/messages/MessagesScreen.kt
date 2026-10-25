@@ -64,8 +64,6 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
     onAttachment: suspend (String, String) -> Result<ByteArray> = { _, _ -> Result.failure(IllegalStateException()) }) {
     var selectedId by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var search by rememberSaveable(state.backendUserId) { mutableStateOf("") }
-    var contextId by rememberSaveable(state.backendUserId) { mutableStateOf("") }
-    var contextType by rememberSaveable(state.backendUserId) { mutableStateOf("inquiry") }
     LaunchedEffect(state.messageConversationId, state.read.conversations) {
         state.messageConversationId?.takeIf { id -> state.read.conversations.any { it.id == id } }?.let { selectedId = it; onContextSelected() }
     }
@@ -82,26 +80,30 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
             state.messagesLoadFailed, onReload)
         return
     }
+    // No search field until at least one real conversation exists.
+    if (state.read.conversations.isEmpty() && !state.messagesLoading && !state.messagesLoadFailed) {
+        Column(Modifier.fillMaxSize().testTag("messages-screen").padding(20.dp)) {
+            TroOiPageHeader("Tin nhắn", "Trao đổi quanh tài sản thuê")
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                IllustratedEmptyState(
+                    scene = EmptyStateScene.MESSAGES,
+                    title = "Chưa có cuộc trò chuyện",
+                    description = "Khi bạn liên hệ tin đăng, cuộc trò chuyện sẽ xuất hiện tại đây.",
+                    actionText = "Khám phá tài sản",
+                    onAction = onExplore,
+                    actionTag = "messages-empty-explore",
+                )
+            }
+        }
+        return
+    }
     val conversations = state.read.conversations.filter { search.isBlank() ||
         (it.counterpartName + " " + it.rentalLabel).contains(search.trim(), ignoreCase = true) }
         .sortedByDescending { it.messages.lastOrNull()?.createdAt }
     LazyColumn(Modifier.fillMaxSize().testTag("messages-screen"), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        if (com.trooi.app.BuildConfig.DEBUG && com.trooi.app.core.data.RuntimeDataSource.isBackendBacked()) item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Mở cuộc trò chuyện từ yêu cầu hoặc hợp đồng", style = MaterialTheme.typography.titleMedium)
-                Row {
-                    FilterChip(contextType == "inquiry", { contextType = "inquiry" }, { Text("Yêu cầu") })
-                    Spacer(Modifier.width(8.dp))
-                    FilterChip(contextType == "tenancy", { contextType = "tenancy" }, { Text("Hợp đồng") })
-                }
-                TroOiFormField(contextId, { contextId = it }, label = { Text("ID yêu cầu / hợp đồng") }, singleLine = true)
-                TroOiButton("Mở cuộc trò chuyện", onClick = { onOpenContext(contextType, contextId.trim()) }, enabled = runCatching {
-                    java.util.UUID.fromString(contextId.trim()).toString().equals(contextId.trim(), true)
-                }.getOrDefault(false))
-                TroOiButton("Làm mới", onReload, style = TroOiButtonStyle.TERTIARY)
-            }
-        }
         item { TroOiPageHeader("Tin nhắn", "Trao đổi quanh tài sản thuê") }
+        item { TroOiFormField(search, { search = it }, singleLine = true, label = { Text("Tìm người hoặc phòng thuê") },
+                leadingIcon = { Icon(Icons.Rounded.Search, null) }, modifier = Modifier.fillMaxWidth().testTag("messages-search")) }
         if (state.messagesLoading) item { TroOiStateMessage(TroOiStateKind.LOADING, "Đang tải tin nhắn…") }
         else if (state.messagesLoadFailed) item {
             TroOiStateMessage(TroOiStateKind.ERROR, "Chưa tải được tin nhắn. Vui lòng thử lại.",
@@ -113,8 +115,7 @@ fun MessagesScreen(state: TroOiUiState, onExplore: () -> Unit, onReload: () -> U
                 title = "Chưa có cuộc trò chuyện", actionText = "Khám phá tài sản", onAction = onExplore,
                 actionModifier = Modifier.testTag("messages-empty-explore"))
         } else {
-            item { TroOiFormField(search, { search = it }, singleLine = true, label = { Text("Tìm người hoặc phòng thuê") },
-                leadingIcon = { Icon(Icons.Rounded.Search, null) }, modifier = Modifier.fillMaxWidth().testTag("messages-search")) }
+
             if (conversations.isEmpty()) item { TroOiStateMessage(TroOiStateKind.EMPTY, "Không tìm thấy cuộc trò chuyện phù hợp.") }
             items(conversations, key = { it.id }) { conversation ->
                 Surface(onClick = { selectedId = conversation.id }, shape = RoundedCornerShape(18.dp),

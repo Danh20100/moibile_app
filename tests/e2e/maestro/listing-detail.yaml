@@ -1,4 +1,4 @@
-appId: com.trooi.app.backenddev
+appId: com.trooi.app
 ---
 - launchApp:
     clearState: true

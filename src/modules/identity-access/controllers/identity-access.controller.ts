@@ -22,6 +22,7 @@ import {
 import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
 import { IdentitySessionService } from '../services/identity-session.service';
+import { LocalDemoAuthService } from '../services/local-demo-auth.service';
 
 @ApiTags('Identity & Access')
 @Controller('identity-access')
@@ -33,6 +34,8 @@ export class IdentityAccessController {
     private readonly profileAvatarService?: ProfileAvatarService,
     @Optional() @Inject(IdentitySessionService)
     private readonly identitySessionService?: IdentitySessionService,
+    @Optional() @Inject(LocalDemoAuthService)
+    private readonly localDemoAuth?: LocalDemoAuthService,
   ) {}
 
   @Public()
@@ -61,6 +64,14 @@ export class IdentityAccessController {
   async registerWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.registerGoogle(dto);
+  }
+
+  // For synthetic local development accounts only. Not an identity-verification endpoint.
+  @Public()
+  @Post('auth/local-demo')
+  async authenticateLocalDemo(@Body() dto: { email?: string; password?: string }): Promise<IdentitySessionDto> {
+    if (!this.localDemoAuth) throw new ServiceUnavailableException('Local demo login unavailable');
+    return this.localDemoAuth.login(dto.email ?? '', dto.password ?? '');
   }
 
   @Public()

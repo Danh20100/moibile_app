@@ -40,6 +40,12 @@ export function loadCompreFaceConfig(env: NodeJS.ProcessEnv): CompreFaceConfig {
   } catch {
     throw new CompreFaceConfigurationError('COMPREFACE_ORIGIN must be an absolute URL');
   }
+  // Explicit opt-in: local Compose backend may talk to a separate isolated CompreFace
+  // lab over Docker's private network. Never allow arbitrary cleartext origins.
+  const isolatedDockerLab =
+    env.TROOI_LOCAL_COMPREFACE_LAB === 'true' &&
+    env.TROOI_DATABASE_MODE === 'compose-postgres' &&
+    url.origin === 'http://compreface-fe';
   if (
     !['http:', 'https:'].includes(url.protocol) ||
     !url.hostname ||
@@ -48,7 +54,7 @@ export function loadCompreFaceConfig(env: NodeJS.ProcessEnv): CompreFaceConfig {
     url.search ||
     url.hash ||
     url.pathname !== '/' ||
-    (url.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
+    (url.protocol === 'http:' && !isolatedDockerLab && !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))
   ) {
     throw new CompreFaceConfigurationError(
       'CompreFace requires HTTPS (HTTP only on loopback) and a plain origin',

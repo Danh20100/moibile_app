@@ -31,6 +31,7 @@ import com.trooi.app.core.model.PublicListingCard
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.core.model.publicDiscoveryFeed
 import com.trooi.app.ui.components.LocalRentalPhoto
+import com.trooi.app.ui.components.TroOiCard
 import com.trooi.app.ui.components.TroOiButton
 import com.trooi.app.ui.components.TroOiButtonStyle
 import com.trooi.app.ui.components.TroOiStateKind
@@ -227,7 +228,26 @@ fun DiscoveryExperience(
             if (invalidPrice != null) {
                 item { Text(invalidPrice, Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.error) }
             }
-            if (results.isEmpty() && !state.publicDiscoveryLoading && state.publicDiscoveryError == null) {
+            if (!allowDemoFallback && state.read.publicListings.isEmpty() &&
+                !state.publicDiscoveryLoading && state.publicDiscoveryError == null) {
+                item {
+                    Column(Modifier.padding(horizontal = 18.dp)) {
+                        TroOiCard("Chưa có tin đăng công khai",
+                            modifier = Modifier.testTag("discovery-empty-public")) {
+                            Text("Các phòng được chủ trọ công khai sẽ xuất hiện tại đây. Hiện hệ thống chưa có tin đăng để hiển thị.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            onRetrySearch?.let { retry ->
+                                TroOiButton("Tải lại tin đăng", retry,
+                                    modifier = Modifier.fillMaxWidth().testTag("discovery-retry-empty"),
+                                    style = TroOiButtonStyle.SECONDARY)
+                            }
+                        }
+                    }
+                }
+            }
+            if (results.isEmpty() && !state.publicDiscoveryLoading && state.publicDiscoveryError == null &&
+                (allowDemoFallback || state.read.publicListings.isNotEmpty())) {
                 item {
                     Column(Modifier.padding(horizontal = 18.dp)) {
                         TroOiStateMessage(TroOiStateKind.EMPTY,

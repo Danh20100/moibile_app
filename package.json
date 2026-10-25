@@ -16,6 +16,7 @@
     "compose:up": "docker compose up -d --build",
     "compose:down": "docker compose down",
     "compose:logs": "docker compose logs -f",
+    "release:check": "node scripts/config/check-release.mjs",
     "db:migrate": "tsx scripts/database/migrate.ts up",
     "identity:cutover:preflight": "tsx scripts/identity/cutover-preflight.ts",
     "db:migrate:down": "tsx scripts/database/migrate.ts down",

@@ -1,6 +1,8 @@
 package com.trooi.app.features.profile
 
 import com.trooi.app.ui.components.TroOiPage
+import com.trooi.app.ui.components.TroOiStateMessage
+import com.trooi.app.ui.components.TroOiStateKind
 import com.trooi.app.ui.components.TroOiListRow
 import com.trooi.app.ui.components.TroOiInformationRow
 import com.trooi.app.ui.components.TroOiPageHeader
@@ -228,8 +230,8 @@ fun AccountSettingsFlow(
                             PersonalDetailRow(
                                 label = label,
                                 value = value.ifBlank { "Chưa cung cấp" },
-                                action = if (label == "Tên pháp lý") null else "Sửa",
-                                onClick = if (label == "Tên pháp lý") null else { { open("edit:$label") } },
+                                action = if (!state.demoPreview || label == "Tên pháp lý") null else "Sửa",
+                                onClick = if (!state.demoPreview || label == "Tên pháp lý") null else { { open("edit:$label") } },
                                 modifier = Modifier.testTag("personal-action-$label"),
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -285,9 +287,11 @@ fun AccountSettingsFlow(
                 Text("Tên pháp lý không thể chỉnh sửa tại đây.")
             }
             page == "identity" -> sectionItem {
-                Text("Bảo vệ danh tính của bạn", style = MaterialTheme.typography.titleMedium)
-                Text("Xác minh danh tính giúp tăng độ tin cậy khi sử dụng dịch vụ cho thuê.")
-                TroOiButton("Bắt đầu xác minh", { boundary = "Hiện chưa thể gửi yêu cầu xác minh. Vui lòng thử lại sau." }, modifier = Modifier.fillMaxWidth())
+                if (state.demoPreview) {
+                    Text("Xác minh CCCD tự động chỉ dùng với tài khoản Backend thật.")
+                } else {
+                    AutoKycForm(state.backendUserId)
+                }
             }
             page == "security" -> {
                 sectionItem {
@@ -320,9 +324,18 @@ fun AccountSettingsFlow(
                     modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
             }
             page == "google" -> sectionItem {
-                Text("Google · Chưa thể kiểm tra trạng thái liên kết")
-                TroOiButton("Liên kết Google", { protect() }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
-                TroOiButton("Ngắt liên kết", { protect() }, style = TroOiButtonStyle.TERTIARY)
+                if (!state.demoPreview) {
+                    TroOiInformationRow("Tài khoản sử dụng", state.email ?: "Chưa có email trong phiên")
+                    Text("Phiên đăng nhập hiện tại được xác thực qua Google và Backend TrọƠi.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Liên kết thêm hoặc ngắt tài khoản Google chưa có API quản lý phương thức đăng nhập; không thể thao tác tại đây.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("Google · Chưa thể kiểm tra trạng thái liên kết")
+                    TroOiButton("Liên kết Google", { protect() }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.SECONDARY)
+                    TroOiButton("Ngắt liên kết", { protect() }, style = TroOiButtonStyle.TERTIARY)
+                }
             }
             page == "privacy" -> {
                 sectionItem { SettingsPreviewNotice("Quyền riêng tư của bạn được bảo vệ theo chính sách TrọƠi.") }

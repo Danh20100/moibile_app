@@ -225,16 +225,28 @@ class LandlordOnboardingFlowTest {
             compose.onNodeWithTag("profile-landlord-cta").performClick()
             screenshot("onboarding-intro")
             compose.onNodeWithTag("onboarding-next").performClick()
-            // Current onboarding requires both ID images before the user reviews any OCR output.
-            listOf("front", "back").forEach { side ->
-                specimenPhoto(side)
-                compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-$side"))
-                pickSingle("onboarding-id-$side")
-            }
+            // Each CCCD side now has its own step and an orientation-specific guide.
+            compose.onNodeWithText("Bước 1 / 4").assertExists()
+            compose.onNodeWithTag("onboarding-card-frame-front").assertExists()
+            compose.onNodeWithTag("onboarding-id-back").assertDoesNotExist()
+            specimenPhoto("front")
+            compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-front"))
+            pickSingle("onboarding-id-front")
             compose.waitUntil(20000) {
                 runCatching { compose.onNodeWithTag("onboarding-next").assertIsEnabled(); true }.getOrDefault(false)
             }
             compose.onNodeWithTag("onboarding-next").performClick()
+            compose.onNodeWithText("Bước 2 / 4").assertExists()
+            compose.onNodeWithTag("onboarding-card-frame-back").assertExists()
+            compose.onNodeWithTag("onboarding-id-front").assertDoesNotExist()
+            specimenPhoto("back")
+            compose.onNodeWithTag("onboarding-scroll").performScrollToNode(hasTestTag("onboarding-id-back"))
+            pickSingle("onboarding-id-back")
+            compose.waitUntil(20000) {
+                runCatching { compose.onNodeWithTag("onboarding-next").assertIsEnabled(); true }.getOrDefault(false)
+            }
+            compose.onNodeWithTag("onboarding-next").performClick()
+            compose.onNodeWithText("Bước 3 / 4").assertExists()
             compose.onNodeWithTag("onboarding-name").performTextReplacement("Phạm Thảo Linh Nguyễn")
             compose.onNodeWithTag("onboarding-birthday").performTextReplacement("15/06/1995")
             compose.onNodeWithTag("onboarding-birthday").performImeAction()

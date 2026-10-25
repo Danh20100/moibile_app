@@ -109,9 +109,8 @@ android {
 
     buildTypes {
         getByName("debug") {
-            // Source selection happens at runtime in debug; there is no third build type.
-            // Emulator Google OAuth client is registered for this package.
-            applicationIdSuffix = ".backenddev"
+            // Local Google OAuth uses the existing registered package com.trooi.app and debug SHA-1.
+            // Do not add an applicationIdSuffix: it would invalidate the registered Android OAuth client.
             buildConfigField("boolean", "DEMO_BACKEND_ENABLED", demoBackendEnabled.toString())
         }
         release {
@@ -153,6 +152,11 @@ android {
     sourceSets.getByName("testDebug").resources.srcDir("src/debug/assets")
 
     testBuildType = providers.gradleProperty("trooiInstrumentationBuildType").orElse("debug").get()
+}
+
+tasks.matching { it.name == "compileDebugKotlin" || it.name == "compileReleaseKotlin" }.configureEach {
+    inputs.property("trooiApiBaseUrl", backendApiBaseUrl)
+    inputs.property("trooiGoogleWebClientId", googleWebClientId)
 }
 
 dependencies {

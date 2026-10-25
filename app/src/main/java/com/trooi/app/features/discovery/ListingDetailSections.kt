@@ -211,7 +211,7 @@ internal fun DetailPublicLocationNote() {
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.primary)
-            Text("Vị trí được công khai ở mức khu vực, không phải địa chỉ chính xác.",
+            Text("Ghim bản đồ là vị trí tham khảo, có thể không trùng địa chỉ thực tế. Vui lòng xác nhận khi liên hệ.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface)
         }
