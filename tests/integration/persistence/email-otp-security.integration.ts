@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { HttpException } from '@nestjs/common';
 import { sql } from 'kysely';
+import { resetPublicSchema } from './support/postgres-test-harness';
 import { runMigrations } from '../../../scripts/database/migrate';
 import { createDatabaseClient } from '../../../src/infrastructure/database/database.client';
 import { PostgresTransactionManager } from '../../../src/infrastructure/database/postgres-transaction-manager';
@@ -46,8 +47,7 @@ test('OTP budget, expiry, replay, cooldown, reset binding and late SMTP cleanup 
     connectionTimeoutMs: 5000,
   });
   try {
-    await sql`DROP SCHEMA public CASCADE`.execute(db);
-    await sql`CREATE SCHEMA public`.execute(db);
+    await resetPublicSchema(url);
     await runMigrations('up', url);
     const tx = new PostgresTransactionManager(db, createRepositorySet);
     const sender = new RecordingSender();
@@ -181,7 +181,7 @@ test('OTP budget, expiry, replay, cooldown, reset binding and late SMTP cleanup 
     const staleCode = sender.code();
     await db
       .updateTable('password_credentials')
-      .set({ credential_revision: '99' })
+      .set({ credential_revision: sql`credential_revision + 1` })
       .where(
         'user_id',
         '=',
@@ -204,7 +204,7 @@ test('OTP budget, expiry, replay, cooldown, reset binding and late SMTP cleanup 
     const staleEmailCode = sender.code();
     await db
       .updateTable('user_emails')
-      .set({ email_revision: '99' })
+      .set({ email_revision: sql`email_revision + 1` })
       .where(
         'user_id',
         '=',

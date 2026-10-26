@@ -125,6 +125,7 @@ test('canonical mailbox ownership rejects Google and email-change aliases withou
       .set({
         email_address: 'owner.name+legacy@googlemail.com',
         normalized_email: 'owner.name+legacy@googlemail.com',
+        email_revision: sql`email_revision + 1`,
       })
       .where('user_id', '=', other.userId)
       .execute();
@@ -151,6 +152,7 @@ test('canonical mailbox ownership rejects Google and email-change aliases withou
       .set({
         email_address: 'other@example.test',
         normalized_email: 'other@example.test',
+        email_revision: sql`email_revision + 1`,
       })
       .where('user_id', '=', other.userId)
       .execute();
@@ -164,6 +166,7 @@ test('canonical mailbox ownership rejects Google and email-change aliases withou
           .set({
             email_address: 'ownername@gmail.com',
             normalized_email: 'ownername@gmail.com',
+            email_revision: sql`email_revision + 1`,
           })
           .where('user_id', '=', other.userId)
           .execute(),

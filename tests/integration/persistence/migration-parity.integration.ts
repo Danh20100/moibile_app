@@ -615,7 +615,7 @@ test('disposable reset rejects other database names before connecting', async ()
   ]) {
     await assert.rejects(
       resetPublicSchema(`postgresql://localhost:1/${name}`),
-      /Only trooi_test may be reset/,
+      /Only a local trooi_test database may be reset/,
     );
   }
 });
