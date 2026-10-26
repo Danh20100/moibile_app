@@ -462,7 +462,7 @@ fun LoginScreen(
             text = "Quên mật khẩu?",
             onClick = onForgotPassword,
             modifier = Modifier.align(Alignment.End),
-            enabled = !backendOnly && !authInProgress,
+            enabled = !authInProgress,
             style = TroOiButtonStyle.TERTIARY,
         )
 
@@ -540,21 +540,98 @@ fun ForgotPasswordScreen(
     onSubmit: (String) -> Unit,
     initialIdentifier: String = "",
     prefillKey: Long = 0L,
+    backendOnly: Boolean = false,
+    authInProgress: Boolean = false,
+    otpChallengeId: String = "",
+    otpExpiresAt: Long = 0L,
+    otpResendAt: Long = 0L,
+    onVerify: (String, String) -> Unit = { _, _ -> },
+    onEmailChangedAfterOtp: () -> Unit = {},
 ) {
     var identifier by remember(initialIdentifier, prefillKey) { mutableStateOf(initialIdentifier) }
+    var code by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(otpChallengeId, otpResendAt) {
+        if (otpChallengeId.isNotBlank()) {
+            while (true) {
+                now = System.currentTimeMillis()
+                kotlinx.coroutines.delay(1_000)
+            }
+        }
+    }
+    val expired = otpExpiresAt > 0L && now >= otpExpiresAt
+    val waitSeconds = ((otpResendAt - now + 999) / 1000).coerceAtLeast(0)
     AuthFormScaffold(
         onBack = onBack,
         title = "khôi phục mật khẩu",
-        subtitle = "Nhập email hoặc số điện thoại đã đăng ký.",
+        subtitle = if (backendOnly) "Nhận mã xác nhận qua email để đặt lại mật khẩu." else "Nhập email hoặc số điện thoại đã đăng ký.",
     ) {
-        AuthTextField(identifier, { identifier = it }, "Email hoặc số điện thoại", Icons.Rounded.AlternateEmail)
-        Spacer(Modifier.height(18.dp))
-        TroOiButton(
-            text = "Gửi hướng dẫn khôi phục",
-            onClick = { onSubmit(identifier.trim()) },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            enabled = identifier.trim().length >= 5,
+        AuthTextField(
+            identifier,
+            {
+                if (!authInProgress) { identifier = it; onEmailChangedAfterOtp() }
+            },
+            if (backendOnly) "Email" else "Email hoặc số điện thoại",
+            Icons.Rounded.AlternateEmail,
+            keyboardType = KeyboardType.Email,
+            enabled = !authInProgress,
         )
+        if (backendOnly && otpChallengeId.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            AuthTextField(
+                code, { code = it.filter(Char::isDigit).take(6) },
+                "Mã xác nhận 6 chữ số", Icons.Rounded.Password,
+                keyboardType = KeyboardType.NumberPassword,
+                enabled = !authInProgress,
+            )
+            Spacer(Modifier.height(10.dp))
+            AuthTextField(
+                password, { password = it }, "Mật khẩu mới (tối thiểu 8 ký tự)",
+                Icons.Rounded.Lock, visualTransformation = PasswordVisualTransformation(),
+                enabled = !authInProgress,
+            )
+            Spacer(Modifier.height(10.dp))
+            AuthTextField(
+                confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu mới",
+                Icons.Rounded.LockReset, visualTransformation = PasswordVisualTransformation(),
+                enabled = !authInProgress,
+            )
+            if (expired) {
+                Text("Mã đã hết hạn. Hãy yêu cầu mã mới.", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            if (confirmPassword.isNotEmpty() && confirmPassword != password) {
+                Text("Mật khẩu nhập lại chưa khớp.", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(Modifier.height(16.dp))
+            TroOiButton(
+                text = if (authInProgress) "Đang xác nhận…" else "Xác nhận đổi mật khẩu",
+                onClick = { onVerify(code, password) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = code.length == 6 && password.length in 8..128 && confirmPassword == password &&
+                    !expired && !authInProgress,
+            )
+            Spacer(Modifier.height(8.dp))
+            TroOiButton(
+                text = if (waitSeconds > 0) "Gửi lại sau ${waitSeconds}s" else "Gửi lại mã",
+                onClick = { onSubmit(identifier.trim()) },
+                modifier = Modifier.fillMaxWidth(),
+                style = TroOiButtonStyle.TERTIARY,
+                enabled = waitSeconds == 0L && !authInProgress,
+            )
+        } else {
+            Spacer(Modifier.height(18.dp))
+            TroOiButton(
+                text = if (backendOnly) "Gửi mã xác nhận" else "Gửi hướng dẫn khôi phục",
+                onClick = { onSubmit(identifier.trim()) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = (if (backendOnly) isValidEmail(identifier) else identifier.trim().length >= 5) &&
+                    !authInProgress,
+            )
+        }
     }
 }
 
@@ -571,6 +648,12 @@ fun SignUpScreen(
     authInProgress: Boolean = false,
     onGoogleRegister: () -> Unit = {},
     googleBacked: Boolean = false,
+    onRequestEmailOtp: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onVerifyEmailOtp: (String) -> Unit = {},
+    onEmailChangedAfterOtp: () -> Unit = {},
+    otpChallengeId: String = "",
+    otpExpiresAt: Long = 0L,
+    otpResendAt: Long = 0L,
 ) {
     var fullName by androidx.compose.runtime.saveable.rememberSaveable(initialFullName, prefillKey) { mutableStateOf(initialFullName) }
     var phone by androidx.compose.runtime.saveable.rememberSaveable(initialPhone, prefillKey) { mutableStateOf(initialPhone) }
@@ -579,6 +662,16 @@ fun SignUpScreen(
     var confirmPassword by remember(initialPassword, prefillKey) { mutableStateOf(initialPassword) }
     var showPassword by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var accepted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    var otpCode by remember { mutableStateOf("") }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(otpChallengeId, otpResendAt) {
+        if (otpChallengeId.isNotEmpty()) {
+            while (true) {
+                now = System.currentTimeMillis()
+                kotlinx.coroutines.delay(1_000)
+            }
+        }
+    }
     var legalDocument by remember { mutableStateOf<LegalDocumentType?>(null) }
     legalDocument?.let { LegalDocumentOverlay(it, onDismiss = { legalDocument = null }) }
     val valid = isValidSignup(fullName, phone, email, password, confirmPassword, accepted)
@@ -587,21 +680,22 @@ fun SignUpScreen(
         title = "chào mừng thành viên mới",
         subtitle = "Tạo tài khoản để bắt đầu với TrọƠi.",
     ) {
-        AuthTextField(fullName, { fullName = it }, "Họ và tên", Icons.Rounded.Badge)
+        AuthTextField(fullName, { if (!authInProgress) { fullName = it; onEmailChangedAfterOtp() } }, "Họ và tên", Icons.Rounded.Badge)
         Spacer(Modifier.height(10.dp))
-        AuthTextField(phone, { phone = it.filter { c -> c.isDigit() }.take(11) }, "Số điện thoại", Icons.Rounded.Phone, keyboardType = KeyboardType.Phone)
+        AuthTextField(phone, { if (!authInProgress) { phone = it.filter { c -> c.isDigit() }.take(11); onEmailChangedAfterOtp() } }, "Số điện thoại", Icons.Rounded.Phone, keyboardType = KeyboardType.Phone)
         Spacer(Modifier.height(10.dp))
-        // A real email-OTP endpoint does not exist yet; never issue fixture OTPs in the Release registration flow.
-        EmailOtpPanel(email, mockMode = false, onValueChange = { email = it },
-            allowSend = false)
+        // Submit the complete registration form before requesting a real email challenge.
+        EmailOtpPanel(email, mockMode = false, onValueChange = {
+            if (!authInProgress) { email = it; onEmailChangedAfterOtp() }
+        }, allowSend = false)
         Spacer(Modifier.height(10.dp))
         AuthTextField(
-            password, { password = it }, "Mật khẩu (tối thiểu 8 ký tự)", Icons.Rounded.Lock,
+            password, { if (!authInProgress) { password = it; onEmailChangedAfterOtp() } }, "Mật khẩu (tối thiểu 8 ký tự)", Icons.Rounded.Lock,
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             trailing = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, if (showPassword) "Ẩn mật khẩu" else "Hiện mật khẩu", tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         )
         Spacer(Modifier.height(10.dp))
-        AuthTextField(confirmPassword, { confirmPassword = it }, "Nhập lại mật khẩu", Icons.Rounded.LockReset, visualTransformation = PasswordVisualTransformation())
+        AuthTextField(confirmPassword, { if (!authInProgress) { confirmPassword = it; onEmailChangedAfterOtp() } }, "Nhập lại mật khẩu", Icons.Rounded.LockReset, visualTransformation = PasswordVisualTransformation())
         if (confirmPassword.isNotBlank() && confirmPassword != password) {
             Text("Mật khẩu nhập lại chưa khớp.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 6.dp))
         }
@@ -627,7 +721,8 @@ fun SignUpScreen(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
             Checkbox(
                 checked = accepted,
-                onCheckedChange = { accepted = it },
+                onCheckedChange = { if (!authInProgress) { accepted = it; onEmailChangedAfterOtp() } },
+                enabled = !authInProgress,
                 colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary),
                 modifier = Modifier.testTag("signup-legal-consent"),
             )
@@ -657,12 +752,44 @@ fun SignUpScreen(
             )
         }
         Spacer(Modifier.height(10.dp))
-        TroOiButton(
-            text = if (authInProgress) "Đang tạo tài khoản…" else "Tạo tài khoản",
-            onClick = { /* Reserved for verified email registration when a real provider is integrated. */ },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            enabled = false,
-        )
+        if (otpChallengeId.isNotEmpty()) {
+            AuthTextField(
+                otpCode,
+                { otpCode = it.filter(Char::isDigit).take(6) },
+                "Mã xác nhận 6 chữ số", Icons.Rounded.Password,
+                keyboardType = KeyboardType.NumberPassword,
+            )
+            val expired = otpExpiresAt > 0L && now >= otpExpiresAt
+            val seconds = ((otpResendAt - now + 999) / 1000).coerceAtLeast(0)
+            if (expired) {
+                Text("Mã đã hết hạn. Hãy gửi lại mã.", color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(Modifier.height(10.dp))
+            TroOiButton(
+                text = if (authInProgress) "Đang xác nhận…" else "Xác nhận và tạo tài khoản",
+                onClick = { onVerifyEmailOtp(otpCode) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = valid && otpCode.length == 6 && !expired && !authInProgress,
+            )
+            TroOiButton(
+                text = if (seconds > 0) "Gửi lại sau ${seconds}s" else "Gửi lại mã",
+                onClick = { onRequestEmailOtp(fullName, phone, email, password) },
+                modifier = Modifier.fillMaxWidth(),
+                style = TroOiButtonStyle.TERTIARY,
+                enabled = seconds == 0L && valid && googleBacked && !authInProgress,
+            )
+        } else {
+            TroOiButton(
+                text = if (authInProgress) "Đang gửi mã…" else "Tạo tài khoản",
+                onClick = {
+                    if (googleBacked) onRequestEmailOtp(fullName, phone, email, password)
+                    else onSignUp(fullName, phone, email, password)
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                enabled = valid && !authInProgress,
+            )
+        }
         if (googleBacked) {
             Spacer(Modifier.height(18.dp))
             Row(
@@ -750,10 +877,12 @@ private fun AuthTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     trailing: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
 ) {
     TroOiFormField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         label = { Text(label) },
         leadingIcon = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },

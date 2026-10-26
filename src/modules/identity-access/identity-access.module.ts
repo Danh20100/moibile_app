@@ -17,6 +17,11 @@ import { GooglePrincipalResolver } from './services/google-principal-resolver';
 import { ProfileAvatarService } from './services/profile-avatar.service';
 import { IdentitySessionService } from './services/identity-session.service';
 import { LocalDemoAuthService } from './services/local-demo-auth.service';
+import { EmailOtpService } from './services/email-otp.service';
+import { EmailOtpRateLimitGuard } from './guards/email-otp-rate-limit.guard';
+import { EMAIL_SENDER } from '../../persistence/ports/email-sender.port';
+import { createEmailSender } from '../../infrastructure/email/create-email-sender';
+import { EMAIL_AUTH_CONFIG, readEmailAuthConfig, type EmailAuthConfig } from './email-auth.config';
 
 const googleIdTokenVerifierProvider = {
   provide: GOOGLE_ID_TOKEN_VERIFIER,
@@ -39,7 +44,12 @@ const googlePrincipalResolverProvider = {
 @Module({
   imports: [DatabaseModule, ObjectStorageModule],
   controllers: [IdentityAccessController],
-  providers: [IdentityAccessService, IdentitySessionService, LocalDemoAuthService, ProfileAvatarService, googleIdTokenVerifierProvider, googlePrincipalResolverProvider],
-  exports: [IdentityAccessService, IdentitySessionService, GooglePrincipalResolver, GOOGLE_ID_TOKEN_VERIFIER],
+  providers: [
+    IdentityAccessService, IdentitySessionService, LocalDemoAuthService, ProfileAvatarService,
+    EmailOtpService, EmailOtpRateLimitGuard, googleIdTokenVerifierProvider, googlePrincipalResolverProvider,
+    { provide: EMAIL_AUTH_CONFIG, useFactory: () => readEmailAuthConfig(process.env) },
+    { provide: EMAIL_SENDER, inject: [EMAIL_AUTH_CONFIG], useFactory: (config: EmailAuthConfig) => createEmailSender(config) },
+  ],
+  exports: [IdentityAccessService, IdentitySessionService, EmailOtpService, GooglePrincipalResolver, GOOGLE_ID_TOKEN_VERIFIER],
 })
 export class IdentityAccessModule {}

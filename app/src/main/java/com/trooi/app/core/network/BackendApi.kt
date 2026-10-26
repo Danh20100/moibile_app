@@ -34,6 +34,22 @@ interface BackendApi {
     suspend fun issueIdentityChallenge(purpose: String): ApiOutcome<IdentityAuthChallengeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun authenticateGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun registerGoogle(idToken: String, nonce: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun requestEmailRegistrationOtp(
+        email: String,
+        password: String,
+        displayName: String?,
+    ): ApiOutcome<EmailOtpChallengeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun verifyEmailRegistrationOtp(
+        otpChallengeId: String,
+        code: String,
+    ): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun requestPasswordResetOtp(email: String): ApiOutcome<EmailOtpChallengeTransport> =
+        ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun verifyPasswordResetOtp(
+        otpChallengeId: String,
+        code: String,
+        password: String,
+    ): ApiOutcome<PasswordResetAcceptedTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun authenticatePassword(email: String, password: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun refreshIdentitySession(refreshToken: String): ApiOutcome<IdentitySessionTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun logoutIdentitySession(): ApiOutcome<Unit> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -205,6 +221,38 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
             "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)}}",
             authenticated = false,
         ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }
+
+    override suspend fun requestEmailRegistrationOtp(email: String, password: String, displayName: String?) =
+        client.postJson(
+            "identity-access/register/email/otp/request",
+            com.google.gson.JsonObject().apply {
+                addProperty("email", email)
+                addProperty("password", password)
+                if (!displayName.isNullOrBlank()) addProperty("displayName", displayName)
+            }.toString(),
+            authenticated = false,
+        ).decode { messagingGson.fromJson(it, EmailOtpChallengeTransport::class.java) }
+
+    override suspend fun verifyEmailRegistrationOtp(otpChallengeId: String, code: String) =
+        client.postJson(
+            "identity-access/register/email/otp/verify",
+            "{\"otpChallengeId\":${messagingGson.toJson(otpChallengeId)},\"code\":${messagingGson.toJson(code)}}",
+            authenticated = false,
+        ).decode { messagingGson.fromJson(it, IdentitySessionTransport::class.java) }
+
+    override suspend fun requestPasswordResetOtp(email: String) =
+        client.postJson(
+            "identity-access/password/reset/request",
+            "{\"email\":${messagingGson.toJson(email)}}",
+            authenticated = false,
+        ).decode { messagingGson.fromJson(it, EmailOtpChallengeTransport::class.java) }
+
+    override suspend fun verifyPasswordResetOtp(otpChallengeId: String, code: String, password: String) =
+        client.postJson(
+            "identity-access/password/reset/verify",
+            "{\"otpChallengeId\":${messagingGson.toJson(otpChallengeId)},\"code\":${messagingGson.toJson(code)},\"password\":${messagingGson.toJson(password)}}",
+            authenticated = false,
+        ).decode { messagingGson.fromJson(it, PasswordResetAcceptedTransport::class.java) }
 
     override suspend fun authenticatePassword(email: String, password: String) =
         client.postJson(

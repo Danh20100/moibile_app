@@ -272,7 +272,7 @@ export class IdentitySessionService {
     `.execute(this.database);
     const row = credential.rows[0];
     if (!row) throw new ForbiddenException('Security PIN not configured');
-    let valid = false;
+    let valid: boolean;
     try { valid = await verifyArgon2(row.pin_hash, input.pin); }
     catch { valid = false; }
     if (!valid) {

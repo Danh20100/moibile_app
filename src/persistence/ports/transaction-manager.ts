@@ -1,3 +1,4 @@
+import type { IdentityOtpRepository } from './identity-otp.repository';
 import type { IdentityFoundationRepository } from './identity-foundation.repository';
 import type { FinanceRepository } from './finance.repository';
 import type { IdentityRepository } from './identity.repository';
@@ -13,6 +14,7 @@ import type { IdentitySessionsRepository } from './identity-sessions.repository'
 export interface PersistenceRepositories {
   identity: IdentityRepository;
   identityFoundation: IdentityFoundationRepository;
+  identityOtp: IdentityOtpRepository;
   identitySessions: IdentitySessionsRepository;
   organization: OrganizationRepository;
   property: PropertyRepository;

@@ -69,6 +69,13 @@ data class IdentitySessionTransport(
     val userId: String, val sessionId: String, val accessToken: String, val refreshToken: String,
     val tokenType: String, val expiresInSeconds: Int, val refreshExpiresAt: String,
 )
+data class EmailOtpChallengeTransport(
+    val otpChallengeId: String,
+    val expiresAt: String,
+    val resendAvailableAt: String,
+)
+data class PasswordResetAcceptedTransport(val reset: Boolean)
+data class PasswordChangeAcceptedTransport(val changed: Boolean)
 data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
 data class SecurityPinStatusTransport(val pinConfigured: Boolean)
 data class AccountSecurityStatusTransport(val email: String?, val googleLinked: Boolean, val passwordConfigured: Boolean)

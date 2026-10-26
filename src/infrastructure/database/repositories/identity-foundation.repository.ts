@@ -9,6 +9,8 @@ import {
   type GooglePrincipal,
   type VerifiedEmail,
   type FoundationInput,
+  type EmailFoundationInput,
+  type MailboxOwner,
   type EmailRecord,
   type ProfileRecord,
   type CredentialRecord,
@@ -53,7 +55,9 @@ function fail(code: IdentityConflictCode): never {
 export class PostgresIdentityFoundationRepository implements IdentityFoundationRepository {
   constructor(private readonly tx: Transaction<Database>) {
     if (!tx.isTransaction)
-      throw new Error('Identity Foundation requires a caller-owned transaction');
+      throw new Error(
+        'Identity Foundation requires a caller-owned transaction',
+      );
   }
 
   private async execute<T>(work: () => Promise<T>): Promise<T> {
@@ -65,7 +69,9 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         typeof error === 'object' &&
         error !== null &&
         'constraint' in error &&
-        error.constraint === 'uq_user_emails_address'
+        ['uq_user_emails_address', 'uq_user_emails_canonical_mailbox'].includes(
+          String(error.constraint),
+        )
       )
         fail('email_conflict');
       throw mapPostgresError(error);
@@ -82,6 +88,14 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         .executeTakeFirst())
     )
       fail('user_not_found');
+  }
+
+  async lockMailbox(normalizedEmail: string): Promise<void> {
+    if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail)
+      fail('invalid_email');
+    await sql`SELECT pg_advisory_xact_lock(
+      ('x' || substr(md5('mailbox:' || trooi_canonical_email(${normalizedEmail})), 1, 16))::bit(64)::bigint
+    )`.execute(this.tx);
   }
 
   private checkedEmail(email: VerifiedEmail): VerifiedEmail {
@@ -162,7 +176,11 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         .forUpdate()
         .execute();
       if (legacyCandidates.length > 1) fail('legacy_conflict');
-      if (mapping && legacyCandidates.length === 1 && mapping.user_id !== legacyCandidates[0]!.user_id)
+      if (
+        mapping &&
+        legacyCandidates.length === 1 &&
+        mapping.user_id !== legacyCandidates[0]!.user_id
+      )
         fail('principal_conflict');
       if (mapping) return { kind: 'resolved', userId: mapping.user_id };
       // Legacy ownership must be explicitly reviewed and materialized as an immutable
@@ -179,7 +197,13 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
       const state = await this.resolveGooglePrincipal(input.principal);
       if (state.kind !== 'unregistered') fail('stale_state');
       this.checkedEmail(input.email);
-      const userId = googlePrincipalUserId(input.principal.issuer, input.principal.subject);
+      await this.lockMailbox(input.email.normalizedEmail);
+      if (await this.findMailboxOwner(input.email.normalizedEmail))
+        fail('email_conflict');
+      const userId = googlePrincipalUserId(
+        input.principal.issuer,
+        input.principal.subject,
+      );
       await this.tx.insertInto('users').values({ user_id: userId }).execute();
       await this.tx
         .insertInto('auth_identities')
@@ -199,7 +223,7 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
 
   private async initializeRows(
     userId: string,
-    input: FoundationInput,
+    input: Pick<FoundationInput, 'email' | 'displayName' | 'now'>,
   ): Promise<{ email: EmailRecord; profile: ProfileRecord }> {
     let email = await this.email(userId);
     if (!email) {
@@ -233,25 +257,123 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
   ): Promise<{ email: EmailRecord; profile: ProfileRecord }> {
     return this.execute(async () => {
       const state = await this.resolveGooglePrincipal(input.principal);
-      if (state.kind !== 'resolved' || state.userId !== input.userId) fail('principal_conflict');
+      if (state.kind !== 'resolved' || state.userId !== input.userId)
+        fail('principal_conflict');
+      this.checkedEmail(input.email);
+      await this.lockMailbox(input.email.normalizedEmail);
+      const owner = await this.findMailboxOwner(input.email.normalizedEmail);
+      if (owner && owner.userId !== input.userId) fail('email_conflict');
       await this.lockUser(input.userId);
       return this.initializeRows(input.userId, input);
     });
   }
 
-  async findPrimaryLogin(
-    normalizedEmail: string,
-  ): Promise<{ email: EmailRecord; credential: CredentialRecord | null } | null> {
+  async findPrimaryLogin(normalizedEmail: string): Promise<{
+    email: EmailRecord;
+    credential: CredentialRecord | null;
+  } | null> {
     return this.execute(async () => {
-      if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail) fail('invalid_email');
+      if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail)
+        fail('invalid_email');
       const row = await this.tx
         .selectFrom('user_emails')
         .selectAll()
         .where('normalized_email', '=', normalizedEmail)
         .executeTakeFirst();
       return row
-        ? { email: emailRecord(row), credential: await this.credential(row.user_id) }
+        ? {
+            email: emailRecord(row),
+            credential: await this.credential(row.user_id),
+          }
         : null;
+    });
+  }
+
+  async findPrimaryLoginByUserId(userId: string): Promise<{
+    email: EmailRecord;
+    credential: CredentialRecord | null;
+  } | null> {
+    return this.execute(async () => {
+      const email = await this.email(userId);
+      return email
+        ? { email, credential: await this.credential(userId) }
+        : null;
+    });
+  }
+
+  async findMailboxOwner(
+    normalizedEmail: string,
+  ): Promise<MailboxOwner | null> {
+    return this.execute(async () => {
+      if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail)
+        fail('invalid_email');
+      const row = await this.tx
+        .selectFrom('user_emails')
+        .leftJoin(
+          'password_credentials',
+          'password_credentials.user_id',
+          'user_emails.user_id',
+        )
+        .leftJoin(
+          'auth_identities',
+          'auth_identities.user_id',
+          'user_emails.user_id',
+        )
+        .select([
+          'user_emails.user_id',
+          'user_emails.normalized_email',
+          'user_emails.verification_source',
+          'password_credentials.user_id as credential_user_id',
+          'auth_identities.auth_identity_id as google_identity_id',
+        ])
+        .where(
+          sql<boolean>`trooi_canonical_email(user_emails.normalized_email) = trooi_canonical_email(${normalizedEmail})`,
+        )
+        .executeTakeFirst();
+      return row
+        ? {
+            userId: row.user_id,
+            normalizedEmail: row.normalized_email,
+            verificationSource: row.verification_source,
+            hasGoogleIdentity: row.google_identity_id !== null,
+            hasPassword: row.credential_user_id !== null,
+          }
+        : null;
+    });
+  }
+
+  async createEmailUserFoundation(
+    input: EmailFoundationInput,
+  ): Promise<{ userId: string; email: EmailRecord; profile: ProfileRecord }> {
+    return this.execute(async () => {
+      const email = this.checkedEmail(input.email);
+      if (email.verificationSource !== 'email_otp') fail('invalid_email');
+      this.checkedHash(input.encodedHash);
+      // Serialize concurrent registrations aiming at one mailbox. uq_user_emails_address only
+      // catches identical spellings, so Gmail aliases would otherwise race past the check below.
+      await this.lockMailbox(email.normalizedEmail);
+      if (await this.findMailboxOwner(email.normalizedEmail))
+        fail('email_conflict');
+      await this.tx
+        .insertInto('users')
+        .values({ user_id: input.userId })
+        .execute();
+      const initialized = await this.initializeRows(input.userId, {
+        email,
+        displayName: input.displayName,
+        now: input.now,
+      });
+      await this.tx
+        .insertInto('password_credentials')
+        .values({
+          user_id: input.userId,
+          password_hash: input.encodedHash,
+          credential_revision: '1',
+          created_at: input.now,
+          password_changed_at: input.now,
+        })
+        .execute();
+      return { userId: input.userId, ...initialized };
     });
   }
 
@@ -263,6 +385,9 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
   }): Promise<EmailRecord> {
     return this.execute(async () => {
       const target = this.checkedEmail(input.target);
+      await this.lockMailbox(target.normalizedEmail);
+      const owner = await this.findMailboxOwner(target.normalizedEmail);
+      if (owner && owner.userId !== input.userId) fail('email_conflict');
       await this.lockUser(input.userId);
       const current = await this.email(input.userId);
       if (
@@ -324,7 +449,8 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
   }): Promise<ProfileRecord> {
     return this.execute(async () => {
       await this.lockUser(input.userId);
-      if (!input.displayName.trim() || /\p{Cc}/u.test(input.displayName)) fail('invalid_profile');
+      if (!input.displayName.trim() || /\p{Cc}/u.test(input.displayName))
+        fail('invalid_profile');
       const row = await this.tx
         .updateTable('user_profiles')
         .set({ display_name: input.displayName, updated_at: input.now })
@@ -380,14 +506,16 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
       this.checkedHash(input.encodedHash);
       await this.lockUser(input.userId);
       const current = await this.credential(input.userId);
-      if (!current || current.credentialRevision !== input.expectedRevision) fail('stale_state');
+      if (!current || current.credentialRevision !== input.expectedRevision)
+        fail('stale_state');
       return credentialRecord(
         await this.tx
           .updateTable('password_credentials')
           .set({
             password_hash: input.encodedHash,
             credential_revision: this.nextRevision(current.credentialRevision),
-            password_changed_at: input.kind === 'rehash' ? current.passwordChangedAt : input.now,
+            password_changed_at:
+              input.kind === 'rehash' ? current.passwordChangedAt : input.now,
           })
           .where('user_id', '=', input.userId)
           .where('credential_revision', '=', input.expectedRevision)
@@ -415,7 +543,10 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
   async validateLoginSnapshot(expected: LoginSnapshot): Promise<LoginSnapshot> {
     return this.execute(async () => {
       await this.validateProofSnapshot(expected);
-      if ((await this.email(expected.userId))?.normalizedEmail !== expected.normalizedEmail)
+      if (
+        (await this.email(expected.userId))?.normalizedEmail !==
+        expected.normalizedEmail
+      )
         fail('stale_state');
       return expected;
     });

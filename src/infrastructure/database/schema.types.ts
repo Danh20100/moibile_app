@@ -25,6 +25,7 @@ export interface Database {
   user_profile_avatars: UserProfileAvatarsTable;
   user_profile_avatar_intents: UserProfileAvatarIntentsTable;
   identity_auth_challenges: IdentityAuthChallengesTable;
+  identity_otp_challenges: IdentityOtpChallengesTable;
   auth_sessions: AuthSessionsTable;
   auth_session_refresh_history: AuthSessionRefreshHistoryTable;
   identity_security_events: IdentitySecurityEventsTable;
@@ -258,5 +259,13 @@ export interface IdentitySecurityEventsTable {
     | 'AUTHENTICATION_REJECTED' | 'SESSION_LOGOUT' | 'SESSION_REVOKED' | 'IDENTITY_COLLISION'
     | 'REAUTH_ISSUED' | 'REAUTH_REJECTED';
   outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
+}
+export interface IdentityOtpChallengesTable {
+  challenge_id: string; purpose: 'EMAIL_REGISTER' | 'PASSWORD_RESET'; destination_address: string;
+  destination_normalized: string; code_hmac: string; pending_password_hash: string | null;
+  reset_user_id: string | null; reset_email_revision: string | null; reset_credential_revision: string | null;
+  display_name: string | null; created_at: TimestampString; expires_at: TimestampString;
+  last_sent_at: TimestampString; attempts: number; max_attempts: number;
+  consumed_at: TimestampString | null; superseded_at: TimestampString | null;
 }
 export interface PasswordCredentialsTable { user_id: string; password_hash: string; credential_revision: string; created_at: TimestampString; password_changed_at: TimestampString }
