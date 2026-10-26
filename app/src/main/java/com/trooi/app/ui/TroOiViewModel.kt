@@ -868,6 +868,80 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
+
+    fun requestEmailRegistration(fullName: String, phone: String, email: String, password: String) {
+        if (!isValidSignup(fullName, phone, email, password, password, acceptedTerms = true)) {
+            return showMessage("Thông tin đăng ký chưa hợp lệ.")
+        }
+        if (_state.value.authInProgress) return
+        _state.update { it.copy(authInProgress = true) }
+        viewModelScope.launch {
+            repository.requestEmailRegistration(email.trim(), password, fullName.trim()).fold(
+                onSuccess = { issued ->
+                    _state.update {
+                        it.copy(authInProgress = false, emailOtpChallengeId = issued.otpChallengeId,
+                            emailOtpExpiresAt = issued.expiresAtMillis, emailOtpResendAt = issued.resendAtMillis,
+                            snackbarMessage = "Đã gửi mã xác nhận tới email.")
+                    }
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(authInProgress = false) }
+                    showMessage(error.message ?: "Không gửi được mã xác nhận.")
+                },
+            )
+        }
+    }
+
+    fun verifyEmailRegistration(code: String) {
+        val challengeId = _state.value.emailOtpChallengeId
+        if (challengeId.isBlank() || !code.matches(Regex("[0-9]{6}"))) return showMessage("Nhập đủ 6 chữ số.")
+        if (_state.value.authInProgress) return
+        _state.update { it.copy(authInProgress = true) }
+        viewModelScope.launch {
+            repository.verifyEmailRegistration(challengeId, code).fold(
+                onSuccess = { session ->
+                    sessionGeneration++
+                    _state.update {
+                        applyAuthenticatedSession(it, session).copy(authInProgress = false,
+                            emailOtpChallengeId = "", emailOtpExpiresAt = 0L, emailOtpResendAt = 0L)
+                    }
+                    refreshAuthorizedRead(session.access)
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(authInProgress = false) }
+                    showMessage(error.message ?: "Mã xác nhận không hợp lệ.")
+                },
+            )
+        }
+    }
+
+    fun clearEmailOtpChallenge() {
+        _state.update { it.copy(emailOtpChallengeId = "", emailOtpExpiresAt = 0L, emailOtpResendAt = 0L) }
+    }
+
+    fun verifyPasswordReset(code: String, newPassword: String) {
+        val challengeId = _state.value.emailOtpChallengeId
+        if (challengeId.isBlank() || !code.matches(Regex("[0-9]{6}")) || newPassword.length !in 8..128)
+            return showMessage("Kiểm tra lại mã xác nhận và mật khẩu.")
+        if (_state.value.authInProgress) return
+        _state.update { it.copy(authInProgress = true) }
+        viewModelScope.launch {
+            repository.verifyPasswordResetOtp(challengeId, code, newPassword).fold(
+                onSuccess = {
+                    _state.update {
+                        it.copy(authInProgress = false, page = AppPage.AuthLogin, emailOtpChallengeId = "",
+                            emailOtpExpiresAt = 0L, emailOtpResendAt = 0L,
+                            snackbarMessage = "Đã đặt lại mật khẩu. Hãy đăng nhập.")
+                    }
+                },
+                onFailure = { error ->
+                    _state.update { it.copy(authInProgress = false) }
+                    showMessage(error.message ?: "Không thể đặt lại mật khẩu.")
+                },
+            )
+        }
+    }
+
     fun signUp(fullName: String, phone: String, email: String, password: String) {
         if (!isValidSignup(fullName, phone, email, password, password, acceptedTerms = true)) {
             return showMessage("Thông tin đăng ký chưa hợp lệ.")
@@ -885,6 +959,27 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun requestPasswordReset(identifier: String) {
+        if (RuntimeDataSource.isBackendBacked()) {
+            if (!com.trooi.app.features.auth.isValidEmail(identifier)) return showMessage("Nhập địa chỉ email hợp lệ.")
+            if (_state.value.authInProgress) return
+            _state.update { it.copy(authInProgress = true) }
+            viewModelScope.launch {
+                repository.requestPasswordResetOtp(identifier.trim()).fold(
+                    onSuccess = { issued ->
+                        _state.update {
+                            it.copy(authInProgress = false, emailOtpChallengeId = issued.otpChallengeId,
+                                emailOtpExpiresAt = issued.expiresAtMillis, emailOtpResendAt = issued.resendAtMillis,
+                                snackbarMessage = "Nếu email đã đăng ký, mã xác nhận sẽ được gửi.")
+                        }
+                    },
+                    onFailure = { error ->
+                        _state.update { it.copy(authInProgress = false) }
+                        showMessage(error.message ?: "Không thể gửi mã khôi phục.")
+                    },
+                )
+            }
+            return
+        }
         if (identifier.isBlank()) return showMessage("Vui lòng nhập email hoặc số điện thoại.")
         viewModelScope.launch {
             repository.requestPasswordReset(identifier.trim()).fold(
