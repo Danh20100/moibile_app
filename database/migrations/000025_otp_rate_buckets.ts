@@ -9,4 +9,3 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
 export async function down(pgm: MigrationBuilder): Promise<void> {
   pgm.sql(readFileSync(join(__dirname, 'sql', '000025_otp_rate_buckets.down.sql'), 'utf8'));
 }
-
