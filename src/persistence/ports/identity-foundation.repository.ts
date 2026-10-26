@@ -33,6 +33,20 @@ export interface FoundationInput {
   displayName: string | null;
   now: string;
 }
+export interface EmailFoundationInput {
+  userId: string;
+  email: VerifiedEmail;
+  displayName: string | null;
+  encodedHash: string;
+  now: string;
+}
+export interface MailboxOwner {
+  userId: string;
+  normalizedEmail: string;
+  verificationSource: 'google' | 'email_otp';
+  hasGoogleIdentity: boolean;
+  hasPassword: boolean;
+}
 export interface ProofSnapshot {
   userId: string;
   userEmailId: string;
@@ -78,6 +92,19 @@ export interface IdentityFoundationRepository {
   findPrimaryLogin(
     normalizedEmail: string,
   ): Promise<{ email: EmailRecord; credential: CredentialRecord | null } | null>;
+  findPrimaryLoginByUserId(
+    userId: string,
+  ): Promise<{ email: EmailRecord; credential: CredentialRecord | null } | null>;
+  // Matches by mailbox rather than by exact spelling, so a Google sign-in on 'a.b@gmail.com'
+  // is found when someone registers 'ab@gmail.com'. Callers report the conflict; never merge.
+  findMailboxOwner(normalizedEmail: string): Promise<MailboxOwner | null>;
+  // Serializes concurrent work that aims at one mailbox, including Gmail aliases.
+  lockMailbox(normalizedEmail: string): Promise<void>;
+  // Email-first registration. Distinct from insertPasswordCredential, which deliberately
+  // refuses Users without a Google auth_identities binding.
+  createEmailUserFoundation(
+    input: EmailFoundationInput,
+  ): Promise<{ userId: string; email: EmailRecord; profile: ProfileRecord }>;
   replacePrimaryEmail(input: {
     userId: string;
     expectedEmailId: string;

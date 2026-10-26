@@ -9,6 +9,8 @@ import {
   type GooglePrincipal,
   type VerifiedEmail,
   type FoundationInput,
+  type EmailFoundationInput,
+  type MailboxOwner,
   type EmailRecord,
   type ProfileRecord,
   type CredentialRecord,
@@ -82,6 +84,13 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
         .executeTakeFirst())
     )
       fail('user_not_found');
+  }
+
+  async lockMailbox(normalizedEmail: string): Promise<void> {
+    if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail) fail('invalid_email');
+    await sql`SELECT pg_advisory_xact_lock(
+      ('x' || substr(md5('mailbox:' || trooi_canonical_email(${normalizedEmail})), 1, 16))::bit(64)::bigint
+    )`.execute(this.tx);
   }
 
   private checkedEmail(email: VerifiedEmail): VerifiedEmail {
@@ -199,7 +208,7 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
 
   private async initializeRows(
     userId: string,
-    input: FoundationInput,
+    input: Pick<FoundationInput, 'email' | 'displayName' | 'now'>,
   ): Promise<{ email: EmailRecord; profile: ProfileRecord }> {
     let email = await this.email(userId);
     if (!email) {
@@ -252,6 +261,76 @@ export class PostgresIdentityFoundationRepository implements IdentityFoundationR
       return row
         ? { email: emailRecord(row), credential: await this.credential(row.user_id) }
         : null;
+    });
+  }
+
+  async findPrimaryLoginByUserId(
+    userId: string,
+  ): Promise<{ email: EmailRecord; credential: CredentialRecord | null } | null> {
+    return this.execute(async () => {
+      const email = await this.email(userId);
+      return email ? { email, credential: await this.credential(userId) } : null;
+    });
+  }
+
+  async findMailboxOwner(normalizedEmail: string): Promise<MailboxOwner | null> {
+    return this.execute(async () => {
+      if (normalizeLoginEmail(normalizedEmail) !== normalizedEmail) fail('invalid_email');
+      const row = await this.tx
+        .selectFrom('user_emails')
+        .leftJoin('password_credentials', 'password_credentials.user_id', 'user_emails.user_id')
+        .leftJoin('auth_identities', 'auth_identities.user_id', 'user_emails.user_id')
+        .select([
+          'user_emails.user_id',
+          'user_emails.normalized_email',
+          'user_emails.verification_source',
+          'password_credentials.user_id as credential_user_id',
+          'auth_identities.auth_identity_id as google_identity_id',
+        ])
+        .where(
+          sql<boolean>`trooi_canonical_email(user_emails.normalized_email) = trooi_canonical_email(${normalizedEmail})`,
+        )
+        .executeTakeFirst();
+      return row
+        ? {
+            userId: row.user_id,
+            normalizedEmail: row.normalized_email,
+            verificationSource: row.verification_source,
+            hasGoogleIdentity: row.google_identity_id !== null,
+            hasPassword: row.credential_user_id !== null,
+          }
+        : null;
+    });
+  }
+
+  async createEmailUserFoundation(
+    input: EmailFoundationInput,
+  ): Promise<{ userId: string; email: EmailRecord; profile: ProfileRecord }> {
+    return this.execute(async () => {
+      const email = this.checkedEmail(input.email);
+      if (email.verificationSource !== 'email_otp') fail('invalid_email');
+      this.checkedHash(input.encodedHash);
+      // Serialize concurrent registrations aiming at one mailbox. uq_user_emails_address only
+      // catches identical spellings, so Gmail aliases would otherwise race past the check below.
+      await this.lockMailbox(email.normalizedEmail);
+      if (await this.findMailboxOwner(email.normalizedEmail)) fail('email_conflict');
+      await this.tx.insertInto('users').values({ user_id: input.userId }).execute();
+      const initialized = await this.initializeRows(input.userId, {
+        email,
+        displayName: input.displayName,
+        now: input.now,
+      });
+      await this.tx
+        .insertInto('password_credentials')
+        .values({
+          user_id: input.userId,
+          password_hash: input.encodedHash,
+          credential_revision: '1',
+          created_at: input.now,
+          password_changed_at: input.now,
+        })
+        .execute();
+      return { userId: input.userId, ...initialized };
     });
   }
 

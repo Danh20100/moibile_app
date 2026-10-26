@@ -1,3 +1,4 @@
+import { PostgresIdentityOtpRepository } from './identity-otp.repository';
 import { PostgresIdentityFoundationRepository } from './identity-foundation.repository';
 import { PostgresIdentitySessionsRepository } from './identity-sessions.repository';
 import type { Transaction } from 'kysely';
@@ -20,6 +21,7 @@ export interface RepositorySetFactory {
 
 export const createRepositorySet: RepositorySetFactory = (executor) => ({
   identityFoundation: new PostgresIdentityFoundationRepository(executor),
+  identityOtp: new PostgresIdentityOtpRepository(executor),
   identitySessions: new PostgresIdentitySessionsRepository(executor),
   identity: new PostgresIdentityRepository(executor), organization: new PostgresOrganizationRepository(executor),
   property: new PostgresPropertyRepository(executor), listing: new PostgresListingRepository(executor),
