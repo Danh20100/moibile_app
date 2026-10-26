@@ -75,7 +75,8 @@ fun RentalJoinPrompt(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Liên kết phòng thuê", style = MaterialTheme.typography.titleLarge)
+        BookHeading("Liên kết phòng thuê", Icons.Rounded.QrCodeScanner)
+        BookIllustration(Icons.Rounded.QrCode)
         Text("Chủ trọ gửi link hoặc QR của phòng. Bạn mở link, nhập mã hoặc quét QR để liên kết.")
         TroOiFormField(value = input, onValueChange = { input = it }, label = { Text("Link hoặc mã liên kết") },
             singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -105,7 +106,7 @@ fun RentalJoinPrompt(
 }
 
 @Composable
-fun RentalInviteSheet(invitation: RoomJoinInvitation?, loading: Boolean, onCreate: () -> Unit, onDismiss: () -> Unit) {
+fun RentalInviteSheet(invitation: RoomJoinInvitation?, loading: Boolean, onCreate: () -> Unit, onDismiss: () -> Unit, eligible: Boolean = true) {
     var showingQr by remember(invitation?.token) { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
@@ -114,7 +115,10 @@ fun RentalInviteSheet(invitation: RoomJoinInvitation?, loading: Boolean, onCreat
         title = { Text("Liên kết người thuê") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (invitation == null) {
+                if (!eligible) {
+                    BookEmpty(androidx.compose.material.icons.Icons.Rounded.QrCode,
+                        "Phòng chưa thể tạo lời mời", "Cần có lượt thuê đang hoạt động với người đứng tên trước khi tạo link hoặc QR.")
+                } else if (invitation == null) {
                     Text("Tạo link cho người đang đứng tên thuê phòng. Link có hiệu lực 24 giờ và chỉ liên kết được một lần.")
                     TroOiButton("Tạo link mời", onCreate, modifier = Modifier.fillMaxWidth(), enabled = !loading)
                 } else {
