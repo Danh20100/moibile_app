@@ -8,69 +8,61 @@ const smtp = {
   SMTP_HOST: 'smtp.gmail.com',
   SMTP_USER: 'sender@example.test',
   SMTP_PASSWORD: 'app-password',
-  SMTP_FROM: 'sender@example.test',
 };
 
-test('email auth stays off without extra secrets when the flag is unset', () => {
-  const config = readEmailAuthConfig({ NODE_ENV: 'development' });
-  assert.equal(config.enabled, false);
-  assert.equal(config.smtp, null);
-});
-
-test('enabling email auth requires a long HMAC secret', () => {
-  assert.throws(
-    () => readEmailAuthConfig({ TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: 'short' }),
-    /TROOI_OTP_HMAC_SECRET/,
-  );
-});
-
-test('production refuses the console sender when email auth is enabled', () => {
-  assert.throws(
-    () =>
-      readEmailAuthConfig({
-        NODE_ENV: 'production',
-        TROOI_EMAIL_AUTH_ENABLED: 'true',
-        TROOI_OTP_HMAC_SECRET: secret,
-      }),
-    /SMTP_HOST/,
-  );
-});
-
-test('development also requires real SMTP when email OTP is enabled', () => {
-  assert.throws(
-    () => readEmailAuthConfig({ NODE_ENV: 'development', TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret }),
-    /SMTP_HOST/,
-  );
-});
-
-test('real SMTP can enable email OTP', () => {
-  const production = readEmailAuthConfig({
-    NODE_ENV: 'production',
-    TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: 'true',
-    TROOI_EMAIL_AUTH_ENABLED: 'true',
-    TROOI_OTP_HMAC_SECRET: secret,
-    ...smtp,
-  });
-  assert.equal(production.enabled, true);
-  assert.equal(production.smtp?.host, 'smtp.gmail.com');
-});
-
-
-test('email OTP refuses incomplete and malformed SMTP settings at startup', () => {
-  for (const override of [
-    { SMTP_HOST: '' }, { SMTP_USER: '' }, { SMTP_PASSWORD: '   ' },
-    { SMTP_PORT: '0' }, { SMTP_PORT: '65536' }, { SMTP_PORT: '0x24b' },
-  ]) {
-    assert.throws(() => readEmailAuthConfig({
-      TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret,
-      ...smtp, ...override,
-    }), /SMTP_HOST/);
+test('OTP stays off when SMTP credentials and HMAC secret are absent', () => {
+  for (const env of [{}, { SMTP_PORT: '587', SMTP_FROM: 'sender@example.test' }]) {
+    const config = readEmailAuthConfig(env);
+    assert.equal(config.enabled, false);
+    assert.equal(config.smtp, null);
   }
 });
 
-test('email OTP cannot enable without the identity foundation used by issued sessions', () => {
+test('complete SMTP and HMAC settings enable OTP with defaults', () => {
+  const config = readEmailAuthConfig({
+    ...smtp,
+    TROOI_OTP_HMAC_SECRET: secret,
+    TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: 'true',
+  });
+  assert.equal(config.enabled, true);
+  assert.equal(config.smtp?.host, 'smtp.gmail.com');
+  assert.equal(config.smtp?.port, 587);
+  assert.equal(config.smtp?.from, smtp.SMTP_USER);
+});
+
+test('partial or invalid OTP settings fail startup', () => {
+  for (const env of [
+    { TROOI_OTP_HMAC_SECRET: secret },
+    { ...smtp },
+    { ...smtp, TROOI_OTP_HMAC_SECRET: 'short' },
+    { SMTP_HOST: 'smtp.gmail.com' },
+    { ...smtp, TROOI_OTP_HMAC_SECRET: secret, SMTP_PASSWORD: '  ' },
+    { ...smtp, TROOI_OTP_HMAC_SECRET: secret, SMTP_PORT: '0' },
+    { ...smtp, TROOI_OTP_HMAC_SECRET: secret, SMTP_PORT: '65536' },
+    { ...smtp, TROOI_OTP_HMAC_SECRET: secret, SMTP_PORT: '0x24b' },
+  ]) {
+    assert.throws(() => readEmailAuthConfig(env));
+  }
+});
+
+test('OTP requires the identity foundation gate to remain enabled', () => {
   assert.throws(() => readEmailAuthConfig({
-    TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret, ...smtp,
-    TROOI_IDENTITY_SESSIONS_ENABLED: 'true',
+    ...smtp,
+    TROOI_OTP_HMAC_SECRET: secret,
+    TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: 'false',
   }), /TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED/);
+  assert.throws(() => readEmailAuthConfig({ ...smtp, TROOI_OTP_HMAC_SECRET: secret }),
+    /TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED/);
+});
+
+test('nondefault SMTP sender and port stay explicit', () => {
+  const config = readEmailAuthConfig({
+    ...smtp,
+    SMTP_PORT: '465',
+    SMTP_FROM: 'TrọƠi <sender@example.test>',
+    TROOI_OTP_HMAC_SECRET: secret,
+    TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: 'true',
+  });
+  assert.equal(config.smtp?.secure, true);
+  assert.equal(config.smtp?.from, 'TrọƠi <sender@example.test>');
 });

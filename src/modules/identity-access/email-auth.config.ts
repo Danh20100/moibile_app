@@ -21,25 +21,27 @@ export interface EmailAuthConfig {
  * combination that would be unsafe in production, rather than failing per request.
  */
 export function readEmailAuthConfig(env: NodeJS.ProcessEnv): EmailAuthConfig {
-  const enabled = env.TROOI_EMAIL_AUTH_ENABLED?.trim() === 'true';
   const otpHmacSecret = env.TROOI_OTP_HMAC_SECRET?.trim() ?? '';
   const smtp = readSmtpSettings(env);
+  const configured = Boolean(
+    otpHmacSecret || env.SMTP_HOST?.trim() || env.SMTP_USER?.trim() || env.SMTP_PASSWORD?.trim(),
+  );
 
-  if (enabled) {
+  if (configured) {
     if (otpHmacSecret.length < 32)
       throw new Error(
-        'TROOI_OTP_HMAC_SECRET must be at least 32 characters when TROOI_EMAIL_AUTH_ENABLED is true',
+        'TROOI_OTP_HMAC_SECRET must be at least 32 characters',
       );
     // The console sender prints verification codes instead of delivering them, which would
     // hand every account to anyone who can read the logs.
     if (!smtp)
       throw new Error(
-        'SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM are required in production when TROOI_EMAIL_AUTH_ENABLED is true',
+        'SMTP_HOST, SMTP_USER and SMTP_PASSWORD are required for email OTP',
       );
     if (env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED?.trim() !== 'true')
       throw new Error(
-        'TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED must be true when TROOI_EMAIL_AUTH_ENABLED is true',
+        'TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED must be true when email OTP is configured',
       );
   }
-  return { enabled, otpHmacSecret, smtp };
+  return { enabled: configured, otpHmacSecret, smtp };
 }
