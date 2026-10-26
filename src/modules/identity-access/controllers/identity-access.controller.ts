@@ -12,6 +12,12 @@ import {
   UploadProfileAvatarDto,
   AuthChallengeRequestDto,
   GoogleSessionRequestDto,
+  EmailOtpRequestDto,
+  EmailOtpVerifyDto,
+  EmailOtpChallengeDto,
+  PasswordResetRequestDto,
+  PasswordResetVerifyDto,
+  PasswordResetAcceptedDto,
   PasswordLoginDto,
   RefreshSessionRequestDto,
   IdentityChallengeDto,
@@ -29,6 +35,7 @@ import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
 import { IdentitySessionService } from '../services/identity-session.service';
 import { LocalDemoAuthService } from '../services/local-demo-auth.service';
+import { EmailOtpService } from '../services/email-otp.service';
 
 @ApiTags('Identity & Access')
 @Controller('identity-access')
@@ -42,6 +49,8 @@ export class IdentityAccessController {
     private readonly identitySessionService?: IdentitySessionService,
     @Optional() @Inject(LocalDemoAuthService)
     private readonly localDemoAuth?: LocalDemoAuthService,
+    @Optional() @Inject(EmailOtpService)
+    private readonly emailOtpService?: EmailOtpService,
   ) {}
 
   @Public()
@@ -73,6 +82,24 @@ export class IdentityAccessController {
   }
 
   @Public()
+  @Post('register/email/otp/request')
+  @ApiOperation({ summary: 'Gửi mã OTP tới email để đăng ký tài khoản mật khẩu' })
+  @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
+  async requestEmailRegistrationOtp(@Body() dto: EmailOtpRequestDto): Promise<EmailOtpChallengeDto> {
+    if (!this.emailOtpService) throw new ServiceUnavailableException('Email registration is unavailable');
+    return this.emailOtpService.request(dto);
+  }
+
+  @Public()
+  @Post('register/email/otp/verify')
+  @ApiOperation({ summary: 'Xác nhận mã OTP và tạo phiên đăng nhập' })
+  @ApiResponse({ status: 200, type: IdentitySessionDto })
+  async verifyEmailRegistrationOtp(@Body() dto: EmailOtpVerifyDto): Promise<IdentitySessionDto> {
+    if (!this.emailOtpService) throw new ServiceUnavailableException('Email registration is unavailable');
+    return this.emailOtpService.verify(dto);
+  }
+
+  @Public()
   @Post('auth/password')
   @ApiOperation({ summary: 'Sign in with a previously verified email and password' })
   @ApiResponse({ status: 200, type: IdentitySessionDto })
@@ -88,6 +115,24 @@ export class IdentityAccessController {
   async authenticateLocalDemo(@Body() dto: { email?: string; password?: string }): Promise<IdentitySessionDto> {
     if (!this.localDemoAuth) throw new ServiceUnavailableException('Local demo login unavailable');
     return this.localDemoAuth.login(dto.email ?? '', dto.password ?? '');
+  }
+
+  @Public()
+  @Post('password/reset/request')
+  @ApiOperation({ summary: 'Gửi mã OTP đặt lại mật khẩu. Luôn trả 200 nếu email hợp lệ.' })
+  @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
+  async requestPasswordReset(@Body() dto: PasswordResetRequestDto): Promise<EmailOtpChallengeDto> {
+    if (!this.emailOtpService) throw new ServiceUnavailableException('Email authentication is unavailable');
+    return this.emailOtpService.requestPasswordReset(dto);
+  }
+
+  @Public()
+  @Post('password/reset/verify')
+  @ApiOperation({ summary: 'Xác nhận OTP, đổi mật khẩu và thu hồi mọi phiên' })
+  @ApiResponse({ status: 200, type: PasswordResetAcceptedDto })
+  async verifyPasswordReset(@Body() dto: PasswordResetVerifyDto): Promise<PasswordResetAcceptedDto> {
+    if (!this.emailOtpService) throw new ServiceUnavailableException('Email authentication is unavailable');
+    return this.emailOtpService.verifyPasswordReset(dto);
   }
 
   @Public()
