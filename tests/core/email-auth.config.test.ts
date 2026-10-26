@@ -36,14 +36,14 @@ test('production refuses the console sender when email auth is enabled', () => {
   );
 });
 
-test('development may enable email auth without SMTP and production accepts a complete SMTP set', () => {
-  const development = readEmailAuthConfig({
-    NODE_ENV: 'development',
-    TROOI_EMAIL_AUTH_ENABLED: 'true',
-    TROOI_OTP_HMAC_SECRET: secret,
-  });
-  assert.equal(development.enabled, true);
-  assert.equal(development.smtp, null);
+test('development also requires real SMTP when email OTP is enabled', () => {
+  assert.throws(
+    () => readEmailAuthConfig({ NODE_ENV: 'development', TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret }),
+    /SMTP_HOST/,
+  );
+});
+
+test('real SMTP can enable email OTP', () => {
   const production = readEmailAuthConfig({
     NODE_ENV: 'production',
     TROOI_EMAIL_AUTH_ENABLED: 'true',
