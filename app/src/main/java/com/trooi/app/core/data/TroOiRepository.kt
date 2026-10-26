@@ -26,15 +26,6 @@ data class EmailOtpIssue(
     val resendAtMillis: Long,
 )
 
-data class UserSession(
-    val userId: String,
-    val displayName: String,
-    /** Relationships/capabilities are issued by the authorized Backend, not selected at login. */
-    val access: AccessCapabilities,
-    val pictureUrl: String? = null,
-    val email: String? = null,
-)
-
 data class ProfileAvatarImage(val contentType: String, val bytes: ByteArray)
 
 interface TroOiRepository {
