@@ -122,6 +122,8 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
         .updateTable('identity_otp_challenges')
         .set((eb) => ({ attempts: eb('attempts', '+', 1) }))
         .where('challenge_id', '=', challengeId)
+        .where('consumed_at', 'is', null)
+        .where('superseded_at', 'is', null)
         .returning('attempts')
         .executeTakeFirst();
       return row?.attempts ?? 0;

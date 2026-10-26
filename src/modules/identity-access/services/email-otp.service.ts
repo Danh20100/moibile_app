@@ -48,6 +48,12 @@ export interface PasswordResetAccepted {
   reset: true;
 }
 
+class OtpMismatchError extends Error {
+  constructor(readonly challengeId: string, readonly maxAttempts: number) {
+    super('OTP verification failed');
+  }
+}
+
 @Injectable()
 export class EmailOtpService {
   constructor(
@@ -154,6 +160,7 @@ export class EmailOtpService {
         return session;
       });
     } catch (error) {
+      await this.persistOtpMismatch(error);
       if (error instanceof HttpException) throw error;
       if (error instanceof IdentityFoundationConflict && error.code === 'email_conflict') {
         await this.recordRejected('email_conflict');
@@ -246,6 +253,7 @@ export class EmailOtpService {
       });
     });
     } catch (error) {
+      await this.persistOtpMismatch(error);
       if (error instanceof HttpException) throw error;
       if (error instanceof IdentityFoundationConflict)
         throw coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID');
@@ -371,13 +379,7 @@ export class EmailOtpService {
       input.code,
     );
     if (!sameDigest(expected, challenge.codeHmac)) {
-      const attempts = await repositories.identityOtp.recordFailedAttempt(challenge.challengeId);
-      return reject(
-        'otp_mismatch',
-        attempts >= challenge.maxAttempts
-          ? coded(HttpStatus.UNAUTHORIZED, 'Too many incorrect codes', 'OTP_ATTEMPTS_EXCEEDED')
-          : coded(HttpStatus.UNAUTHORIZED, 'Verification code is incorrect', 'OTP_INVALID'),
-      );
+      throw new OtpMismatchError(challenge.challengeId, challenge.maxAttempts);
     }
     return challenge;
   }
@@ -405,6 +407,23 @@ export class EmailOtpService {
         'EMAIL_DELIVERY_FAILED',
       );
     }
+  }
+
+
+  private async persistOtpMismatch(error: unknown): Promise<void> {
+    if (!(error instanceof OtpMismatchError)) return;
+    const attempts = await this.transactions.run(async ({ repositories }) => {
+      const count = await repositories.identityOtp.recordFailedAttempt(error.challengeId);
+      await repositories.identitySessions.appendSecurityEvent({
+        eventId: randomUUID(), userId: null, sessionId: null,
+        eventCode: 'AUTHENTICATION_REJECTED', outcome: 'REJECTED',
+        occurredAt: new Date().toISOString(), requestMetadata: { reason: 'otp_mismatch' },
+      });
+      return count;
+    });
+    throw attempts >= error.maxAttempts
+      ? coded(HttpStatus.UNAUTHORIZED, 'Too many incorrect codes', 'OTP_ATTEMPTS_EXCEEDED')
+      : coded(HttpStatus.UNAUTHORIZED, 'Verification code is incorrect', 'OTP_INVALID');
   }
 
   private throwCooldown(retryAfterSeconds: number): never {
