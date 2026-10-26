@@ -122,8 +122,8 @@ export class TenancySupportController {
   ): Promise<TenancyParticipant> {
     if (user) {
       const isOp = await this.authz.isOperatorOfTenancy(user.userId, tenancyId);
-      if (!isOp && dto.userId !== user.userId) {
-        throw new ForbiddenException('Bạn không có quyền link user này');
+      if (!isOp) {
+        throw new ForbiddenException('Người thuê cần dùng link mời để liên kết tài khoản');
       }
     }
     return this.participants.linkUser(participantId, dto.userId);

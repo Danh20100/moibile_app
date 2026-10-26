@@ -15,15 +15,17 @@ import dagger.hilt.android.AndroidEntryPoint
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val paymentReturn = mutableStateOf<PaymentReturnUri?>(null)
+    private val rentalJoinToken = mutableStateOf<String?>(null)
     private val testCommand = mutableStateOf<DebugTestCommand?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         paymentReturn.value = paymentReturnFrom(intent)
+        rentalJoinToken.value = rentalJoinTokenFrom(intent)
         testCommand.value = DebugTestIntent.parse(intent)
         enableEdgeToEdge()
         setContent {
-            TroOiApp(paymentReturnUri = paymentReturn.value, debugTestCommand = testCommand.value)
+            TroOiApp(paymentReturnUri = paymentReturn.value, debugTestCommand = testCommand.value, rentalJoinToken = rentalJoinToken.value)
         }
     }
 
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         paymentReturn.value = paymentReturnFrom(intent)
+        rentalJoinToken.value = rentalJoinTokenFrom(intent) ?: rentalJoinToken.value
         DebugTestIntent.parse(intent)?.let { testCommand.value = it }
     }
 }
@@ -44,4 +47,11 @@ internal fun paymentReturnFrom(intent: Intent?): PaymentReturnUri? {
         path = uri.path,
         query = uri.queryParameterNames.associateWith { uri.getQueryParameter(it).orEmpty() },
     )
+}
+
+internal fun rentalJoinTokenFrom(intent: Intent?): String? {
+    if (intent?.action != Intent.ACTION_VIEW) return null
+    val uri = intent.data ?: return null
+    if (uri.scheme != "trooi" || uri.host != "join") return null
+    return uri.getQueryParameter("token")?.takeIf { it.matches(Regex("[a-fA-F0-9]{64}")) }
 }

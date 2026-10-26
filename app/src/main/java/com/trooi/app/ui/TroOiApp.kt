@@ -51,6 +51,7 @@ fun TroOiApp(
     viewModel: TroOiViewModel = hiltViewModel(),
     paymentReturnUri: PaymentReturnUri? = null,
     debugTestCommand: DebugTestCommand? = null,
+    rentalJoinToken: String? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val demoBackend = BuildConfig.DEBUG && BuildConfig.DEMO_BACKEND_ENABLED && !RuntimeDataSource.isBackendBacked()
@@ -70,6 +71,9 @@ fun TroOiApp(
     val context = LocalContext.current
     val useNavigationRail = LocalConfiguration.current.screenWidthDp >= 600
     LaunchedEffect(Unit) { viewModel.bootstrapRestore(context) }
+    LaunchedEffect(rentalJoinToken, state.sessionRestoring, state.isAuthenticated) {
+        if (rentalJoinToken != null && !state.sessionRestoring && state.isAuthenticated) viewModel.openCoreWorkspace()
+    }
     LaunchedEffect(paymentReturnUri, state.sessionRestoring, state.isAuthenticated) {
         if (paymentReturnUri == null || state.sessionRestoring || !state.isAuthenticated) return@LaunchedEffect
         viewModel.handlePaymentReturn(paymentReturnUri)
@@ -233,23 +237,13 @@ fun TroOiApp(
                     AppPage.Favorites -> FavoritesPlaceholderScreen(
                         onExplore = viewModel::openDiscovery,
                     )
-                    AppPage.CoreWorkspace, AppPage.OwnerDashboard -> LedgerScreen(
+                    AppPage.CoreWorkspace, AppPage.OwnerDashboard -> RentalBookScreen(
                         state = state,
-                        onExplore = viewModel::openDiscovery,
-                        onFinance = { tenancyId ->
-                            viewModel.selectContext(SelectedContext.Tenant(tenancyId))
-                            viewModel.openTenantFinance()
-                        },
-                        onOperations = viewModel::openOwnerProperties,
-                        onOwnerFinance = viewModel::openOwnerFinance,
-                        onSaveAsset = viewModel::saveLocalAsset,
-                        onPurchaseCapacity = viewModel::purchaseLocalCapacity,
-                        onArchiveAsset = viewModel::archiveLocalAsset,
-                        onMessageContext = viewModel::openMessageContext,
-                        onRetryRead = viewModel::retryAuthorizedRead,
-                        onTenantIncidents = viewModel::openTenantIncidents,
-                        onOwnerIncidents = viewModel::openOwnerIncidents,
                         onNotifications = viewModel::openNotifications,
+                        onRetry = viewModel::retryAuthorizedRead,
+                        onPurchaseSlot = viewModel::purchaseLocalCapacity,
+                        onLinked = { viewModel.refreshSessionContext() },
+                        pendingJoinToken = rentalJoinToken,
                     )
                     AppPage.Messages -> com.trooi.app.features.messages.MessagesScreen(state,
                         viewModel::openDiscovery, viewModel::openMessages, viewModel::saveLocalMessage,

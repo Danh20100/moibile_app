@@ -181,6 +181,7 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.59.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
