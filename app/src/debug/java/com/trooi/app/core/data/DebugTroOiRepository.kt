@@ -88,6 +88,13 @@ class TroOiRepositoryImpl private constructor(
         } else selected().login(identifier, password)
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String) =
         selected().signUp(fullName, phone, email, password)
+    override suspend fun requestEmailRegistration(email: String, password: String, displayName: String?) =
+        selected().requestEmailRegistration(email, password, displayName)
+    override suspend fun verifyEmailRegistration(challengeId: String, code: String) =
+        selected().verifyEmailRegistration(challengeId, code)
+    override suspend fun requestPasswordResetOtp(email: String) = selected().requestPasswordResetOtp(email)
+    override suspend fun verifyPasswordResetOtp(challengeId: String, code: String, password: String) =
+        selected().verifyPasswordResetOtp(challengeId, code, password)
     override suspend fun requestPasswordReset(identifier: String) = selected().requestPasswordReset(identifier)
     override suspend fun submitInquiry(listingId: String, message: String) =
         selected().submitInquiry(listingId, message)
