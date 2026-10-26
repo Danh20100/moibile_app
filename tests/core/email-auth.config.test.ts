@@ -46,10 +46,31 @@ test('development also requires real SMTP when email OTP is enabled', () => {
 test('real SMTP can enable email OTP', () => {
   const production = readEmailAuthConfig({
     NODE_ENV: 'production',
+    TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED: 'true',
     TROOI_EMAIL_AUTH_ENABLED: 'true',
     TROOI_OTP_HMAC_SECRET: secret,
     ...smtp,
   });
   assert.equal(production.enabled, true);
   assert.equal(production.smtp?.host, 'smtp.gmail.com');
+});
+
+
+test('email OTP refuses incomplete and malformed SMTP settings at startup', () => {
+  for (const override of [
+    { SMTP_HOST: '' }, { SMTP_USER: '' }, { SMTP_PASSWORD: '   ' },
+    { SMTP_PORT: '0' }, { SMTP_PORT: '65536' }, { SMTP_PORT: '0x24b' },
+  ]) {
+    assert.throws(() => readEmailAuthConfig({
+      TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret,
+      ...smtp, ...override,
+    }), /SMTP_HOST/);
+  }
+});
+
+test('email OTP cannot enable without the identity foundation used by issued sessions', () => {
+  assert.throws(() => readEmailAuthConfig({
+    TROOI_EMAIL_AUTH_ENABLED: 'true', TROOI_OTP_HMAC_SECRET: secret, ...smtp,
+    TROOI_IDENTITY_SESSIONS_ENABLED: 'true',
+  }), /TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED/);
 });

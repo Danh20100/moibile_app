@@ -36,6 +36,10 @@ export function readEmailAuthConfig(env: NodeJS.ProcessEnv): EmailAuthConfig {
       throw new Error(
         'SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM are required in production when TROOI_EMAIL_AUTH_ENABLED is true',
       );
+    if (env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED?.trim() !== 'true')
+      throw new Error(
+        'TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED must be true when TROOI_EMAIL_AUTH_ENABLED is true',
+      );
   }
   return { enabled, otpHmacSecret, smtp };
 }

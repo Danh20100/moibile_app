@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from 'class-validator';
 
 export class AuthChallengeRequestDto {
   @ApiProperty({ enum: ['LOGIN', 'REGISTER'] })
@@ -21,6 +21,7 @@ export class EmailOtpRequestDto {
   @ApiProperty({ example: 'user@gmail.com' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(254)
   email!: string;
 
   @ApiProperty({ minLength: 8, maxLength: 128 })
@@ -39,7 +40,7 @@ export class EmailOtpRequestDto {
 export class EmailOtpVerifyDto {
   @ApiProperty({ description: 'Challenge id returned by register/email/otp/request' })
   @IsString()
-  @IsNotEmpty()
+  @IsUUID('4')
   otpChallengeId!: string;
 
   @ApiProperty({ example: '123456' })
@@ -58,13 +59,14 @@ export class PasswordResetRequestDto {
   @ApiProperty({ example: 'user@gmail.com' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(254)
   email!: string;
 }
 
 export class PasswordResetVerifyDto {
   @ApiProperty({ description: 'Challenge id returned by password/reset/request' })
   @IsString()
-  @IsNotEmpty()
+  @IsUUID('4')
   otpChallengeId!: string;
 
   @ApiProperty({ example: '123456' })

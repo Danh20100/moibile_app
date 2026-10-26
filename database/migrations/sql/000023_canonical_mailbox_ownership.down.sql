@@ -1,0 +1,1 @@
+DROP INDEX uq_user_emails_canonical_mailbox;

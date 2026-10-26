@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Headers, Inject, Optional, Param, Patch, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, HttpCode, Inject, Optional, Param, Patch, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser, Public } from '../../../common';
@@ -36,6 +36,7 @@ import { ProfileAvatarService } from '../services/profile-avatar.service';
 import { IdentitySessionService } from '../services/identity-session.service';
 import { LocalDemoAuthService } from '../services/local-demo-auth.service';
 import { EmailOtpService } from '../services/email-otp.service';
+import { EmailOtpRateLimit } from '../guards/email-otp-rate-limit.guard';
 
 @ApiTags('Identity & Access')
 @Controller('identity-access')
@@ -83,6 +84,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('register/email/otp/request')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('issue')
   @ApiOperation({ summary: 'Gửi mã OTP tới email để đăng ký tài khoản mật khẩu' })
   @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
   async requestEmailRegistrationOtp(@Body() dto: EmailOtpRequestDto): Promise<EmailOtpChallengeDto> {
@@ -92,6 +96,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('register/email/otp/verify')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('verify')
   @ApiOperation({ summary: 'Xác nhận mã OTP và tạo phiên đăng nhập' })
   @ApiResponse({ status: 200, type: IdentitySessionDto })
   async verifyEmailRegistrationOtp(@Body() dto: EmailOtpVerifyDto): Promise<IdentitySessionDto> {
@@ -119,6 +126,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('password/reset/request')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('issue')
   @ApiOperation({ summary: 'Gửi mã OTP đặt lại mật khẩu. Luôn trả 200 nếu email hợp lệ.' })
   @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
   async requestPasswordReset(@Body() dto: PasswordResetRequestDto): Promise<EmailOtpChallengeDto> {
@@ -128,6 +138,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('password/reset/verify')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('verify')
   @ApiOperation({ summary: 'Xác nhận OTP, đổi mật khẩu và thu hồi mọi phiên' })
   @ApiResponse({ status: 200, type: PasswordResetAcceptedDto })
   async verifyPasswordReset(@Body() dto: PasswordResetVerifyDto): Promise<PasswordResetAcceptedDto> {

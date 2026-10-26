@@ -18,6 +18,7 @@ import com.trooi.app.core.data.SlotCheckoutPending
 import com.trooi.app.core.data.TroOiRepository
 import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.*
+import com.trooi.app.features.auth.EmailOtpLifecycle
 import com.trooi.app.features.auth.isValidIdentifier
 import com.trooi.app.features.discovery.MapSearchQuery
 import com.trooi.app.features.auth.isValidPassword
@@ -72,6 +73,8 @@ class TroOiViewModel @Inject constructor(
     private var sessionGeneration = 0
     private var verifiedDemoCheckout: Pair<String, String>? = null
     private var authenticationJob: Job? = null
+    private val emailOtpLifecycle = EmailOtpLifecycle()
+    private var emailOtpVerificationJob: Job? = null
     private var restoreStarted = false
     private var expiredAuthRetried = false
     private var lastPublicSearch: MapSearchQuery? = null
@@ -169,9 +172,21 @@ class TroOiViewModel @Inject constructor(
         }
     }
 
-    fun openLogin() = _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null, splashCompleted = true) }
-    fun openSignUp() = _state.update { it.copy(page = AppPage.AuthSignUp, splashCompleted = true) }
-    fun openForgotPassword() = open(AppPage.AuthForgotPassword)
+    fun openLogin() {
+        if (_state.value.authInProgress) return
+        clearEmailOtpChallenge()
+        _state.update { it.copy(page = AppPage.AuthLogin, authReturnListingId = null, splashCompleted = true) }
+    }
+    fun openSignUp() {
+        if (_state.value.authInProgress) return
+        clearEmailOtpChallenge()
+        _state.update { it.copy(page = AppPage.AuthSignUp, splashCompleted = true) }
+    }
+    fun openForgotPassword() {
+        if (_state.value.authInProgress) return
+        clearEmailOtpChallenge()
+        open(AppPage.AuthForgotPassword)
+    }
     fun openDiscovery() = openContext(AppContext.DISCOVERY, AppPage.Discovery)
     fun openFavorites() = openContext(AppContext.DISCOVERY, AppPage.Favorites)
     fun openCoreWorkspace() = openContext(AppContext.DISCOVERY, AppPage.CoreWorkspace)
@@ -875,9 +890,14 @@ class TroOiViewModel @Inject constructor(
         }
         if (_state.value.authInProgress) return
         _state.update { it.copy(authInProgress = true) }
+        val otpRequest = emailOtpLifecycle.begin(EmailOtpLifecycle.Purpose.REGISTRATION)
         viewModelScope.launch {
             repository.requestEmailRegistration(email.trim(), password, fullName.trim()).fold(
                 onSuccess = { issued ->
+                    if (!emailOtpLifecycle.isCurrent(otpRequest)) {
+                        if (!emailOtpLifecycle.hasRequest()) _state.update { it.copy(authInProgress = false) }
+                        return@fold
+                    }
                     _state.update {
                         it.copy(authInProgress = false, emailOtpChallengeId = issued.otpChallengeId,
                             emailOtpExpiresAt = issued.expiresAtMillis, emailOtpResendAt = issued.resendAtMillis,
@@ -885,6 +905,10 @@ class TroOiViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    if (!emailOtpLifecycle.isCurrent(otpRequest)) {
+                        if (!emailOtpLifecycle.hasRequest()) _state.update { it.copy(authInProgress = false) }
+                        return@fold
+                    }
                     _state.update { it.copy(authInProgress = false) }
                     showMessage(error.message ?: "Không gửi được mã xác nhận.")
                 },
@@ -893,13 +917,16 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun verifyEmailRegistration(code: String) {
+        if (!emailOtpLifecycle.hasPurpose(EmailOtpLifecycle.Purpose.REGISTRATION)) return
+        val verification = emailOtpLifecycle.capture(EmailOtpLifecycle.Purpose.REGISTRATION) ?: return
         val challengeId = _state.value.emailOtpChallengeId
         if (challengeId.isBlank() || !code.matches(Regex("[0-9]{6}"))) return showMessage("Nhập đủ 6 chữ số.")
         if (_state.value.authInProgress) return
         _state.update { it.copy(authInProgress = true) }
-        viewModelScope.launch {
+        emailOtpVerificationJob = viewModelScope.launch {
             repository.verifyEmailRegistration(challengeId, code).fold(
                 onSuccess = { session ->
+                    if (!emailOtpLifecycle.isCurrent(verification)) return@fold
                     sessionGeneration++
                     _state.update {
                         applyAuthenticatedSession(it, session).copy(authInProgress = false,
@@ -908,6 +935,7 @@ class TroOiViewModel @Inject constructor(
                     refreshAuthorizedRead(session.access)
                 },
                 onFailure = { error ->
+                    if (!emailOtpLifecycle.isCurrent(verification)) return@fold
                     _state.update { it.copy(authInProgress = false) }
                     showMessage(error.message ?: "Mã xác nhận không hợp lệ.")
                 },
@@ -916,18 +944,24 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun clearEmailOtpChallenge() {
+        emailOtpLifecycle.invalidate()
+        emailOtpVerificationJob?.cancel()
+        emailOtpVerificationJob = null
         _state.update { it.copy(emailOtpChallengeId = "", emailOtpExpiresAt = 0L, emailOtpResendAt = 0L) }
     }
 
     fun verifyPasswordReset(code: String, newPassword: String) {
+        if (!emailOtpLifecycle.hasPurpose(EmailOtpLifecycle.Purpose.PASSWORD_RESET)) return
+        val verification = emailOtpLifecycle.capture(EmailOtpLifecycle.Purpose.PASSWORD_RESET) ?: return
         val challengeId = _state.value.emailOtpChallengeId
         if (challengeId.isBlank() || !code.matches(Regex("[0-9]{6}")) || newPassword.length !in 8..128)
             return showMessage("Kiểm tra lại mã xác nhận và mật khẩu.")
         if (_state.value.authInProgress) return
         _state.update { it.copy(authInProgress = true) }
-        viewModelScope.launch {
+        emailOtpVerificationJob = viewModelScope.launch {
             repository.verifyPasswordResetOtp(challengeId, code, newPassword).fold(
                 onSuccess = {
+                    if (!emailOtpLifecycle.isCurrent(verification)) return@fold
                     _state.update {
                         it.copy(authInProgress = false, page = AppPage.AuthLogin, emailOtpChallengeId = "",
                             emailOtpExpiresAt = 0L, emailOtpResendAt = 0L,
@@ -935,6 +969,7 @@ class TroOiViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    if (!emailOtpLifecycle.isCurrent(verification)) return@fold
                     _state.update { it.copy(authInProgress = false) }
                     showMessage(error.message ?: "Không thể đặt lại mật khẩu.")
                 },
@@ -963,9 +998,14 @@ class TroOiViewModel @Inject constructor(
             if (!com.trooi.app.features.auth.isValidEmail(identifier)) return showMessage("Nhập địa chỉ email hợp lệ.")
             if (_state.value.authInProgress) return
             _state.update { it.copy(authInProgress = true) }
+            val otpRequest = emailOtpLifecycle.begin(EmailOtpLifecycle.Purpose.PASSWORD_RESET)
             viewModelScope.launch {
                 repository.requestPasswordResetOtp(identifier.trim()).fold(
                     onSuccess = { issued ->
+                        if (!emailOtpLifecycle.isCurrent(otpRequest)) {
+                            if (!emailOtpLifecycle.hasRequest()) _state.update { it.copy(authInProgress = false) }
+                            return@fold
+                        }
                         _state.update {
                             it.copy(authInProgress = false, emailOtpChallengeId = issued.otpChallengeId,
                                 emailOtpExpiresAt = issued.expiresAtMillis, emailOtpResendAt = issued.resendAtMillis,
@@ -973,6 +1013,10 @@ class TroOiViewModel @Inject constructor(
                         }
                     },
                     onFailure = { error ->
+                        if (!emailOtpLifecycle.isCurrent(otpRequest)) {
+                            if (!emailOtpLifecycle.hasRequest()) _state.update { it.copy(authInProgress = false) }
+                            return@fold
+                        }
                         _state.update { it.copy(authInProgress = false) }
                         showMessage(error.message ?: "Không thể gửi mã khôi phục.")
                     },
@@ -1118,6 +1162,7 @@ class TroOiViewModel @Inject constructor(
     }
 
     fun logout() {
+        clearEmailOtpChallenge()
         sessionGeneration++
         restoreStarted = false
         expiredAuthRetried = false
@@ -1170,6 +1215,10 @@ class TroOiViewModel @Inject constructor(
 
     fun goBack() {
         val current = _state.value
+        if (current.page in listOf(AppPage.AuthLogin, AppPage.AuthSignUp, AppPage.AuthForgotPassword)) {
+            if (current.authInProgress) return
+            clearEmailOtpChallenge()
+        }
         trustBackPage(current.page, current.authReturnListingId)?.let { destination ->
             _state.update {
                 it.copy(page = destination, authReturnListingId = null, submittingTrustReport = false)

@@ -1,0 +1,87 @@
+name: Email OTP audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.number == 23
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: trooi_test
+          POSTGRES_USER: trooi
+          POSTGRES_PASSWORD: trooi_isolated_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U trooi -d trooi_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://trooi:trooi_isolated_ci@127.0.0.1:5432/trooi_test
+      TEST_DATABASE_URL: postgresql://trooi:trooi_isolated_ci@127.0.0.1:5432/trooi_test
+      TROOI_EMAIL_AUTH_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm lint
+      - name: Apply isolated test migrations
+        run: node --import tsx scripts/database/migrate.ts up
+      - name: OTP integration and migration regressions
+        run: >-
+          node --import tsx --test --test-concurrency=1
+          tests/integration/persistence/email-registration-otp.integration.ts
+          tests/integration/persistence/email-otp-security.integration.ts
+          tests/integration/persistence/email-mailbox-collision.integration.ts
+          tests/integration/persistence/email-otp-rate-limit.integration.ts
+          tests/integration/persistence/migration-parity.integration.ts
+      - name: Existing Identity and session regressions
+        run: >-
+          node --import tsx --test --test-concurrency=1
+          tests/integration/persistence/identity-foundation.integration.ts
+          tests/integration/persistence/identity-sessions.integration.ts
+      - name: Complete native TypeScript test suite
+        run: node --import tsx --test --test-concurrency=1 'src/**/*.spec.ts' 'tests/**/*.test.ts'
+
+  android:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.number == 23
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile actual Android variants and OTP lifecycle tests
+        run: >-
+          bash gradlew :app:compileDebugKotlin :app:compileReleaseKotlin
+          :app:testDebugUnitTest --tests 'com.trooi.app.features.auth.EmailOtpLifecycleTest'
+          -PtrooiApiBaseUrl=https://example.invalid/api/v1/
+          -PtrooiGoogleWebClientId=otp-audit.apps.googleusercontent.com
+          --no-daemon

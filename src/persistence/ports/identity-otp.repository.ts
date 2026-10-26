@@ -7,6 +7,9 @@ export interface OtpChallengeRecord {
   destinationNormalized: string;
   displayName: string | null;
   pendingPasswordHash: string | null;
+  resetUserId: string | null;
+  resetEmailRevision: string | null;
+  resetCredentialRevision: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;
@@ -22,6 +25,9 @@ export interface OtpChallengeCreateInput {
   destinationNormalized: string;
   displayName: string | null;
   pendingPasswordHash: string | null;
+  resetUserId?: string | null;
+  resetEmailRevision?: string | null;
+  resetCredentialRevision?: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;
@@ -39,6 +45,11 @@ export interface IdentityOtpRepository {
     purpose: OtpChallengePurpose,
     normalizedEmail: string,
   ): Promise<OtpChallengeRecord | null>;
+  findLatestByMailbox(
+    purpose: OtpChallengePurpose,
+    normalizedEmail: string,
+  ): Promise<OtpChallengeRecord | null>;
+  supersedeById(input: { challengeId: string; now: string }): Promise<void>;
   findLiveById(challengeId: string): Promise<OtpChallengeRecord | null>;
   supersedeLiveByMailbox(input: {
     purpose: OtpChallengePurpose;

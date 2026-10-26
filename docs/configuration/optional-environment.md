@@ -30,6 +30,7 @@ Docker already sets `PORT=3000`, `NODE_ENV=production`, `TROOI_BIND_HOST=0.0.0.0
 | Isolated messaging tests | `MESSAGING_DB_NAME`, `MESSAGING_DB_USER`, `MESSAGING_DB_PASSWORD`, `MESSAGING_DB_PORT`, `MESSAGING_MINIO_USER`, `MESSAGING_MINIO_PASSWORD`, `MESSAGING_MINIO_PORT`, `MESSAGING_MINIO_CONSOLE_PORT` |
 | Demo testing | `TROOI_DEMO_BACKEND_ENABLED`, `DEMO_PAYMENT_ENABLED`, `DEMO_PAYMENT_PUBLIC_BASE_URL`, `DEMO_PAYMENT_SIGNING_KEY`, `TROOI_DEMO_MVP_ENABLED`, `TROOI_DEMO_MVP_PORT`, `TROOI_DEMO_PASSWORD`, `TROOI_SEPAY_PAYMENT_FIXTURE`, `TROOI_SEPAY_TEST_AMOUNT` |
 | Identity preflight / destructive test DB | `IDENTITY_PREFLIGHT_DATABASE_URL`, `TROOI_IDENTITY_PREFLIGHT_READ_ONLY`, `TEST_DATABASE_URL` |
+| Email registration / recovery OTP | `TROOI_EMAIL_AUTH_ENABLED`, `TROOI_OTP_HMAC_SECRET`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`; requires `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED=true` |
 | Direct host NestJS | `NODE_ENV`, `PORT`, `TROOI_BIND_HOST`, `DATABASE_URL`, `DATABASE_POOL_MAX`, `DATABASE_CONNECTION_TIMEOUT_MS` |
 | Docker overrides | `TROOI_BACKEND_BIND`, `TROOI_BACKEND_IMAGE`, `POSTGRES_PORT`, `TROOI_DATABASE_MODE` (normally set by Compose) |
 | SePay isolated test lab | `TROOI_STANDALONE_DB_PASSWORD`, `SEPAY_ISOLATED_DB_PORT` |
@@ -41,3 +42,5 @@ Docker already sets `PORT=3000`, `NODE_ENV=production`, `TROOI_BIND_HOST=0.0.0.0
 Neither TLS/HTTPS ingress nor release signing nor Google Cloud client fingerprints is configured by simply setting environment variables. See [database runtime notes](../../database/README.md).
 
 The default stack includes Redis, MinIO and CompreFace. See [single-Compose runtime](single-compose-runtime.md) for setup and safe migration notes.
+
+Email OTP stays disabled by default. Enable it only after migrations through 000025, isolated database verification, and authorized nonproduction SMTP/Android checks. SMTP requires TLS; ports other than 465 use required STARTTLS. The HMAC secret must have at least 32 characters. Codes expire after 5 minutes, allow at most 5 incorrect attempts, and retain a 60-second mailbox resend cooldown even after consumption or delivery failure. Public OTP endpoints also enforce database-backed source/global budgets. Existing canonical email aliases stop migration 000023 without deleting or merging accounts; review those collisions explicitly.

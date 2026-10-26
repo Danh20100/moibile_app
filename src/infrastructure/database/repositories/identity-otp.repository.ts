@@ -9,13 +9,18 @@ import type {
 import { mapPostgresError } from '../postgres-error.mapper';
 import type { Database, IdentityOtpChallengesTable } from '../schema.types';
 
-const challengeRecord = (r: IdentityOtpChallengesTable): OtpChallengeRecord => ({
+const challengeRecord = (
+  r: IdentityOtpChallengesTable,
+): OtpChallengeRecord => ({
   challengeId: r.challenge_id,
   purpose: r.purpose,
   destinationAddress: r.destination_address,
   destinationNormalized: r.destination_normalized,
   displayName: r.display_name,
   pendingPasswordHash: r.pending_password_hash,
+  resetUserId: r.reset_user_id,
+  resetEmailRevision: r.reset_email_revision,
+  resetCredentialRevision: r.reset_credential_revision,
   codeHmac: r.code_hmac,
   createdAt: r.created_at,
   expiresAt: r.expires_at,
@@ -27,7 +32,9 @@ const challengeRecord = (r: IdentityOtpChallengesTable): OtpChallengeRecord => (
 export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
   constructor(private readonly tx: Transaction<Database>) {
     if (!tx.isTransaction)
-      throw new Error('Identity OTP challenges require a caller-owned transaction');
+      throw new Error(
+        'Identity OTP challenges require a caller-owned transaction',
+      );
   }
 
   private async execute<T>(work: () => Promise<T>): Promise<T> {
@@ -54,6 +61,39 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
         )
         .executeTakeFirst();
       return row ? challengeRecord(row) : null;
+    });
+  }
+
+  async findLatestByMailbox(
+    purpose: OtpChallengePurpose,
+    normalizedEmail: string,
+  ): Promise<OtpChallengeRecord | null> {
+    return this.execute(async () => {
+      const row = await this.tx
+        .selectFrom('identity_otp_challenges')
+        .selectAll()
+        .where('purpose', '=', purpose)
+        .where(
+          sql<boolean>`trooi_canonical_email(destination_normalized) = trooi_canonical_email(${normalizedEmail})`,
+        )
+        .orderBy('created_at', 'desc')
+        .executeTakeFirst();
+      return row ? challengeRecord(row) : null;
+    });
+  }
+
+  async supersedeById(input: {
+    challengeId: string;
+    now: string;
+  }): Promise<void> {
+    await this.execute(async () => {
+      await this.tx
+        .updateTable('identity_otp_challenges')
+        .set({ superseded_at: input.now })
+        .where('challenge_id', '=', input.challengeId)
+        .where('consumed_at', 'is', null)
+        .where('superseded_at', 'is', null)
+        .execute();
     });
   }
 
@@ -89,7 +129,9 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
     });
   }
 
-  async createChallenge(input: OtpChallengeCreateInput): Promise<OtpChallengeRecord> {
+  async createChallenge(
+    input: OtpChallengeCreateInput,
+  ): Promise<OtpChallengeRecord> {
     return this.execute(async () =>
       challengeRecord(
         await this.tx
@@ -101,6 +143,9 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
             destination_normalized: input.destinationNormalized,
             code_hmac: input.codeHmac,
             pending_password_hash: input.pendingPasswordHash,
+            reset_user_id: input.resetUserId ?? null,
+            reset_email_revision: input.resetEmailRevision ?? null,
+            reset_credential_revision: input.resetCredentialRevision ?? null,
             display_name: input.displayName,
             created_at: input.createdAt,
             expires_at: input.expiresAt,
@@ -120,7 +165,7 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
     return this.execute(async () => {
       const row = await this.tx
         .updateTable('identity_otp_challenges')
-        .set((eb) => ({ attempts: eb('attempts', '+', 1) }))
+        .set({ attempts: sql<number>`least(attempts + 1, max_attempts)` })
         .where('challenge_id', '=', challengeId)
         .where('consumed_at', 'is', null)
         .where('superseded_at', 'is', null)
@@ -135,6 +180,9 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
       const row = await this.tx
         .updateTable('identity_otp_challenges')
         .set({ consumed_at: input.now })
+        .where(sql<boolean>`attempts < max_attempts`)
+        .where('expires_at', '>', input.now)
+        .where(sql<boolean>`expires_at::timestamptz > clock_timestamp()`)
         .where('challenge_id', '=', input.challengeId)
         .where('consumed_at', 'is', null)
         .where('superseded_at', 'is', null)

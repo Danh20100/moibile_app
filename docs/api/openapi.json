@@ -3280,6 +3280,154 @@
         ],
         "security": []
       }
+    },
+    "/identity-access/register/email/otp/request": {
+      "post": {
+        "operationId": "IdentityAccessController_requestEmailRegistrationOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailOtpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailOtpChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Gửi mã OTP tới email để đăng ký tài khoản mật khẩu",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/register/email/otp/verify": {
+      "post": {
+        "operationId": "IdentityAccessController_verifyEmailRegistrationOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailOtpVerifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Xác nhận mã OTP và tạo phiên đăng nhập",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/password/reset/request": {
+      "post": {
+        "operationId": "IdentityAccessController_requestPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailOtpChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Gửi mã OTP đặt lại mật khẩu. Luôn trả 200 nếu email hợp lệ.",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/password/reset/verify": {
+      "post": {
+        "operationId": "IdentityAccessController_verifyPasswordReset",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetVerifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetAcceptedDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Xác nhận OTP, đổi mật khẩu và thu hồi mọi phiên",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -5772,6 +5920,147 @@
           "transId",
           "resultCode",
           "responseTime"
+        ]
+      },
+      "EmailOtpRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@gmail.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          },
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "IdentitySessionDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expiresInSeconds": {
+            "type": "number",
+            "example": 900
+          },
+          "refreshExpiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "sessionId",
+          "accessToken",
+          "refreshToken",
+          "tokenType",
+          "expiresInSeconds",
+          "refreshExpiresAt"
+        ]
+      },
+      "EmailOtpChallengeDto": {
+        "type": "object",
+        "properties": {
+          "otpChallengeId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "resendAvailableAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpChallengeId",
+          "expiresAt",
+          "resendAvailableAt"
+        ]
+      },
+      "PasswordResetRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "user@gmail.com"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "PasswordResetVerifyDto": {
+        "type": "object",
+        "properties": {
+          "otpChallengeId": {
+            "type": "string",
+            "description": "Challenge id returned by password/reset/request"
+          },
+          "code": {
+            "type": "string",
+            "example": "123456"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "otpChallengeId",
+          "code",
+          "password"
+        ]
+      },
+      "PasswordResetAcceptedDto": {
+        "type": "object",
+        "properties": {
+          "reset": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "reset"
+        ]
+      },
+      "EmailOtpVerifyDto": {
+        "type": "object",
+        "properties": {
+          "otpChallengeId": {
+            "type": "string",
+            "description": "Challenge id returned by register/email/otp/request"
+          },
+          "code": {
+            "type": "string",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "otpChallengeId",
+          "code"
         ]
       }
     }

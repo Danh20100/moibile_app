@@ -18,6 +18,7 @@ import { ProfileAvatarService } from './services/profile-avatar.service';
 import { IdentitySessionService } from './services/identity-session.service';
 import { LocalDemoAuthService } from './services/local-demo-auth.service';
 import { EmailOtpService } from './services/email-otp.service';
+import { EmailOtpRateLimitGuard } from './guards/email-otp-rate-limit.guard';
 import { EMAIL_SENDER } from '../../persistence/ports/email-sender.port';
 import { createEmailSender } from '../../infrastructure/email/create-email-sender';
 import { EMAIL_AUTH_CONFIG, readEmailAuthConfig, type EmailAuthConfig } from './email-auth.config';
@@ -45,7 +46,7 @@ const googlePrincipalResolverProvider = {
   controllers: [IdentityAccessController],
   providers: [
     IdentityAccessService, IdentitySessionService, LocalDemoAuthService, ProfileAvatarService,
-    EmailOtpService, googleIdTokenVerifierProvider, googlePrincipalResolverProvider,
+    EmailOtpService, EmailOtpRateLimitGuard, googleIdTokenVerifierProvider, googlePrincipalResolverProvider,
     { provide: EMAIL_AUTH_CONFIG, useFactory: () => readEmailAuthConfig(process.env) },
     { provide: EMAIL_SENDER, inject: [EMAIL_AUTH_CONFIG], useFactory: (config: EmailAuthConfig) => createEmailSender(config) },
   ],

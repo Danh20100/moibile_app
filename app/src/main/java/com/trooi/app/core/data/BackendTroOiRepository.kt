@@ -13,6 +13,8 @@ import com.trooi.app.core.model.*
 import javax.inject.Inject
 import java.io.File
 import java.util.UUID
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -479,10 +481,15 @@ class BackendTroOiRepository @Inject constructor(
     // Verified password credentials use the same opaque sessions as Google. Never use local-demo.
     private suspend fun establishSession(identitySession: IdentitySessionTransport): Result<UserSession> {
         require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
-        tokens.setToken(identitySession.accessToken)
-        refreshCredentials?.write(identitySession.refreshToken)
-        val session = api.getSessionContext().required("session context")
+        currentCoroutineContext().ensureActive()
+        val session = api.getSessionContext(identitySession.accessToken).required("session context")
         check(session.userId == identitySession.userId) { "Authenticated User does not match issued session" }
+        val operation = currentCoroutineContext()
+        synchronized(messageCacheLock) {
+            operation.ensureActive()
+            tokens.setToken(identitySession.accessToken)
+            refreshCredentials?.write(identitySession.refreshToken)
+        }
         return Result.success(
             UserSession(
                 userId = session.userId,
@@ -546,7 +553,11 @@ class BackendTroOiRepository @Inject constructor(
     override suspend fun verifyEmailRegistration(otpChallengeId: String, code: String): Result<UserSession> = try {
         establishSession(api.verifyEmailRegistrationOtp(otpChallengeId, code).required("email OTP verify"))
     } catch (error: RuntimeException) {
-        clearSession()
+        val operation = currentCoroutineContext()
+        synchronized(messageCacheLock) {
+            operation.ensureActive()
+            clearSession()
+        }
         Result.failure(error)
     }
 

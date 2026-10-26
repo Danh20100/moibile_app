@@ -263,6 +263,7 @@ export interface IdentitySecurityEventsTable {
 export interface IdentityOtpChallengesTable {
   challenge_id: string; purpose: 'EMAIL_REGISTER' | 'PASSWORD_RESET'; destination_address: string;
   destination_normalized: string; code_hmac: string; pending_password_hash: string | null;
+  reset_user_id: string | null; reset_email_revision: string | null; reset_credential_revision: string | null;
   display_name: string | null; created_at: TimestampString; expires_at: TimestampString;
   last_sent_at: TimestampString; attempts: number; max_attempts: number;
   consumed_at: TimestampString | null; superseded_at: TimestampString | null;
