@@ -20,6 +20,21 @@ data class UserSession(
     val email: String? = null,
 )
 
+data class EmailOtpIssue(
+    val otpChallengeId: String,
+    val expiresAtMillis: Long,
+    val resendAtMillis: Long,
+)
+
+data class UserSession(
+    val userId: String,
+    val displayName: String,
+    /** Relationships/capabilities are issued by the authorized Backend, not selected at login. */
+    val access: AccessCapabilities,
+    val pictureUrl: String? = null,
+    val email: String? = null,
+)
+
 data class ProfileAvatarImage(val contentType: String, val bytes: ByteArray)
 
 interface TroOiRepository {
@@ -82,6 +97,14 @@ interface TroOiRepository {
     /** Preview-only credential methods remain for the isolated demo debug source set. */
     suspend fun login(identifier: String, password: String): Result<UserSession>
     suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession>
+    suspend fun requestEmailRegistration(email: String, password: String, displayName: String?): Result<EmailOtpIssue> =
+        Result.failure(IllegalStateException("Email OTP chưa khả dụng."))
+    suspend fun verifyEmailRegistration(challengeId: String, code: String): Result<UserSession> =
+        Result.failure(IllegalStateException("Email OTP chưa khả dụng."))
+    suspend fun requestPasswordResetOtp(email: String): Result<EmailOtpIssue> =
+        Result.failure(IllegalStateException("OTP chưa khả dụng."))
+    suspend fun verifyPasswordResetOtp(challengeId: String, code: String, password: String): Result<Unit> =
+        Result.failure(IllegalStateException("OTP chưa khả dụng."))
     suspend fun requestPasswordReset(identifier: String): Result<Unit>
 
     /** Inquiry is contact intent, never booking/chat state. */

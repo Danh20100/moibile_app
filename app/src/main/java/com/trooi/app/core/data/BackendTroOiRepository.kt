@@ -477,6 +477,26 @@ class BackendTroOiRepository @Inject constructor(
     }
 
     // Verified password credentials use the same opaque sessions as Google. Never use local-demo.
+    private suspend fun establishSession(identitySession: IdentitySessionTransport): Result<UserSession> {
+        require(identitySession.accessToken.isNotBlank() && identitySession.refreshToken.isNotBlank())
+        tokens.setToken(identitySession.accessToken)
+        refreshCredentials?.write(identitySession.refreshToken)
+        val session = api.getSessionContext().required("session context")
+        check(session.userId == identitySession.userId) { "Authenticated User does not match issued session" }
+        return Result.success(
+            UserSession(
+                userId = session.userId,
+                displayName = session.name ?: session.email ?: session.userId,
+                email = session.email,
+                pictureUrl = session.pictureUrl,
+                access = AccessCapabilities(
+                    linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                    operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+                ),
+            ),
+        )
+    }
+
     override suspend fun login(identifier: String, password: String): Result<UserSession> {
         return try {
             val identitySession = api.authenticatePassword(identifier.trim(), password).required("password login")
@@ -504,6 +524,59 @@ class BackendTroOiRepository @Inject constructor(
     }
     override suspend fun signUp(fullName: String, phone: String, email: String, password: String): Result<UserSession> = unsupportedAuth()
     override suspend fun requestPasswordReset(identifier: String): Result<Unit> = unsupportedAuth()
+
+    override suspend fun requestEmailRegistration(
+        email: String,
+        password: String,
+        displayName: String?,
+    ): Result<EmailOtpIssue> = try {
+        val issued = api.requestEmailRegistrationOtp(email.trim(), password, displayName?.trim()?.ifBlank { null })
+            .required("email OTP request")
+        Result.success(
+            EmailOtpIssue(
+                otpChallengeId = issued.otpChallengeId,
+                expiresAtMillis = parseInstantMillis(issued.expiresAt),
+                resendAtMillis = parseInstantMillis(issued.resendAvailableAt),
+            ),
+        )
+    } catch (error: RuntimeException) {
+        Result.failure(error)
+    }
+
+    override suspend fun verifyEmailRegistration(otpChallengeId: String, code: String): Result<UserSession> = try {
+        establishSession(api.verifyEmailRegistrationOtp(otpChallengeId, code).required("email OTP verify"))
+    } catch (error: RuntimeException) {
+        clearSession()
+        Result.failure(error)
+    }
+
+    override suspend fun requestPasswordResetOtp(identifier: String): Result<EmailOtpIssue> = try {
+        val issued = api.requestPasswordResetOtp(identifier.trim()).required("password reset request")
+        Result.success(
+            EmailOtpIssue(
+                otpChallengeId = issued.otpChallengeId,
+                expiresAtMillis = parseInstantMillis(issued.expiresAt),
+                resendAtMillis = parseInstantMillis(issued.resendAvailableAt),
+            ),
+        )
+    } catch (error: RuntimeException) {
+        Result.failure(error)
+    }
+
+    override suspend fun verifyPasswordResetOtp(
+        otpChallengeId: String,
+        code: String,
+        password: String,
+    ): Result<Unit> = try {
+        val accepted = api.verifyPasswordResetOtp(otpChallengeId, code, password).required("password reset verify")
+        if (!accepted.reset) Result.failure(IllegalStateException("Đặt lại mật khẩu thất bại."))
+        else Result.success(Unit)
+    } catch (error: RuntimeException) {
+        Result.failure(error)
+    }
+
+
+    private fun parseInstantMillis(value: String): Long = java.time.Instant.parse(value).toEpochMilli()
 
     private fun <T> unsupportedAuth(): Result<T> = Result.failure(
         IllegalStateException("Backend-backed build chỉ hỗ trợ Google Credential Manager."),
