@@ -62,7 +62,7 @@ const PUBLIC_PATHS = [
  * in sync.
  */
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
-  const document = SwaggerModule.createDocument(app, buildOpenApiConfig());
+  const document = SwaggerModule.createDocument(app, buildOpenApiConfig(), { ignoreGlobalPrefix: true });
 
   // Ensure public endpoints do not require bearer security while protected ones do
   for (const [pathKey, pathItem] of Object.entries(document.paths)) {

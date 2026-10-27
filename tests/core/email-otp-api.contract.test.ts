@@ -139,6 +139,7 @@ for (const [path, method, isPublic, requestSchema, responseSchema, status] of au
 test('runtime OpenAPI public-path policy includes every public Android auth entry point', async () => {
   const { readFileSync } = await import('node:fs');
   const source = readFileSync('src/openapi.ts', 'utf8');
+  assert.ok(source.includes('ignoreGlobalPrefix: true'), 'runtime paths must stay relative to the configured API server');
   for (const [path, method, isPublic] of authContractPaths) {
     if (!isPublic) continue;
     assert.ok(source.includes(`{ path: '${path}', method: '${method}' }`), `${path} must be explicitly public in runtime OpenAPI policy`);
