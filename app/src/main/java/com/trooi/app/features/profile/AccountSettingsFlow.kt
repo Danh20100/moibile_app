@@ -33,6 +33,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.ui.platform.testTag
@@ -44,6 +46,7 @@ import com.trooi.app.features.auth.EmailOtpPanel
 import com.trooi.app.features.auth.rememberContactOtpForm
 import com.trooi.app.ui.components.TroOiButton
 import kotlinx.coroutines.launch
+import com.trooi.app.core.network.dto.SessionContextTransport
 
 private val settingsPages = linkedMapOf(
     "personal" to "Thông tin cá nhân", "security" to "Đăng nhập và bảo mật",
@@ -58,7 +61,8 @@ private val personalFields = listOf("Tên pháp lý", "Số điện thoại", "�
 
 fun personalInputValid(label: String, value: String): Boolean = when (label) {
     "Tên pháp lý" -> false
-    "Số điện thoại" -> !value.contains('@') && isValidIdentifier(value)
+    "Số điện thoại" -> value.trim().matches(Regex("^0[0-9]{9,10}$"))
+    "Địa chỉ cư trú" -> value.trim().length in 5..255
     "Email" -> isValidEmail(value)
     else -> value.trim().length >= 5
 }
@@ -72,18 +76,43 @@ fun AccountSettingsFlow(
     onSaveDisplayName: suspend (String) -> Result<Unit> = {
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
     },
+    onSessionUpdated: suspend (SessionContextTransport) -> Result<Unit> = {
+        Result.failure(IllegalStateException("Không thể đồng bộ phiên tài khoản."))
+    },
     avatarAction: (@Composable () -> Unit)? = null,
     onOpenOperatorWorkspace: () -> Unit = {},
     onStartLandlordOnboarding: () -> Unit = {},
 ) {
+    val accountModel = if (!state.demoPreview) hiltViewModel<AccountSecuritySettingsModel>(key = "account-security-${state.backendUserId}") else null
+    val accountState = accountModel?.state?.collectAsStateWithLifecycle()?.value
+    val contactModel = if (!state.demoPreview) hiltViewModel<BackendProfileContactModel>(key = "account-contact-${state.backendUserId}") else null
+    val contactState = contactModel?.state?.collectAsStateWithLifecycle()?.value
+    LaunchedEffect(state.backendUserId, state.demoPreview) {
+        if (!state.demoPreview && state.backendUserId.isNotBlank()) {
+            accountModel?.load()
+            contactModel?.load()
+        }
+    }
+    var pendingPasswordDestination by rememberSaveable(state.backendUserId) { mutableStateOf<String?>(null) }
     var path by rememberSaveable(state.backendUserId, initialPage) { mutableStateOf(initialPage) }
     LaunchedEffect(initialPage) {
         if (path.substringBefore('|') != initialPage) path = initialPage
     }
     val page = path.substringAfterLast('|')
+    LaunchedEffect(accountState?.details?.passwordConfigured, pendingPasswordDestination) {
+        if (accountState?.details?.passwordConfigured == true && pendingPasswordDestination != null) {
+            val destination = pendingPasswordDestination!!
+            pendingPasswordDestination = null
+            if (path.substringAfterLast('|') == "password") path += "|$destination"
+        }
+    }
     fun navigate(next: String) { if (next != "edit:Tên pháp lý") path += "|$next" }
     var editGrant by rememberSaveable(state.backendUserId, state.demoPreview) { mutableStateOf<String?>(null) }
-    fun back() { editGrant = null; if ('|' in path) path = path.substringBeforeLast('|') else onBack() }
+    fun back() {
+        if (page == "password") pendingPasswordDestination = null
+        editGrant = null
+        if ('|' in path) path = path.substringBeforeLast('|') else onBack()
+    }
 
     var boundary by rememberSaveable { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -93,7 +122,13 @@ fun AccountSettingsFlow(
     var publicArea by rememberSaveable { mutableStateOf(false) }
     var channelApps by rememberSaveable { mutableStateOf("Ưu đãi,Cập nhật ứng dụng,Nhắc việc thuê trọ,Tin tức dịch vụ,Phản hồi") }
     var channelEmails by rememberSaveable { mutableStateOf("") }
-    val initialDraft = if (page == "edit:Tên hiển thị") state.displayName else if (state.demoPreview) MockPersonalInfo.value(state.backendUserId, page.removePrefix("edit:")) else ""
+    val initialDraft = when {
+        page == "edit:Tên hiển thị" -> state.displayName
+        state.demoPreview -> MockPersonalInfo.value(state.backendUserId, page.removePrefix("edit:"))
+        page == "edit:Số điện thoại" -> contactState?.details?.phoneNumber.orEmpty()
+        page == "edit:Địa chỉ cư trú" -> contactState?.details?.residentialAddress.orEmpty()
+        else -> ""
+    }
     var draft by rememberSaveable(state.backendUserId, page) { mutableStateOf(initialDraft) }
     var saveError by rememberSaveable(state.backendUserId, page) { mutableStateOf<String?>(null) }
     var savingProfile by remember(state.backendUserId, page) { mutableStateOf(false) }
@@ -150,8 +185,16 @@ fun AccountSettingsFlow(
     // Unlocks a Debug Mock draft only; persistence still requires the official backend contract.
     val canEdit = state.demoPreview && editGrant == page
     fun open(next: String) {
-        if (requiresEditReauthentication(next)) protect { editGrant = next; navigate(next) }
-        else navigate(next)
+        if (requiresSettingsReauthentication(state.demoPreview, next)) {
+            protect { editGrant = next; navigate(next) }
+        } else if (!state.demoPreview && requiresAccountPassword(next) && accountState?.details?.passwordConfigured == false) {
+            pendingPasswordDestination = next
+            navigate("password")
+        } else if (!state.demoPreview && requiresAccountPassword(next) && accountState?.details == null) {
+            accountModel?.load()
+        } else {
+            navigate(next)
+        }
     }
     if (pending != null) ReauthenticationDialog(state.backendUserId, method,
         onDismiss = { pending = null }, onRecovery = { pending = null; recovery = true },
@@ -179,7 +222,7 @@ fun AccountSettingsFlow(
     ) {
         sectionItem { TroOiPageHeader(title, onBack = { requestBack() }) }
         when {
-            requiresEditReauthentication(page) && !canEdit && (state.demoPreview || page != "password") -> sectionItem {
+            requiresSettingsReauthentication(state.demoPreview, page) && !canEdit -> sectionItem {
                 Text("Xác thực bảo mật trước khi chỉnh sửa thông tin.")
                 TroOiButton("Xác thực để chỉnh sửa", { protect { editGrant = page } }, modifier = Modifier.fillMaxWidth())
             }
@@ -219,19 +262,37 @@ fun AccountSettingsFlow(
             page == "personal" -> {
                 sectionItem {
                     SettingsGroup("Hồ sơ cá nhân") {
+                        if (!state.demoPreview && accountState?.details == null) {
+                            accountState?.error?.let { error ->
+                                Text(error, color = MaterialTheme.colorScheme.error)
+                                TroOiButton("Thử lại", { accountModel?.load() }, modifier = Modifier.fillMaxWidth())
+                            } ?: CircularProgressIndicator()
+                        }
                         PersonalDetailRow(
                             label = "Tên hiển thị", value = state.displayName.ifBlank { "Chưa cung cấp" },
                             action = "Sửa", onClick = { open("edit:Tên hiển thị") },
                             modifier = Modifier.testTag("personal-display-name"),
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (!state.demoPreview && contactState?.details == null) {
+                            contactState?.error?.let { error ->
+                                Text(error, color = MaterialTheme.colorScheme.error)
+                                TroOiButton("Thử lại", { contactModel?.load() }, modifier = Modifier.fillMaxWidth())
+                            } ?: CircularProgressIndicator()
+                        }
                         personalFields.forEach { label ->
-                            val value = if (state.demoPreview) MockPersonalInfo.value(state.backendUserId, label) else ""
+                    val value = if (state.demoPreview) MockPersonalInfo.value(state.backendUserId, label)
+                                else when (label) {
+                                    "Email" -> state.email.orEmpty()
+                                    "Số điện thoại" -> contactState?.details?.phoneNumber.orEmpty()
+                                    "Địa chỉ cư trú" -> contactState?.details?.residentialAddress.orEmpty()
+                                    else -> ""
+                                }
                             PersonalDetailRow(
                                 label = label,
                                 value = value.ifBlank { "Chưa cung cấp" },
-                                action = if (!state.demoPreview || label == "Tên pháp lý") null else "Sửa",
-                                onClick = if (!state.demoPreview || label == "Tên pháp lý") null else { { open("edit:$label") } },
+                                action = if (label == "Tên pháp lý" || (!state.demoPreview && label != "Email" && contactState?.details == null)) null else "Sửa",
+                                onClick = if (label == "Tên pháp lý" || (!state.demoPreview && label != "Email" && contactState?.details == null)) null else { { open("edit:$label") } },
                                 modifier = Modifier.testTag("personal-action-$label"),
                             )
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -270,17 +331,31 @@ fun AccountSettingsFlow(
             page.startsWith("edit:") && page != "edit:Tên pháp lý" -> sectionItem {
                 val label = page.removePrefix("edit:")
                 val valid = personalInputValid(label, draft)
-                val needsOtp = label == "Email" || label == "Số điện thoại"
+                val needsOtp = label == "Email"
                 val otp = rememberContactOtpForm(draft)
-                if (needsOtp) EmailOtpPanel(draft, state.demoPreview, onValueChange = { draft = it },
+                if (!state.demoPreview && needsOtp) BackendEmailChangeForm(
+                    userId = state.backendUserId,
+                    currentEmail = state.email.orEmpty(),
+                    onBack = { back() },
+                    onSessionUpdated = onSessionUpdated,
+                ) else if (needsOtp) EmailOtpPanel(draft, state.demoPreview, onValueChange = { draft = it },
                     phone = label == "Số điện thoại", form = otp)
                 else TroOiFormField(draft, { draft = it }, label = { Text(label) },
                     modifier = Modifier.fillMaxWidth(), singleLine = false,
                     isError = draft.isNotEmpty() && !valid,
                     supportingText = { if (draft.isNotEmpty() && !valid) Text("Kiểm tra lại $label trước khi tiếp tục.") })
-                TroOiButton("Lưu thay đổi", {
-                    if (!needsOtp || otp.validateOnSubmit(draft, state.demoPreview)) boundary = "Lưu $label"
-                }, enabled = valid && draft != initialDraft, modifier = Modifier.fillMaxWidth())
+                if (state.demoPreview || !needsOtp) {
+                    contactState?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    TroOiButton("Lưu thay đổi", {
+                        if (!state.demoPreview && label == "Số điện thoại") {
+                            contactModel?.save(phone = draft.trim(), address = null) { back() }
+                        } else if (!state.demoPreview && label == "Địa chỉ cư trú") {
+                            contactModel?.save(phone = null, address = draft.trim()) { back() }
+                        } else if (!needsOtp || otp.validateOnSubmit(draft, state.demoPreview)) {
+                            boundary = "Lưu $label"
+                        }
+                    }, enabled = valid && draft != initialDraft && contactState?.busy != true, modifier = Modifier.fillMaxWidth())
+                }
             }
             page == "edit:Tên pháp lý" -> sectionItem {
                 Text(if (state.demoPreview) MockPersonalInfo.value(state.backendUserId, "Tên pháp lý") else "Chưa cung cấp")
@@ -314,41 +389,64 @@ fun AccountSettingsFlow(
             }
             page == "password" -> sectionItem {
                 if (state.demoPreview) PasswordForm(state.backendUserId, true, retry, { retry = it }, onDirty = { passwordDirty = it }, onSubmit = { boundary = title }, onRecovery = { recovery = true })
-                else BackendAccountSecurityScreen(state.backendUserId, "password", onDirty = { passwordDirty = it })
+                else if (accountModel != null) {
+                    if (pendingPasswordDestination != null) Text("Thiết lập mật khẩu để tiếp tục chỉnh sửa hồ sơ và bảo mật tài khoản.")
+                    BackendAccountSecurityScreen(state.backendUserId, "password", onDirty = { passwordDirty = it }, model = accountModel)
+                }
             }
             page == "pin" -> sectionItem {
                 if (state.demoPreview) {
                     PinForm(configured = method == ReauthenticationMethod.PIN,
                         onStartEditing = { start -> protect(start) }, onDirty = { passwordDirty = it },
                         onSubmit = { boundary = title }, onRecovery = { recovery = true })
-                } else BackendPinSettings(state.backendUserId)
+                } else when (accountState?.details?.passwordConfigured) {
+                    false -> {
+                        Text("Hãy thiết lập mật khẩu tài khoản trước khi tạo mã PIN bảo mật.")
+                        TroOiButton("Thiết lập mật khẩu", {
+                            pendingPasswordDestination = "pin"
+                            navigate("password")
+                        }, modifier = Modifier.fillMaxWidth())
+                    }
+                    true -> BackendPinSettings(state.backendUserId)
+                    null -> {
+                        accountState?.error?.let { error ->
+                            Text(error, color = MaterialTheme.colorScheme.error)
+                            TroOiButton("Thử lại", { accountModel?.load() }, modifier = Modifier.fillMaxWidth())
+                        } ?: CircularProgressIndicator()
+                    }
+                }
             }
             page == "login-email" -> sectionItem {
-                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "login-email")
+                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "login-email", model = accountModel ?: hiltViewModel(key = "account-security-${state.backendUserId}"))
                 else TroOiInformationRow("Email đăng nhập", state.email ?: "Chưa cung cấp")
             }
             page == "google" -> sectionItem {
-                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "google")
+                if (!state.demoPreview) BackendAccountSecurityScreen(state.backendUserId, "google", model = accountModel ?: hiltViewModel(key = "account-security-${state.backendUserId}"))
                 else TroOiInformationRow("Tài khoản sử dụng", state.email ?: "Chưa cung cấp")
             }
             page == "privacy" -> {
-                sectionItem { SettingsPreviewNotice("Quyền riêng tư của bạn được bảo vệ theo chính sách TrọƠi.") }
-                sectionItem { TroOiListRow("Chế độ hiển thị hồ sơ", visibility, { open("visibility") }) }
-                if (!canEdit) sectionItem { TroOiButton("Chỉnh sửa", { protect { editGrant = page } }, modifier = Modifier.fillMaxWidth()) }
-                sectionItem { PreviewSwitch("Đã đọc tin nhắn", "Cho người gửi biết khi bạn đã đọc tin nhắn", receipts, enabled = canEdit) { receipts = it } }
-                if (state.access.operatedOrganizationIds.isNotEmpty()) sectionItem { PreviewSwitch("Bài đăng xuất hiện trong kết quả tìm kiếm", "Cho phép tìm thấy bài đăng công khai của bạn", listingSearch, enabled = canEdit) { listingSearch = it } }
-                sectionItem { PreviewSwitch("Hiển thị khu vực thuê công khai", "Không bao gồm địa chỉ chính xác, số điện thoại hay dữ liệu thanh toán", publicArea, enabled = canEdit) { publicArea = it } }
+                if (state.demoPreview) {
+                    sectionItem { SettingsPreviewNotice("Quyền riêng tư của bạn được bảo vệ theo chính sách TrọƠi.") }
+                    sectionItem { TroOiListRow("Chế độ hiển thị hồ sơ", visibility, { open("visibility") }) }
+                    if (!canEdit) sectionItem { TroOiButton("Chỉnh sửa", { protect { editGrant = page } }, modifier = Modifier.fillMaxWidth()) }
+                    sectionItem { PreviewSwitch("Đã đọc tin nhắn", "Cho người gửi biết khi bạn đã đọc tin nhắn", receipts, enabled = canEdit) { receipts = it } }
+                    if (state.access.operatedOrganizationIds.isNotEmpty()) sectionItem { PreviewSwitch("Bài đăng xuất hiện trong kết quả tìm kiếm", "Cho phép tìm thấy bài đăng công khai của bạn", listingSearch, enabled = canEdit) { listingSearch = it } }
+                    sectionItem { PreviewSwitch("Hiển thị khu vực thuê công khai", "Không bao gồm địa chỉ chính xác, số điện thoại hay dữ liệu thanh toán", publicArea, enabled = canEdit) { publicArea = it } }
+                    sectionItem { TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth()) }
+                } else sectionItem { Text("Thiết lập quyền riêng tư chưa có API lưu. Không có thay đổi nào được áp dụng.") }
                 sectionItem { TroOiListRow("Xóa tài khoản của tôi", "Xem hậu quả và xác nhận yêu cầu", { open("delete") }) }
-                sectionItem { TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth()) }
             }
             page == "visibility" -> {
-                listOf("Chỉ mình tôi", "Thành viên có liên hệ thuê trọ").forEach { option -> sectionItem {
-                    Row(Modifier.fillMaxWidth().selectable(visibility == option, role = Role.RadioButton) { visibility = option }.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(visibility == option, null); Text(option, Modifier.weight(1f))
-                    }
-                } }
-                sectionItem { Text("Chỉ áp dụng cho thông tin hồ sơ được phép công khai.") }
-                sectionItem { TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth()) }
+                if (!state.demoPreview) sectionItem { Text("Thiết lập hiển thị chưa có API lưu. Không có thay đổi nào được áp dụng.") }
+                else {
+                    listOf("Chỉ mình tôi", "Thành viên có liên hệ thuê trọ").forEach { option -> sectionItem {
+                        Row(Modifier.fillMaxWidth().selectable(visibility == option, role = Role.RadioButton) { visibility = option }.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(visibility == option, null); Text(option, Modifier.weight(1f))
+                        }
+                    } }
+                    sectionItem { Text("Chỉ áp dụng cho thông tin hồ sơ được phép công khai.") }
+                    sectionItem { TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth()) }
+                }
             }
             page == "delete" -> sectionItem {
                 Text("Trước khi yêu cầu xóa", style = MaterialTheme.typography.titleMedium)
@@ -357,14 +455,14 @@ fun AccountSettingsFlow(
                 TroOiButton("Yêu cầu xóa tài khoản", { confirmation = true }, modifier = Modifier.fillMaxWidth(), style = TroOiButtonStyle.DESTRUCTIVE)
             }
             page == "notifications" -> {
-                sectionItem { SettingsPreviewNotice("Chọn những thông báo bạn muốn theo dõi.") }
-                if (!state.demoPreview) sectionItem { Text("Tùy chọn thông báo chưa được tải từ tài khoản.") }
-                sectionItem { TabRow(tab) { listOf("Ưu đãi và cập nhật", "Tài khoản").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label) }) } } }
-                if (tab == 0) {
-                    listOf("Ưu đãi", "Cập nhật ứng dụng", "Nhắc việc thuê trọ", "Tin tức dịch vụ", "Phản hồi").forEach { label -> sectionItem { TroOiListRow(label, if (!state.demoPreview) "Chưa tải tùy chọn" else if (label in channelApps.split(',') || label in channelEmails.split(',')) "Kênh nhận thông báo" else "Đã tắt", { open("channel:$label") }, "Chỉnh sửa") } }
-                    sectionItem { TroOiButton("Ngừng nhận tất cả ưu đãi và cập nhật", { protect() }, style = TroOiButtonStyle.TERTIARY); Text("Chỉ marketing. Cảnh báo bảo mật và giao dịch vẫn được giữ.") }
-                } else {
-                    operationalNotificationGroups.forEach { label -> sectionItem { TroOiListRow(label, "Thông báo vận hành · không thuộc marketing", { open("channel:$label") }, "Chỉnh sửa") } }
+                if (!state.demoPreview) sectionItem { Text("Tùy chọn thông báo chưa được kết nối với tài khoản; các lựa chọn chưa được tải hoặc lưu.") }
+                else {
+                    sectionItem { SettingsPreviewNotice("Chọn những thông báo bạn muốn theo dõi.") }
+                    sectionItem { TabRow(tab) { listOf("Ưu đãi và cập nhật", "Tài khoản").forEachIndexed { index, label -> Tab(tab == index, { tab = index }, text = { Text(label) }) } } }
+                    if (tab == 0) {
+                        listOf("Ưu đãi", "Cập nhật ứng dụng", "Nhắc việc thuê trọ", "Tin tức dịch vụ", "Phản hồi").forEach { label -> sectionItem { TroOiListRow(label, if (label in channelApps.split(',') || label in channelEmails.split(',')) "Kênh nhận thông báo" else "Đã tắt", { open("channel:$label") }, "Chỉnh sửa") } }
+                        sectionItem { TroOiButton("Ngừng nhận tất cả ưu đãi và cập nhật", { protect() }, style = TroOiButtonStyle.TERTIARY); Text("Chỉ marketing. Cảnh báo bảo mật và giao dịch vẫn được giữ.") }
+                    } else operationalNotificationGroups.forEach { label -> sectionItem { TroOiListRow(label, "Thông báo vận hành · không thuộc marketing", { open("channel:$label") }, "Chỉnh sửa") } }
                 }
                 sectionItem { TroOiListRow("Quyền thông báo trên thiết bị", "Mở cài đặt Android để kiểm tra quyền", {
                     try { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
@@ -385,7 +483,7 @@ fun AccountSettingsFlow(
                         channelEmails = (channelEmails.split(',').filter { it.isNotBlank() && it != channel } + if (checked) listOf(channel) else emptyList()).joinToString(",")
                     }
                 }
-                TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth())
+                if (state.demoPreview) TroOiButton("Lưu lựa chọn", { boundary = title }, enabled = canEdit, modifier = Modifier.fillMaxWidth())
             }
             page == "payments" -> {
                 if (state.access.linkedTenancyIds.isNotEmpty()) {
@@ -456,7 +554,8 @@ fun AccountSettingsFlow(
                     val intent = if (Build.VERSION.SDK_INT >= 33) Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.parse("package:${context.packageName}")) else Intent(Settings.ACTION_LOCALE_SETTINGS)
                     try { context.startActivity(intent) } catch (_: ActivityNotFoundException) { boundary = "Mở Cài đặt Android → Ngôn ngữ để chỉnh sửa. Thiết bị chưa hỗ trợ đường dẫn trực tiếp." }
                 }, "Chỉnh sửa trong phần cài đặt của thiết bị") }
-                sectionItem { PreviewSwitch("Dịch tự động", "Dịch nội dung sang ngôn ngữ ứng dụng", false) { boundary = "Dịch tự động" } }
+                if (state.demoPreview) sectionItem { PreviewSwitch("Dịch tự động", "Dịch nội dung sang ngôn ngữ ứng dụng", false) { boundary = "Dịch tự động" } }
+                else sectionItem { Text("Tùy chọn dịch tự động chưa được hỗ trợ và không được lưu.") }
             }
             page == "help" -> {
                 sectionItem {

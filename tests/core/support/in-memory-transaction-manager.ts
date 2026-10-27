@@ -191,6 +191,14 @@ export function createCoreTestTransactionManager(
         Array.from(participants.values())
           .filter((value) => value.userId === userId)
           .map((value) => structuredClone(value)),
+      findCurrentParticipantsByUser: async (userId: string) =>
+        Array.from(participants.values())
+          .filter((value) => value.userId === userId && !value.leftAt)
+          .filter((value) => {
+            const tenancy = tenancies.get(value.tenancyId);
+            return tenancy && ['ACTIVE', 'ENDING'].includes(tenancy.status);
+          })
+          .map((value) => structuredClone(value)),
       findParticipantsByTenancy: async (tenancyId: string) =>
         Array.from(participants.values())
           .filter((value) => value.tenancyId === tenancyId)

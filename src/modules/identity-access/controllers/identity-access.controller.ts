@@ -9,6 +9,7 @@ import {
   UserReferenceDto,
   VerifiedPrincipalDto,
   UpdateDisplayNameDto,
+  UpdateProfileContactDto,
   UploadProfileAvatarDto,
   AuthChallengeRequestDto,
   GoogleSessionRequestDto,
@@ -18,6 +19,9 @@ import {
   PasswordResetRequestDto,
   PasswordResetVerifyDto,
   PasswordResetAcceptedDto,
+  EmailChangeRequestDto,
+  EmailChangeVerifyDto,
+  EmailChangeAcceptedDto,
   PasswordLoginDto,
   RefreshSessionRequestDto,
   IdentityChallengeDto,
@@ -28,13 +32,13 @@ import {
   SecurityPinSetupDto,
   SecurityPinChangeDto,
   PasswordChangeDto,
+  InitialPasswordSetupDto,
   ReauthenticationChallengeDto,
   ReauthenticationResponseDto,
 } from '../dto';
 import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
 import { IdentitySessionService } from '../services/identity-session.service';
-import { LocalDemoAuthService } from '../services/local-demo-auth.service';
 import { EmailOtpService } from '../services/email-otp.service';
 import { EmailOtpRateLimit } from '../guards/email-otp-rate-limit.guard';
 
@@ -48,14 +52,14 @@ export class IdentityAccessController {
     private readonly profileAvatarService?: ProfileAvatarService,
     @Optional() @Inject(IdentitySessionService)
     private readonly identitySessionService?: IdentitySessionService,
-    @Optional() @Inject(LocalDemoAuthService)
-    private readonly localDemoAuth?: LocalDemoAuthService,
     @Optional() @Inject(EmailOtpService)
     private readonly emailOtpService?: EmailOtpService,
   ) {}
 
   @Public()
   @Post('auth/challenge')
+  @ApiOperation({ summary: 'Issue a short-lived nonce for Google login or registration' })
+  @ApiResponse({ status: 201, type: IdentityChallengeDto })
   async issueAuthChallenge(@Body() dto: AuthChallengeRequestDto): Promise<IdentityChallengeDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.issueChallenge(dto.purpose);
@@ -63,12 +67,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/google')
-  @ApiOperation({ summary: 'Xác thực người dùng qua Google ID Token (Android Credential Manager)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Xác thực thành công và trả về thông tin user profile',
-    type: VerifiedPrincipalDto,
-  })
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Authenticate a Google account and create an application session' })
+  @ApiResponse({ status: 200, description: 'Application session issued', type: IdentitySessionDto })
   @ApiResponse({ status: 401, description: 'Token không hợp lệ hoặc đã hết hạn' })
   async authenticateWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
@@ -77,6 +78,8 @@ export class IdentityAccessController {
 
   @Public()
   @Post('register/google')
+  @ApiOperation({ summary: 'Register a Google-only account and create an application session' })
+  @ApiResponse({ status: 201, type: IdentitySessionDto })
   async registerWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.registerGoogle(dto);
@@ -108,20 +111,13 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/password')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Sign in with a previously verified email and password' })
   @ApiResponse({ status: 200, type: IdentitySessionDto })
   @ApiResponse({ status: 401, description: 'Email or password is incorrect' })
   async authenticatePassword(@Body() dto: PasswordLoginDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.authenticatePassword(dto);
-  }
-
-  // For synthetic local development accounts only. Not an identity-verification endpoint.
-  @Public()
-  @Post('auth/local-demo')
-  async authenticateLocalDemo(@Body() dto: { email?: string; password?: string }): Promise<IdentitySessionDto> {
-    if (!this.localDemoAuth) throw new ServiceUnavailableException('Local demo login unavailable');
-    return this.localDemoAuth.login(dto.email ?? '', dto.password ?? '');
   }
 
   @Public()
@@ -148,8 +144,39 @@ export class IdentityAccessController {
     return this.emailOtpService.verifyPasswordReset(dto);
   }
 
+  @Post('profile/email/otp/request')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('issue')
+  @ApiOperation({ summary: 'Gửi OTP xác minh email đăng nhập mới cho chính tài khoản hiện tại' })
+  @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
+  async requestEmailChangeOtp(
+    @Body() dto: EmailChangeRequestDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<EmailOtpChallengeDto> {
+    if (!user?.sessionId || !this.emailOtpService) throw new UnauthorizedException('Application session is required');
+    return this.emailOtpService.requestEmailChange(dto, user.userId, user.sessionId);
+  }
+
+  @Post('profile/email/otp/verify')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('verify')
+  @ApiOperation({ summary: 'Xác minh OTP và đổi email đăng nhập của chính tài khoản hiện tại' })
+  @ApiResponse({ status: 200, description: 'Kết quả bước xác minh email hiện tại hoặc email mới', type: EmailChangeAcceptedDto })
+  async verifyEmailChangeOtp(
+    @Body() dto: EmailChangeVerifyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ) {
+    if (!user?.sessionId || !this.emailOtpService) throw new UnauthorizedException('Application session is required');
+    return this.emailOtpService.verifyEmailChange(dto, user.userId, user.sessionId);
+  }
+
   @Public()
   @Post('auth/refresh')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Rotate a one-time refresh credential and issue a new session token pair' })
+  @ApiResponse({ status: 200, type: IdentitySessionDto })
   async refreshSession(@Body() dto: RefreshSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.refresh(dto.refreshToken);
@@ -197,6 +224,21 @@ export class IdentityAccessController {
   async getAccountSecurityStatus(@CurrentUser() user?: VerifiedPrincipal) {
     if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
     return this.identitySessionService.accountSecurityStatus(user.userId);
+  }
+
+  @Post('security/password/setup/challenge')
+  async issueInitialPasswordSetupChallenge(@CurrentUser() user?: VerifiedPrincipal): Promise<ReauthenticationChallengeDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.issueInitialPasswordSetupChallenge(user.userId, user.sessionId);
+  }
+
+  @Post('security/password/setup')
+  async setInitialPassword(
+    @Body() dto: InitialPasswordSetupDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<{ configured: boolean }> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.setInitialPassword(dto, user.userId, user.sessionId);
   }
 
   @Patch('security/password')
@@ -267,6 +309,18 @@ export class IdentityAccessController {
   ): Promise<ProfileRecord> {
     if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
     return this.identityAccessService.updateOwnDisplayName(user, dto.displayName);
+  }
+
+  @Get('profile/contact')
+  async getOwnContact(@CurrentUser() user?: VerifiedPrincipal) {
+    if (!user) throw new UnauthorizedException('Authentication required');
+    return this.identityAccessService.getOwnContact(user);
+  }
+
+  @Patch('profile/contact')
+  async updateOwnContact(@CurrentUser() user: VerifiedPrincipal | undefined, @Body() dto: UpdateProfileContactDto) {
+    if (!user) throw new UnauthorizedException('Authentication required');
+    return this.identityAccessService.updateOwnContact(user, dto);
   }
 
   @Post('profile/avatar')

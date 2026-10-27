@@ -63,6 +63,36 @@ export class PasswordResetRequestDto {
   email!: string;
 }
 
+export class EmailChangeRequestDto {
+  @ApiProperty({ example: 'new-address@example.com', maxLength: 254 })
+  @IsString() @IsNotEmpty() @MaxLength(254)
+  email!: string;
+}
+
+export class EmailChangeVerifyDto extends EmailOtpVerifyDto {}
+
+export class EmailChangeAcceptedDto {
+  @ApiProperty({ example: false, description: 'True only after the new email OTP is accepted.' })
+  @IsBoolean()
+  emailChanged!: boolean;
+
+  @ApiProperty({ example: 'new-address@example.com' })
+  @IsString()
+  email!: string;
+
+  @ApiPropertyOptional({ enum: ['NEW_EMAIL'], description: 'Present after the current email OTP is accepted.' })
+  @IsOptional() @IsIn(['NEW_EMAIL'])
+  nextStep?: 'NEW_EMAIL';
+
+  @ApiPropertyOptional({ description: 'Earliest time the current challenge can be resent.' })
+  @IsOptional() @IsString()
+  resendAvailableAt?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether the former email received the change notice.' })
+  @IsOptional() @IsBoolean()
+  oldEmailNoticeSent?: boolean;
+}
+
 export class PasswordResetVerifyDto {
   @ApiProperty({ description: 'Challenge id returned by password/reset/request' })
   @IsString()
@@ -107,6 +137,18 @@ export class PasswordChangeDto {
   currentPassword!: string;
   @ApiProperty() @IsString() @Length(8, 1024)
   newPassword!: string;
+}
+export class InitialPasswordSetupDto {
+  @ApiProperty({ description: 'Fresh Google ID token issued for the provided nonce' })
+  @IsString() @IsNotEmpty() @MaxLength(8192)
+  idToken!: string;
+
+  @ApiProperty({ description: 'One-time nonce from security/password/setup/challenge' })
+  @IsString() @IsNotEmpty() @MaxLength(256)
+  nonce!: string;
+
+  @ApiProperty() @IsString() @Length(8, 128)
+  password!: string;
 }
 export class SecurityPinSetupDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(1024)
@@ -289,6 +331,16 @@ export class UpdateDisplayNameDto {
   @IsString()
   @Length(1, 80)
   displayName!: string;
+}
+
+export class UpdateProfileContactDto {
+  @ApiPropertyOptional({ description: 'Own contact phone, not an identity verification claim' })
+  @IsOptional() @IsString() @Matches(/^$|^0[0-9]{9,10}$/)
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Residential address as self-reported contact information' })
+  @IsOptional() @IsString() @MaxLength(255)
+  residentialAddress?: string;
 }
 
 export class UploadProfileAvatarDto {

@@ -2,6 +2,8 @@ package com.trooi.app.core.auth
 
 import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.AccessCapabilities
+import com.trooi.app.core.model.AppPage
+import com.trooi.app.core.model.destinationPage
 import com.trooi.app.core.model.SelectedContext
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -27,6 +29,51 @@ class SessionRestoreTest {
         assertEquals(listOf("session/refresh", "hints", "context"), calls)
         assertTrue(outcome is RestoreOutcome.Restored)
         assertEquals(SelectedContext.Tenant("t-1"), (outcome as RestoreOutcome.Restored).resolution.selection)
+    }
+
+    @Test
+    fun restorePrioritizesOwnerAndUsesOneLedgerForMultipleResources() = runBlocking {
+        val ownerAndTenant = session.copy(
+            access = AccessCapabilities(
+                linkedTenancyIds = setOf("t-2", "t-1"),
+                operatedOrganizationIds = setOf("o-2", "o-1"),
+            ),
+        )
+        val restored = restoreVerifiedSession(
+            restore = { Result.success(ownerAndTenant) },
+            hintsFor = { SessionHints("user-1", true, SelectedContext.Tenant("t-1")) },
+        ) as RestoreOutcome.Restored
+        assertEquals(SelectedContext.Operations("o-1"), restored.resolution.selection)
+        assertFalse(restored.resolution.needsPicker)
+        assertEquals(AppPage.OwnerDashboard, destinationPage(restored.resolution))
+
+        val ownerOnlyWithoutTenancies = restoreVerifiedSession(
+            restore = {
+                Result.success(session.copy(access = AccessCapabilities(operatedOrganizationIds = setOf("o-1"))))
+            },
+            hintsFor = { null },
+        ) as RestoreOutcome.Restored
+        assertEquals(SelectedContext.Operations("o-1"), ownerOnlyWithoutTenancies.resolution.selection)
+        assertFalse(ownerOnlyWithoutTenancies.resolution.needsPicker)
+        assertEquals(AppPage.OwnerDashboard, destinationPage(ownerOnlyWithoutTenancies.resolution))
+
+        val tenantOnly = restoreVerifiedSession(
+            restore = {
+                Result.success(session.copy(access = AccessCapabilities(linkedTenancyIds = setOf("t-2", "t-1"))))
+            },
+            hintsFor = { null },
+        ) as RestoreOutcome.Restored
+        assertEquals(SelectedContext.Tenant("t-1"), tenantOnly.resolution.selection)
+        assertFalse(tenantOnly.resolution.needsPicker)
+        assertEquals(AppPage.TenantHome, destinationPage(tenantOnly.resolution))
+
+        val noRole = restoreVerifiedSession(
+            restore = { Result.success(session.copy(access = AccessCapabilities())) },
+            hintsFor = { null },
+        ) as RestoreOutcome.Restored
+        assertEquals(SelectedContext.Discovery, noRole.resolution.selection)
+        assertFalse(noRole.resolution.needsPicker)
+        assertEquals(AppPage.Discovery, destinationPage(noRole.resolution))
     }
 
     @Test

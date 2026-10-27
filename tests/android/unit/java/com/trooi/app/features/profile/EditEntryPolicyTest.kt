@@ -16,4 +16,19 @@ class EditEntryPolicyTest {
             assertFalse(it, requiresEditReauthentication(it))
         }
     }
+
+    @Test fun backendPasswordChangeUsesItsServerVerifiedForm() {
+        assertFalse(requiresSettingsReauthentication(demoPreview = false, page = "password"))
+        assertTrue(requiresSettingsReauthentication(demoPreview = true, page = "password"))
+        listOf("edit:Email", "visibility", "channel:Ưu đãi").forEach {
+            assertFalse(it, requiresSettingsReauthentication(demoPreview = false, page = it))
+        }
+        assertTrue(requiresAccountPassword("pin"))
+        assertTrue(requiresAccountPassword("edit:Số điện thoại"))
+        assertTrue(requiresAccountPassword("edit:Địa chỉ cư trú"))
+        assertTrue(requiresAccountPassword("edit:Tên hiển thị"))
+        assertTrue(requiresAccountPassword("edit:Email"))
+        assertFalse(requiresAccountPassword("login-email"))
+        assertFalse(requiresAccountPassword("edit:Tên pháp lý"))
+    }
 }

@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ForbiddenException, HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { sql, type Kysely } from 'kysely';
 import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
 import type { Database } from '../../../infrastructure/database/schema.types';
@@ -9,6 +9,7 @@ import { normalizeLoginEmail } from '../../../common/identity/normalize-login-em
 import { verifyGoogleIdToken } from '../../../integrations/google-identity/verify-token';
 import { GOOGLE_ID_TOKEN_VERIFIER, type GoogleIdTokenVerifier } from '../../../integrations/google-identity';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
+import { IdentityFoundationConflict } from '../../../persistence/ports/identity-foundation.repository';
 
 const ACCESS_LIFETIME_MS = 15 * 60 * 1000;
 const IDLE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export interface IdentitySessionResponse {
 
 export interface OrganizationCreateReauthChallenge { nonce: string; expiresAt: string }
 export interface OrganizationCreateReauthProof { proof: string; expiresAt: string }
+export interface InitialPasswordSetupChallenge { nonce: string; expiresAt: string }
 
 @Injectable()
 export class IdentitySessionService {
@@ -78,6 +80,85 @@ export class IdentitySessionService {
     return { nonce, expiresAt };
   }
 
+  async issueInitialPasswordSetupChallenge(userId: string, sessionId: string): Promise<InitialPasswordSetupChallenge> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('An application session is required');
+    const now = new Date();
+    const nonce = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
+    await this.transactions.run(async ({ repositories }) => {
+      await repositories.identitySessions.createChallenge({
+        challengeId: randomUUID(), purpose: 'INITIAL_PASSWORD_SETUP', nonceSha256: digest(nonce),
+        userId, sessionId, createdAt: now.toISOString(), expiresAt,
+      });
+      await repositories.identitySessions.appendSecurityEvent({
+        eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_ISSUED', outcome: 'SUCCESS',
+        occurredAt: now.toISOString(), requestMetadata: { operation: 'password.initial_setup', phase: 'challenge' },
+      });
+    });
+    return { nonce, expiresAt };
+  }
+
+  async setInitialPassword(
+    input: { idToken: string; nonce: string; password: string }, userId: string, sessionId: string,
+  ): Promise<{ configured: boolean }> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('An application session is required');
+    if (input.password.length < 8 || input.password.length > 128)
+      throw new ForbiddenException('Invalid initial password');
+
+    let identity: Awaited<ReturnType<typeof verifyGoogleIdToken>>;
+    try {
+      identity = await verifyGoogleIdToken(this.verifier, input.idToken);
+    } catch {
+      await this.recordInitialPasswordSetupRejected(userId, sessionId, 'google_token_invalid');
+      throw new ForbiddenException('Google reauthentication was rejected');
+    }
+    if (!this.matchesFreshNonce(input.nonce, identity.nonce) || !this.isRecentGoogleSetupProof(identity.authTime, identity.issuedAt)) {
+      await this.recordInitialPasswordSetupRejected(userId, sessionId, 'google_auth_stale_or_nonce_invalid');
+      throw new ForbiddenException('Fresh Google authentication is required');
+    }
+
+    const now = new Date().toISOString();
+    const encodedHash = await hashArgon2(input.password, {
+      algorithm: 2, memoryCost: 19456, timeCost: 2, parallelism: 1,
+    });
+    try {
+      const configured = await this.transactions.run(async ({ repositories }) => {
+        const challenge = await repositories.identitySessions.consumeChallenge({
+          nonceSha256: digest(input.nonce), purpose: 'INITIAL_PASSWORD_SETUP', now, userId, sessionId,
+        });
+        if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
+
+        const principal = {
+          issuer: identity.issuer as 'accounts.google.com' | 'https://accounts.google.com',
+          subject: identity.subject,
+        };
+        const binding = await repositories.identityFoundation.resolveGooglePrincipal(principal);
+        if (binding.kind !== 'resolved' || binding.userId !== userId) return false;
+
+        await repositories.identityFoundation.insertPasswordCredential({ userId, encodedHash, now });
+        await repositories.identitySessions.appendSecurityEvent({
+          eventId: randomUUID(), userId, sessionId, eventCode: 'PASSWORD_INITIALIZED', outcome: 'SUCCESS',
+          occurredAt: now, requestMetadata: { method: 'google', operation: 'password.initial_setup' },
+        });
+        return true;
+      });
+      if (!configured) {
+        await this.recordInitialPasswordSetupRejected(userId, sessionId, 'challenge_or_principal_scope_invalid');
+        throw new ForbiddenException('Google reauthentication was rejected');
+      }
+      return { configured: true };
+    } catch (error) {
+      if (error instanceof IdentityFoundationConflict) {
+        await this.recordInitialPasswordSetupRejected(userId, sessionId, error.code);
+        if (error.code === 'credential_exists') throw new ConflictException('Password is already configured');
+        throw new ForbiddenException('Google reauthentication was rejected');
+      }
+      throw error;
+    }
+  }
+
   async completeOrganizationCreateReauth(input: { idToken: string; nonce: string }, userId: string, sessionId: string): Promise<OrganizationCreateReauthProof> {
     this.requireEnabled();
     let identity: Awaited<ReturnType<typeof verifyGoogleIdToken>>;
@@ -95,7 +176,7 @@ export class IdentitySessionService {
       const binding = await repositories.identityFoundation.resolveGooglePrincipal(principal);
       if (binding.kind !== 'resolved' || binding.userId !== userId) return false;
       const challenge = await repositories.identitySessions.consumeChallenge({ nonceSha256: digest(input.nonce),
-        purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString() });
+        purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString(), userId, sessionId });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({ challengeId: randomUUID(),
         purpose: 'REAUTH_ORGANIZATION_CREATE', nonceSha256: digest(proof), userId, sessionId,
@@ -168,6 +249,8 @@ export class IdentitySessionService {
         nonceSha256: digest(input.nonce),
         purpose: 'REAUTH_ORGANIZATION_CREATE',
         now: now.toISOString(),
+        userId,
+        sessionId,
       });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({
@@ -283,12 +366,11 @@ export class IdentitySessionService {
     const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
     const proof = randomBytes(32).toString('base64url');
     const issued = await this.transactions.run(async ({ repositories }) => {
-      const current = await sql<{ revision: string }>`
-        SELECT revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid FOR UPDATE
-      `.execute(this.database!);
-      if (current.rows[0]?.revision !== row.revision) return false;
+      const currentRevision = await repositories.identitySessions.lockSecurityPinRevision(userId);
+      if (currentRevision !== row.revision) return false;
       const challenge = await repositories.identitySessions.consumeChallenge({
         nonceSha256: digest(input.nonce), purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString(),
+        userId, sessionId,
       });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({
@@ -396,6 +478,9 @@ export class IdentitySessionService {
       await repositories.identityFoundation.replacePasswordCredential({
         userId, expectedRevision: snapshot.credential!.credentialRevision,
         encodedHash: encoded, kind: 'change', now,
+      });
+      await repositories.identitySessions.revokeOtherSessions({
+        userId, exceptSessionId: sessionId, now, reason: 'PASSWORD_CHANGED',
       });
       await repositories.identitySessions.appendSecurityEvent({
         eventId: randomUUID(), userId, sessionId, occurredAt: now,
@@ -675,6 +760,15 @@ export class IdentitySessionService {
     return left.length === right.length && timingSafeEqual(left, right);
   }
 
+  private isRecentGoogleSetupProof(authTime?: number, issuedAt?: number): boolean {
+    if (authTime !== undefined) return this.isRecentAuth(authTime);
+    // Android Credential Manager may omit optional auth_time; the nonce-bound,
+    // Google-signed ID token must then have a very recent issuance time.
+    if (!Number.isSafeInteger(issuedAt) || !issuedAt) return false;
+    const age = Date.now() - issuedAt * 1000;
+    return age >= -60_000 && age <= 90_000;
+  }
+
   private isRecentAuth(authTime?: number): boolean {
     if (!Number.isSafeInteger(authTime) || !authTime) return false;
     const age = Date.now() - authTime * 1000;
@@ -694,6 +788,14 @@ export class IdentitySessionService {
     await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
       eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED',
       occurredAt: now, requestMetadata: { reason: reason.slice(0, 48) },
+    }));
+  }
+
+  private async recordInitialPasswordSetupRejected(userId: string, sessionId: string, reason: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.transactions.run(({ repositories }) => repositories.identitySessions.appendSecurityEvent({
+      eventId: randomUUID(), userId, sessionId, eventCode: 'REAUTH_REJECTED', outcome: 'REJECTED',
+      occurredAt: now, requestMetadata: { method: 'google', operation: 'password.initial_setup', reason: reason.slice(0, 48) },
     }));
   }
 

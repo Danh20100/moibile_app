@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 
 import type {
   AuthSessionCreateInput,
@@ -27,16 +27,28 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     }).execute();
   }
 
-  async consumeChallenge(input: { nonceSha256: string; purpose: IdentityChallengePurpose; now: string }) {
+  async consumeChallenge(input: {
+    nonceSha256: string; purpose: IdentityChallengePurpose; now: string;
+    userId?: string; sessionId?: string;
+  }) {
     const row = await this.tx.updateTable('identity_auth_challenges')
       .set({ consumed_at: input.now })
       .where('nonce_sha256', '=', input.nonceSha256)
       .where('purpose', '=', input.purpose)
+      .where(sql<boolean>`(${input.userId ?? null}::uuid IS NULL OR user_id = ${input.userId ?? null}::uuid)`)
+      .where(sql<boolean>`(${input.sessionId ?? null}::uuid IS NULL OR session_id = ${input.sessionId ?? null}::uuid)`)
       .where('expires_at', '>', input.now)
       .where('consumed_at', 'is', null)
       .returning(['challenge_id', 'user_id', 'session_id'])
       .executeTakeFirst();
     return row ? { challengeId: row.challenge_id, userId: row.user_id, sessionId: row.session_id } : null;
+  }
+
+  async lockSecurityPinRevision(userId: string): Promise<string | null> {
+    const result = await sql<{ revision: string }>`
+      SELECT revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid FOR UPDATE
+    `.execute(this.tx);
+    return result.rows[0]?.revision ?? null;
   }
 
   async createSession(input: AuthSessionCreateInput): Promise<void> {
@@ -137,6 +149,25 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     for (const session of sessions) await this.event({ eventId: randomUUID(), userId: input.userId,
       sessionId: session.session_id, eventCode: 'SESSION_REVOKED', outcome: 'SUCCESS', occurredAt: input.now,
       requestMetadata: { reason: 'USER_REVOKE_ALL' } });
+    return sessions.length;
+  }
+
+  async revokeOtherSessions(input: {
+    userId: string; exceptSessionId: string; now: string; reason?: 'EMAIL_CHANGED' | 'PASSWORD_CHANGED';
+  }): Promise<number> {
+    const reason = input.reason ?? 'EMAIL_CHANGED';
+    const sessions = await this.tx.updateTable('auth_sessions')
+      .set({ revoked_at: input.now, revoke_reason: reason })
+      .where('user_id', '=', input.userId)
+      .where('session_id', '!=', input.exceptSessionId)
+      .where('revoked_at', 'is', null)
+      .returning('session_id')
+      .execute();
+    for (const session of sessions) await this.event({
+      eventId: randomUUID(), userId: input.userId, sessionId: session.session_id,
+      eventCode: 'SESSION_REVOKED', outcome: 'SUCCESS', occurredAt: input.now,
+      requestMetadata: { reason },
+    });
     return sessions.length;
   }
 

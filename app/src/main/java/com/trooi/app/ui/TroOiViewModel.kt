@@ -13,6 +13,7 @@ import com.trooi.app.core.auth.SessionHintsStore
 import com.trooi.app.core.auth.restoreVerifiedSession
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.TransportOutcome
+import com.trooi.app.core.network.dto.SessionContextTransport
 import androidx.lifecycle.viewModelScope
 import com.trooi.app.core.data.SlotCheckoutPending
 import com.trooi.app.core.data.TroOiRepository
@@ -1086,6 +1087,29 @@ class TroOiViewModel @Inject constructor(
         )
     }
 
+    suspend fun updateAccountFromSession(session: SessionContextTransport): Result<Unit> {
+        val original = _state.value
+        if (!original.isAuthenticated || original.backendUserId.isBlank() || session.userId != original.backendUserId) {
+            return Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+        }
+        if (session.email.isNullOrBlank()) return Result.failure(IllegalStateException("Backend chưa trả email tài khoản mới."))
+        val generation = sessionGeneration
+        if (generation != sessionGeneration) return Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+        _state.update { current ->
+            if (generation == sessionGeneration && current.isAuthenticated && current.backendUserId == session.userId) current.copy(
+                displayName = session.name ?: current.displayName,
+                email = session.email,
+                pictureUrl = session.pictureUrl,
+                access = AccessCapabilities(
+                    linkedTenancyIds = session.linkedTenancyIds.toSet(),
+                    operatedOrganizationIds = session.operatedOrganizationIds.toSet(),
+                ),
+            ) else current
+        }
+        return if (_state.value.backendUserId == session.userId && _state.value.email == session.email) Result.success(Unit)
+            else Result.failure(IllegalStateException("Phiên đăng nhập đã thay đổi."))
+    }
+
     fun refreshProfileAvatar() {
         val original = _state.value
         if (!RuntimeDataSource.isBackendBacked() || !original.isAuthenticated || original.backendUserId.isBlank()) return
@@ -1265,7 +1289,7 @@ class TroOiViewModel @Inject constructor(
     fun clearSnackbar() = _state.update { it.copy(snackbarMessage = null) }
 
     private fun landingFor(access: AccessCapabilities, remembered: SelectedContext? = null): ContextResolution =
-        reconcileContext(remembered, access)
+        resolvePostLoginLanding(access, remembered)
 
     private fun applyAuthenticatedSession(
         current: TroOiUiState,
@@ -1275,7 +1299,7 @@ class TroOiViewModel @Inject constructor(
         val remembered = hintsStore.read()
             ?.takeIf { it.userId == session.userId && it.restoreEnabled }
             ?.selectedContext
-        val resolved = landingFor(session.access, remembered)
+        val resolved = resolvePostLoginLanding(session.access, remembered)
         persistHints(session.userId, resolved.selection)
         val nextRead = if (resetRead) snapshot.read else current.read
         val returnId = current.authReturnListingId
@@ -1283,6 +1307,11 @@ class TroOiViewModel @Inject constructor(
             returnId,
             returnId != null && publicDiscoveryFeed(nextRead.publicListings).any { it.listingId == returnId },
         )
+        val postLoginPage = if (RuntimeDataSource.isBackendBacked()) {
+            destinationPage(resolved)
+        } else {
+            returnPage ?: if (current.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved)
+        }
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
@@ -1295,7 +1324,7 @@ class TroOiViewModel @Inject constructor(
             read = nextRead,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
-            page = returnPage ?: if (current.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved),
+            page = postLoginPage,
             sessionRestoring = false,
             restoreFailed = false,
             authReturnListingId = null,

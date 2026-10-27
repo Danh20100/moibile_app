@@ -7,6 +7,7 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Inject,
@@ -24,6 +25,7 @@ import { IdentityFoundationConflict } from '../../../persistence/ports/identity-
 import type {
   OtpChallengePurpose,
   OtpChallengeRecord,
+  OtpChangeStage,
 } from '../../../persistence/ports/identity-otp.repository';
 import type { IdentityEventCode } from '../../../persistence/ports/identity-sessions.repository';
 import {
@@ -54,6 +56,14 @@ export interface EmailOtpChallengeResponse {
 
 export interface PasswordResetAccepted {
   reset: true;
+}
+
+export interface EmailChangeAccepted {
+  emailChanged: boolean;
+  email: string;
+  nextStep?: 'NEW_EMAIL';
+  resendAvailableAt?: string;
+  oldEmailNoticeSent?: boolean;
 }
 
 // Rejections are returned by the transaction callback so audit/counter writes commit.
@@ -375,6 +385,221 @@ export class EmailOtpService {
     return { reset: true };
   }
 
+  async requestEmailChange(
+    input: { email: string }, userId: string, sessionId: string,
+  ): Promise<EmailOtpChallengeResponse> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('Application session is required');
+    const targetNormalized = this.parseEmail(input.email, 'INVALID_EMAIL');
+    const issued = await this.transactions.run(async ({ repositories }) => {
+      const initial = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+      if (!initial?.credential) throw new ForbiddenException('Set an account password before changing login email');
+      await repositories.identityOtp.deleteSettledBefore(
+        new Date(Date.now() - OTP_SETTLED_RETENTION_MS).toISOString(),
+      );
+      await this.lockMailboxes(repositories, [initial.email.normalizedEmail, targetNormalized]);
+      const current = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+      if (!current?.credential || current.email.userEmailId !== initial.email.userEmailId ||
+          current.email.emailRevision !== initial.email.emailRevision)
+        throw coded(HttpStatus.CONFLICT, 'Account email changed; request a new verification code', 'OTP_STALE');
+      const owner = await repositories.identityFoundation.findMailboxOwner(targetNormalized);
+      if (owner && owner.userId !== userId) return { kind: 'conflict' as const };
+      if (current.email.normalizedEmail === targetNormalized)
+        throw coded(HttpStatus.BAD_REQUEST, 'New email must differ from the current email', 'EMAIL_UNCHANGED');
+
+      const live = await repositories.identityOtp.findLatestLiveEmailChangeByUser(userId);
+      const now = new Date();
+      if (live) {
+        const waitMs = Date.parse(live.lastSentAt) + OTP_RESEND_COOLDOWN_MS - now.getTime();
+        if (waitMs > 0) return { kind: 'cooldown' as const, retryAfterSeconds: Math.max(1, Math.ceil(waitMs / 1000)) };
+        await repositories.identityOtp.supersedeById({ challengeId: live.challengeId, now: now.toISOString() });
+      }
+
+      const created = await this.replaceLiveChallenge(repositories, {
+        purpose: 'EMAIL_CHANGE',
+        email: current.email.address,
+        normalized: current.email.normalizedEmail,
+        displayName: null,
+        pendingPasswordHash: null,
+        now,
+        changeSnapshot: current,
+        changeUserId: userId,
+        changeSessionId: sessionId,
+        changeStage: 'CURRENT_EMAIL',
+        changeTargetAddress: input.email.trim(),
+        changeTargetNormalized: targetNormalized,
+      });
+      if (created.kind === 'cooldown') return created;
+      return {
+        ...created,
+        to: current.email.address,
+        normalized: current.email.normalizedEmail,
+      };
+    });
+    if (issued.kind === 'conflict') throw new ConflictException({
+      message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED',
+    });
+    if (issued.kind === 'cooldown') this.throwCooldown(issued.retryAfterSeconds);
+    await this.deliverCode(
+      issued.to, issued.code, 'EMAIL_CHANGE', issued.normalized, issued.challengeId, false, 'CURRENT_EMAIL',
+    );
+    return this.challengeResponse(issued);
+  }
+
+  async verifyEmailChange(
+    input: { otpChallengeId: string; code: string }, userId: string, sessionId: string,
+  ): Promise<EmailChangeAccepted> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('Application session is required');
+    try {
+      const outcome = await this.runVerification(async (repositories) => {
+        const preview = await repositories.identityOtp.findLiveById(input.otpChallengeId);
+        const currentPreview = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+        await this.lockMailboxes(repositories, [
+          ...(preview?.destinationNormalized ? [preview.destinationNormalized] : []),
+          ...(preview?.changeTargetNormalized ? [preview.changeTargetNormalized] : []),
+          ...(currentPreview?.email.normalizedEmail ? [currentPreview.email.normalizedEmail] : []),
+        ]);
+        const challenge = await this.requireLiveOtp(repositories, {
+          challengeId: input.otpChallengeId, code: input.code, purpose: 'EMAIL_CHANGE',
+          now: new Date(), rejectEvent: 'AUTHENTICATION_REJECTED',
+        });
+        const reject = async (reason: string, error: HttpException, supersede = true): Promise<never> => {
+          if (supersede) await repositories.identityOtp.supersedeById({
+            challengeId: challenge.challengeId, now: new Date().toISOString(),
+          });
+          await repositories.identitySessions.appendSecurityEvent({
+            eventId: randomUUID(), userId, sessionId, eventCode: 'AUTHENTICATION_REJECTED',
+            outcome: 'REJECTED', occurredAt: new Date().toISOString(),
+            requestMetadata: { operation: 'email.change', reason },
+          });
+          throw new OtpRejection(error);
+        };
+        if (challenge.changeUserId !== userId || challenge.changeSessionId !== sessionId ||
+            !challenge.changeEmailId || !challenge.changeEmailRevision ||
+            !challenge.changeStage || !challenge.changeTargetAddress || !challenge.changeTargetNormalized)
+          return reject('otp_scope_mismatch', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+
+        const current = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+        if (!current?.credential || current.email.userEmailId !== challenge.changeEmailId ||
+            current.email.emailRevision !== challenge.changeEmailRevision)
+          return reject('email_identity_changed', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+
+        const targetAddress = challenge.changeTargetAddress;
+        const targetNormalized = challenge.changeTargetNormalized;
+        if (challenge.changeStage === 'CURRENT_EMAIL') {
+          if (challenge.destinationNormalized !== current.email.normalizedEmail)
+            return reject('current_email_mismatch', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+          const owner = await repositories.identityFoundation.findMailboxOwner(targetNormalized);
+          if (owner && owner.userId !== userId)
+            return reject('email_conflict', new ConflictException({ message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED' }));
+          const competing = await repositories.identityOtp.findLiveByMailbox('EMAIL_CHANGE', targetNormalized);
+          if (competing && competing.challengeId !== challenge.challengeId)
+            return reject('email_change_target_collision', new ConflictException({ message: 'Email change is already pending for this address', code: 'EMAIL_ALREADY_REGISTERED' }));
+
+          const nextCode = generateCodeDifferentFrom(input.code);
+          const nowIso = new Date().toISOString();
+          const advanced = await repositories.identityOtp.advanceEmailChangeStage({
+            challengeId: challenge.challengeId,
+            userId,
+            sessionId,
+            emailId: challenge.changeEmailId,
+            emailRevision: challenge.changeEmailRevision,
+            fromStage: 'CURRENT_EMAIL',
+            expectedDestinationNormalized: challenge.destinationNormalized,
+            targetAddress,
+            targetNormalized,
+            codeHmac: hmacCode(
+              this.config.otpHmacSecret,
+              otpHmacScope('EMAIL_CHANGE', 'NEW_EMAIL'),
+              challenge.challengeId,
+              targetNormalized,
+              nextCode,
+            ),
+            now: nowIso,
+          });
+          if (!advanced)
+            return reject('otp_stage_race', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'), false);
+          return {
+            kind: 'send-new-email' as const,
+            challengeId: challenge.challengeId,
+            code: nextCode,
+            to: targetAddress,
+            normalized: targetNormalized,
+            sentAt: nowIso,
+          };
+        }
+
+        if (challenge.changeStage !== 'NEW_EMAIL' ||
+            challenge.destinationNormalized !== targetNormalized ||
+            challenge.destinationAddress !== targetAddress)
+          return reject('new_email_stage_mismatch', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+        const owner = await repositories.identityFoundation.findMailboxOwner(targetNormalized);
+        if (owner && owner.userId !== userId)
+          return reject('email_conflict', new ConflictException({ message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED' }));
+
+        const nowIso = new Date().toISOString();
+        const consumed = await repositories.identityOtp.consume({ challengeId: challenge.challengeId, now: nowIso });
+        if (!consumed) throw coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID');
+        const updated = await repositories.identityFoundation.replacePrimaryEmail({
+          userId,
+          expectedEmailId: challenge.changeEmailId,
+          expectedEmailRevision: challenge.changeEmailRevision,
+          target: {
+            address: targetAddress,
+            normalizedEmail: targetNormalized,
+            verifiedAt: nowIso,
+            verificationSource: 'email_otp',
+          },
+        });
+        await repositories.identitySessions.revokeOtherSessions({ userId, exceptSessionId: sessionId, now: nowIso });
+        await repositories.identitySessions.appendSecurityEvent({
+          eventId: randomUUID(), userId, sessionId, eventCode: 'EMAIL_CHANGED', outcome: 'SUCCESS',
+          occurredAt: nowIso,
+          requestMetadata: { operation: 'email.change', emailRevision: updated.emailRevision },
+        });
+        return { kind: 'changed' as const, email: updated.address, oldEmail: current.email.address };
+      });
+
+      if (outcome.kind === 'send-new-email') {
+        await this.deliverCode(
+          outcome.to, outcome.code, 'EMAIL_CHANGE', outcome.normalized,
+          outcome.challengeId, false, 'NEW_EMAIL',
+        );
+        return {
+          emailChanged: false,
+          email: outcome.to,
+          nextStep: 'NEW_EMAIL',
+          resendAvailableAt: new Date(Date.parse(outcome.sentAt) + OTP_RESEND_COOLDOWN_MS).toISOString(),
+        };
+      }
+
+      let oldEmailNoticeSent = true;
+      try {
+        await this.mail.send(emailChangeNoticeMail(outcome.oldEmail, outcome.email));
+      } catch {
+        oldEmailNoticeSent = false;
+        try {
+          await this.transactions.run(({ repositories }) =>
+            repositories.identitySessions.appendSecurityEvent({
+              eventId: randomUUID(), userId, sessionId, eventCode: 'EMAIL_CHANGE_NOTICE_FAILED',
+              outcome: 'REJECTED', occurredAt: new Date().toISOString(),
+              requestMetadata: { operation: 'email.change', noticeTo: outcome.oldEmail },
+            }),
+          );
+        } catch { /* Keep the committed email change result visible even if audit storage is unavailable. */ }
+      }
+      return { emailChanged: true, email: outcome.email, oldEmailNoticeSent };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error instanceof IdentityFoundationConflict && error.code === 'email_conflict')
+        throw new ConflictException({ message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED' });
+      if (error instanceof IdentityFoundationConflict && error.code === 'stale_state')
+        throw coded(HttpStatus.CONFLICT, 'Account email changed; request a new verification code', 'OTP_STALE');
+      throw error;
+    }
+  }
+
   private requireEnabled(): void {
     if (!this.config.enabled)
       throw new ServiceUnavailableException({
@@ -415,6 +640,14 @@ export class EmailOtpService {
     return repositories.identityFoundation.findMailboxOwner(normalized);
   }
 
+  private async lockMailboxes(
+    repositories: PersistenceRepositories,
+    normalizedAddresses: string[],
+  ): Promise<void> {
+    for (const address of Array.from(new Set(normalizedAddresses)).sort())
+      await repositories.identityFoundation.lockMailbox(address);
+  }
+
   private async replaceLiveChallenge(
     repositories: PersistenceRepositories,
     input: {
@@ -430,6 +663,14 @@ export class EmailOtpService {
           PersistenceRepositories['identityFoundation']['findPrimaryLogin']
         >
       >;
+      changeSnapshot?: Awaited<
+        ReturnType<PersistenceRepositories['identityFoundation']['findPrimaryLoginByUserId']>
+      > | null;
+      changeUserId?: string;
+      changeSessionId?: string;
+      changeStage?: OtpChangeStage | null;
+      changeTargetAddress?: string | null;
+      changeTargetNormalized?: string | null;
     },
   ): Promise<
     | { kind: 'cooldown'; retryAfterSeconds: number }
@@ -475,9 +716,16 @@ export class EmailOtpService {
       resetEmailRevision: input.resetSnapshot?.email.emailRevision ?? null,
       resetCredentialRevision:
         input.resetSnapshot?.credential?.credentialRevision ?? null,
+      changeUserId: input.changeUserId ?? null,
+      changeSessionId: input.changeSessionId ?? null,
+      changeEmailId: input.changeSnapshot?.email.userEmailId ?? null,
+      changeEmailRevision: input.changeSnapshot?.email.emailRevision ?? null,
+      changeStage: input.changeStage ?? null,
+      changeTargetAddress: input.changeTargetAddress ?? null,
+      changeTargetNormalized: input.changeTargetNormalized ?? null,
       codeHmac: hmacCode(
         this.config.otpHmacSecret,
-        input.purpose,
+        otpHmacScope(input.purpose, input.changeStage),
         challengeId,
         input.normalized,
         code,
@@ -550,6 +798,12 @@ export class EmailOtpService {
           'OTP_INVALID',
         ),
       );
+    if (challenge.purpose === 'EMAIL_CHANGE' &&
+        (!challenge.changeStage || !challenge.changeTargetAddress || !challenge.changeTargetNormalized))
+      return reject(
+        'otp_stage_missing',
+        coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'),
+      );
     if (Date.parse(challenge.expiresAt) <= input.now.getTime())
       return reject(
         'otp_expired',
@@ -570,7 +824,7 @@ export class EmailOtpService {
       );
     const expected = hmacCode(
       this.config.otpHmacSecret,
-      challenge.purpose,
+      otpHmacScope(challenge.purpose, challenge.changeStage),
       challenge.challengeId,
       challenge.destinationNormalized,
       input.code,
@@ -604,9 +858,10 @@ export class EmailOtpService {
     normalized: string,
     challengeId: string,
     change = false,
+    changeStage?: OtpChangeStage,
   ): Promise<void> {
     try {
-      await this.mail.send(otpMail(to, code, purpose, change));
+      await this.mail.send(otpMail(to, code, purpose, change, changeStage));
     } catch {
       await this.transactions.run(async ({ repositories }) => {
         await repositories.identityFoundation.lockMailbox(normalized);
@@ -689,14 +944,38 @@ function coded(status: number, message: string, code: string): HttpException {
 
 function hmacCode(
   secret: string,
-  purpose: OtpChallengePurpose,
+  scope: string,
   challengeId: string,
   destination: string,
   code: string,
 ): string {
   return createHmac('sha256', secret)
-    .update(`${challengeId}|${purpose}|${destination}|${code}`)
+    .update(`${challengeId}|${scope}|${destination}|${code}`)
     .digest('hex');
+}
+
+function otpHmacScope(purpose: OtpChallengePurpose, stage?: OtpChangeStage | null): string {
+  if (purpose !== 'EMAIL_CHANGE') return purpose;
+  if (!stage) throw new Error('Email change OTP stage is required');
+  return `EMAIL_CHANGE:${stage}`;
+}
+
+function generateCodeDifferentFrom(previous: string): string {
+  let code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  while (code === previous) code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  return code;
+}
+
+function emailChangeNoticeMail(oldEmail: string, newEmail: string) {
+  const subject = 'Email đăng nhập đã được thay đổi';
+  const text = `Email đăng nhập TrọƠi của bạn đã được đổi từ ${oldEmail} sang ${newEmail}. Nếu bạn không thực hiện thay đổi này, hãy liên hệ bộ phận hỗ trợ ngay.`;
+  const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+  return {
+    to: oldEmail,
+    subject,
+    text,
+    html: `<p>Email đăng nhập TrọƠi của bạn đã được đổi từ <strong>${escape(oldEmail)}</strong> sang <strong>${escape(newEmail)}</strong>.</p><p>Nếu bạn không thực hiện thay đổi này, hãy liên hệ bộ phận hỗ trợ ngay.</p>`,
+  };
 }
 
 function sameDigest(left: string, right: string): boolean {
@@ -723,18 +1002,29 @@ function otpMail(
   code: string,
   purpose: OtpChallengePurpose,
   change = false,
+  changeStage?: OtpChangeStage,
 ) {
   const reset = purpose === 'PASSWORD_RESET' && !change;
+  const emailChange = purpose === 'EMAIL_CHANGE';
+  const currentEmailStage = emailChange && changeStage === 'CURRENT_EMAIL';
   const subject = change
     ? 'Mã đổi mật khẩu TrọƠi'
-    : reset
-      ? 'Mã đặt lại mật khẩu TrọƠi'
-      : 'Mã xác nhận TrọƠi';
+    : currentEmailStage
+      ? 'Mã xác minh yêu cầu đổi email TrọƠi'
+      : emailChange
+        ? 'Mã xác minh email đăng nhập TrọƠi'
+        : reset
+          ? 'Mã đặt lại mật khẩu TrọƠi'
+          : 'Mã xác nhận TrọƠi';
   const label = change
     ? 'Mã đổi mật khẩu TrọƠi của bạn là'
-    : reset
-      ? 'Mã đặt lại mật khẩu TrọƠi của bạn là'
-      : 'Mã xác nhận TrọƠi của bạn là';
+    : currentEmailStage
+      ? 'Mã xác nhận trên email hiện tại của bạn là'
+      : emailChange
+        ? 'Mã xác minh email đăng nhập mới của bạn là'
+        : reset
+          ? 'Mã đặt lại mật khẩu TrọƠi của bạn là'
+          : 'Mã xác nhận TrọƠi của bạn là';
   const text =
     `${label} ${code}.\n` +
     `Mã hết hạn sau 5 phút. Không chia sẻ mã này với người khác.`;

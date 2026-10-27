@@ -1,14 +1,17 @@
 package com.trooi.app.features.profile
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trooi.app.core.auth.GoogleCredentialAuth
 import com.trooi.app.core.network.BackendApi
 import com.trooi.app.core.network.dto.ApiOutcome
 import com.trooi.app.core.network.dto.AccountSecurityStatusTransport
@@ -26,11 +29,13 @@ internal data class AccountSecuritySettingsState(
     val busy: Boolean = false,
     val error: String? = null,
     val changed: Boolean = false,
+    val successMessage: String? = null,
 )
 
 @HiltViewModel
 internal class AccountSecuritySettingsModel @Inject constructor(
     private val backend: BackendApi,
+    private val googleCredentialAuth: GoogleCredentialAuth,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AccountSecuritySettingsState())
     val state = mutableState.asStateFlow()
@@ -44,18 +49,62 @@ internal class AccountSecuritySettingsModel @Inject constructor(
 
     fun changePassword(current: String, next: String) {
         if (mutableState.value.busy) return
-        mutableState.update { it.copy(busy = true, error = null, changed = false) }
+        mutableState.update { it.copy(busy = true, error = null, changed = false, successMessage = null) }
         viewModelScope.launch {
             when (val result = backend.changePassword(current, next)) {
                 is ApiOutcome.Data -> mutableState.update {
                     it.copy(busy = false, changed = result.value.changed,
-                        error = if (result.value.changed) null else "Không thể đổi mật khẩu.")
+                        error = if (result.value.changed) null else "Không thể đổi mật khẩu.",
+                        successMessage = if (result.value.changed) "Đã đổi mật khẩu." else null)
                 }
                 is ApiOutcome.Failure -> mutableState.update { it.copy(busy = false, error = when (result.httpStatus) {
                     403 -> "Mật khẩu hiện tại không đúng."
                     429 -> "Thử quá nhiều lần. Vui lòng thử lại sau."
                     else -> "Không thể đổi mật khẩu."
                 }) }
+            }
+        }
+    }
+
+    fun setupInitialPassword(context: Context, password: String) {
+        val details = mutableState.value.details ?: return
+        if (mutableState.value.busy || details.passwordConfigured || !details.googleLinked) return
+        mutableState.update { it.copy(busy = true, error = null, changed = false, successMessage = null) }
+        viewModelScope.launch {
+            val challenge = when (val result = backend.issueInitialPasswordSetupChallenge()) {
+                is ApiOutcome.Data -> result.value
+                is ApiOutcome.Failure -> {
+                    mutableState.update { it.copy(busy = false, error = "Không thể bắt đầu xác thực Google.") }
+                    return@launch
+                }
+            }
+            val nonce = challenge.nonce?.takeIf(String::isNotBlank)
+            if (nonce == null) {
+                mutableState.update { it.copy(busy = false, error = "Không thể bắt đầu xác thực Google.") }
+                return@launch
+            }
+            val idToken = googleCredentialAuth.reacquireForReauthentication(context, nonce).getOrElse {
+                mutableState.update { it.copy(busy = false, error = "Không thể xác thực lại với Google.") }
+                return@launch
+            }
+            when (val result = backend.setInitialPassword(idToken, nonce, password)) {
+                is ApiOutcome.Data -> mutableState.update {
+                    it.copy(
+                        details = it.details?.copy(passwordConfigured = result.value.configured),
+                        busy = false,
+                        changed = result.value.configured,
+                        error = if (result.value.configured) null else "Không thể thiết lập mật khẩu.",
+                        successMessage = if (result.value.configured) "Đã thiết lập mật khẩu." else null,
+                    )
+                }
+                is ApiOutcome.Failure -> {
+                    mutableState.update { it.copy(busy = false, error = when (result.httpStatus) {
+                        401, 403 -> "Google chưa xác minh đúng tài khoản. Hãy thử lại."
+                        409 -> "Mật khẩu đã được thiết lập. Hãy tải lại trạng thái bảo mật."
+                        else -> "Không thể thiết lập mật khẩu. Hãy thử lại."
+                    }) }
+                    if (result.httpStatus == 409) load()
+                }
             }
         }
     }
@@ -69,56 +118,82 @@ internal fun BackendAccountSecurityScreen(
     model: AccountSecuritySettingsModel = hiltViewModel(key = "account-security-$userId"),
 ) {
     val state by model.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     LaunchedEffect(userId, page) { model.load() }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         when (page) {
-            "login-email" -> {
+            "login-email", "google" -> {
                 val info = state.details
-                if (info == null) CircularProgressIndicator()
-                else TroOiInformationRow("Email đăng nhập", info.email ?: "Chưa cung cấp")
-            }
-            "google" -> {
-                val info = state.details
-                if (info == null) CircularProgressIndicator()
-                else {
+                if (info == null) {
+                    state.error?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                        TroOiButton("Thử lại", { model.load() }, modifier = Modifier.fillMaxWidth())
+                    } ?: CircularProgressIndicator()
+                } else if (page == "login-email") {
+                    TroOiInformationRow("Email đăng nhập", info.email ?: "Chưa cung cấp")
+                } else {
                     TroOiInformationRow("Tài khoản sử dụng", info.email ?: "Chưa cung cấp")
                     TroOiInformationRow("Google", if (info.googleLinked) "Đã liên kết" else "Chưa liên kết")
                     TroOiInformationRow("Mật khẩu", if (info.passwordConfigured) "Đã thiết lập" else "Chưa thiết lập")
                 }
             }
-            "password" -> BackendPasswordForm(userId, state.busy, state.error, state.changed,
-                onDirty = onDirty, onSubmit = model::changePassword)
+            "password" -> {
+                val details = state.details
+                if (details == null) {
+                    state.error?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                        TroOiButton("Thử lại", { model.load() }, modifier = Modifier.fillMaxWidth())
+                    } ?: CircularProgressIndicator()
+                } else BackendPasswordForm(
+                    userId = userId,
+                    passwordConfigured = details.passwordConfigured,
+                    googleLinked = details.googleLinked,
+                    busy = state.busy,
+                    error = state.error,
+                    successMessage = state.successMessage,
+                    onDirty = onDirty,
+                    onChange = model::changePassword,
+                    onSetup = { password -> model.setupInitialPassword(context, password) },
+                )
+            }
         }
-        if (page != "password") state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
 
 @Composable
-private fun BackendPasswordForm(
+internal fun BackendPasswordForm(
     userId: String,
+    passwordConfigured: Boolean,
+    googleLinked: Boolean,
     busy: Boolean,
     error: String?,
-    changed: Boolean,
+    successMessage: String?,
     onDirty: (Boolean) -> Unit,
-    onSubmit: (String, String) -> Unit,
+    onChange: (String, String) -> Unit,
+    onSetup: (String) -> Unit,
 ) {
-    var current by remember(userId) { mutableStateOf("") }
-    var next by remember(userId) { mutableStateOf("") }
-    var repeat by remember(userId) { mutableStateOf("") }
+    var current by remember(userId, passwordConfigured) { mutableStateOf("") }
+    var next by remember(userId, passwordConfigured) { mutableStateOf("") }
+    var repeat by remember(userId, passwordConfigured) { mutableStateOf("") }
     LaunchedEffect(current, next, repeat) { onDirty(current.isNotEmpty() || next.isNotEmpty() || repeat.isNotEmpty()) }
-    LaunchedEffect(changed) {
-        if (changed) { current = ""; next = ""; repeat = ""; onDirty(false) }
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) { current = ""; next = ""; repeat = ""; onDirty(false) }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SecretField(current, { current = it }, "Mật khẩu hiện tại", enabled = !busy)
+        if (passwordConfigured) SecretField(current, { current = it }, "Mật khẩu hiện tại", enabled = !busy)
         SecretField(next, { next = it }, "Mật khẩu mới", enabled = !busy,
             error = if (next.isNotEmpty() && next.length < 8) "Tối thiểu 8 ký tự." else "")
         SecretField(repeat, { repeat = it }, "Nhập lại mật khẩu mới", enabled = !busy,
             error = if (repeat.isNotEmpty() && next != repeat) "Mật khẩu không khớp." else "")
-        TroOiButton("Đổi mật khẩu", { onSubmit(current, next) },
-            enabled = !busy && current.isNotBlank() && next.length >= 8 &&
+        if (!passwordConfigured && !googleLinked) {
+            Text("Chưa có tài khoản Google đã liên kết để xác minh lần đầu.", color = MaterialTheme.colorScheme.error)
+        }
+        TroOiButton(
+            if (passwordConfigured) "Đổi mật khẩu" else "Xác thực Google và thiết lập mật khẩu",
+            { if (passwordConfigured) onChange(current, next) else onSetup(next) },
+            enabled = !busy && (if (passwordConfigured) current.isNotBlank() else googleLinked) && next.length >= 8 &&
                 next == repeat && current != next, busy = busy, modifier = Modifier.fillMaxWidth())
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (changed) Text("Đã đổi mật khẩu.", color = MaterialTheme.colorScheme.primary)
+        successMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
 }

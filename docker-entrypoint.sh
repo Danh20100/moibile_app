@@ -21,7 +21,7 @@ case "${TROOI_DATABASE_MODE:-}" in
 esac
 
 echo "Running database migrations..."
-pnpm exec tsx scripts/database/migrate.ts up
+./node_modules/.bin/tsx scripts/database/migrate.ts up
 
 echo "Starting NestJS API..."
 exec node build/main.js

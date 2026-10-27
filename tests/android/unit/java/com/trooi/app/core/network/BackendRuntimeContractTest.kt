@@ -19,6 +19,115 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
+    @Test fun initialPasswordSetupUsesAuthenticatedScopedGoogleReauthenticationContract() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"nonce":"fresh-nonce","expiresAt":"2026-10-27T01:00:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"configured":true}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("current-session") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+
+            val challenge = api.issueInitialPasswordSetupChallenge().requireData()
+            val nonce = requireNotNull(challenge.nonce)
+            assertEquals("fresh-nonce", nonce)
+            assertTrue(api.setInitialPassword("fresh-google-id-token", nonce, "new-password-123").requireData().configured)
+
+            val issue = server.takeRequest()
+            assertEquals("POST", issue.method)
+            assertEquals("/api/v1/identity-access/security/password/setup/challenge", issue.path)
+            assertEquals("Bearer current-session", issue.getHeader("Authorization"))
+            val set = server.takeRequest()
+            assertEquals("POST", set.method)
+            assertEquals("/api/v1/identity-access/security/password/setup", set.path)
+            assertEquals("Bearer current-session", set.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(set.body.readUtf8()).asJsonObject
+            assertEquals("fresh-google-id-token", payload["idToken"].asString)
+            assertEquals("fresh-nonce", payload["nonce"].asString)
+            assertEquals("new-password-123", payload["password"].asString)
+        }
+    }
+
+    @Test fun passwordResetOtpUsesBackendRequestAndVerifyContracts() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"otpChallengeId":"challenge-1","expiresAt":"2026-10-27T01:00:00Z","resendAvailableAt":"2026-10-27T00:31:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"reset":true}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider()
+            val repository = BackendTroOiRepository(OkHttpBackendApi(BackendClient(localUrl(server), tokens, true)), tokens)
+
+            val issued = repository.requestPasswordResetOtp("user@example.com").getOrThrow()
+            assertEquals("challenge-1", issued.otpChallengeId)
+            assertEquals("2026-10-27T01:00:00Z", java.time.Instant.ofEpochMilli(issued.expiresAtMillis).toString())
+            assertEquals("2026-10-27T00:31:00Z", java.time.Instant.ofEpochMilli(issued.resendAtMillis).toString())
+            repository.verifyPasswordResetOtp(issued.otpChallengeId, "123456", "new-password-123").getOrThrow()
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/identity-access/password/reset/request", request.path)
+            assertNull(request.getHeader("Authorization"))
+            assertEquals("user@example.com", com.google.gson.JsonParser.parseString(request.body.readUtf8()).asJsonObject["email"].asString)
+            val verify = server.takeRequest()
+            assertEquals("POST", verify.method)
+            assertEquals("/api/v1/identity-access/password/reset/verify", verify.path)
+            assertNull(verify.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(verify.body.readUtf8()).asJsonObject
+            assertEquals("challenge-1", payload["otpChallengeId"].asString)
+            assertEquals("123456", payload["code"].asString)
+            assertEquals("new-password-123", payload["password"].asString)
+        }
+    }
+
+    @Test fun emailChangeOtpUsesAuthenticatedRequestAndVerifyContracts() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"otpChallengeId":"email-challenge","expiresAt":"2026-10-27T01:00:00Z","resendAvailableAt":"2026-10-27T00:31:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"emailChanged":true,"email":"new@example.com"}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("current-account-session") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+
+            assertEquals("email-challenge", api.requestEmailChangeOtp("new@example.com").requireData().otpChallengeId)
+            val changed = api.verifyEmailChangeOtp("email-challenge", "123456").requireData()
+            assertTrue(changed.emailChanged)
+            assertEquals("new@example.com", changed.email)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/identity-access/profile/email/otp/request", request.path)
+            assertEquals("Bearer current-account-session", request.getHeader("Authorization"))
+            assertEquals("new@example.com", com.google.gson.JsonParser.parseString(request.body.readUtf8()).asJsonObject["email"].asString)
+            val verify = server.takeRequest()
+            assertEquals("POST", verify.method)
+            assertEquals("/api/v1/identity-access/profile/email/otp/verify", verify.path)
+            assertEquals("Bearer current-account-session", verify.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(verify.body.readUtf8()).asJsonObject
+            assertEquals("email-challenge", payload["otpChallengeId"].asString)
+            assertEquals("123456", payload["code"].asString)
+        }
+    }
+
+    @Test fun profileContactReadAndPatchUseAuthenticatedOwnProfileEndpoints() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"phoneNumber":"0901234567","residentialAddress":"12 Nguyen Hue"}"""))
+            server.enqueue(MockResponse().setBody("""{"phoneNumber":"0907654321","residentialAddress":"12 Nguyen Hue"}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("current-profile-session") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+            assertEquals("0901234567", api.getProfileContact().requireData().phoneNumber)
+            assertEquals("0907654321", api.updateProfileContact(phoneNumber = "0907654321").requireData().phoneNumber)
+            val read = server.takeRequest()
+            assertEquals("GET", read.method)
+            assertEquals("/api/v1/identity-access/profile/contact", read.path)
+            assertEquals("Bearer current-profile-session", read.getHeader("Authorization"))
+            val update = server.takeRequest()
+            assertEquals("PATCH", update.method)
+            assertEquals("/api/v1/identity-access/profile/contact", update.path)
+            assertEquals("Bearer current-profile-session", update.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(update.body.readUtf8()).asJsonObject
+            assertEquals("0907654321", payload["phoneNumber"].asString)
+            assertFalse(payload.has("residentialAddress"))
+        }
+    }
+
     @Test fun organizationReauthenticationUsesAuthenticatedChallengeAndNonceProofRequests() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"nonce":"challenge-nonce","expiresAt":"2026-10-15T00:05:00Z"}"""))

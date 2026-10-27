@@ -6,6 +6,7 @@ import com.trooi.app.features.profile.AccountSettingsFlow
 import com.trooi.app.features.profile.LandlordOnboardingScreen
 import com.trooi.app.core.model.LocalLandlordApplication
 import com.trooi.app.core.data.RuntimeDataSource
+import com.trooi.app.core.network.dto.SessionContextTransport
 
 @Composable
 fun SettingsScreen(
@@ -14,13 +15,16 @@ fun SettingsScreen(
     onSaveDisplayName: suspend (String) -> Result<Unit> = {
         Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng."))
     },
+    onSessionUpdated: suspend (SessionContextTransport) -> Result<Unit> = {
+        Result.failure(IllegalStateException("Không thể đồng bộ phiên tài khoản."))
+    },
     onOpenWorkspace: () -> Unit = {},
     onCompleteLandlord: suspend (LocalLandlordApplication) -> Result<Unit> = {
         Result.failure(IllegalStateException("Chưa thể hoàn tất hồ sơ chủ trọ."))
     },
 ) {
     var onboarding by remember(state.backendUserId) { mutableStateOf(false) }
-    AccountSettingsFlow(state, onBack, state.settingsEntry, onSaveDisplayName = onSaveDisplayName,
+    AccountSettingsFlow(state, onBack, state.settingsEntry, onSaveDisplayName = onSaveDisplayName, onSessionUpdated = onSessionUpdated,
         onOpenOperatorWorkspace = onOpenWorkspace, onStartLandlordOnboarding = { onboarding = true })
     if (onboarding) LandlordOnboardingScreen(state.displayName, { onboarding = false }, {
         onboarding = false
@@ -29,6 +33,12 @@ fun SettingsScreen(
 }
 
 @Composable
-fun HelpScreen(state: TroOiUiState, onBack: () -> Unit) {
-    AccountSettingsFlow(state, onBack, "help")
+fun HelpScreen(
+    state: TroOiUiState,
+    onBack: () -> Unit,
+    onSessionUpdated: suspend (SessionContextTransport) -> Result<Unit> = {
+        Result.failure(IllegalStateException("Không thể đồng bộ phiên tài khoản."))
+    },
+) {
+    AccountSettingsFlow(state, onBack, "help", onSessionUpdated = onSessionUpdated)
 }

@@ -9,6 +9,25 @@ class BackendLoginBoundaryTest {
     private fun source(path: String): String =
         File(System.getProperty("user.dir"), "src/main/java/com/trooi/app/$path").readText()
 
+    @Test fun signupUsesOneOtpRequestActionAndNoLegacySignupAction() {
+        val screen = source("features/auth/AuthScreens.kt")
+        val panel = File(System.getProperty("user.dir"), "src/main/java/com/trooi/app/features/auth/EmailOtpPanel.kt").readText()
+        assertTrue(screen.contains("else if (emailOtpEnabled) \"Gửi mã xác nhận\" else \"Tạo tài khoản\""))
+        assertTrue(screen.contains("onRequestEmailOtp(fullName, phone, email, password)"))
+        assertTrue(screen.contains("onVerifyEmailOtp(otpCode)"))
+        assertTrue(panel.contains("trailingIcon = if (allowSend)"))
+    }
+
+    @Test fun debugBackendModeCannotRouteThroughDemoCredentials() {
+        val debugRepository = File(
+            System.getProperty("user.dir"),
+            "../app/src/debug/java/com/trooi/app/core/data/DebugTroOiRepository.kt",
+        ).readText()
+        assertFalse(debugRepository.contains("DemoBackendLogin"))
+        assertFalse(debugRepository.contains("DEMO_BACKEND_ENABLED"))
+        assertFalse(debugRepository.contains("demoLogin"))
+    }
+
     @Test fun backendLoginUsesVerifiedPasswordEndpointWithoutLocalDemo() {
         val app = source("ui/TroOiApp.kt")
         val screen = source("features/auth/AuthScreens.kt")
@@ -27,4 +46,12 @@ class BackendLoginBoundaryTest {
         assertFalse(api.contains("identity-access/auth/local-demo"))
         assertFalse(api.contains("authenticateLocalDemo"))
     }
+    @Test fun backendSessionRefreshAndLoginUseRolePriorityLanding() {
+        val viewModel = source("ui/TroOiViewModel.kt")
+        assertTrue(viewModel.contains("resolvePostLoginLanding(access, remembered)"))
+        assertTrue(viewModel.contains("val postLoginPage = if (RuntimeDataSource.isBackendBacked())"))
+        assertTrue(viewModel.contains("page = postLoginPage,"))
+        assertFalse(viewModel.contains("page = returnPage ?: if (current.demoPreview)"))
+    }
+
 }

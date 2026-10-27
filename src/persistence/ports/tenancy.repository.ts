@@ -39,6 +39,7 @@ export interface TenancyRepository {
   insertParticipant(input: CreateTenancyParticipantInput): Promise<void>;
   findParticipant(participantId: string): Promise<TenancyParticipantRecord | undefined>;
   findParticipantsByUser(userId: string): Promise<TenancyParticipantRecord[]>;
+  findCurrentParticipantsByUser(userId: string): Promise<TenancyParticipantRecord[]>;
   findParticipantsByTenancy(tenancyId: string): Promise<TenancyParticipantRecord[]>;
   findActivePrimary(tenancyId: string): Promise<TenancyParticipantRecord | undefined>;
   updateParticipant(record: TenancyParticipantRecord): Promise<void>;
