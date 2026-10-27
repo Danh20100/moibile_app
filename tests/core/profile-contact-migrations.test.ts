@@ -35,8 +35,8 @@ test('000029 enforces ordered email-change stages and refuses rollback after use
   assert.ok(up.includes('ADD COLUMN change_stage'));
   assert.ok(up.includes('ADD COLUMN change_target_address'));
   assert.ok(up.includes('ADD COLUMN change_target_normalized'));
-  assert.ok(up.includes("UPDATE identity_otp_challenges\nSET superseded_at"));
-  assert.ok(up.includes("purpose = 'EMAIL_CHANGE'\n  AND consumed_at IS NULL\n  AND superseded_at IS NULL"));
+  assert.match(up, /UPDATE identity_otp_challenges\r?\n\s*SET superseded_at/);
+  assert.match(up, /purpose = 'EMAIL_CHANGE'\r?\n\s*AND consumed_at IS NULL\r?\n\s*AND superseded_at IS NULL/);
   assert.ok(up.includes("change_stage IN ('CURRENT_EMAIL', 'NEW_EMAIL')"));
   assert.ok(up.includes('CREATE UNIQUE INDEX uq_identity_otp_challenges_live_email_change_user'));
   assert.ok(up.includes('consumed_at IS NULL AND superseded_at IS NULL'));
