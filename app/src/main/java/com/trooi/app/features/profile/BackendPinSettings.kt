@@ -93,7 +93,10 @@ internal fun BackendPinSettings(userId: String, model: BackendPinSettingsModel =
     }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         when (state.configured) {
-            null -> CircularProgressIndicator()
+            null -> state.error?.let { error ->
+                Text(error, color = MaterialTheme.colorScheme.error)
+                TroOiButton("Thử lại", { model.load() }, modifier = Modifier.fillMaxWidth())
+            } ?: CircularProgressIndicator()
             true -> {
                 SecretField(currentPin, { currentPin = it }, "Mã PIN hiện tại", pin = true, enabled = !state.busy)
                 SecretField(pin, { pin = it }, "Mã PIN mới", pin = true, enabled = !state.busy)
@@ -116,7 +119,7 @@ internal fun BackendPinSettings(userId: String, model: BackendPinSettingsModel =
                     busy = state.busy, modifier = Modifier.fillMaxWidth())
             }
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.takeIf { state.configured != null }?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.success?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
 }

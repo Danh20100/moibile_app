@@ -19,6 +19,36 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
+    @Test fun passwordResetOtpUsesBackendRequestAndVerifyContracts() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"otpChallengeId":"challenge-1","expiresAt":"2026-10-27T01:00:00Z","resendAvailableAt":"2026-10-27T00:31:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"reset":true}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider()
+            val repository = BackendTroOiRepository(OkHttpBackendApi(BackendClient(localUrl(server), tokens, true)), tokens)
+
+            val issued = repository.requestPasswordResetOtp("user@example.com").getOrThrow()
+            assertEquals("challenge-1", issued.otpChallengeId)
+            assertEquals("2026-10-27T01:00:00Z", java.time.Instant.ofEpochMilli(issued.expiresAtMillis).toString())
+            assertEquals("2026-10-27T00:31:00Z", java.time.Instant.ofEpochMilli(issued.resendAtMillis).toString())
+            repository.verifyPasswordResetOtp(issued.otpChallengeId, "123456", "new-password-123").getOrThrow()
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/identity-access/password/reset/request", request.path)
+            assertNull(request.getHeader("Authorization"))
+            assertEquals("user@example.com", com.google.gson.JsonParser.parseString(request.body.readUtf8()).asJsonObject["email"].asString)
+            val verify = server.takeRequest()
+            assertEquals("POST", verify.method)
+            assertEquals("/api/v1/identity-access/password/reset/verify", verify.path)
+            assertNull(verify.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(verify.body.readUtf8()).asJsonObject
+            assertEquals("challenge-1", payload["otpChallengeId"].asString)
+            assertEquals("123456", payload["code"].asString)
+            assertEquals("new-password-123", payload["password"].asString)
+        }
+    }
+
     @Test fun organizationReauthenticationUsesAuthenticatedChallengeAndNonceProofRequests() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"nonce":"challenge-nonce","expiresAt":"2026-10-15T00:05:00Z"}"""))

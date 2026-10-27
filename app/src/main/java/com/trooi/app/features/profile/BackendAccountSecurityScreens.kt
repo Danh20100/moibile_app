@@ -72,15 +72,16 @@ internal fun BackendAccountSecurityScreen(
     LaunchedEffect(userId, page) { model.load() }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         when (page) {
-            "login-email" -> {
+            "login-email", "google" -> {
                 val info = state.details
-                if (info == null) CircularProgressIndicator()
-                else TroOiInformationRow("Email đăng nhập", info.email ?: "Chưa cung cấp")
-            }
-            "google" -> {
-                val info = state.details
-                if (info == null) CircularProgressIndicator()
-                else {
+                if (info == null) {
+                    state.error?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error)
+                        TroOiButton("Thử lại", { model.load() }, modifier = Modifier.fillMaxWidth())
+                    } ?: CircularProgressIndicator()
+                } else if (page == "login-email") {
+                    TroOiInformationRow("Email đăng nhập", info.email ?: "Chưa cung cấp")
+                } else {
                     TroOiInformationRow("Tài khoản sử dụng", info.email ?: "Chưa cung cấp")
                     TroOiInformationRow("Google", if (info.googleLinked) "Đã liên kết" else "Chưa liên kết")
                     TroOiInformationRow("Mật khẩu", if (info.passwordConfigured) "Đã thiết lập" else "Chưa thiết lập")
@@ -89,7 +90,6 @@ internal fun BackendAccountSecurityScreen(
             "password" -> BackendPasswordForm(userId, state.busy, state.error, state.changed,
                 onDirty = onDirty, onSubmit = model::changePassword)
         }
-        if (page != "password") state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
 }
 

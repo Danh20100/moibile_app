@@ -24,3 +24,6 @@ internal fun requireBackendReauthentication() { throw IllegalStateException(REAU
 internal fun requiresEditReauthentication(page: String): Boolean =
     (page.startsWith("edit:") && page != "edit:Tên pháp lý" && page != "edit:Tên hiển thị") || page == "password" ||
         page == "visibility" || page.startsWith("channel:")
+
+internal fun requiresSettingsReauthentication(demoPreview: Boolean, page: String): Boolean =
+    requiresEditReauthentication(page) && (demoPreview || page != "password")

@@ -150,7 +150,7 @@ fun AccountSettingsFlow(
     // Unlocks a Debug Mock draft only; persistence still requires the official backend contract.
     val canEdit = state.demoPreview && editGrant == page
     fun open(next: String) {
-        if (requiresEditReauthentication(next)) protect { editGrant = next; navigate(next) }
+        if (requiresSettingsReauthentication(state.demoPreview, next)) protect { editGrant = next; navigate(next) }
         else navigate(next)
     }
     if (pending != null) ReauthenticationDialog(state.backendUserId, method,
@@ -179,7 +179,7 @@ fun AccountSettingsFlow(
     ) {
         sectionItem { TroOiPageHeader(title, onBack = { requestBack() }) }
         when {
-            requiresEditReauthentication(page) && !canEdit && (state.demoPreview || page != "password") -> sectionItem {
+            requiresSettingsReauthentication(state.demoPreview, page) && !canEdit -> sectionItem {
                 Text("Xác thực bảo mật trước khi chỉnh sửa thông tin.")
                 TroOiButton("Xác thực để chỉnh sửa", { protect { editGrant = page } }, modifier = Modifier.fillMaxWidth())
             }

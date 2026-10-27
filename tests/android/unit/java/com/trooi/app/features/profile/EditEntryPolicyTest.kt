@@ -16,4 +16,12 @@ class EditEntryPolicyTest {
             assertFalse(it, requiresEditReauthentication(it))
         }
     }
+
+    @Test fun backendPasswordChangeUsesItsServerVerifiedForm() {
+        assertFalse(requiresSettingsReauthentication(demoPreview = false, page = "password"))
+        assertTrue(requiresSettingsReauthentication(demoPreview = true, page = "password"))
+        listOf("edit:Email", "visibility", "channel:Ưu đãi").forEach {
+            assertTrue(it, requiresSettingsReauthentication(demoPreview = false, page = it))
+        }
+    }
 }
