@@ -110,7 +110,7 @@ class NativeAuthLayoutTest {
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
             scenario.onActivity { activity -> activity.setContent {
                 TroOiTheme {
-                    SignUpScreen({}, {}, { _, _, _, _ -> }, onGoogleRegister = { registered = true }, googleBacked = true)
+                    SignUpScreen({}, {}, { _, _, _, _ -> }, onGoogleRegister = { registered = true }, emailOtpEnabled = true)
                 }
             } }
             for (attempt in 0 until 50) {
@@ -122,9 +122,9 @@ class NativeAuthLayoutTest {
             assertTrue(screenNodes.any { it.text?.toString() == "Họ và tên" })
             assertTrue(screenNodes.any { it.text?.toString() == "Số điện thoại" })
             assertTrue(screenNodes.any { it.text?.toString()?.contains("Mật khẩu") == true })
-            assertTrue(screenNodes.any { it.text?.toString() == "Gửi mã" })
-            assertTrue(screenNodes.any { it.text?.toString()?.contains("Đăng ký bằng email chưa khả dụng") == true })
-            val primary = screenNodes.firstOrNull { it.text?.toString() == "Tạo tài khoản" }
+            assertFalse(screenNodes.any { it.text?.toString() == "Gửi mã" })
+            assertFalse(screenNodes.any { it.text?.toString()?.contains("Đăng ký bằng email chưa khả dụng") == true })
+            val primary = screenNodes.firstOrNull { it.text?.toString() == "Gửi mã xác nhận" }
             val google = screenNodes.firstOrNull { it.text?.toString() == "Đăng ký bằng Google" }
             assertNotNull(primary)
             assertNotNull(google)

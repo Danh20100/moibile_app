@@ -100,9 +100,11 @@ fun EmailOtpPanel(email: String, mockMode: Boolean, onValueChange: (String) -> U
             keyboardOptions = KeyboardOptions(keyboardType = if (phone) KeyboardType.Phone else KeyboardType.Email),
             isError = state.expiresAt == 0L && state.error.isNotEmpty(),
             supportingText = { if (state.expiresAt == 0L && state.error.isNotEmpty()) Text(state.error) },
-            trailingIcon = { TroOiButton(if (state.status == EmailOtpStatus.SENDING) "Đang gửi" else "Gửi mã", ::send,
-                enabled = allowSend && valid && state.expiresAt == 0L && state.status != EmailOtpStatus.SENDING,
-                modifier = Modifier.testTag("otp-send"), style = TroOiButtonStyle.TERTIARY) })
+            trailingIcon = if (allowSend) {
+                { TroOiButton(if (state.status == EmailOtpStatus.SENDING) "Đang gửi" else "Gửi mã", ::send,
+                    enabled = valid && state.expiresAt == 0L && state.status != EmailOtpStatus.SENDING,
+                    modifier = Modifier.testTag("otp-send"), style = TroOiButtonStyle.TERTIARY) }
+            } else null)
         if (state.status == EmailOtpStatus.SENDING) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (state.expiresAt > 0L) {
             val seconds = ((state.resendAt - now + 999) / 1000).coerceAtLeast(0)

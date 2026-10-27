@@ -3,7 +3,7 @@ package com.trooi.app.core.auth
 import com.trooi.app.core.data.UserSession
 import com.trooi.app.core.model.ContextResolution
 import com.trooi.app.core.model.SelectedContext
-import com.trooi.app.core.model.reconcileContext
+import com.trooi.app.core.model.resolvePostLoginLanding
 
 class NoRestoreCredential : Exception("NO_RESTORE_CREDENTIAL")
 
@@ -42,7 +42,7 @@ suspend fun restoreVerifiedSession(
 
     val hints = hintsFor(session.userId)?.takeIf { it.userId == session.userId && it.restoreEnabled }
     log += "hints"
-    val resolution = reconcileContext(hints?.selectedContext, session.access)
+    val resolution = resolvePostLoginLanding(session.access, hints?.selectedContext)
     log += "context"
     return RestoreOutcome.Restored(session, resolution)
 }

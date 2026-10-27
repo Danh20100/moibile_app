@@ -145,6 +145,22 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     return sessions.length;
   }
 
+  async revokeOtherSessions(input: { userId: string; exceptSessionId: string; now: string }): Promise<number> {
+    const sessions = await this.tx.updateTable('auth_sessions')
+      .set({ revoked_at: input.now, revoke_reason: 'EMAIL_CHANGED' })
+      .where('user_id', '=', input.userId)
+      .where('session_id', '!=', input.exceptSessionId)
+      .where('revoked_at', 'is', null)
+      .returning('session_id')
+      .execute();
+    for (const session of sessions) await this.event({
+      eventId: randomUUID(), userId: input.userId, sessionId: session.session_id,
+      eventCode: 'SESSION_REVOKED', outcome: 'SUCCESS', occurredAt: input.now,
+      requestMetadata: { reason: 'EMAIL_CHANGED' },
+    });
+    return sessions.length;
+  }
+
   async appendSecurityEvent(input: {
     eventId: string; userId: string | null; sessionId: string | null; eventCode: IdentityEventCode;
     outcome: 'SUCCESS' | 'REJECTED'; occurredAt: string;

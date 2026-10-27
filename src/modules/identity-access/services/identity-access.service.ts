@@ -109,7 +109,7 @@ export class IdentityAccessService {
     const ownProfile = await this.getOwnProfile(principal);
     const [organizations, participants] = await this.transactions.run(async ({ repositories }) => {
       const orgs = await repositories.organization.findByPrimaryOwnerUserId(principal.userId);
-      const parts = await repositories.tenancy.findParticipantsByUser(principal.userId);
+      const parts = await repositories.tenancy.findCurrentParticipantsByUser(principal.userId);
       return [orgs, parts];
     });
 

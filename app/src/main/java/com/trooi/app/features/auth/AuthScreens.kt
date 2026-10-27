@@ -647,7 +647,7 @@ fun SignUpScreen(
     prefillKey: Long = 0L,
     authInProgress: Boolean = false,
     onGoogleRegister: () -> Unit = {},
-    googleBacked: Boolean = false,
+    emailOtpEnabled: Boolean = false,
     onRequestEmailOtp: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     onVerifyEmailOtp: (String) -> Unit = {},
     onEmailChangedAfterOtp: () -> Unit = {},
@@ -777,20 +777,21 @@ fun SignUpScreen(
                 onClick = { onRequestEmailOtp(fullName, phone, email, password) },
                 modifier = Modifier.fillMaxWidth(),
                 style = TroOiButtonStyle.TERTIARY,
-                enabled = seconds == 0L && valid && googleBacked && !authInProgress,
+                enabled = seconds == 0L && valid && emailOtpEnabled && !authInProgress,
             )
         } else {
             TroOiButton(
-                text = if (authInProgress) "Đang gửi mã…" else "Tạo tài khoản",
+                text = if (authInProgress) "Đang gửi mã…"
+                    else if (emailOtpEnabled) "Gửi mã xác nhận" else "Tạo tài khoản",
                 onClick = {
-                    if (googleBacked) onRequestEmailOtp(fullName, phone, email, password)
+                    if (emailOtpEnabled) onRequestEmailOtp(fullName, phone, email, password)
                     else onSignUp(fullName, phone, email, password)
                 },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = valid && !authInProgress,
             )
         }
-        if (googleBacked) {
+        if (emailOtpEnabled) {
             Spacer(Modifier.height(18.dp))
             Row(
                 Modifier.fillMaxWidth(),

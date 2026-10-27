@@ -74,6 +74,28 @@ export class PostgresTenancyRepository implements TenancyRepository {
     } catch (error) { throw mapPostgresError(error); }
   }
 
+  async findCurrentParticipantsByUser(userId: string): Promise<TenancyParticipantRecord[]> {
+    try {
+      const rows = await this.executor.selectFrom('tenancy_participants')
+        .innerJoin('tenancies', 'tenancies.tenancy_id', 'tenancy_participants.tenancy_id')
+        .select([
+          'tenancy_participants.tenancy_participant_id',
+          'tenancy_participants.tenancy_id',
+          'tenancy_participants.user_id',
+          'tenancy_participants.role',
+          'tenancy_participants.joined_at',
+          'tenancy_participants.left_at',
+        ])
+        .where('tenancy_participants.user_id', '=', userId)
+        .where('tenancy_participants.left_at', 'is', null)
+        .where('tenancies.status', 'in', ['ACTIVE', 'ENDING'])
+        .orderBy('tenancy_participants.tenancy_id')
+        .orderBy('tenancy_participants.tenancy_participant_id')
+        .execute();
+      return rows.map((row) => this.mapParticipant(row));
+    } catch (error) { throw mapPostgresError(error); }
+  }
+
   async findParticipantsByTenancy(tenancyId: string): Promise<TenancyParticipantRecord[]> {
     try {
       const rows = await this.participantSelect().where('tenancy_id', '=', tenancyId)

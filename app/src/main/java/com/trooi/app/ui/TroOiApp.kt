@@ -209,7 +209,7 @@ fun TroOiApp(
                         otpChallengeId = state.emailOtpChallengeId,
                         otpExpiresAt = state.emailOtpExpiresAt,
                         otpResendAt = state.emailOtpResendAt,
-                        googleBacked = RuntimeDataSource.isBackendBacked() && !demoBackend,
+                        emailOtpEnabled = RuntimeDataSource.isBackendBacked(),
                         authInProgress = state.authInProgress,
                         initialFullName = debugTestCommand?.takeIf { it.route == "signup" }?.fullName.orEmpty(),
                         initialPhone = debugTestCommand?.takeIf { it.route == "signup" }?.phone.orEmpty(),

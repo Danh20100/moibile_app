@@ -28,6 +28,29 @@ fun reconcileContext(selection: SelectedContext?, access: AccessCapabilities): C
     }
 }
 
+fun resolvePostLoginLanding(
+    access: AccessCapabilities,
+    remembered: SelectedContext? = null,
+): ContextResolution {
+    val organizationIds = access.operatedOrganizationIds.sorted()
+    if (organizationIds.isNotEmpty()) {
+        val selected = (remembered as? SelectedContext.Operations)
+            ?.takeIf { it.organizationId in organizationIds }
+            ?: SelectedContext.Operations(organizationIds.first())
+        return ContextResolution(selected, needsPicker = false)
+    }
+
+    val tenancyIds = access.linkedTenancyIds.sorted()
+    if (tenancyIds.isNotEmpty()) {
+        val selected = (remembered as? SelectedContext.Tenant)
+            ?.takeIf { it.tenancyId in tenancyIds }
+            ?: SelectedContext.Tenant(tenancyIds.first())
+        return ContextResolution(selected, needsPicker = false)
+    }
+
+    return ContextResolution(SelectedContext.Discovery, needsPicker = false)
+}
+
 fun isAuthorized(selection: SelectedContext, access: AccessCapabilities): Boolean = when (selection) {
     SelectedContext.Discovery -> true
     is SelectedContext.Tenant -> selection.tenancyId in access.linkedTenancyIds

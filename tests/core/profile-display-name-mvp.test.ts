@@ -77,7 +77,7 @@ function harness() {
             },
           },
           organization: { findByPrimaryOwnerUserId: async () => [] },
-          tenancy: { findParticipantsByUser: async () => [] },
+          tenancy: { findCurrentParticipantsByUser: async () => [] },
         },
         afterCommit: () => undefined,
       } as never),

@@ -25,6 +25,9 @@ const challengeRecord = (
   changeSessionId: r.change_session_id,
   changeEmailId: r.change_email_id,
   changeEmailRevision: r.change_email_revision,
+  changeStage: r.change_stage,
+  changeTargetAddress: r.change_target_address,
+  changeTargetNormalized: r.change_target_normalized,
   codeHmac: r.code_hmac,
   createdAt: r.created_at,
   expiresAt: r.expires_at,
@@ -83,6 +86,53 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
         .orderBy('created_at', 'desc')
         .executeTakeFirst();
       return row ? challengeRecord(row) : null;
+    });
+  }
+
+  async findLatestLiveEmailChangeByUser(userId: string): Promise<OtpChallengeRecord | null> {
+    return this.execute(async () => {
+      const row = await this.tx.selectFrom('identity_otp_challenges').selectAll()
+        .where('purpose', '=', 'EMAIL_CHANGE')
+        .where('change_user_id', '=', userId)
+        .where('consumed_at', 'is', null)
+        .where('superseded_at', 'is', null)
+        .orderBy('created_at', 'desc')
+        .executeTakeFirst();
+      return row ? challengeRecord(row) : null;
+    });
+  }
+
+  async advanceEmailChangeStage(input: {
+    challengeId: string; userId: string; sessionId: string; emailId: string;
+    emailRevision: string; fromStage: 'CURRENT_EMAIL'; expectedDestinationNormalized: string;
+    targetAddress: string; targetNormalized: string; codeHmac: string; now: string;
+  }): Promise<boolean> {
+    return this.execute(async () => {
+      const row = await this.tx.updateTable('identity_otp_challenges')
+        .set({
+          change_stage: 'NEW_EMAIL',
+          destination_address: input.targetAddress,
+          destination_normalized: input.targetNormalized,
+          code_hmac: input.codeHmac,
+          attempts: 0,
+          last_sent_at: input.now,
+        })
+        .where('challenge_id', '=', input.challengeId)
+        .where('purpose', '=', 'EMAIL_CHANGE')
+        .where('change_stage', '=', input.fromStage)
+        .where('change_user_id', '=', input.userId)
+        .where('change_session_id', '=', input.sessionId)
+        .where('change_email_id', '=', input.emailId)
+        .where('change_email_revision', '=', input.emailRevision)
+        .where('destination_normalized', '=', input.expectedDestinationNormalized)
+        .where('attempts', '<', sql<number>`max_attempts`)
+        .where('expires_at', '>', input.now)
+        .where(sql<boolean>`expires_at::timestamptz > clock_timestamp()`)
+        .where('consumed_at', 'is', null)
+        .where('superseded_at', 'is', null)
+        .returning('challenge_id')
+        .executeTakeFirst();
+      return Boolean(row);
     });
   }
 
@@ -154,6 +204,9 @@ export class PostgresIdentityOtpRepository implements IdentityOtpRepository {
             change_session_id: input.changeSessionId ?? null,
             change_email_id: input.changeEmailId ?? null,
             change_email_revision: input.changeEmailRevision ?? null,
+            change_stage: input.changeStage ?? null,
+            change_target_address: input.changeTargetAddress ?? null,
+            change_target_normalized: input.changeTargetNormalized ?? null,
             display_name: input.displayName,
             created_at: input.createdAt,
             expires_at: input.expiresAt,

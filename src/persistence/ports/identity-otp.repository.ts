@@ -1,4 +1,5 @@
 export type OtpChallengePurpose = 'EMAIL_REGISTER' | 'PASSWORD_RESET' | 'EMAIL_CHANGE';
+export type OtpChangeStage = 'CURRENT_EMAIL' | 'NEW_EMAIL';
 
 export interface OtpChallengeRecord {
   challengeId: string;
@@ -14,6 +15,9 @@ export interface OtpChallengeRecord {
   changeSessionId: string | null;
   changeEmailId: string | null;
   changeEmailRevision: string | null;
+  changeStage: OtpChangeStage | null;
+  changeTargetAddress: string | null;
+  changeTargetNormalized: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;
@@ -36,6 +40,9 @@ export interface OtpChallengeCreateInput {
   changeSessionId?: string | null;
   changeEmailId?: string | null;
   changeEmailRevision?: string | null;
+  changeStage?: OtpChangeStage | null;
+  changeTargetAddress?: string | null;
+  changeTargetNormalized?: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;
@@ -57,6 +64,20 @@ export interface IdentityOtpRepository {
     purpose: OtpChallengePurpose,
     normalizedEmail: string,
   ): Promise<OtpChallengeRecord | null>;
+  findLatestLiveEmailChangeByUser(userId: string): Promise<OtpChallengeRecord | null>;
+  advanceEmailChangeStage(input: {
+    challengeId: string;
+    userId: string;
+    sessionId: string;
+    emailId: string;
+    emailRevision: string;
+    fromStage: 'CURRENT_EMAIL';
+    expectedDestinationNormalized: string;
+    targetAddress: string;
+    targetNormalized: string;
+    codeHmac: string;
+    now: string;
+  }): Promise<boolean>;
   supersedeById(input: { challengeId: string; now: string }): Promise<void>;
   findLiveById(challengeId: string): Promise<OtpChallengeRecord | null>;
   supersedeLiveByMailbox(input: {

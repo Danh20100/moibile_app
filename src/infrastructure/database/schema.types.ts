@@ -257,7 +257,7 @@ export interface IdentitySecurityEventsTable {
   event_code: 'CHALLENGE_ISSUED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_SUCCEEDED' | 'REGISTRATION_REJECTED'
     | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_REFRESH_REJECTED'
     | 'AUTHENTICATION_REJECTED' | 'SESSION_LOGOUT' | 'SESSION_REVOKED' | 'IDENTITY_COLLISION'
-    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED' | 'PASSWORD_INITIALIZED' | 'EMAIL_CHANGED';
+    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED' | 'PASSWORD_INITIALIZED' | 'EMAIL_CHANGED' | 'EMAIL_CHANGE_NOTICE_FAILED';
   outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
 }
 export interface IdentityOtpChallengesTable {
@@ -265,6 +265,8 @@ export interface IdentityOtpChallengesTable {
   destination_normalized: string; code_hmac: string; pending_password_hash: string | null;
   reset_user_id: string | null; reset_email_revision: string | null; reset_credential_revision: string | null;
   change_user_id: string | null; change_session_id: string | null; change_email_id: string | null; change_email_revision: string | null;
+  change_stage: 'CURRENT_EMAIL' | 'NEW_EMAIL' | null;
+  change_target_address: string | null; change_target_normalized: string | null;
   display_name: string | null; created_at: TimestampString; expires_at: TimestampString;
   last_sent_at: TimestampString; attempts: number; max_attempts: number;
   consumed_at: TimestampString | null; superseded_at: TimestampString | null;

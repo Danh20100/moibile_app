@@ -1299,7 +1299,7 @@ class TroOiViewModel @Inject constructor(
         val remembered = hintsStore.read()
             ?.takeIf { it.userId == session.userId && it.restoreEnabled }
             ?.selectedContext
-        val resolved = landingFor(session.access, remembered)
+        val resolved = resolvePostLoginLanding(session.access, remembered)
         persistHints(session.userId, resolved.selection)
         val nextRead = if (resetRead) snapshot.read else current.read
         val returnId = current.authReturnListingId

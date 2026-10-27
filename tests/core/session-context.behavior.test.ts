@@ -26,7 +26,7 @@ test('session-context: user with no relationships receives empty arrays', async 
             findByPrimaryOwnerUserId: async () => [],
           },
           tenancy: {
-            findParticipantsByUser: async () => [],
+            findCurrentParticipantsByUser: async () => [],
           },
         },
       } as never),
@@ -70,7 +70,7 @@ test('session-context: user who is both primary owner and linked participant rec
             },
           },
           tenancy: {
-            findParticipantsByUser: async (uid: string) => {
+            findCurrentParticipantsByUser: async (uid: string) => {
               if (uid === 'dual-user') {
                 return [
                   { tenancyParticipantId: 'p2', tenancyId: 'ten-z', userId: uid, role: 'PRIMARY', joinedAt: '2026-01-01', leftAt: null },
@@ -102,6 +102,38 @@ test('session-context: user who is both primary owner and linked participant rec
   assert.equal(context.email, 'dual@example.com');
 });
 
+test('session-context: excludes left participants and non-current tenancies', async () => {
+  const transactions = {
+    run: async <T>(work: (ctx: never) => Promise<T>) =>
+      work({
+        repositories: {
+          identityFoundation,
+          organization: { findByPrimaryOwnerUserId: async () => [] },
+          tenancy: {
+            findParticipantsByUser: async () => [
+              { tenancyParticipantId: 'p-current', tenancyId: 'ten-current', userId: 'tenant-user', role: 'PRIMARY', joinedAt: '2026-01-01', leftAt: null },
+              { tenancyParticipantId: 'p-left', tenancyId: 'ten-left', userId: 'tenant-user', role: 'PRIMARY', joinedAt: '2026-01-01', leftAt: '2026-02-01' },
+              { tenancyParticipantId: 'p-ended', tenancyId: 'ten-ended', userId: 'tenant-user', role: 'PRIMARY', joinedAt: '2026-01-01', leftAt: null },
+            ],
+            findCurrentParticipantsByUser: async () => [
+              { tenancyParticipantId: 'p-current', tenancyId: 'ten-current', userId: 'tenant-user', role: 'PRIMARY', joinedAt: '2026-01-01', leftAt: null },
+            ],
+          },
+        },
+      } as never),
+  };
+
+  const service = new IdentityAccessService(transactions as never);
+  const context = await service.getSessionContext({
+    userId: 'tenant-user',
+    provider: 'google',
+    issuer: 'https://accounts.google.com',
+    subject: 'tenant-sub',
+  });
+
+  assert.deepEqual(context.linkedTenancyIds, ['ten-current']);
+});
+
 test('session-context: controller rejects request if user is not in request context', async () => {
   const service = new IdentityAccessService({ run: async () => undefined } as never);
   const controller = new IdentityAccessController(service);
@@ -126,7 +158,7 @@ test('session-context: controller extracts verified user and delegates to servic
             },
           },
           tenancy: {
-            findParticipantsByUser: async () => [],
+            findCurrentParticipantsByUser: async () => [],
           },
         },
       } as never),
