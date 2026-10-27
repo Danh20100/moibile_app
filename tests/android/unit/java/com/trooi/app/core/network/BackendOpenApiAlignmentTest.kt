@@ -192,6 +192,28 @@ class BackendOpenApiAlignmentTest {
         }
     }
 
+    @Test fun emailChangeOtpResponseCarriesTheServerDirectedSecondStage() = runBlocking {
+        MockWebServer().use { server ->
+            server.ok(
+                """{"emailChanged":false,"email":"new@example.com","nextStep":"NEW_EMAIL","resendAvailableAt":"2026-10-27T12:10:00Z"}""",
+            )
+            server.start(InetAddress.getLoopbackAddress(), 0)
+
+            val result = api(server).verifyEmailChangeOtp(
+                "b43d6010-f40d-4a34-84af-3aba98cecf20", "123456",
+            ).requireData()
+
+            assertFalse(result.emailChanged)
+            assertEquals("NEW_EMAIL", result.nextStep)
+            assertEquals("new@example.com", result.email)
+            assertNotNull(result.resendAvailableAt)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/identity-access/profile/email/otp/verify", request.path)
+            assertEquals("Bearer verified-id-token", request.getHeader("Authorization"))
+        }
+    }
+
     @Test fun codecPreservesNestedArraysAndNullableHistoryWithoutInventingDefaults() {
         val rental = BackendJsonCodec.rentalHistory(
             """{"tenancy":{"id":"ten-1","roomId":"room-1","status":"ended"},"terms":[],"payments":[],"notices":[],"incidents":[],"deposit":null}""",

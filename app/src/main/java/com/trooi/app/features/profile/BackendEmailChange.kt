@@ -33,11 +33,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
+internal enum class EmailChangeStep { CURRENT_EMAIL, NEW_EMAIL }
+
 internal data class EmailChangeState(
     val challenge: EmailOtpChallengeTransport? = null,
     val busy: Boolean = false,
     val error: String? = null,
     val changedEmail: String? = null,
+    val step: EmailChangeStep = EmailChangeStep.CURRENT_EMAIL,
+    val oldEmailNoticeSent: Boolean? = null,
 )
 
 @HiltViewModel
@@ -45,14 +49,20 @@ internal class BackendEmailChangeModel @Inject constructor(private val backend: 
     private val mutable = MutableStateFlow(EmailChangeState())
     val state = mutable.asStateFlow()
 
-    fun clearSuccess() = mutable.update { it.copy(challenge = null, changedEmail = null, error = null) }
+    fun clearSuccess() = mutable.update { it.copy(
+        challenge = null, changedEmail = null, error = null,
+        step = EmailChangeStep.CURRENT_EMAIL, oldEmailNoticeSent = null,
+    ) }
 
     fun request(email: String) {
         if (mutable.value.busy) return
         mutable.update { it.copy(busy = true, error = null, changedEmail = null) }
         viewModelScope.launch {
             when (val result = backend.requestEmailChangeOtp(email.trim())) {
-                is ApiOutcome.Data -> mutable.update { it.copy(challenge = result.value, busy = false) }
+                is ApiOutcome.Data -> mutable.update { it.copy(
+                    challenge = result.value, busy = false, step = EmailChangeStep.CURRENT_EMAIL,
+                    changedEmail = null, oldEmailNoticeSent = null,
+                ) }
                 is ApiOutcome.Failure -> mutable.update { it.copy(busy = false, error = when (result.httpStatus) {
                     400 -> "Email mới không hợp lệ hoặc đang được sử dụng."
                     403 -> "Hãy thiết lập mật khẩu tài khoản trước khi đổi email."
@@ -78,22 +88,44 @@ internal class BackendEmailChangeModel @Inject constructor(private val backend: 
                 }) }
                 is ApiOutcome.Data -> {
                     val changed = result.value
-                    if (!changed.emailChanged || changed.email.isNullOrBlank()) {
-                        mutable.update { it.copy(busy = false, error = "Backend chưa xác nhận việc đổi email.") }
+                    if (!changed.emailChanged) {
+                        if (changed.nextStep != "NEW_EMAIL") {
+                            mutable.update { it.copy(busy = false, error = "Phản hồi bước xác minh email không hợp lệ.") }
+                            return@launch
+                        }
+                        val nextChallenge = challenge.copy(
+                            resendAvailableAt = changed.resendAvailableAt ?: challenge.resendAvailableAt,
+                        )
+                        mutable.update { it.copy(
+                            challenge = nextChallenge, step = EmailChangeStep.NEW_EMAIL,
+                            busy = false, error = null,
+                        ) }
+                        return@launch
+                    }
+                    if (changed.email.isNullOrBlank()) {
+                        mutable.update { it.copy(busy = false, error = "Backend chưa trả email đã xác minh.") }
                         return@launch
                     }
                     when (val session = backend.getSessionContext()) {
                         is ApiOutcome.Failure -> mutable.update { it.copy(
                             busy = false, changedEmail = changed.email,
+                            oldEmailNoticeSent = changed.oldEmailNoticeSent ?: true,
                             error = "Email đã đổi; không thể đồng bộ phiên. Hãy tải lại tài khoản.",
                         ) }
                         is ApiOutcome.Data -> {
                             if (session.value.userId != expectedUserId || !session.value.email.equals(changed.email, ignoreCase = true)) {
-                                mutable.update { it.copy(busy = false, changedEmail = changed.email, error = "Phiên tài khoản chưa đồng bộ với email mới.") }
+                                mutable.update { it.copy(
+                                    busy = false, changedEmail = changed.email,
+                                    oldEmailNoticeSent = changed.oldEmailNoticeSent ?: true,
+                                    error = "Phiên tài khoản chưa đồng bộ với email mới.",
+                                ) }
                                 return@launch
                             }
                             onSessionUpdated(session.value).fold(
-                                onSuccess = { mutable.update { it.copy(busy = false, changedEmail = changed.email, challenge = null) } },
+                                onSuccess = { mutable.update { it.copy(
+                                    busy = false, changedEmail = changed.email, challenge = null,
+                                    oldEmailNoticeSent = changed.oldEmailNoticeSent ?: true,
+                                ) } },
                                 onFailure = { cause -> mutable.update { it.copy(busy = false, changedEmail = changed.email, error = cause.message ?: "Không thể đồng bộ phiên tài khoản.") } },
                             )
                         }
@@ -138,13 +170,17 @@ internal fun BackendEmailChangeForm(
     var code by remember(userId) { mutableStateOf("") }
     val challenge = state.challenge
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(challenge?.resendAvailableAt) {
-        while (challenge != null && System.currentTimeMillis() < java.time.Instant.parse(challenge.resendAvailableAt).toEpochMilli()) {
+    LaunchedEffect(challenge?.resendAvailableAt, challenge?.expiresAt) {
+        while (challenge != null && (
+            System.currentTimeMillis() < java.time.Instant.parse(challenge.resendAvailableAt).toEpochMilli() ||
+                System.currentTimeMillis() < java.time.Instant.parse(challenge.expiresAt).toEpochMilli()
+        )) {
             now = System.currentTimeMillis()
             delay(1000)
         }
         now = System.currentTimeMillis()
     }
+    LaunchedEffect(state.step) { code = "" }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TroOiFormField(email, { email = it }, label = { Text("Email mới") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.busy && challenge == null)
         if (challenge == null) {
@@ -152,24 +188,38 @@ internal fun BackendEmailChangeForm(
                 enabled = !state.busy && email.trim().matches(Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) && !email.equals(currentEmail, ignoreCase = true),
                 busy = state.busy, modifier = Modifier.fillMaxWidth())
         } else {
-            Text("Nhập mã 6 chữ số đã gửi tới email mới.")
+            val destination = if (state.step == EmailChangeStep.CURRENT_EMAIL) "email hiện tại $currentEmail" else "email mới"
+            Text(if (state.step == EmailChangeStep.CURRENT_EMAIL)
+                "Bước 1/2: Nhập mã 6 chữ số đã gửi tới $destination."
+            else "Bước 2/2: Email hiện tại đã xác minh. Nhập mã vừa gửi tới $destination.")
             TroOiFormField(code, { code = it.filter(Char::isDigit).take(6) }, label = { Text("Mã xác minh") }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.busy)
-            TroOiButton("Xác minh và đổi email", { model.verify(code, userId, onSessionUpdated) },
-                enabled = !state.busy && code.length == 6, busy = state.busy, modifier = Modifier.fillMaxWidth())
+            val expired = now >= java.time.Instant.parse(challenge.expiresAt).toEpochMilli()
+            if (expired) Text("Mã đã hết hạn. Hãy gửi lại mã.", color = MaterialTheme.colorScheme.error)
+            TroOiButton(
+                if (state.step == EmailChangeStep.CURRENT_EMAIL) "Xác minh email hiện tại" else "Xác minh và đổi email",
+                { model.verify(code, userId, onSessionUpdated) },
+                enabled = !state.busy && !expired && code.length == 6, busy = state.busy, modifier = Modifier.fillMaxWidth(),
+            )
             val wait = ((java.time.Instant.parse(challenge.resendAvailableAt).toEpochMilli() - now) / 1000).coerceAtLeast(0)
-            Text(if (wait > 0) "Bạn có thể gửi lại mã sau ${wait}s." else "Nếu chưa nhận được mã, hãy gửi lại.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (wait == 0L) TroOiButton("Gửi lại mã", { model.request(email) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+            Text(if (wait > 0) "Bạn có thể gửi lại mã sau ${wait}s." else "Nếu chưa nhận được mã, hãy yêu cầu mã mới.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (wait == 0L) TroOiButton("Gửi mã mới", { model.request(email) }, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         state.changedEmail?.takeIf { state.error != null }?.let { Text("Email hiện đã xác minh: $it", color = MaterialTheme.colorScheme.primary) }
         if (state.changedEmail != null && state.error != null) TroOiButton("Tải lại phiên tài khoản", {
             model.retrySync(userId, onSessionUpdated)
         }, enabled = !state.busy, busy = state.busy, modifier = Modifier.fillMaxWidth())
+        if (state.changedEmail != null && state.oldEmailNoticeSent == false) {
+            Text("Email đã đổi, nhưng hệ thống không gửi được thông báo tới email cũ.", color = MaterialTheme.colorScheme.error)
+            if (state.error == null) TroOiButton("Quay lại", { model.clearSuccess(); onBack() }, modifier = Modifier.fillMaxWidth())
+        }
         if (state.busy) CircularProgressIndicator()
-        state.changedEmail?.takeIf { state.error == null }?.let { Text("Đã đổi email đăng nhập: $it", color = MaterialTheme.colorScheme.primary) }
+        state.changedEmail?.takeIf { state.error == null && state.oldEmailNoticeSent != false }?.let {
+            Text("Đã đổi email đăng nhập: $it", color = MaterialTheme.colorScheme.primary)
+        }
     }
-    LaunchedEffect(state.changedEmail, state.error) {
-        if (state.changedEmail != null && state.error == null) {
+    LaunchedEffect(state.changedEmail, state.error, state.oldEmailNoticeSent) {
+        if (state.changedEmail != null && state.error == null && state.oldEmailNoticeSent != false) {
             model.clearSuccess()
             onBack()
         }

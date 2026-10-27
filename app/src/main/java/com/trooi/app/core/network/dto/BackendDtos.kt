@@ -74,7 +74,13 @@ data class EmailOtpChallengeTransport(
     val expiresAt: String,
     val resendAvailableAt: String,
 )
-data class EmailChangeTransport(val emailChanged: Boolean, val email: String?)
+data class EmailChangeTransport(
+    val emailChanged: Boolean,
+    val email: String?,
+    val nextStep: String? = null,
+    val resendAvailableAt: String? = null,
+    val oldEmailNoticeSent: Boolean? = null,
+)
 data class PasswordResetAcceptedTransport(val reset: Boolean)
 data class PasswordChangeAcceptedTransport(val changed: Boolean)
 data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
