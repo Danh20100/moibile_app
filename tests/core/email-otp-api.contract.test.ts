@@ -142,5 +142,5 @@ test('runtime OpenAPI public-path policy includes every public Android auth entr
   for (const [path, method, isPublic] of authContractPaths) {
     if (!isPublic) continue;
     assert.ok(source.includes(`{ path: '${path}', method: '${method}' }`), `${path} must be explicitly public in runtime OpenAPI policy`);
-  });
-}
+  }
+});
