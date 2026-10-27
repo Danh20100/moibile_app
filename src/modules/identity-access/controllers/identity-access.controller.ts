@@ -39,7 +39,6 @@ import {
 import { IdentityAccessService } from '../services/identity-access.service';
 import { ProfileAvatarService } from '../services/profile-avatar.service';
 import { IdentitySessionService } from '../services/identity-session.service';
-import { LocalDemoAuthService } from '../services/local-demo-auth.service';
 import { EmailOtpService } from '../services/email-otp.service';
 import { EmailOtpRateLimit } from '../guards/email-otp-rate-limit.guard';
 
@@ -53,8 +52,6 @@ export class IdentityAccessController {
     private readonly profileAvatarService?: ProfileAvatarService,
     @Optional() @Inject(IdentitySessionService)
     private readonly identitySessionService?: IdentitySessionService,
-    @Optional() @Inject(LocalDemoAuthService)
-    private readonly localDemoAuth?: LocalDemoAuthService,
     @Optional() @Inject(EmailOtpService)
     private readonly emailOtpService?: EmailOtpService,
   ) {}
@@ -119,14 +116,6 @@ export class IdentityAccessController {
   async authenticatePassword(@Body() dto: PasswordLoginDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.authenticatePassword(dto);
-  }
-
-  // For synthetic local development accounts only. Not an identity-verification endpoint.
-  @Public()
-  @Post('auth/local-demo')
-  async authenticateLocalDemo(@Body() dto: { email?: string; password?: string }): Promise<IdentitySessionDto> {
-    if (!this.localDemoAuth) throw new ServiceUnavailableException('Local demo login unavailable');
-    return this.localDemoAuth.login(dto.email ?? '', dto.password ?? '');
   }
 
   @Public()
