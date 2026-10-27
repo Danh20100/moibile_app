@@ -47,6 +47,16 @@ class SessionRestoreTest {
         assertFalse(restored.resolution.needsPicker)
         assertEquals(AppPage.OwnerDashboard, destinationPage(restored.resolution))
 
+        val ownerOnlyWithoutTenancies = restoreVerifiedSession(
+            restore = {
+                Result.success(session.copy(access = AccessCapabilities(operatedOrganizationIds = setOf("o-1"))))
+            },
+            hintsFor = { null },
+        ) as RestoreOutcome.Restored
+        assertEquals(SelectedContext.Operations("o-1"), ownerOnlyWithoutTenancies.resolution.selection)
+        assertFalse(ownerOnlyWithoutTenancies.resolution.needsPicker)
+        assertEquals(AppPage.OwnerDashboard, destinationPage(ownerOnlyWithoutTenancies.resolution))
+
         val tenantOnly = restoreVerifiedSession(
             restore = {
                 Result.success(session.copy(access = AccessCapabilities(linkedTenancyIds = setOf("t-2", "t-1"))))
