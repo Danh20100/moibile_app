@@ -239,7 +239,7 @@ export interface UserProfileAvatarIntentsTable {
   created_at: TimestampString;
 }
 export interface IdentityAuthChallengesTable {
-  challenge_id: string; purpose: 'LOGIN' | 'REGISTER' | 'REAUTH_ORGANIZATION_CREATE';
+  challenge_id: string; purpose: 'LOGIN' | 'REGISTER' | 'REAUTH_ORGANIZATION_CREATE' | 'INITIAL_PASSWORD_SETUP';
   nonce_sha256: string; user_id: string | null; session_id: string | null;
   created_at: TimestampString; expires_at: TimestampString; consumed_at: TimestampString | null;
 }
@@ -257,7 +257,7 @@ export interface IdentitySecurityEventsTable {
   event_code: 'CHALLENGE_ISSUED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_SUCCEEDED' | 'REGISTRATION_REJECTED'
     | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_REFRESH_REJECTED'
     | 'AUTHENTICATION_REJECTED' | 'SESSION_LOGOUT' | 'SESSION_REVOKED' | 'IDENTITY_COLLISION'
-    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED';
+    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED' | 'PASSWORD_INITIALIZED';
   outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
 }
 export interface IdentityOtpChallengesTable {

@@ -28,6 +28,7 @@ import {
   SecurityPinSetupDto,
   SecurityPinChangeDto,
   PasswordChangeDto,
+  InitialPasswordSetupDto,
   ReauthenticationChallengeDto,
   ReauthenticationResponseDto,
 } from '../dto';
@@ -197,6 +198,21 @@ export class IdentityAccessController {
   async getAccountSecurityStatus(@CurrentUser() user?: VerifiedPrincipal) {
     if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
     return this.identitySessionService.accountSecurityStatus(user.userId);
+  }
+
+  @Post('security/password/setup/challenge')
+  async issueInitialPasswordSetupChallenge(@CurrentUser() user?: VerifiedPrincipal): Promise<ReauthenticationChallengeDto> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.issueInitialPasswordSetupChallenge(user.userId, user.sessionId);
+  }
+
+  @Post('security/password/setup')
+  async setInitialPassword(
+    @Body() dto: InitialPasswordSetupDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<{ configured: boolean }> {
+    if (!user?.sessionId || !this.identitySessionService) throw new UnauthorizedException('Application session is required');
+    return this.identitySessionService.setInitialPassword(dto, user.userId, user.sessionId);
   }
 
   @Patch('security/password')

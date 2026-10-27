@@ -108,6 +108,18 @@ export class PasswordChangeDto {
   @ApiProperty() @IsString() @Length(8, 1024)
   newPassword!: string;
 }
+export class InitialPasswordSetupDto {
+  @ApiProperty({ description: 'Fresh Google ID token issued for the provided nonce' })
+  @IsString() @IsNotEmpty() @MaxLength(8192)
+  idToken!: string;
+
+  @ApiProperty({ description: 'One-time nonce from security/password/setup/challenge' })
+  @IsString() @IsNotEmpty() @MaxLength(256)
+  nonce!: string;
+
+  @ApiProperty() @IsString() @Length(8, 128)
+  password!: string;
+}
 export class SecurityPinSetupDto {
   @ApiProperty() @IsString() @IsNotEmpty() @MaxLength(1024)
   password!: string;

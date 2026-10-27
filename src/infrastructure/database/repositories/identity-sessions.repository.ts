@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 
 import type {
   AuthSessionCreateInput,
@@ -27,11 +27,16 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     }).execute();
   }
 
-  async consumeChallenge(input: { nonceSha256: string; purpose: IdentityChallengePurpose; now: string }) {
+  async consumeChallenge(input: {
+    nonceSha256: string; purpose: IdentityChallengePurpose; now: string;
+    userId?: string; sessionId?: string;
+  }) {
     const row = await this.tx.updateTable('identity_auth_challenges')
       .set({ consumed_at: input.now })
       .where('nonce_sha256', '=', input.nonceSha256)
       .where('purpose', '=', input.purpose)
+      .where(sql<boolean>`(${input.userId ?? null}::uuid IS NULL OR user_id = ${input.userId ?? null}::uuid)`)
+      .where(sql<boolean>`(${input.sessionId ?? null}::uuid IS NULL OR session_id = ${input.sessionId ?? null}::uuid)`)
       .where('expires_at', '>', input.now)
       .where('consumed_at', 'is', null)
       .returning(['challenge_id', 'user_id', 'session_id'])

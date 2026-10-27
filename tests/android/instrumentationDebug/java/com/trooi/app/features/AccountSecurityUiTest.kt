@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.trooi.app.core.model.TroOiUiState
 import com.trooi.app.features.profile.AccountSettingsFlow
+import com.trooi.app.features.profile.BackendPasswordForm
 import com.trooi.app.ui.components.TroOiActionDialog
 import com.trooi.app.ui.theme.TroOiTheme
 import org.junit.Assert.*
@@ -29,6 +30,44 @@ import org.junit.Test
 class AccountSecurityUiTest {
     @get:Rule val compose = createComposeRule()
     private val owner = TroOiUiState(isAuthenticated = true, demoPreview = true, backendUserId = "fixture-user-ha")
+
+    @Test fun googleOnlyPasswordSetupUsesGoogleReauthenticationAndNeedsNoCurrentPassword() {
+        var submitted: String? = null
+        compose.setContent {
+            TroOiTheme {
+                BackendPasswordForm(
+                    userId = "google-only-user", passwordConfigured = false, googleLinked = true,
+                    busy = false, error = null, successMessage = null, onDirty = {}, onChange = { _, _ -> },
+                    onSetup = { submitted = it },
+                )
+            }
+        }
+        compose.onNodeWithText("Mật khẩu hiện tại").assertDoesNotExist()
+        compose.onNodeWithText("Mật khẩu mới").performTextInput("first-password-123")
+        compose.onNodeWithText("Nhập lại mật khẩu mới").performTextInput("first-password-123")
+        compose.onNodeWithText("Xác thực Google và thiết lập mật khẩu").performClick()
+        assertEquals("first-password-123", submitted)
+    }
+
+    @Test fun configuredPasswordChangeStillRequiresCurrentPassword() {
+        var changed: Pair<String, String>? = null
+        compose.setContent {
+            TroOiTheme {
+                BackendPasswordForm(
+                    userId = "password-user", passwordConfigured = true, googleLinked = true,
+                    busy = false, error = null, successMessage = null, onDirty = {},
+                    onChange = { current, next -> changed = current to next }, onSetup = {},
+                )
+            }
+        }
+        compose.onNodeWithText("Mật khẩu hiện tại").assertExists()
+        compose.onNodeWithText("Đổi mật khẩu").assertIsNotEnabled()
+        compose.onNodeWithText("Mật khẩu hiện tại").performTextInput("old-password-123")
+        compose.onNodeWithText("Mật khẩu mới").performTextInput("next-password-123")
+        compose.onNodeWithText("Nhập lại mật khẩu mới").performTextInput("next-password-123")
+        compose.onNodeWithText("Đổi mật khẩu").performClick()
+        assertEquals("old-password-123" to "next-password-123", changed)
+    }
 
     private fun showKeyboardAccessibleLoginEmail() {
         compose.setContent {

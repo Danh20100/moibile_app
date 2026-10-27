@@ -61,6 +61,8 @@ interface BackendApi {
     suspend fun changeSecurityPin(currentPin: String, newPin: String): ApiOutcome<SecurityPinStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun changePassword(currentPassword: String, newPassword: String): ApiOutcome<PasswordChangedTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getAccountSecurityStatus(): ApiOutcome<AccountSecurityStatusTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun issueInitialPasswordSetupChallenge(): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun setInitialPassword(idToken: String, nonce: String, password: String): ApiOutcome<InitialPasswordSetupTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun completeOrganizationCreatePinReauth(pin: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
@@ -311,6 +313,16 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
         "{\"currentPassword\":${messagingGson.toJson(currentPassword)},\"newPassword\":${messagingGson.toJson(newPassword)}}",
         authenticated = true,
     ).decode { messagingGson.fromJson(it, PasswordChangedTransport::class.java) }
+
+    override suspend fun issueInitialPasswordSetupChallenge() = client.postEmpty(
+        "identity-access/security/password/setup/challenge", authenticated = true,
+    ).decode { messagingGson.fromJson(it, ReauthenticationTransport::class.java) }
+
+    override suspend fun setInitialPassword(idToken: String, nonce: String, password: String) = client.postJson(
+        "identity-access/security/password/setup",
+        "{\"idToken\":${messagingGson.toJson(idToken)},\"nonce\":${messagingGson.toJson(nonce)},\"password\":${messagingGson.toJson(password)}}",
+        authenticated = true,
+    ).decode { messagingGson.fromJson(it, InitialPasswordSetupTransport::class.java) }
 
     override suspend fun getAccountSecurityStatus() =
         client.get("identity-access/security/account", authenticated = true)

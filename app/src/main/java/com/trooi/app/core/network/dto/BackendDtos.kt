@@ -80,6 +80,7 @@ data class ReauthenticationTransport(val nonce: String? = null, val proof: Strin
 data class SecurityPinStatusTransport(val pinConfigured: Boolean)
 data class AccountSecurityStatusTransport(val email: String?, val googleLinked: Boolean, val passwordConfigured: Boolean)
 data class PasswordChangedTransport(val changed: Boolean)
+data class InitialPasswordSetupTransport(val configured: Boolean)
 
 data class SessionContextTransport(
     val userId: String,

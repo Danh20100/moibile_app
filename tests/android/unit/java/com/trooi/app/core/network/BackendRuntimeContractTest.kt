@@ -19,6 +19,34 @@ class BackendRuntimeContractTest {
     private fun localUrl(server: MockWebServer) =
         server.url("/").newBuilder().host("127.0.0.1").build().toString()
 
+    @Test fun initialPasswordSetupUsesAuthenticatedScopedGoogleReauthenticationContract() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"nonce":"fresh-nonce","expiresAt":"2026-10-27T01:00:00Z"}"""))
+            server.enqueue(MockResponse().setBody("""{"configured":true}"""))
+            server.start(InetAddress.getLoopbackAddress(), 0)
+            val tokens = InMemoryAuthTokenProvider().apply { setToken("current-session") }
+            val api = OkHttpBackendApi(BackendClient(localUrl(server), tokens, true))
+
+            val challenge = api.issueInitialPasswordSetupChallenge().requireData()
+            val nonce = requireNotNull(challenge.nonce)
+            assertEquals("fresh-nonce", nonce)
+            assertTrue(api.setInitialPassword("fresh-google-id-token", nonce, "new-password-123").requireData().configured)
+
+            val issue = server.takeRequest()
+            assertEquals("POST", issue.method)
+            assertEquals("/api/v1/identity-access/security/password/setup/challenge", issue.path)
+            assertEquals("Bearer current-session", issue.getHeader("Authorization"))
+            val set = server.takeRequest()
+            assertEquals("POST", set.method)
+            assertEquals("/api/v1/identity-access/security/password/setup", set.path)
+            assertEquals("Bearer current-session", set.getHeader("Authorization"))
+            val payload = com.google.gson.JsonParser.parseString(set.body.readUtf8()).asJsonObject
+            assertEquals("fresh-google-id-token", payload["idToken"].asString)
+            assertEquals("fresh-nonce", payload["nonce"].asString)
+            assertEquals("new-password-123", payload["password"].asString)
+        }
+    }
+
     @Test fun passwordResetOtpUsesBackendRequestAndVerifyContracts() = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("""{"otpChallengeId":"challenge-1","expiresAt":"2026-10-27T01:00:00Z","resendAvailableAt":"2026-10-27T00:31:00Z"}"""))
