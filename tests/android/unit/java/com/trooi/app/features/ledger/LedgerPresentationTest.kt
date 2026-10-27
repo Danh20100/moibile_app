@@ -97,6 +97,6 @@ class LedgerPresentationTest {
         val nav = source("ui/navigation/TroOiBottomNavigation.kt")
         listOf("nav-tab-discovery", "nav-tab-core", "nav-tab-messages", "nav-tab-profile", "animatedCenterX", "notch_center_x").forEach { assertTrue(nav.contains(it)) }
         assertFalse(nav.contains("nav-tab-favorites"))
-        assertTrue(source("ui/TroOiApp.kt").contains("AppPage.CoreWorkspace, AppPage.OwnerDashboard -> LedgerScreen("))
+        assertTrue(source("ui/TroOiApp.kt").contains("AppPage.CoreWorkspace, AppPage.OwnerDashboard -> RentalBookScreen("))
     }
 }

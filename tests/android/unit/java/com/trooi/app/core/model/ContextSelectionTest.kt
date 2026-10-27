@@ -19,6 +19,22 @@ class ContextSelectionTest {
     }
 
     @Test
+    fun postLoginLandingPrioritizesOwnerThenTenantThenDiscovery() {
+        val tenant = AccessCapabilities(linkedTenancyIds = setOf("t-1"))
+        val ownerAndTenant = AccessCapabilities(
+            linkedTenancyIds = setOf("t-1"),
+            operatedOrganizationIds = setOf("org-1"),
+        )
+
+        assertEquals(
+            SelectedContext.Operations("org-1"),
+            resolvePostLoginLanding(ownerAndTenant, SelectedContext.Tenant("t-1")).selection,
+        )
+        assertEquals(SelectedContext.Tenant("t-1"), resolvePostLoginLanding(tenant).selection)
+        assertEquals(SelectedContext.Discovery, resolvePostLoginLanding(AccessCapabilities()).selection)
+    }
+
+    @Test
     fun multiple_contexts_require_picker() {
         val access = AccessCapabilities(linkedTenancyIds = setOf("t-1", "t-2"))
         val resolution = reconcileContext(null, access)
