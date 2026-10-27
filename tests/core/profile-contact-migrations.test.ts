@@ -27,3 +27,21 @@ test('000028 scopes email OTP to the authenticated identity snapshot and refuses
   assert.match(down, /WHERE event_code = 'EMAIL_CHANGED'/);
   assert.match(down, /RAISE EXCEPTION/);
 });
+
+
+test('000029 enforces ordered email-change stages and refuses rollback after use', () => {
+  const up = sql('000029_dual_email_change_otp.up.sql');
+  const down = sql('000029_dual_email_change_otp.down.sql');
+  assert.match(up, /ADD COLUMN change_stage/);
+  assert.match(up, /ADD COLUMN change_target_address/);
+  assert.match(up, /ADD COLUMN change_target_normalized/);
+  assert.match(up, /UPDATE identity_otp_challenges[\\s\\S]*purpose = 'EMAIL_CHANGE'[\\s\\S]*superseded_at/);
+  assert.match(up, /change_stage IN \\('CURRENT_EMAIL', 'NEW_EMAIL'\\)/);
+  assert.match(up, /CREATE UNIQUE INDEX uq_identity_otp_challenges_live_email_change_user/);
+  assert.match(up, /change_user_id[\\s\\S]*consumed_at IS NULL AND superseded_at IS NULL/);
+  assert.match(up, /'EMAIL_CHANGE_NOTICE_FAILED'/);
+  assert.doesNotMatch(up, /^\\s*(TRUNCATE|DELETE\\s+FROM|DROP\\s+TABLE)\\b/im);
+  assert.match(down, /change_stage IS NOT NULL/);
+  assert.match(down, /EMAIL_CHANGE_NOTICE_FAILED/);
+  assert.match(down, /RAISE EXCEPTION/);
+});

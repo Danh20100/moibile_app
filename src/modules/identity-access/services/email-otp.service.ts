@@ -62,6 +62,7 @@ export interface EmailChangeAccepted {
   emailChanged: boolean;
   email: string;
   nextStep?: 'NEW_EMAIL';
+  resendAvailableAt?: string;
   oldEmailNoticeSent?: boolean;
 }
 
@@ -525,6 +526,7 @@ export class EmailOtpService {
             code: nextCode,
             to: targetAddress,
             normalized: targetNormalized,
+            sentAt: nowIso,
           };
         }
 
@@ -564,7 +566,12 @@ export class EmailOtpService {
           outcome.to, outcome.code, 'EMAIL_CHANGE', outcome.normalized,
           outcome.challengeId, false, 'NEW_EMAIL',
         );
-        return { emailChanged: false, email: outcome.to, nextStep: 'NEW_EMAIL' };
+        return {
+          emailChanged: false,
+          email: outcome.to,
+          nextStep: 'NEW_EMAIL',
+          resendAvailableAt: new Date(Date.parse(outcome.sentAt) + OTP_RESEND_COOLDOWN_MS).toISOString(),
+        };
       }
 
       let oldEmailNoticeSent = true;

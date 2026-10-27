@@ -3488,11 +3488,11 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "Result of either ordered OTP verification stage.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EmailChangeAccepted"
+                  "$ref": "#/components/schemas/EmailChangeAcceptedDto"
                 }
               }
             }
@@ -6179,16 +6179,34 @@
           "code"
         ]
       },
-      "EmailChangeAccepted": {
+      "EmailChangeAcceptedDto": {
         "type": "object",
         "properties": {
           "emailChanged": {
             "type": "boolean",
-            "example": true
+            "example": false,
+            "description": "True only after the new email OTP is accepted."
           },
           "email": {
             "type": "string",
             "example": "new-address@example.com"
+          },
+          "nextStep": {
+            "type": "string",
+            "enum": [
+              "NEW_EMAIL"
+            ],
+            "description": "Present after the current email OTP is accepted."
+          },
+          "resendAvailableAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Earliest time the current challenge can be resent."
+          },
+          "oldEmailNoticeSent": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the former email received the change notice."
           }
         },
         "required": [

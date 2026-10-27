@@ -71,6 +71,28 @@ export class EmailChangeRequestDto {
 
 export class EmailChangeVerifyDto extends EmailOtpVerifyDto {}
 
+export class EmailChangeAcceptedDto {
+  @ApiProperty({ example: false, description: 'True only after the new email OTP is accepted.' })
+  @IsBoolean()
+  emailChanged!: boolean;
+
+  @ApiProperty({ example: 'new-address@example.com' })
+  @IsString()
+  email!: string;
+
+  @ApiPropertyOptional({ enum: ['NEW_EMAIL'], description: 'Present after the current email OTP is accepted.' })
+  @IsOptional() @IsIn(['NEW_EMAIL'])
+  nextStep?: 'NEW_EMAIL';
+
+  @ApiPropertyOptional({ description: 'Earliest time the current challenge can be resent.' })
+  @IsOptional() @IsString()
+  resendAvailableAt?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Whether the former email received the change notice.' })
+  @IsOptional() @IsBoolean()
+  oldEmailNoticeSent?: boolean;
+}
+
 export class PasswordResetVerifyDto {
   @ApiProperty({ description: 'Challenge id returned by password/reset/request' })
   @IsString()

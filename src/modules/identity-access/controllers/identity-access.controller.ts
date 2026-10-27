@@ -21,6 +21,7 @@ import {
   PasswordResetAcceptedDto,
   EmailChangeRequestDto,
   EmailChangeVerifyDto,
+  EmailChangeAcceptedDto,
   PasswordLoginDto,
   RefreshSessionRequestDto,
   IdentityChallengeDto,
@@ -171,7 +172,7 @@ export class IdentityAccessController {
   @Header('Cache-Control', 'no-store')
   @EmailOtpRateLimit('verify')
   @ApiOperation({ summary: 'Xác minh OTP và đổi email đăng nhập của chính tài khoản hiện tại' })
-  @ApiResponse({ status: 200, description: 'Email đã được xác minh và cập nhật' })
+  @ApiResponse({ status: 200, description: 'Kết quả bước xác minh email hiện tại hoặc email mới', type: EmailChangeAcceptedDto })
   async verifyEmailChangeOtp(
     @Body() dto: EmailChangeVerifyDto,
     @CurrentUser() user?: VerifiedPrincipal,

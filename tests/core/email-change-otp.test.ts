@@ -229,6 +229,24 @@ test('email OTP remains bound to the issuing user, session and email revision ac
   assert.equal(retry.revokedSessions.length, 1);
 });
 
+
+test('concurrent current-email verification advances one challenge and sends one new-email OTP', async () => {
+  const h = await harness();
+  const issued = await h.issue();
+  const results = await Promise.allSettled([
+    h.service.verifyEmailChange(
+      { otpChallengeId: issued.response.otpChallengeId, code: issued.code }, 'user-1', 'session-1',
+    ),
+    h.service.verifyEmailChange(
+      { otpChallengeId: issued.response.otpChallengeId, code: issued.code }, 'user-1', 'session-1',
+    ),
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(h.challenge.changeStage, 'NEW_EMAIL');
+  assert.equal(h.mails.filter(message => message.to === 'new@example.com').length, 1);
+  assert.equal(h.email.address, 'old@example.com');
+});
+
 test('email change rejects stale email snapshots and leaves the latest address untouched', async () => {
   const h = await harness();
   const { response, code } = await h.issue();

@@ -60,3 +60,15 @@ for (const Dto of [EmailOtpVerifyDto, PasswordResetVerifyDto, EmailChangeVerifyD
     assert.ok((await validate(dto)).some(error => error.property === 'code'));
   });
 }
+
+
+test('email-change response documents both ordered OTP stages', async () => {
+  const { readFileSync } = await import('node:fs');
+  const document = JSON.parse(readFileSync('docs/api/openapi.json', 'utf8'));
+  const response = document.paths['/identity-access/profile/email/otp/verify'].post.responses['200'];
+  assert.equal(response.content['application/json'].schema.$ref, '#/components/schemas/EmailChangeAcceptedDto');
+  const schema = document.components.schemas.EmailChangeAcceptedDto;
+  assert.deepEqual(schema.properties.nextStep.enum, ['NEW_EMAIL']);
+  assert.ok(schema.properties.resendAvailableAt);
+  assert.ok(schema.properties.oldEmailNoticeSent);
+});
