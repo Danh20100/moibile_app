@@ -46,4 +46,12 @@ class BackendLoginBoundaryTest {
         assertFalse(api.contains("identity-access/auth/local-demo"))
         assertFalse(api.contains("authenticateLocalDemo"))
     }
+    @Test fun backendSessionRefreshAndLoginUseRolePriorityLanding() {
+        val viewModel = source("ui/TroOiViewModel.kt")
+        assertTrue(viewModel.contains("resolvePostLoginLanding(access, remembered)"))
+        assertTrue(viewModel.contains("val postLoginPage = if (RuntimeDataSource.isBackendBacked())"))
+        assertTrue(viewModel.contains("page = postLoginPage,"))
+        assertFalse(viewModel.contains("page = returnPage ?: if (current.demoPreview)"))
+    }
+
 }
