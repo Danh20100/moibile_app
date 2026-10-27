@@ -1289,7 +1289,7 @@ class TroOiViewModel @Inject constructor(
     fun clearSnackbar() = _state.update { it.copy(snackbarMessage = null) }
 
     private fun landingFor(access: AccessCapabilities, remembered: SelectedContext? = null): ContextResolution =
-        reconcileContext(remembered, access)
+        resolvePostLoginLanding(access, remembered)
 
     private fun applyAuthenticatedSession(
         current: TroOiUiState,
@@ -1307,6 +1307,11 @@ class TroOiViewModel @Inject constructor(
             returnId,
             returnId != null && publicDiscoveryFeed(nextRead.publicListings).any { it.listingId == returnId },
         )
+        val postLoginPage = if (RuntimeDataSource.isBackendBacked()) {
+            destinationPage(resolved)
+        } else {
+            returnPage ?: if (current.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved)
+        }
         return current.copy(
             isAuthenticated = true,
             displayName = session.displayName,
@@ -1319,7 +1324,7 @@ class TroOiViewModel @Inject constructor(
             read = nextRead,
             selectedContext = resolved.selection,
             activeContext = appContextFor(resolved.selection),
-            page = returnPage ?: if (current.demoPreview) AppPage.CoreWorkspace else destinationPage(resolved),
+            page = postLoginPage,
             sessionRestoring = false,
             restoreFailed = false,
             authReturnListingId = null,
