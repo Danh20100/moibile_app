@@ -57,7 +57,7 @@ private val operationalNotificationGroups = listOf("Bảo mật và xác thực"
 
 fun marketingOptOutChannels(channels: String): String = channels.split(',').filter { it in operationalNotificationGroups }.joinToString(",")
 
-private val personalFields = listOf("Email", "Tên pháp lý", "Số điện thoại", "Địa chỉ cư trú")
+private val personalFields = listOf("Tên pháp lý", "Số điện thoại", "Địa chỉ cư trú")
 
 fun personalInputValid(label: String, value: String): Boolean = when (label) {
     "Tên pháp lý" -> false
