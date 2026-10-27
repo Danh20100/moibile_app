@@ -30,3 +30,12 @@ it('never silently classifies an existing local-demo session as a Google princip
   assert.match(resolver, /if \(isLocalDev && \(process\.env\.NODE_ENV === 'production'/);
   assert.match(resolver, /throw new UnauthorizedException\('Local demo session is disabled'\)/);
 });
+\nit('does not expose local-demo authentication in the Backend API', () => {
+  const controller = readFileSync('src/modules/identity-access/controllers/identity-access.controller.ts', 'utf8');
+  const module = readFileSync('src/modules/identity-access/identity-access.module.ts', 'utf8');
+  const openapi = JSON.parse(readFileSync('docs/api/openapi.json', 'utf8')) as { paths: Record<string, unknown> };
+  assert.doesNotMatch(controller, /Post\(['"]auth\/local-demo['"]\)/);
+  assert.doesNotMatch(controller, /LocalDemoAuthService/);
+  assert.doesNotMatch(module, /LocalDemoAuthService/);
+  assert.equal(openapi.paths['/identity-access/auth/local-demo'], undefined);
+});
