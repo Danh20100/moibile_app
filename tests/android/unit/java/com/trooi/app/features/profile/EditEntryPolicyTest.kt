@@ -21,7 +21,14 @@ class EditEntryPolicyTest {
         assertFalse(requiresSettingsReauthentication(demoPreview = false, page = "password"))
         assertTrue(requiresSettingsReauthentication(demoPreview = true, page = "password"))
         listOf("edit:Email", "visibility", "channel:Ưu đãi").forEach {
-            assertTrue(it, requiresSettingsReauthentication(demoPreview = false, page = it))
+            assertFalse(it, requiresSettingsReauthentication(demoPreview = false, page = it))
         }
+        assertTrue(requiresAccountPassword("pin"))
+        assertTrue(requiresAccountPassword("edit:Số điện thoại"))
+        assertTrue(requiresAccountPassword("edit:Địa chỉ cư trú"))
+        assertTrue(requiresAccountPassword("edit:Tên hiển thị"))
+        assertTrue(requiresAccountPassword("edit:Email"))
+        assertFalse(requiresAccountPassword("login-email"))
+        assertFalse(requiresAccountPassword("edit:Tên pháp lý"))
     }
 }

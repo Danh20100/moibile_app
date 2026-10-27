@@ -63,6 +63,14 @@ export class PasswordResetRequestDto {
   email!: string;
 }
 
+export class EmailChangeRequestDto {
+  @ApiProperty({ example: 'new-address@example.com', maxLength: 254 })
+  @IsString() @IsNotEmpty() @MaxLength(254)
+  email!: string;
+}
+
+export class EmailChangeVerifyDto extends EmailOtpVerifyDto {}
+
 export class PasswordResetVerifyDto {
   @ApiProperty({ description: 'Challenge id returned by password/reset/request' })
   @IsString()
@@ -301,6 +309,16 @@ export class UpdateDisplayNameDto {
   @IsString()
   @Length(1, 80)
   displayName!: string;
+}
+
+export class UpdateProfileContactDto {
+  @ApiPropertyOptional({ description: 'Own contact phone, not an identity verification claim' })
+  @IsOptional() @IsString() @Matches(/^$|^0[0-9]{9,10}$/)
+  phoneNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Residential address as self-reported contact information' })
+  @IsOptional() @IsString() @MaxLength(255)
+  residentialAddress?: string;
 }
 
 export class UploadProfileAvatarDto {

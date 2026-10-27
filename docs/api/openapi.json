@@ -3428,6 +3428,92 @@
           }
         ]
       }
+    },
+    "/identity-access/profile/email/otp/request": {
+      "post": {
+        "operationId": "IdentityAccessController_requestEmailChangeOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailOtpChallengeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required"
+          },
+          "409": {
+            "description": "Email ownership conflict"
+          }
+        },
+        "summary": "Gửi OTP xác minh email đăng nhập mới cho chính tài khoản hiện tại",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/profile/email/otp/verify": {
+      "post": {
+        "operationId": "IdentityAccessController_verifyEmailChangeOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeVerifyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailChangeAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication is required"
+          },
+          "409": {
+            "description": "Email ownership conflict"
+          }
+        },
+        "summary": "Xác minh OTP và đổi email đăng nhập của chính tài khoản hiện tại",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -6061,6 +6147,53 @@
         "required": [
           "otpChallengeId",
           "code"
+        ]
+      },
+      "EmailChangeRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "new-address@example.com",
+            "maxLength": 254
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "EmailChangeVerifyDto": {
+        "type": "object",
+        "properties": {
+          "otpChallengeId": {
+            "type": "string",
+            "description": "Challenge id returned by the authenticated email change request"
+          },
+          "code": {
+            "type": "string",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "otpChallengeId",
+          "code"
+        ]
+      },
+      "EmailChangeAccepted": {
+        "type": "object",
+        "properties": {
+          "emailChanged": {
+            "type": "boolean",
+            "example": true
+          },
+          "email": {
+            "type": "string",
+            "example": "new-address@example.com"
+          }
+        },
+        "required": [
+          "emailChanged",
+          "email"
         ]
       }
     }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { ProfileRecord } from '../../src/persistence/ports/identity-foundation.repository';
 import type { TransactionManager } from '../../src/persistence/ports/transaction-manager';
 import type { VerifiedPrincipal } from '../../src/modules/identity-access/contracts';
@@ -20,6 +20,33 @@ const principal = (userId: string, name: string): VerifiedPrincipal => ({
 function harness() {
   const profiles = new Map<string, ProfileRecord>();
   const writes: string[] = [];
+  const credentials = new Set<string>();
+  const contacts = new Map<string, { phone_number: string | null; residential_address: string | null }>();
+  const database = {
+    selectFrom: (table: string) => ({
+      select: (_columns: unknown) => ({
+        where: (_column: string, _operator: string, userId: string) => ({
+          executeTakeFirst: async () => table === 'password_credentials'
+            ? credentials.has(userId) ? { user_id: userId } : undefined
+            : contacts.has(userId) ? { ...contacts.get(userId) } : undefined,
+        }),
+      }),
+    }),
+    updateTable: (table: string) => ({
+      set: (fields: { phone_number?: string | null; residential_address?: string | null }) => ({
+        where: (_column: string, _operator: string, userId: string) => ({
+          returning: (_columns: unknown) => ({
+            executeTakeFirstOrThrow: async () => {
+              assert.equal(table, 'user_profiles');
+              const next = { phone_number: null, residential_address: null, ...contacts.get(userId), ...fields };
+              contacts.set(userId, next);
+              return next;
+            },
+          }),
+        }),
+      }),
+    }),
+  };
   const transactions = {
     run: async <T>(work: (context: never) => Promise<T>): Promise<T> =>
       work({
@@ -55,15 +82,16 @@ function harness() {
         afterCommit: () => undefined,
       } as never),
   } as TransactionManager;
-  return { service: new IdentityAccessService(transactions), profiles, writes };
+  return { service: new IdentityAccessService(transactions, undefined, database as never), profiles, writes, credentials, contacts };
 }
 
 test('Profile edit changes only the authenticated User; never the other account', async () => {
-  const { service, writes, profiles } = harness();
+  const { service, writes, profiles, credentials } = harness();
   const alice = principal('11111111-1111-4111-8111-111111111111', 'Alice Google');
   const bob = principal('22222222-2222-4222-8222-222222222222', 'Bob Google');
   await service.getOwnProfile(alice);
   await service.getOwnProfile(bob);
+  credentials.add(alice.userId);
   const edited = await service.updateOwnDisplayName(alice, '  Tên của tôi  ');
   assert.equal(edited.displayName, 'Tên của tôi');
   assert.deepEqual(writes, [alice.userId]);
@@ -71,8 +99,9 @@ test('Profile edit changes only the authenticated User; never the other account'
 });
 
 test('Google claim refresh cannot overwrite an already edited display name', async () => {
-  const { service } = harness();
+  const { service, credentials } = harness();
   const user = principal('33333333-3333-4333-8333-333333333333', 'Tên Google cũ');
+  credentials.add(user.userId);
   assert.equal((await service.getSessionContext(user)).name, 'Tên Google cũ');
   await service.updateOwnDisplayName(user, 'Tên người dùng tự chọn');
   const changedGoogleClaim = { ...user, name: 'Tên Google mới' };
@@ -81,6 +110,45 @@ test('Google claim refresh cannot overwrite an already edited display name', asy
   assert.equal(session.email, 'verified@example.test');
   assert.deepEqual(session.operatedOrganizationIds, []);
   assert.deepEqual(session.linkedTenancyIds, []);
+});
+
+test('Google-only profile edits require an initialized password credential', async () => {
+  const { service, writes, profiles } = harness();
+  const user = principal('55555555-5555-4555-8555-555555555555', 'Google only');
+  await service.getOwnProfile(user);
+  await assert.rejects(() => service.updateOwnDisplayName(user, 'Edited'), ForbiddenException);
+  await assert.rejects(
+    () => service.updateOwnContact(user, { phoneNumber: '0912345678' }),
+    ForbiddenException,
+  );
+  assert.equal(profiles.get(user.userId)?.displayName, 'Google only');
+  assert.deepEqual(writes, []);
+});
+
+test('Profile phone and residential address persist only on the authenticated User', async () => {
+  const { service, credentials } = harness();
+  const alice = principal('66666666-6666-4666-8666-666666666666', 'Alice');
+  const bob = principal('77777777-7777-4777-8777-777777777777', 'Bob');
+  credentials.add(alice.userId);
+  credentials.add(bob.userId);
+  assert.deepEqual(await service.updateOwnContact(alice, { phoneNumber: '0901234567' }), {
+    phoneNumber: '0901234567', residentialAddress: null,
+  });
+  assert.deepEqual(await service.updateOwnContact(alice, { residentialAddress: '12 Nguyễn Huệ' }), {
+    phoneNumber: '0901234567', residentialAddress: '12 Nguyễn Huệ',
+  });
+  assert.deepEqual(await service.getOwnContact(alice), { phoneNumber: '0901234567', residentialAddress: '12 Nguyễn Huệ' });
+  assert.deepEqual(await service.getOwnContact(bob), { phoneNumber: null, residentialAddress: null });
+});
+
+test('Profile contact validation rejects invalid phone and oversized/control-character address before writing', async () => {
+  const { service, contacts, credentials } = harness();
+  const user = principal('88888888-8888-4888-8888-888888888888', 'Owner');
+  credentials.add(user.userId);
+  await assert.rejects(service.updateOwnContact(user, { phoneNumber: 'not-a-phone' }), BadRequestException);
+  await assert.rejects(service.updateOwnContact(user, { residentialAddress: `A${'x'.repeat(255)}` }), BadRequestException);
+  await assert.rejects(service.updateOwnContact(user, { residentialAddress: 'Invalid\nAddress' }), BadRequestException);
+  assert.equal(contacts.has(user.userId), false);
 });
 
 test('Profile rejects empty, control-character and oversized display names without writing', async () => {

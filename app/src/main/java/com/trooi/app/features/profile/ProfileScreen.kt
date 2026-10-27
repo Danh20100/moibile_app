@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.trooi.app.core.model.TroOiUiState
+import com.trooi.app.core.network.dto.SessionContextTransport
 import com.trooi.app.core.model.LocalLandlordApplication
 import com.trooi.app.features.messages.prepareMessagePhoto
 import kotlinx.coroutines.launch
@@ -59,6 +60,7 @@ fun ProfileScreen(
     onPrivacy: (() -> Unit)? = null,
     onLogout: () -> Unit = {},
     onSaveDisplayName: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
+    onSessionUpdated: suspend (SessionContextTransport) -> Result<Unit> = { Result.failure(IllegalStateException("Không thể đồng bộ phiên tài khoản.")) },
     onUploadAvatar: (suspend (String, ByteArray) -> Result<Unit>)? = null,
     onCompleteLandlord: suspend (LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException(PROFILE_UNSUPPORTED_MESSAGE)) },
     onOpenWorkspace: () -> Unit = {},
@@ -101,7 +103,7 @@ fun ProfileScreen(
     section?.let { initial ->
         Dialog(onDismissRequest = { section = null }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             TroOiPage(Modifier.fillMaxSize().safeDrawingPadding()) {
-                AccountSettingsFlow(state, { section = null }, initial, onSaveDisplayName = onSaveDisplayName,
+                AccountSettingsFlow(state, { section = null }, initial, onSaveDisplayName = onSaveDisplayName, onSessionUpdated = onSessionUpdated,
                     avatarAction = avatarAction,
                     onOpenOperatorWorkspace = onOpenWorkspace, onStartLandlordOnboarding = {
                         section = null

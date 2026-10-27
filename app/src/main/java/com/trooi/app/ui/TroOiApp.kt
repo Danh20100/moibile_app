@@ -346,6 +346,7 @@ fun TroOiApp(
                         onPrivacy = viewModel::openPrivacy,
                         onLogout = viewModel::logout,
                         onSaveDisplayName = viewModel::updateDisplayName,
+                        onSessionUpdated = viewModel::updateAccountFromSession,
                         onUploadAvatar = if (RuntimeDataSource.isBackendBacked()) viewModel::uploadProfileAvatar else null,
                         onCompleteLandlord = viewModel::completeLocalLandlordOnboarding,
                         onOpenWorkspace = viewModel::openOperatorWorkspaceFromAccount,
@@ -353,10 +354,11 @@ fun TroOiApp(
                     AppPage.Settings -> accountDrafts.SaveableStateProvider(accountDraftKey) {
                         SettingsScreen(state = state, onBack = viewModel::goBack,
                             onSaveDisplayName = viewModel::updateDisplayName,
+                            onSessionUpdated = viewModel::updateAccountFromSession,
                             onOpenWorkspace = viewModel::openOperatorWorkspaceFromAccount,
                             onCompleteLandlord = viewModel::completeLocalLandlordOnboarding)
                     }
-                    AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack)
+                    AppPage.Help -> HelpScreen(state = state, onBack = viewModel::goBack, onSessionUpdated = viewModel::updateAccountFromSession)
                     AppPage.OwnerProperties -> if (RuntimeDataSource.isBackendBacked()) {
                         val organizationId = (state.selectedContext as? SelectedContext.Operations)?.organizationId.orEmpty()
                         V1OperatorWorkspace(

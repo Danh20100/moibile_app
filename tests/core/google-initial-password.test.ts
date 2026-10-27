@@ -20,7 +20,7 @@ async function harness() {
   const credentials = new Map<string, { passwordHash: string }>();
   const events: Array<Record<string, any>> = [];
   const sessions: Array<Record<string, any>> = [];
-  const identities = new Map<string, { issuer: string; subject: string; nonce: string; authTime: number }>();
+  const identities = new Map<string, { issuer: string; subject: string; nonce: string; authTime?: number; issuedAt?: number }>();
   let tail = Promise.resolve();
   const repositories = {
     identitySessions: {
@@ -103,7 +103,15 @@ async function harness() {
       result: () => service.setInitialPassword({ idToken, nonce: challenge.nonce, password }, userId, sessionId),
     };
   };
-  return { service, setup, challenges, credentials, events, identities, sessions };
+  const setupWithIssuedAt = async (issuedAt: number, authTime?: number) => {
+    const attempt = await setup('first-password-123');
+    const identity = identities.get(attempt.idToken)!;
+    if (authTime === undefined) delete identity.authTime;
+    else identity.authTime = authTime;
+    identity.issuedAt = issuedAt;
+    return attempt;
+  };
+  return { service, setup, setupWithIssuedAt, challenges, credentials, events, identities, sessions };
 }
 
 it('sets a Google-only account password once with a fresh bound nonce and audits the Argon2id credential', async () => {
@@ -138,6 +146,20 @@ it('rejects another Google principal and stale or mismatched Google authenticati
   assert.equal(h.credentials.has(userId), false);
   assert.equal(h.events.filter((event) => event.eventCode === 'PASSWORD_INITIALIZED').length, 0);
   assert.equal(h.events.filter((event) => event.eventCode === 'REAUTH_REJECTED').length, 3);
+});
+
+it('supports a fresh nonce-bound Google token without optional auth_time, rejects stale signed issuance', async () => {
+  const recent = await harness();
+  const fresh = await recent.setupWithIssuedAt(Math.floor(Date.now() / 1000));
+  assert.deepEqual(await fresh.result(), { configured: true });
+  const stale = await harness();
+  const expired = await stale.setupWithIssuedAt(Math.floor(Date.now() / 1000) - 600);
+  await assert.rejects(expired.result(), ForbiddenException);
+  const missing = await harness();
+  const lacking = await missing.setup('first-password-123');
+  const identity = missing.identities.get(lacking.idToken)!;
+  delete identity.authTime;
+  await assert.rejects(lacking.result(), ForbiddenException);
 });
 
 it('does not overwrite an existing password credential', async () => {

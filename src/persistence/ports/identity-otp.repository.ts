@@ -1,4 +1,4 @@
-export type OtpChallengePurpose = 'EMAIL_REGISTER' | 'PASSWORD_RESET';
+export type OtpChallengePurpose = 'EMAIL_REGISTER' | 'PASSWORD_RESET' | 'EMAIL_CHANGE';
 
 export interface OtpChallengeRecord {
   challengeId: string;
@@ -10,6 +10,10 @@ export interface OtpChallengeRecord {
   resetUserId: string | null;
   resetEmailRevision: string | null;
   resetCredentialRevision: string | null;
+  changeUserId: string | null;
+  changeSessionId: string | null;
+  changeEmailId: string | null;
+  changeEmailRevision: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;
@@ -28,6 +32,10 @@ export interface OtpChallengeCreateInput {
   resetUserId?: string | null;
   resetEmailRevision?: string | null;
   resetCredentialRevision?: string | null;
+  changeUserId?: string | null;
+  changeSessionId?: string | null;
+  changeEmailId?: string | null;
+  changeEmailRevision?: string | null;
   codeHmac: string;
   createdAt: string;
   expiresAt: string;

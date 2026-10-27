@@ -74,10 +74,12 @@ data class EmailOtpChallengeTransport(
     val expiresAt: String,
     val resendAvailableAt: String,
 )
+data class EmailChangeTransport(val emailChanged: Boolean, val email: String?)
 data class PasswordResetAcceptedTransport(val reset: Boolean)
 data class PasswordChangeAcceptedTransport(val changed: Boolean)
 data class ReauthenticationTransport(val nonce: String? = null, val proof: String? = null, val expiresAt: String)
 data class SecurityPinStatusTransport(val pinConfigured: Boolean)
+data class ProfileContactTransport(val phoneNumber: String?, val residentialAddress: String?)
 data class AccountSecurityStatusTransport(val email: String?, val googleLinked: Boolean, val passwordConfigured: Boolean)
 data class PasswordChangedTransport(val changed: Boolean)
 data class InitialPasswordSetupTransport(val configured: Boolean)

@@ -228,7 +228,7 @@ export interface NotificationsTable {
 
 export interface AuthIdentitiesTable { auth_identity_id: string; user_id: string; provider: 'google'; issuer: string; subject: string; linked_at: TimestampString }
 export interface UserEmailsTable { user_email_id: string; user_id: string; email_address: string; normalized_email: string; verified_at: TimestampString; verification_source: 'google' | 'email_otp'; email_revision: string }
-export interface UserProfilesTable { user_id: string; display_name: string | null; created_at: TimestampString; updated_at: TimestampString }
+export interface UserProfilesTable { user_id: string; display_name: string | null; phone_number: string | null; residential_address: string | null; created_at: TimestampString; updated_at: TimestampString }
 export interface UserProfileAvatarsTable {
   user_id: string; object_key: string; content_type: 'image/jpeg' | 'image/png';
   byte_size: number; sha256: string; updated_at: TimestampString;
@@ -257,13 +257,14 @@ export interface IdentitySecurityEventsTable {
   event_code: 'CHALLENGE_ISSUED' | 'CHALLENGE_REJECTED' | 'REGISTRATION_SUCCEEDED' | 'REGISTRATION_REJECTED'
     | 'SESSION_CREATED' | 'SESSION_REFRESHED' | 'SESSION_REFRESH_REUSE' | 'SESSION_REFRESH_REJECTED'
     | 'AUTHENTICATION_REJECTED' | 'SESSION_LOGOUT' | 'SESSION_REVOKED' | 'IDENTITY_COLLISION'
-    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED' | 'PASSWORD_INITIALIZED';
+    | 'REAUTH_ISSUED' | 'REAUTH_REJECTED' | 'PASSWORD_INITIALIZED' | 'EMAIL_CHANGED';
   outcome: 'SUCCESS' | 'REJECTED'; occurred_at: TimestampString; request_metadata: JsonValue;
 }
 export interface IdentityOtpChallengesTable {
-  challenge_id: string; purpose: 'EMAIL_REGISTER' | 'PASSWORD_RESET'; destination_address: string;
+  challenge_id: string; purpose: 'EMAIL_REGISTER' | 'PASSWORD_RESET' | 'EMAIL_CHANGE'; destination_address: string;
   destination_normalized: string; code_hmac: string; pending_password_hash: string | null;
   reset_user_id: string | null; reset_email_revision: string | null; reset_credential_revision: string | null;
+  change_user_id: string | null; change_session_id: string | null; change_email_id: string | null; change_email_revision: string | null;
   display_name: string | null; created_at: TimestampString; expires_at: TimestampString;
   last_sent_at: TimestampString; attempts: number; max_attempts: number;
   consumed_at: TimestampString | null; superseded_at: TimestampString | null;

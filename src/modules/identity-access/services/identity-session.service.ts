@@ -114,7 +114,7 @@ export class IdentitySessionService {
       await this.recordInitialPasswordSetupRejected(userId, sessionId, 'google_token_invalid');
       throw new ForbiddenException('Google reauthentication was rejected');
     }
-    if (!this.matchesFreshNonce(input.nonce, identity.nonce) || !this.isRecentAuth(identity.authTime)) {
+    if (!this.matchesFreshNonce(input.nonce, identity.nonce) || !this.isRecentGoogleSetupProof(identity.authTime, identity.issuedAt)) {
       await this.recordInitialPasswordSetupRejected(userId, sessionId, 'google_auth_stale_or_nonce_invalid');
       throw new ForbiddenException('Fresh Google authentication is required');
     }
@@ -754,6 +754,15 @@ export class IdentitySessionService {
     const left = Buffer.from(expected);
     const right = Buffer.from(actual);
     return left.length === right.length && timingSafeEqual(left, right);
+  }
+
+  private isRecentGoogleSetupProof(authTime?: number, issuedAt?: number): boolean {
+    if (authTime !== undefined) return this.isRecentAuth(authTime);
+    // Android Credential Manager may omit optional auth_time; the nonce-bound,
+    // Google-signed ID token must then have a very recent issuance time.
+    if (!Number.isSafeInteger(issuedAt) || !issuedAt) return false;
+    const age = Date.now() - issuedAt * 1000;
+    return age >= -60_000 && age <= 90_000;
   }
 
   private isRecentAuth(authTime?: number): boolean {

@@ -31,6 +31,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trooi.app.core.model.*
+import com.trooi.app.core.network.dto.SessionContextTransport
 import com.trooi.app.features.inquiry.InquiryComposer
 import com.trooi.app.ui.components.*
 import com.trooi.app.ui.theme.*
@@ -428,6 +429,7 @@ fun V1AccountScreen(
     onHelp: () -> Unit,
     onLogout: () -> Unit,
     onSaveDisplayName: suspend (String) -> Result<Unit> = { Result.failure(IllegalStateException("Cập nhật hồ sơ chưa khả dụng.")) },
+    onSessionUpdated: suspend (SessionContextTransport) -> Result<Unit> = { Result.failure(IllegalStateException("Không thể đồng bộ phiên tài khoản.")) },
     onUploadAvatar: (suspend (String, ByteArray) -> Result<Unit>)? = null,
     onCompleteLandlord: suspend (com.trooi.app.core.model.LocalLandlordApplication) -> Result<Unit> = { Result.failure(IllegalStateException("Tính năng đang được phát triển.")) },
     onOpenWorkspace: () -> Unit = {},
@@ -446,6 +448,7 @@ fun V1AccountScreen(
         onPrivacy = onPrivacy,
         onLogout = onLogout,
         onSaveDisplayName = onSaveDisplayName,
+        onSessionUpdated = onSessionUpdated,
         onUploadAvatar = onUploadAvatar,
         onCompleteLandlord = onCompleteLandlord,
         onOpenWorkspace = onOpenWorkspace,

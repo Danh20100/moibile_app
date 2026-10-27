@@ -26,4 +26,7 @@ internal fun requiresEditReauthentication(page: String): Boolean =
         page == "visibility" || page.startsWith("channel:")
 
 internal fun requiresSettingsReauthentication(demoPreview: Boolean, page: String): Boolean =
-    requiresEditReauthentication(page) && (demoPreview || page != "password")
+    demoPreview && requiresEditReauthentication(page)
+
+internal fun requiresAccountPassword(page: String): Boolean =
+    page == "pin" || (page.startsWith("edit:") && page != "edit:Tên pháp lý")

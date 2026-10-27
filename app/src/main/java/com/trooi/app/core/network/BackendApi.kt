@@ -66,6 +66,10 @@ interface BackendApi {
     suspend fun completeOrganizationCreatePinReauth(pin: String, nonce: String): ApiOutcome<ReauthenticationTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getSessionContext(expectedToken: String? = null): ApiOutcome<SessionContextTransport>
     suspend fun updateOwnDisplayName(displayName: String): ApiOutcome<SessionContextTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun getProfileContact(): ApiOutcome<ProfileContactTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun updateProfileContact(phoneNumber: String? = null, residentialAddress: String? = null): ApiOutcome<ProfileContactTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun requestEmailChangeOtp(email: String): ApiOutcome<EmailOtpChallengeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun verifyEmailChangeOtp(challengeId: String, code: String): ApiOutcome<EmailChangeTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String? = null): ApiOutcome<ProfileAvatarUploadTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getOwnAvatar(expectedToken: String? = null): ApiOutcome<ProfileAvatarContentTransport> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun getOrganizations(): ApiOutcome<List<OrganizationTransport>>
@@ -337,6 +341,33 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
             is TransportOutcome.Success -> getSessionContext()
             is TransportOutcome.Failure -> ApiOutcome.Failure(result.kind, result.httpStatus)
         }
+    }
+
+    override suspend fun getProfileContact() = client.get("identity-access/profile/contact", authenticated = true)
+        .decode { messagingGson.fromJson(it, ProfileContactTransport::class.java) }
+
+    override suspend fun updateProfileContact(phoneNumber: String?, residentialAddress: String?): ApiOutcome<ProfileContactTransport> {
+        val payload = com.google.gson.JsonObject().apply {
+            phoneNumber?.let { addProperty("phoneNumber", it) }
+            residentialAddress?.let { addProperty("residentialAddress", it) }
+        }
+        return client.patchJson("identity-access/profile/contact", payload.toString(), authenticated = true)
+            .decode { messagingGson.fromJson(it, ProfileContactTransport::class.java) }
+    }
+
+    override suspend fun requestEmailChangeOtp(email: String): ApiOutcome<EmailOtpChallengeTransport> {
+        val payload = com.google.gson.JsonObject().apply { addProperty("email", email) }
+        return client.postJson("identity-access/profile/email/otp/request", payload.toString(), authenticated = true)
+            .decode { messagingGson.fromJson(it, EmailOtpChallengeTransport::class.java) }
+    }
+
+    override suspend fun verifyEmailChangeOtp(challengeId: String, code: String): ApiOutcome<EmailChangeTransport> {
+        val payload = com.google.gson.JsonObject().apply {
+            addProperty("otpChallengeId", challengeId)
+            addProperty("code", code)
+        }
+        return client.postJson("identity-access/profile/email/otp/verify", payload.toString(), authenticated = true)
+            .decode { messagingGson.fromJson(it, EmailChangeTransport::class.java) }
     }
 
     override suspend fun uploadOwnAvatar(contentType: String, bytes: ByteArray, expectedToken: String?): ApiOutcome<ProfileAvatarUploadTransport> = run {

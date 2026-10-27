@@ -7,6 +7,7 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Inject,
@@ -54,6 +55,11 @@ export interface EmailOtpChallengeResponse {
 
 export interface PasswordResetAccepted {
   reset: true;
+}
+
+export interface EmailChangeAccepted {
+  emailChanged: true;
+  email: string;
 }
 
 // Rejections are returned by the transaction callback so audit/counter writes commit.
@@ -375,6 +381,96 @@ export class EmailOtpService {
     return { reset: true };
   }
 
+  async requestEmailChange(
+    input: { email: string }, userId: string, sessionId: string,
+  ): Promise<EmailOtpChallengeResponse> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('Application session is required');
+    const normalized = this.parseEmail(input.email, 'INVALID_EMAIL');
+    const now = new Date();
+    const issued = await this.transactions.run(async ({ repositories }) => {
+      const current = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+      if (!current?.credential) throw new ForbiddenException('Set an account password before changing login email');
+      await repositories.identityOtp.deleteSettledBefore(
+        new Date(now.getTime() - OTP_SETTLED_RETENTION_MS).toISOString(),
+      );
+      await repositories.identityFoundation.lockMailbox(normalized);
+      const owner = await repositories.identityFoundation.findMailboxOwner(normalized);
+      if (owner && owner.userId !== userId) return { kind: 'conflict' as const };
+      if (current.email.normalizedEmail === normalized)
+        throw coded(HttpStatus.BAD_REQUEST, 'New email must differ from the current email', 'EMAIL_UNCHANGED');
+      return this.replaceLiveChallenge(repositories, {
+        purpose: 'EMAIL_CHANGE', email: input.email.trim(), normalized, displayName: null,
+        pendingPasswordHash: null, now, changeSnapshot: current, changeUserId: userId, changeSessionId: sessionId,
+      });
+    });
+    if (issued.kind === 'conflict') throw new ConflictException({
+      message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED',
+    });
+    if (issued.kind === 'cooldown') this.throwCooldown(issued.retryAfterSeconds);
+    await this.deliverCode(input.email.trim(), issued.code, 'EMAIL_CHANGE', normalized, issued.challengeId);
+    return this.challengeResponse(issued);
+  }
+
+  async verifyEmailChange(
+    input: { otpChallengeId: string; code: string }, userId: string, sessionId: string,
+  ): Promise<EmailChangeAccepted> {
+    this.requireEnabled();
+    if (!userId || !sessionId) throw new UnauthorizedException('Application session is required');
+    const now = new Date();
+    const nowIso = now.toISOString();
+    try {
+      const email = await this.runVerification(async (repositories) => {
+        const challenge = await this.requireLiveOtp(repositories, {
+          challengeId: input.otpChallengeId, code: input.code, purpose: 'EMAIL_CHANGE', now,
+          rejectEvent: 'AUTHENTICATION_REJECTED',
+        });
+        const reject = async (reason: string, error: HttpException): Promise<never> => {
+          await repositories.identityOtp.supersedeById({ challengeId: challenge.challengeId, now: new Date().toISOString() });
+          await repositories.identitySessions.appendSecurityEvent({
+            eventId: randomUUID(), userId, sessionId, eventCode: 'AUTHENTICATION_REJECTED', outcome: 'REJECTED',
+            occurredAt: new Date().toISOString(), requestMetadata: { operation: 'email.change', reason },
+          });
+          throw new OtpRejection(error);
+        };
+        if (challenge.changeUserId !== userId || challenge.changeSessionId !== sessionId ||
+            !challenge.changeEmailId || !challenge.changeEmailRevision)
+          return reject('otp_scope_mismatch', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+        const current = await repositories.identityFoundation.findPrimaryLoginByUserId(userId);
+        if (!current?.credential || current.email.userEmailId !== challenge.changeEmailId ||
+            current.email.emailRevision !== challenge.changeEmailRevision)
+          return reject('email_identity_changed', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+        const owner = await repositories.identityFoundation.findMailboxOwner(challenge.destinationNormalized);
+        if (owner && owner.userId !== userId)
+          return reject('email_conflict', new ConflictException({ message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED' }));
+        const consumed = await repositories.identityOtp.consume({ challengeId: challenge.challengeId, now: new Date().toISOString() });
+        if (!consumed) throw coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID');
+        const updated = await repositories.identityFoundation.replacePrimaryEmail({
+          userId, expectedEmailId: challenge.changeEmailId, expectedEmailRevision: challenge.changeEmailRevision,
+          target: {
+            address: challenge.destinationAddress,
+            normalizedEmail: challenge.destinationNormalized,
+            verifiedAt: new Date().toISOString(),
+            verificationSource: 'email_otp',
+          },
+        });
+        await repositories.identitySessions.appendSecurityEvent({
+          eventId: randomUUID(), userId, sessionId, eventCode: 'EMAIL_CHANGED', outcome: 'SUCCESS',
+          occurredAt: new Date().toISOString(), requestMetadata: { operation: 'email.change', emailRevision: updated.emailRevision },
+        });
+        return updated.address;
+      });
+      return { emailChanged: true, email };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error instanceof IdentityFoundationConflict && error.code === 'email_conflict')
+        throw new ConflictException({ message: 'Email already registered', code: 'EMAIL_ALREADY_REGISTERED' });
+      if (error instanceof IdentityFoundationConflict && error.code === 'stale_state')
+        throw coded(HttpStatus.CONFLICT, 'Account email changed; request a new verification code', 'OTP_STALE');
+      throw error;
+    }
+  }
+
   private requireEnabled(): void {
     if (!this.config.enabled)
       throw new ServiceUnavailableException({
@@ -430,6 +526,11 @@ export class EmailOtpService {
           PersistenceRepositories['identityFoundation']['findPrimaryLogin']
         >
       >;
+      changeSnapshot?: Awaited<
+        ReturnType<PersistenceRepositories['identityFoundation']['findPrimaryLoginByUserId']>
+      > | null;
+      changeUserId?: string;
+      changeSessionId?: string;
     },
   ): Promise<
     | { kind: 'cooldown'; retryAfterSeconds: number }
@@ -475,6 +576,10 @@ export class EmailOtpService {
       resetEmailRevision: input.resetSnapshot?.email.emailRevision ?? null,
       resetCredentialRevision:
         input.resetSnapshot?.credential?.credentialRevision ?? null,
+      changeUserId: input.changeUserId ?? null,
+      changeSessionId: input.changeSessionId ?? null,
+      changeEmailId: input.changeSnapshot?.email.userEmailId ?? null,
+      changeEmailRevision: input.changeSnapshot?.email.emailRevision ?? null,
       codeHmac: hmacCode(
         this.config.otpHmacSecret,
         input.purpose,
@@ -725,13 +830,18 @@ function otpMail(
   change = false,
 ) {
   const reset = purpose === 'PASSWORD_RESET' && !change;
+  const emailChange = purpose === 'EMAIL_CHANGE';
   const subject = change
     ? 'Mã đổi mật khẩu TrọƠi'
+    : emailChange
+      ? 'Mã xác minh email đăng nhập TrọƠi'
     : reset
       ? 'Mã đặt lại mật khẩu TrọƠi'
       : 'Mã xác nhận TrọƠi';
   const label = change
     ? 'Mã đổi mật khẩu TrọƠi của bạn là'
+    : emailChange
+      ? 'Mã xác minh email đăng nhập mới của bạn là'
     : reset
       ? 'Mã đặt lại mật khẩu TrọƠi của bạn là'
       : 'Mã xác nhận TrọƠi của bạn là';

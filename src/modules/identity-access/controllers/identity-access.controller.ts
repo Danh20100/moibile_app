@@ -9,6 +9,7 @@ import {
   UserReferenceDto,
   VerifiedPrincipalDto,
   UpdateDisplayNameDto,
+  UpdateProfileContactDto,
   UploadProfileAvatarDto,
   AuthChallengeRequestDto,
   GoogleSessionRequestDto,
@@ -18,6 +19,8 @@ import {
   PasswordResetRequestDto,
   PasswordResetVerifyDto,
   PasswordResetAcceptedDto,
+  EmailChangeRequestDto,
+  EmailChangeVerifyDto,
   PasswordLoginDto,
   RefreshSessionRequestDto,
   IdentityChallengeDto,
@@ -147,6 +150,34 @@ export class IdentityAccessController {
   async verifyPasswordReset(@Body() dto: PasswordResetVerifyDto): Promise<PasswordResetAcceptedDto> {
     if (!this.emailOtpService) throw new ServiceUnavailableException('Email authentication is unavailable');
     return this.emailOtpService.verifyPasswordReset(dto);
+  }
+
+  @Post('profile/email/otp/request')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('issue')
+  @ApiOperation({ summary: 'Gửi OTP xác minh email đăng nhập mới cho chính tài khoản hiện tại' })
+  @ApiResponse({ status: 200, type: EmailOtpChallengeDto })
+  async requestEmailChangeOtp(
+    @Body() dto: EmailChangeRequestDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ): Promise<EmailOtpChallengeDto> {
+    if (!user?.sessionId || !this.emailOtpService) throw new UnauthorizedException('Application session is required');
+    return this.emailOtpService.requestEmailChange(dto, user.userId, user.sessionId);
+  }
+
+  @Post('profile/email/otp/verify')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @EmailOtpRateLimit('verify')
+  @ApiOperation({ summary: 'Xác minh OTP và đổi email đăng nhập của chính tài khoản hiện tại' })
+  @ApiResponse({ status: 200, description: 'Email đã được xác minh và cập nhật' })
+  async verifyEmailChangeOtp(
+    @Body() dto: EmailChangeVerifyDto,
+    @CurrentUser() user?: VerifiedPrincipal,
+  ) {
+    if (!user?.sessionId || !this.emailOtpService) throw new UnauthorizedException('Application session is required');
+    return this.emailOtpService.verifyEmailChange(dto, user.userId, user.sessionId);
   }
 
   @Public()
@@ -283,6 +314,18 @@ export class IdentityAccessController {
   ): Promise<ProfileRecord> {
     if (!user) throw new UnauthorizedException('Yêu cầu xác thực người dùng');
     return this.identityAccessService.updateOwnDisplayName(user, dto.displayName);
+  }
+
+  @Get('profile/contact')
+  async getOwnContact(@CurrentUser() user?: VerifiedPrincipal) {
+    if (!user) throw new UnauthorizedException('Authentication required');
+    return this.identityAccessService.getOwnContact(user);
+  }
+
+  @Patch('profile/contact')
+  async updateOwnContact(@CurrentUser() user: VerifiedPrincipal | undefined, @Body() dto: UpdateProfileContactDto) {
+    if (!user) throw new UnauthorizedException('Authentication required');
+    return this.identityAccessService.updateOwnContact(user, dto);
   }
 
   @Post('profile/avatar')
