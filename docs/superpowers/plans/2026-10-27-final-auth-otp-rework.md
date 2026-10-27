@@ -71,3 +71,25 @@
 - [ ] Recreate only the Backend service; verify health/API, install Debug APK on emulator-5554, and verify required Gmail and Google E2E flows.
 - [x] Commit the continuation directly to fix/android-auth-otp-security; keep main untouched.
 - [ ] Complete the local gates, then open/update a PR and wait for acceptance before any merge.
+
+
+---
+
+## Final Code Audit update — 2026-10-27
+
+Audit started from `16ad151312dbc1011b66371a133a81cd858c5917` on `fix/android-auth-otp-security`, compared with `main` at `0745deb7b39e7eebbd9d55dc3d93e4f44a06631c`.
+
+### Static review fixes
+- Correct the public OpenAPI policy and the checked-in Android auth contract for Google nonce sessions, OTP registration/reset, password login, refresh, logout/revoke-all, reauthentication, and password/PIN security endpoints.
+- Keep the winning stage-two email OTP live when a concurrent current-email verifier loses the atomic stage-advance race.
+- Scope Google/password/PIN reauthentication nonce consumption to the authenticated user and session; acquire the PIN revision lock through the transaction-bound repository.
+- Revoke other active sessions atomically after a successful password change while retaining the current session.
+
+**Static review: PASS. Runtime: NOT RUN.** Regression coverage has been added, but tests and builds have not been run. No database was queried or changed, no `.env` was edited, and no Actions workflow was run.
+
+### Local verification and E2E handoff
+- Backend: `pnpm typecheck`; run the six focused core tests listed in the progress ledger; then `pnpm test` and `git diff --check`.
+- Android: `./gradlew :app:testDebugUnitTest :app:compileDebugKotlin :app:assembleDebug`; with the emulator attached, `./gradlew :app:connectedDebugAndroidTest`.
+- Backup and migrations: confirm the local DB target and current `pgmigrations` state read-only; take and verify a custom-format `pg_dump` outside the repository (`pg_restore --list)); apply pending migrations only with `pnpm db:migrate`; confirm 000027–000029 are recorded. Never run down/reset/seed.
+- Emulator E2E: verify email registration OTP then login/reset; Google-only login and fresh password setup; password/PIN configuration and reauthentication; old-session revocation after password change/reset; dual email-change OTP (old address first, new address second), replay/race behavior, and notice delivery to the former address; owner/tenant/mixed/no-role navigation and session refresh.
+- Do not merge until these local gates and acceptance pass. Keep `main` untouched and do not use GitHub Actions for this verification.

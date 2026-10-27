@@ -464,8 +464,8 @@ export class EmailOtpService {
           challengeId: input.otpChallengeId, code: input.code, purpose: 'EMAIL_CHANGE',
           now: new Date(), rejectEvent: 'AUTHENTICATION_REJECTED',
         });
-        const reject = async (reason: string, error: HttpException): Promise<never> => {
-          await repositories.identityOtp.supersedeById({
+        const reject = async (reason: string, error: HttpException, supersede = true): Promise<never> => {
+          if (supersede) await repositories.identityOtp.supersedeById({
             challengeId: challenge.challengeId, now: new Date().toISOString(),
           });
           await repositories.identitySessions.appendSecurityEvent({
@@ -519,7 +519,7 @@ export class EmailOtpService {
             now: nowIso,
           });
           if (!advanced)
-            return reject('otp_stage_race', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'));
+            return reject('otp_stage_race', coded(HttpStatus.UNAUTHORIZED, 'Verification code is invalid or expired', 'OTP_INVALID'), false);
           return {
             kind: 'send-new-email' as const,
             challengeId: challenge.challengeId,

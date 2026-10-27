@@ -2654,27 +2654,27 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyGoogleTokenDto"
+                "$ref": "#/components/schemas/GoogleSessionRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Xác thực thành công và trả về thông tin user profile",
+            "description": "Application session issued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VerifiedPrincipalDto"
+                  "$ref": "#/components/schemas/IdentitySessionDto"
                 }
               }
             }
           },
           "401": {
-            "description": "Token không hợp lệ hoặc đã hết hạn"
+            "description": "Google authentication was rejected"
           }
         },
-        "summary": "Xác thực người dùng qua Google ID Token (Android Credential Manager)",
+        "summary": "Authenticate a Google account and create an application session",
         "tags": [
           "Identity & Access"
         ],
@@ -3311,11 +3311,7 @@
         "tags": [
           "Identity & Access"
         ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
+        "security": []
       }
     },
     "/identity-access/register/email/otp/verify": {
@@ -3348,11 +3344,7 @@
         "tags": [
           "Identity & Access"
         ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
+        "security": []
       }
     },
     "/identity-access/password/reset/request": {
@@ -3385,11 +3377,7 @@
         "tags": [
           "Identity & Access"
         ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
+        "security": []
       }
     },
     "/identity-access/password/reset/verify": {
@@ -3422,11 +3410,7 @@
         "tags": [
           "Identity & Access"
         ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
+        "security": []
       }
     },
     "/identity-access/profile/email/otp/request": {
@@ -3513,6 +3497,628 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/identity-access/auth/challenge": {
+      "post": {
+        "operationId": "IdentityAccessController_issueAuthChallenge",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue a short-lived nonce for Google login or registration",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthChallengeRequestDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/register/google": {
+      "post": {
+        "operationId": "IdentityAccessController_registerWithGoogle",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register a Google-only account and create an application session",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleSessionRequestDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/auth/password": {
+      "post": {
+        "operationId": "IdentityAccessController_authenticatePassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Sign in with a previously verified email and password",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordLoginDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/auth/refresh": {
+      "post": {
+        "operationId": "IdentityAccessController_refreshSession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySessionDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rotate a one-time refresh credential and issue a new session token pair",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshSessionRequestDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/auth/logout": {
+      "post": {
+        "operationId": "IdentityAccessController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke the current access-token session",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/auth/revoke-all": {
+      "post": {
+        "operationId": "IdentityAccessController_revokeAllSessions",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revokedSessionCount": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "revokedSessionCount"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Revoke every active session for the current user",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/reauth/organization-create/challenge": {
+      "post": {
+        "operationId": "IdentityAccessController_issueOrganizationCreateReauthChallenge",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue a session-bound organization-creation reauthentication challenge",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/reauth/organization-create/proof": {
+      "post": {
+        "operationId": "IdentityAccessController_completeOrganizationCreateReauth",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Complete organization-creation reauthentication with Google",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReauthenticationProofDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/reauth/organization-create/password": {
+      "post": {
+        "operationId": "IdentityAccessController_completeOrganizationCreatePasswordReauth",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm organization creation with the existing account password",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordReauthenticationDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/reauth/organization-create/pin": {
+      "post": {
+        "operationId": "IdentityAccessController_completeOrganizationCreatePinReauth",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm organization creation with the current security PIN",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinReauthenticationDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/security/account": {
+      "get": {
+        "operationId": "IdentityAccessController_getAccountSecurityStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "googleLinked": {
+                      "type": "boolean"
+                    },
+                    "passwordConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "email",
+                    "googleLinked",
+                    "passwordConfigured"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the current account's sign-in methods",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/security/password/setup/challenge": {
+      "post": {
+        "operationId": "IdentityAccessController_issueInitialPasswordSetupChallenge",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReauthenticationChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Issue a challenge for first-time Google password setup",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity-access/security/password/setup": {
+      "post": {
+        "operationId": "IdentityAccessController_setInitialPassword",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "configured"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set a password on a Google-only account after fresh Google verification",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InitialPasswordSetupDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/security/password": {
+      "patch": {
+        "operationId": "IdentityAccessController_changePassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "changed"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change the current account password and revoke other sessions",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChangeDto"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/identity-access/security/pin": {
+      "get": {
+        "operationId": "IdentityAccessController_getSecurityPinStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pinConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "pinConfigured"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the current account's security PIN status",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "IdentityAccessController_configureSecurityPin",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pinConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "pinConfigured"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Configure the current account's six-digit security PIN",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityPinSetupDto"
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "IdentityAccessController_changeSecurityPin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pinConfigured": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "pinConfigured"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change the current account's security PIN",
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SecurityPinChangeDto"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -6212,6 +6818,252 @@
         "required": [
           "emailChanged",
           "email"
+        ]
+      },
+      "AuthChallengeRequestDto": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "LOGIN",
+              "REGISTER"
+            ]
+          }
+        },
+        "required": [
+          "purpose"
+        ]
+      },
+      "GoogleSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Google ID token with the issued request nonce"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "One-time nonce returned by identity-access/auth/challenge"
+          }
+        },
+        "required": [
+          "idToken",
+          "nonce"
+        ]
+      },
+      "IdentityChallengeDto": {
+        "type": "object",
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "LOGIN",
+              "REGISTER"
+            ]
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose",
+          "nonce",
+          "expiresAt"
+        ]
+      },
+      "PasswordLoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "Previously verified email address"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Password associated with an existing Argon2id credential"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Opaque one-time refresh credential"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "ReauthenticationProofDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Google ID token with the issued request nonce"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "One-time nonce returned by identity-access/auth/challenge"
+          }
+        },
+        "required": [
+          "idToken",
+          "nonce"
+        ]
+      },
+      "PasswordReauthenticationDto": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "One-time challenge nonce for organization creation"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "description": "Existing verified account password"
+          }
+        },
+        "required": [
+          "nonce",
+          "password"
+        ]
+      },
+      "PinReauthenticationDto": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        },
+        "required": [
+          "nonce",
+          "pin"
+        ]
+      },
+      "ReauthenticationChallengeDto": {
+        "type": "object",
+        "properties": {
+          "nonce": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nonce",
+          "expiresAt"
+        ]
+      },
+      "ReauthenticationResponseDto": {
+        "type": "object",
+        "properties": {
+          "proof": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proof",
+          "expiresAt"
+        ]
+      },
+      "InitialPasswordSetupDto": {
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "maxLength": 8192,
+            "description": "Fresh Google ID token issued for the provided nonce"
+          },
+          "nonce": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "One-time nonce from security/password/setup/challenge"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "idToken",
+          "nonce",
+          "password"
+        ]
+      },
+      "PasswordChangeDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "SecurityPinSetupDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "pin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        },
+        "required": [
+          "password",
+          "pin"
+        ]
+      },
+      "SecurityPinChangeDto": {
+        "type": "object",
+        "properties": {
+          "currentPin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "newPin": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        },
+        "required": [
+          "currentPin",
+          "newPin"
         ]
       }
     }

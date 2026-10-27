@@ -58,6 +58,8 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/challenge')
+  @ApiOperation({ summary: 'Issue a short-lived nonce for Google login or registration' })
+  @ApiResponse({ status: 201, type: IdentityChallengeDto })
   async issueAuthChallenge(@Body() dto: AuthChallengeRequestDto): Promise<IdentityChallengeDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.issueChallenge(dto.purpose);
@@ -65,12 +67,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/google')
-  @ApiOperation({ summary: 'Xác thực người dùng qua Google ID Token (Android Credential Manager)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Xác thực thành công và trả về thông tin user profile',
-    type: VerifiedPrincipalDto,
-  })
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Authenticate a Google account and create an application session' })
+  @ApiResponse({ status: 200, description: 'Application session issued', type: IdentitySessionDto })
   @ApiResponse({ status: 401, description: 'Token không hợp lệ hoặc đã hết hạn' })
   async authenticateWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
@@ -79,6 +78,8 @@ export class IdentityAccessController {
 
   @Public()
   @Post('register/google')
+  @ApiOperation({ summary: 'Register a Google-only account and create an application session' })
+  @ApiResponse({ status: 201, type: IdentitySessionDto })
   async registerWithGoogle(@Body() dto: GoogleSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.registerGoogle(dto);
@@ -110,6 +111,7 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/password')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Sign in with a previously verified email and password' })
   @ApiResponse({ status: 200, type: IdentitySessionDto })
   @ApiResponse({ status: 401, description: 'Email or password is incorrect' })
@@ -172,6 +174,9 @@ export class IdentityAccessController {
 
   @Public()
   @Post('auth/refresh')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Rotate a one-time refresh credential and issue a new session token pair' })
+  @ApiResponse({ status: 200, type: IdentitySessionDto })
   async refreshSession(@Body() dto: RefreshSessionRequestDto): Promise<IdentitySessionDto> {
     if (!this.identitySessionService) throw new ServiceUnavailableException('Identity sessions are unavailable');
     return this.identitySessionService.refresh(dto.refreshToken);

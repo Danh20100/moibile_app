@@ -72,3 +72,75 @@ test('email-change response documents both ordered OTP stages', async () => {
   assert.ok(schema.properties.resendAvailableAt);
   assert.ok(schema.properties.oldEmailNoticeSent);
 });
+
+for (const method of [
+  'issueAuthChallenge', 'authenticateWithGoogle', 'registerWithGoogle',
+  'requestEmailRegistrationOtp', 'verifyEmailRegistrationOtp', 'authenticatePassword',
+  'requestPasswordReset', 'verifyPasswordReset', 'refreshSession',
+] as const) {
+  test(`${method} is a public identity entry point`, () => {
+    assert.equal(Reflect.getMetadata(IS_PUBLIC_KEY, IdentityAccessController.prototype[method]), true);
+  });
+}
+
+for (const method of ['authenticateWithGoogle', 'authenticatePassword', 'refreshSession'] as const) {
+  test(`${method} returns the documented HTTP 200 session contract`, () => {
+    assert.equal(Reflect.getMetadata(HTTP_CODE_METADATA, IdentityAccessController.prototype[method]), 200);
+  });
+}
+
+const authContractPaths = [
+  ['/identity-access/auth/challenge', 'post', true, 'AuthChallengeRequestDto', 'IdentityChallengeDto', '201'],
+  ['/identity-access/auth/google', 'post', true, 'GoogleSessionRequestDto', 'IdentitySessionDto', '200'],
+  ['/identity-access/register/google', 'post', true, 'GoogleSessionRequestDto', 'IdentitySessionDto', '201'],
+  ['/identity-access/register/email/otp/request', 'post', true, 'EmailOtpRequestDto', 'EmailOtpChallengeDto', '200'],
+  ['/identity-access/register/email/otp/verify', 'post', true, 'EmailOtpVerifyDto', 'IdentitySessionDto', '200'],
+  ['/identity-access/auth/password', 'post', true, 'PasswordLoginDto', 'IdentitySessionDto', '200'],
+  ['/identity-access/password/reset/request', 'post', true, 'PasswordResetRequestDto', 'EmailOtpChallengeDto', '200'],
+  ['/identity-access/password/reset/verify', 'post', true, 'PasswordResetVerifyDto', 'PasswordResetAcceptedDto', '200'],
+  ['/identity-access/auth/refresh', 'post', true, 'RefreshSessionRequestDto', 'IdentitySessionDto', '200'],
+  ['/identity-access/auth/logout', 'post', false, null, null, '201'],
+  ['/identity-access/auth/revoke-all', 'post', false, null, null, '201'],
+  ['/identity-access/reauth/organization-create/challenge', 'post', false, null, 'ReauthenticationChallengeDto', '201'],
+  ['/identity-access/reauth/organization-create/proof', 'post', false, 'ReauthenticationProofDto', 'ReauthenticationResponseDto', '201'],
+  ['/identity-access/reauth/organization-create/password', 'post', false, 'PasswordReauthenticationDto', 'ReauthenticationResponseDto', '201'],
+  ['/identity-access/reauth/organization-create/pin', 'post', false, 'PinReauthenticationDto', 'ReauthenticationResponseDto', '201'],
+  ['/identity-access/security/account', 'get', false, null, null, '200'],
+  ['/identity-access/security/password/setup/challenge', 'post', false, null, 'ReauthenticationChallengeDto', '201'],
+  ['/identity-access/security/password/setup', 'post', false, 'InitialPasswordSetupDto', null, '201'],
+  ['/identity-access/security/password', 'patch', false, 'PasswordChangeDto', null, '200'],
+  ['/identity-access/security/pin', 'get', false, null, null, '200'],
+  ['/identity-access/security/pin', 'post', false, 'SecurityPinSetupDto', null, '201'],
+  ['/identity-access/security/pin', 'patch', false, 'SecurityPinChangeDto', null, '200'],
+] as const;
+
+for (const [path, method, isPublic, requestSchema, responseSchema, status] of authContractPaths) {
+  test(`OpenAPI matches Android identity contract for ${method.toUpperCase()} ${path}`, async () => {
+    const { readFileSync } = await import('node:fs');
+    const document = JSON.parse(readFileSync('docs/api/openapi.json', 'utf8'));
+    const operation = document.paths[path]?.[method];
+    assert.ok(operation, 'identity route must be present in the published API contract');
+    assert.deepEqual(operation.security, isPublic ? [] : [{ bearer: [] }]);
+    if (requestSchema) {
+      assert.equal(operation.requestBody?.content?.['application/json']?.schema?.$ref, `#/components/schemas/${requestSchema}`);
+    } else {
+      assert.equal(operation.requestBody, undefined);
+    }
+    const response = operation.responses[status];
+    assert.ok(response, `expected HTTP ${status} response`);
+    if (responseSchema) {
+      assert.equal(response.content?.['application/json']?.schema?.$ref, `#/components/schemas/${responseSchema}`);
+    } else {
+      assert.equal(response.content?.['application/json']?.schema?.type, 'object');
+    }
+  });
+}
+
+test('runtime OpenAPI public-path policy includes every public Android auth entry point', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync('src/openapi.ts', 'utf8');
+  for (const [path, method, isPublic] of authContractPaths) {
+    if (!isPublic) continue;
+    assert.ok(source.includes(`{ path: '${path}', method: '${method}' }`), `${path} must be explicitly public in runtime OpenAPI policy`);
+  }
+}

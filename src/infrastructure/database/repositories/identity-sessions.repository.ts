@@ -44,6 +44,13 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     return row ? { challengeId: row.challenge_id, userId: row.user_id, sessionId: row.session_id } : null;
   }
 
+  async lockSecurityPinRevision(userId: string): Promise<string | null> {
+    const result = await sql<{ revision: string }>`
+      SELECT revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid FOR UPDATE
+    `.execute(this.tx);
+    return result.rows[0]?.revision ?? null;
+  }
+
   async createSession(input: AuthSessionCreateInput): Promise<void> {
     await this.tx.insertInto('auth_sessions').values({
       session_id: input.sessionId, family_id: input.familyId, user_id: input.userId,
@@ -145,9 +152,12 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     return sessions.length;
   }
 
-  async revokeOtherSessions(input: { userId: string; exceptSessionId: string; now: string }): Promise<number> {
+  async revokeOtherSessions(input: {
+    userId: string; exceptSessionId: string; now: string; reason?: 'EMAIL_CHANGED' | 'PASSWORD_CHANGED';
+  }): Promise<number> {
+    const reason = input.reason ?? 'EMAIL_CHANGED';
     const sessions = await this.tx.updateTable('auth_sessions')
-      .set({ revoked_at: input.now, revoke_reason: 'EMAIL_CHANGED' })
+      .set({ revoked_at: input.now, revoke_reason: reason })
       .where('user_id', '=', input.userId)
       .where('session_id', '!=', input.exceptSessionId)
       .where('revoked_at', 'is', null)
@@ -156,7 +166,7 @@ export class PostgresIdentitySessionsRepository implements IdentitySessionsRepos
     for (const session of sessions) await this.event({
       eventId: randomUUID(), userId: input.userId, sessionId: session.session_id,
       eventCode: 'SESSION_REVOKED', outcome: 'SUCCESS', occurredAt: input.now,
-      requestMetadata: { reason: 'EMAIL_CHANGED' },
+      requestMetadata: { reason },
     });
     return sessions.length;
   }

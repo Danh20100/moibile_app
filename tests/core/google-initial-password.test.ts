@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { it } from 'node:test';
 import { hash, verify } from '@node-rs/argon2';
@@ -184,6 +185,62 @@ it('serializes competing initial setup requests so only one credential can be cr
   assert.equal(h.events.filter((event) => event.eventCode === 'PASSWORD_INITIALIZED').length, 1);
 });
 
+
+it('does not consume an organization reauthentication nonce from another session', async () => {
+  const h = await harness();
+  const challenge = await h.service.issueOrganizationCreateReauthChallenge(userId, sessionId);
+  const idToken = randomUUID();
+  h.identities.set(idToken, {
+    issuer: 'https://accounts.google.com', subject: googleSubject, nonce: challenge.nonce,
+    authTime: Math.floor(Date.now() / 1000),
+  });
+  const stored = [...h.challenges.values()].find((row) =>
+    row.purpose === 'REAUTH_ORGANIZATION_CREATE' && row.nonceSha256 && row.sessionId === sessionId,
+  );
+  assert.ok(stored);
+  await assert.rejects(h.service.completeOrganizationCreateReauth(
+    { idToken, nonce: challenge.nonce }, userId, 'a63e759d-3559-4e97-92ea-b40884f2c2b5',
+  ), ForbiddenException);
+  assert.equal(stored.consumedAt, null, 'a different session must not burn the legitimate session challenge');
+  const proof = await h.service.completeOrganizationCreateReauth(
+    { idToken, nonce: challenge.nonce }, userId, sessionId,
+  );
+  assert.ok(proof.proof);
+  assert.ok(stored.consumedAt);
+});
+
+it('keeps all organization reauthentication nonce checks scoped and PIN locking inside the transaction repository', () => {
+  const service = readFileSync('src/modules/identity-access/services/identity-session.service.ts', 'utf8');
+  const repository = readFileSync('src/infrastructure/database/repositories/identity-sessions.repository.ts', 'utf8');
+  const section = (start: string, end: string) => {
+    const from = service.indexOf(start);
+    const to = service.indexOf(end, from + start.length);
+    assert.notEqual(from, -1);
+    assert.notEqual(to, -1);
+    return service.slice(from, to);
+  };
+  for (const method of [
+    section('async completeOrganizationCreateReauth(', 'async completeOrganizationCreatePasswordReauth('),
+    section('async completeOrganizationCreatePasswordReauth(', 'private async recordPasswordReauthRejected('),
+    section('async completeOrganizationCreatePinReauth(', 'async accountSecurityStatus('),
+  ]) {
+    assert.match(method, /consumeChallenge\(\{[\s\S]*?userId,\s*sessionId[\s\S]*?\}\)/);
+  }
+  const pin = section('async completeOrganizationCreatePinReauth(', 'async accountSecurityStatus(');
+  assert.match(pin, /lockSecurityPinRevision\(userId\)/);
+  assert.doesNotMatch(pin, /FOR UPDATE/);
+  assert.match(repository, /async lockSecurityPinRevision[\s\S]*?FOR UPDATE[\s\S]*?\.execute\(this\.tx\)/);
+});
+
+it('revokes other sessions atomically when a password is changed', () => {
+  const service = readFileSync('src/modules/identity-access/services/identity-session.service.ts', 'utf8');
+  const from = service.indexOf('async changeOwnPassword(');
+  const to = service.indexOf('async authenticateGoogle(', from + 1);
+  assert.notEqual(from, -1);
+  assert.notEqual(to, -1);
+  const method = service.slice(from, to);
+  assert.match(method, /replacePasswordCredential\([\s\S]*?\)[\s\S]*?revokeOtherSessions\(\{[\s\S]*?exceptSessionId:\s*sessionId[\s\S]*?reason:\s*'PASSWORD_CHANGED'[\s\S]*?\}\)/);
+});
 process.on('exit', () => {
   if (previousGate === undefined) delete process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED;
   else process.env.TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED = previousGate;

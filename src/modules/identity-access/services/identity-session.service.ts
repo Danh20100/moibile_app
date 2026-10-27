@@ -176,7 +176,7 @@ export class IdentitySessionService {
       const binding = await repositories.identityFoundation.resolveGooglePrincipal(principal);
       if (binding.kind !== 'resolved' || binding.userId !== userId) return false;
       const challenge = await repositories.identitySessions.consumeChallenge({ nonceSha256: digest(input.nonce),
-        purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString() });
+        purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString(), userId, sessionId });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({ challengeId: randomUUID(),
         purpose: 'REAUTH_ORGANIZATION_CREATE', nonceSha256: digest(proof), userId, sessionId,
@@ -249,6 +249,8 @@ export class IdentitySessionService {
         nonceSha256: digest(input.nonce),
         purpose: 'REAUTH_ORGANIZATION_CREATE',
         now: now.toISOString(),
+        userId,
+        sessionId,
       });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({
@@ -364,12 +366,11 @@ export class IdentitySessionService {
     const expiresAt = new Date(now.getTime() + CHALLENGE_LIFETIME_MS).toISOString();
     const proof = randomBytes(32).toString('base64url');
     const issued = await this.transactions.run(async ({ repositories }) => {
-      const current = await sql<{ revision: string }>`
-        SELECT revision::text FROM identity_security_pins WHERE user_id=${userId}::uuid FOR UPDATE
-      `.execute(this.database!);
-      if (current.rows[0]?.revision !== row.revision) return false;
+      const currentRevision = await repositories.identitySessions.lockSecurityPinRevision(userId);
+      if (currentRevision !== row.revision) return false;
       const challenge = await repositories.identitySessions.consumeChallenge({
         nonceSha256: digest(input.nonce), purpose: 'REAUTH_ORGANIZATION_CREATE', now: now.toISOString(),
+        userId, sessionId,
       });
       if (!challenge || challenge.userId !== userId || challenge.sessionId !== sessionId) return false;
       await repositories.identitySessions.createChallenge({
@@ -477,6 +478,9 @@ export class IdentitySessionService {
       await repositories.identityFoundation.replacePasswordCredential({
         userId, expectedRevision: snapshot.credential!.credentialRevision,
         encodedHash: encoded, kind: 'change', now,
+      });
+      await repositories.identitySessions.revokeOtherSessions({
+        userId, exceptSessionId: sessionId, now, reason: 'PASSWORD_CHANGED',
       });
       await repositories.identitySessions.appendSecurityEvent({
         eventId: randomUUID(), userId, sessionId, occurredAt: now,

@@ -243,6 +243,7 @@ test('concurrent current-email verification advances one challenge and sends one
   ]);
   assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
   assert.equal(h.challenge.changeStage, 'NEW_EMAIL');
+  assert.equal(h.challenge.supersededAt, null, 'the losing verifier must not supersede the winner’s new-email OTP');
   assert.equal(h.mails.filter(message => message.to === 'new@example.com').length, 1);
   assert.equal(h.email.address, 'old@example.com');
 });

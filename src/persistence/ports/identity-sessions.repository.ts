@@ -20,6 +20,7 @@ export interface IdentitySessionsRepository {
     nonceSha256: string; purpose: IdentityChallengePurpose; now: string;
     userId?: string; sessionId?: string;
   }): Promise<{ challengeId: string; userId: string | null; sessionId: string | null } | null>;
+  lockSecurityPinRevision(userId: string): Promise<string | null>;
   createSession(input: AuthSessionCreateInput): Promise<void>;
   resolveAccessToken(input: { accessTokenSha256: string; now: string }): Promise<{
     sessionId: string; userId: string; authenticatedAt: string;
@@ -30,7 +31,9 @@ export interface IdentitySessionsRepository {
   }): Promise<{ kind: 'rotated'; sessionId: string; userId: string; authenticatedAt: string; absoluteExpiresAt: string } | { kind: 'rejected' | 'reused' }>;
   revokeByAccessToken(input: { accessTokenSha256: string; now: string }): Promise<boolean>;
   revokeAll(input: { userId: string; now: string }): Promise<number>;
-  revokeOtherSessions(input: { userId: string; exceptSessionId: string; now: string }): Promise<number>;
+  revokeOtherSessions(input: {
+    userId: string; exceptSessionId: string; now: string; reason?: 'EMAIL_CHANGED' | 'PASSWORD_CHANGED';
+  }): Promise<number>;
   appendSecurityEvent(input: {
     eventId: string; userId: string | null; sessionId: string | null; eventCode: IdentityEventCode;
     outcome: 'SUCCESS' | 'REJECTED'; occurredAt: string; requestMetadata?: Record<string, string | number | boolean | null>;
