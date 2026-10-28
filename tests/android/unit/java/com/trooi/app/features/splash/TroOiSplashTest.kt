@@ -88,12 +88,12 @@ class TroOiSplashTest {
         val completedState = TroOiUiState(
             isAuthenticated = true,
             splashCompleted = true,
-            page = AppPage.TenantHome,
+            page = AppPage.CoreWorkspace,
         )
 
         val isSplashActive = !completedState.splashCompleted
         assertFalse("Splash must dismiss once splashCompleted becomes true", isSplashActive)
-        assertEquals("User must land on authenticated home page", AppPage.TenantHome, completedState.page)
+        assertEquals("User must land on authenticated home page", AppPage.CoreWorkspace, completedState.page)
     }
 
     @Test

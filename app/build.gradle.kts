@@ -109,8 +109,8 @@ android {
 
     buildTypes {
         getByName("debug") {
-            // Local Google OAuth uses the existing registered package com.trooi.app and debug SHA-1.
-            // Do not add an applicationIdSuffix: it would invalidate the registered Android OAuth client.
+            // This machine's working Google Android client is the installed debug package, not com.trooi.app.
+            applicationIdSuffix = "backenddev"
             buildConfigField("boolean", "DEMO_BACKEND_ENABLED", demoBackendEnabled.toString())
         }
         release {

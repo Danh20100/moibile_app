@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.gson.JsonObject
 import com.trooi.app.core.model.*
+import com.trooi.app.features.tenancy.validGatewayAmount
+import com.trooi.app.ui.components.TroOiFormField
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -112,6 +114,13 @@ internal fun TenantBookOverview(
 ) {
     val linked = tenancies.filter { it.lifecycle in setOf(TenancyLifecycle.ACTIVE, TenancyLifecycle.ENDING) }
     if (linked.isEmpty()) {
+        if (state.runtimeLoading || state.access.linkedTenancyIds.isNotEmpty()) {
+            BookCard {
+                BookHeading("Phòng thuê của tôi", Icons.Rounded.Home)
+                Text(if (state.runtimeLoading) "Đang tải phòng thuê…" else "Chưa tải được phòng đã liên kết.")
+            }
+            return
+        }
         BookCard {
             BookHeading("Phòng thuê của tôi", Icons.Rounded.Home)
             BookEmpty(Icons.Rounded.MenuBook, "Chưa liên kết phòng",
@@ -151,4 +160,29 @@ internal fun TenantBookOverview(
         BookRow("Lịch sử thuê", "Các lượt thuê được cấp quyền", Icons.Rounded.History) { onOpen(BookDestination("rental-history")) }
     }
     BookOutlinedButton(onJoin, Modifier.fillMaxWidth()) { Text("Liên kết phòng khác") }
+}
+
+@Composable
+internal fun TenantPayQr(
+    amount: String,
+    onAmount: (String) -> Unit,
+    busy: Boolean,
+    onCreate: () -> Unit,
+) {
+    val payable = validGatewayAmount(amount.removeSuffix(".00") + ".00")
+    TroOiFormField(
+        value = amount,
+        onValueChange = { value -> if (value.length <= 8 && value.all(Char::isDigit)) onAmount(value) },
+        label = { Text("Số tiền (đồng)") },
+        supportingText = { Text("Từ 1.000 đến 50.000.000 đồng, không nhập phần lẻ.") },
+        singleLine = true,
+        enabled = !busy,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    BookButton(onCreate, Modifier.fillMaxWidth(), enabled = !busy && payable) { Text("Tạo QR thanh toán") }
+    Text(
+        "Mở trang thanh toán chưa có nghĩa là đã trả tiền.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

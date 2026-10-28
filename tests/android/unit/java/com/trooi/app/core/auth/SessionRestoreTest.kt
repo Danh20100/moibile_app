@@ -65,7 +65,7 @@ class SessionRestoreTest {
         ) as RestoreOutcome.Restored
         assertEquals(SelectedContext.Tenant("t-1"), tenantOnly.resolution.selection)
         assertFalse(tenantOnly.resolution.needsPicker)
-        assertEquals(AppPage.TenantHome, destinationPage(tenantOnly.resolution))
+        assertEquals(AppPage.CoreWorkspace, destinationPage(tenantOnly.resolution))
 
         val noRole = restoreVerifiedSession(
             restore = { Result.success(session.copy(access = AccessCapabilities())) },

@@ -191,3 +191,4 @@ _trooi_backup_version_*/
 
 # JVM heap dumps may contain credentials and personally identifiable data.
 *.hprof
+.gradle-home/ 

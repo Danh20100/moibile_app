@@ -4,6 +4,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.google.gson.JsonPrimitive
 
 object BackendJsonCodec {
     fun unwrapResponseData(json: String): String {
@@ -271,9 +272,9 @@ object BackendJsonCodec {
         termEnd = obj.requiredString("termEnd"),
         effectiveFromCycleBoundary = obj.requiredString("effectiveFromCycleBoundary"),
         billingDayOrDueDateRule = obj.required("billingDayOrDueDateRule"),
-        electricityArrangement = obj.requiredObject("electricityArrangement"),
-        waterArrangement = obj.requiredObject("waterArrangement"),
-        minimalRentalConditions = obj.requiredObject("minimalRentalConditions"),
+        electricityArrangement = obj.required("electricityArrangement").asJsonObjectOrText(),
+        waterArrangement = obj.required("waterArrangement").asJsonObjectOrText(),
+        minimalRentalConditions = obj.required("minimalRentalConditions").asJsonObjectOrText(),
     )
 
     private fun termsAcknowledgement(obj: JsonObject) = TermsAcknowledgementTransport(
@@ -517,6 +518,13 @@ object BackendJsonCodec {
         val value = optionalString(name) ?: return null
         require(value in allowed) { "Unknown enum value for $name: $value" }
         return value
+    }
+
+    private fun JsonElement.asJsonObjectOrText(): JsonObject {
+        if (this is JsonObject) return this
+        val text = this as? JsonPrimitive
+        if (text != null && text.isString) return JsonObject().apply { addProperty("text", text.asString) }
+        throw IllegalArgumentException("Expected a JSON object or text")
     }
 
     private fun JsonObject.required(name: String): JsonElement =

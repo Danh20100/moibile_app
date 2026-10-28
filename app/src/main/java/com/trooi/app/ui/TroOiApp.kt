@@ -94,8 +94,8 @@ fun TroOiApp(
     LaunchedEffect(state.page) { lastExitAt = 0L }
 
     val isContextRoot = state.page == AppPage.Discovery ||
-        state.page == AppPage.TenantHome || state.page == AppPage.OwnerDashboard ||
-        state.page == AppPage.AuthWelcome
+        state.page == AppPage.CoreWorkspace || state.page == AppPage.TenantHome ||
+        state.page == AppPage.OwnerDashboard || state.page == AppPage.AuthWelcome
     BackHandler(
         enabled = state.page !is AppPage.ListingDetail &&
             state.page !is AppPage.TrustReport &&

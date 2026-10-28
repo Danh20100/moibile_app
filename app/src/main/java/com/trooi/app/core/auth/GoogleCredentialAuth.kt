@@ -73,18 +73,15 @@ class GoogleCredentialAuth @Inject constructor(private val api: BackendApi) {
         } else {
             GetSignInWithGoogleOption.Builder(clientId).setNonce(nonce).build()
         }
-        val request = GetCredentialRequest.Builder()
-                .addCredentialOption(option)
-                .build()
         val credential = CredentialManager.create(context)
-                .getCredential(context = context, request = request)
-                .credential
+            .getCredential(context, GetCredentialRequest.Builder().addCredentialOption(option).build())
+            .credential
         if (credential !is CustomCredential ||
-                credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
         ) error("Google không trả về ID Token hợp lệ.")
         GoogleIdTokenCredential.createFrom(credential.data).idToken
-                .takeIf(String::isNotBlank)
-                ?: error("Google ID Token trống.")
+            .takeIf(String::isNotBlank)
+            ?: error("Google ID Token trống.")
     }
 
     private companion object {

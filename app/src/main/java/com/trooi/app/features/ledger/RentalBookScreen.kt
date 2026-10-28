@@ -1,5 +1,7 @@
 package com.trooi.app.features.ledger
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
@@ -11,11 +13,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.gson.JsonObject
+import com.trooi.app.BuildConfig
+import com.trooi.app.core.data.RuntimeDataSource
 import com.trooi.app.core.model.*
+import com.trooi.app.features.tenancy.launchableHttpsPayUrl
+import com.trooi.app.features.tenancy.releasePaymentPublicOrigin
 import com.trooi.app.ui.components.TroOiPage
 import com.trooi.app.ui.components.TroOiFormField
 import com.trooi.app.ui.theme.TroOiDimens
@@ -62,7 +69,18 @@ fun RentalBookScreen(
     pendingJoinToken: String? = null,
     model: RentalBookViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val owner = state.access.operatedOrganizationIds.isNotEmpty()
+    fun openPay(raw: String) {
+        val url = launchableHttpsPayUrl(
+            raw,
+            BuildConfig.DEBUG && RuntimeDataSource.isBackendBacked(),
+            if (BuildConfig.DEBUG) BuildConfig.PAYMENT_PUBLIC_ORIGIN
+            else releasePaymentPublicOrigin(BuildConfig.PAYMENT_PUBLIC_ORIGIN),
+        ) ?: throw IllegalStateException("Chưa mở được trang thanh toán. Thử lại để lấy liên kết mới.")
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .getOrElse { throw IllegalStateException("Không mở được trình duyệt. Kiểm tra ứng dụng trình duyệt rồi thử lại.") }
+    }
     val rooms = remember(state.read, state.access) { accessibleRooms(state.read, state.access) }
     val allowedRooms = rooms.map { it.roomId }.toSet()
     val organizations = state.access.operatedOrganizationIds
@@ -128,6 +146,10 @@ fun RentalBookScreen(
         if (current.section == "payment-detail") {
             val tenancy = state.read.tenancies.firstOrNull { it.roomId == current.auxiliary }
             tenancy?.let { model.loadPayments(it.tenancyId) }
+        }
+        if (current.section == "rent" && model.cycles == null) {
+            val tenancyId = current.id.ifBlank { tenantTenancies.firstOrNull()?.tenancyId }
+            model.loadCycles(if (owner || tenancyId == null) null else tenancyId)
         }
     }
 
@@ -639,6 +661,15 @@ fun RentalBookScreen(
                 }
 
                 "rent" -> {
+                    val payTenancy = current.id.takeIf { !owner && it in state.access.linkedTenancyIds }
+                    if (payTenancy != null) item {
+                        BookCard {
+                            BookHeading("Thanh toán chuyển khoản", Icons.Rounded.QrCode2)
+                            TenantPayQr(amount, { amount = it }, model.busy) {
+                                model.createPaymentQr(payTenancy, amount) { openPay(it) }
+                            }
+                        }
+                    }
                     val currentCycles = model.cycles?.mapNotNull { if (it.isJsonObject) it.asJsonObject else null }
                         ?.filter { cycle ->
                             val tenancy = state.read.tenancies.find { it.tenancyId == cycle.field("tenancyId") }
@@ -667,6 +698,15 @@ fun RentalBookScreen(
                     if (owner) item {
                         BookButton(onClick = { add(BookDestination("record-payment", current.id)) },
                             modifier = Modifier.fillMaxWidth()) { Text("Ghi nhận tiền đã nhận") }
+                    } else detail?.field("tenancyId")?.let { tenancyId ->
+                        item {
+                            BookCard {
+                                BookHeading("Thanh toán chuyển khoản", Icons.Rounded.QrCode2)
+                                TenantPayQr(amount, { amount = it }, model.busy) {
+                                    model.createPaymentQr(tenancyId, amount) { openPay(it) }
+                                }
+                            }
+                        }
                     }
                     detail?.field("tenancyId")?.let { tenancyId ->
                         item {

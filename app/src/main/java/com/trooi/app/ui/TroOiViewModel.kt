@@ -1328,6 +1328,7 @@ class TroOiViewModel @Inject constructor(
             sessionRestoring = false,
             restoreFailed = false,
             authReturnListingId = null,
+            runtimeLoading = if (resetRead) true else current.runtimeLoading,
             authorizedReadFailed = false,
             messagesLoading = false,
             messagesLoadFailed = false,
@@ -1427,7 +1428,7 @@ class TroOiViewModel @Inject constructor(
     }
 
     private fun contextHomePage(context: AppContext, access: AccessCapabilities): AppPage = when (context) {
-        AppContext.TENANT -> if (access.allows(ClientArea.TENANT_PORTAL)) AppPage.TenantHome else AppPage.Discovery
+        AppContext.TENANT -> if (access.allows(ClientArea.TENANT_PORTAL)) AppPage.CoreWorkspace else AppPage.Discovery
         AppContext.OPERATIONS -> if (access.allows(ClientArea.OPERATIONS)) AppPage.OwnerDashboard else AppPage.Discovery
         AppContext.DISCOVERY -> AppPage.Discovery
     }

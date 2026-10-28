@@ -12,7 +12,7 @@ class DemoAccountsTest {
         assertNotEquals(tenant.userId, owner.userId)
         assertTrue(tenant.access.operatedOrganizationIds.isEmpty())
         assertTrue(owner.access.linkedTenancyIds.isEmpty())
-        assertEquals(AppPage.TenantHome, destinationPage(reconcileContext(null, tenant.access)))
+        assertEquals(AppPage.CoreWorkspace, destinationPage(reconcileContext(null, tenant.access)))
         assertEquals(AppPage.OwnerDashboard, destinationPage(reconcileContext(null, owner.access)))
         assertNull(DemoData.authenticate("tenant@trooi.local", "wrong-password"))
         assertNull(DemoData.authenticate("unknown@trooi.local", "TroOi2026!"))

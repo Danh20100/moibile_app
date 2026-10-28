@@ -7,12 +7,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.trooi.app.features.shared.V1PaymentGateway
+import com.trooi.app.features.tenancy.validGatewayAmount
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class RentalBookViewModel @Inject constructor(private val gateway: RentalBookGateway) : ViewModel() {
+class RentalBookViewModel @Inject constructor(
+    private val gateway: RentalBookGateway,
+    private val paymentGateway: V1PaymentGateway,
+) : ViewModel() {
     var busy by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
@@ -122,6 +128,19 @@ class RentalBookViewModel @Inject constructor(private val gateway: RentalBookGat
             preview = null
             joinToken = ""
             onLinked()
+        }
+    }
+
+    fun createPaymentQr(tenancyId: String, rawAmount: String, onReady: (String) -> Unit) {
+        val normalized = rawAmount.removeSuffix(".00") + ".00"
+        if (!validGatewayAmount(normalized)) {
+            error = "Nhập số tiền từ 1.000 đến 50.000.000 đồng, không có phần lẻ."
+            feedback = null
+            return
+        }
+        runAction("Đã tạo QR. Mở trang thanh toán chưa có nghĩa là đã trả tiền.") {
+            val created = paymentGateway.create(tenancyId, normalized, UUID.randomUUID().toString())
+            onReady(created.payUrl ?: throw IllegalStateException("Chưa mở được trang thanh toán."))
         }
     }
 

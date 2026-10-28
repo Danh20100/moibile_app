@@ -20,6 +20,12 @@ class PublicListingPhotosTest {
         assertEquals(listOf("wifi"), search.publicAmenityIds)
     }
 
+    @Test fun termsAcceptTextUtilityArrangements() {
+        val terms = BackendJsonCodec.terms("""[{"id":"t1","tenancyId":"ten","version":1,"rentAmount":"3100000.00","agreedDepositRequirement":"1.00","termStart":"2026-10-20","termEnd":"2027-10-20","effectiveFromCycleBoundary":"2026-10-20","billingDayOrDueDateRule":{"day":25},"electricityArrangement":"2998 vnd/kWh","waterArrangement":"12.900 vnd/m3","minimalRentalConditions":"note"}]""").single()
+        assertEquals(1, terms.version)
+        assertEquals("2998 vnd/kWh", terms.electricityArrangement.get("text").asString)
+    }
+
     @Test fun stableAmenityIdsUseTheExistingOwnerCatalogLabels() {
         assertEquals("Wi-Fi", AmenityCatalog.label("wifi"))
         assertEquals("Phòng tắm riêng", AmenityCatalog.label("private_bathroom"))

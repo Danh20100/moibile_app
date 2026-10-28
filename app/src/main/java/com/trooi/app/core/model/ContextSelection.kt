@@ -65,7 +65,7 @@ fun appContextFor(selection: SelectedContext): AppContext = when (selection) {
 
 fun homePageFor(selection: SelectedContext): AppPage = when (selection) {
     SelectedContext.Discovery -> AppPage.Discovery
-    is SelectedContext.Tenant -> AppPage.TenantHome
+    is SelectedContext.Tenant -> AppPage.CoreWorkspace
     is SelectedContext.Operations -> AppPage.OwnerDashboard
 }
 
