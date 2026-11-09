@@ -46,6 +46,6 @@
   "fractionalAmount": "1000.50",
   "minimumAmount": "1000.00",
   "referenceCode": "ref-1",
-  "provider": "MOMO",
+  "provider": "SEPAY",
   "createdAt": "2026-10-05T00:00:00Z"
 }

@@ -31,7 +31,7 @@ MINIO_ROOT_PASSWORD=<unique-private-secret>
 TROOI_COMPREFACE_DB_PASSWORD=<unique-private-secret>
 COMPREFACE_ENABLED=true
 COMPREFACE_ORIGIN=http://compreface-fe
-TROOI_LOCAL_COMPREFACE_LAB=true
+TROOI_LOCAL_COMPREFACE_LAB=false
 COMPREFACE_API_KEY=<verification-service-api-key-from-compreface-admin>
 ```
 

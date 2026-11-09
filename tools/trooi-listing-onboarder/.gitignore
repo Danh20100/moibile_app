@@ -1,0 +1,9 @@
+# Never commit personal data, government IDs, sessions or secrets.
+metadata.json
+private_kyc/
+output/
+.env
+*.local.json
+*.log
+__pycache__/
+.venv/

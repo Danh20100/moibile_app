@@ -15,7 +15,7 @@ import { ApiHeader, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs
 import { CurrentUser, Public, ResourceAuthorizationService } from '../../../common';
 import type { VerifiedPrincipal } from '../../identity-access/contracts';
 import type { GatewayCheckout } from '../contracts';
-import { CreateGatewayCheckoutDto, GatewayCheckoutDto, MomoIpnDto } from '../dto';
+import { CreateGatewayCheckoutDto, GatewayCheckoutDto } from '../dto';
 import { PaymentGatewayService } from '../services/payment-gateway.service';
 
 @ApiTags('Payment Gateway')
@@ -34,7 +34,7 @@ export class PaymentGatewayController {
     required: true,
     schema: { type: 'string', format: 'uuid' },
   })
-  @ApiOperation({ summary: 'Create a MoMo checkout session. Does not create a Payment.' })
+  @ApiOperation({ summary: 'Create a SePay checkout session. Does not create a Payment.' })
   @ApiResponse({ status: 201, description: 'Checkout created', type: GatewayCheckoutDto })
   async createCheckout(
     @Body() dto: CreateGatewayCheckoutDto,
@@ -43,11 +43,15 @@ export class PaymentGatewayController {
   ): Promise<GatewayCheckout> {
     if (!isUUID(key)) throw new BadRequestException('Idempotency-Key must be a UUID');
     await this.authz.assertCanAccessTenancy(user.userId, dto.tenancyId);
-    return this.gateway.createCheckout(dto, user.userId, key);
+    return this.gateway.createCheckout(
+      { ...dto, provider: dto.provider ?? 'SEPAY' },
+      user.userId,
+      key,
+    );
   }
 
   @Get('checkouts/:id')
-  @ApiOperation({ summary: 'Read a MoMo checkout session. CREATED is not a Payment.' })
+  @ApiOperation({ summary: 'Read a checkout session. CREATED is not a Payment.' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, description: 'Checkout status', type: GatewayCheckoutDto })
   async findCheckout(
@@ -98,14 +102,5 @@ export class PaymentGatewayController {
     @Body() payload: unknown,
   ): Promise<{ success: true }> {
     return this.gateway.handleSepayIpn(secret, payload);
-  }
-
-  @Public()
-  @Post('checkouts/momo/ipn')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'MoMo IPN. Verified success is the only path that creates a Payment.' })
-  @ApiResponse({ status: 204, description: 'IPN accepted without a response body' })
-  async momoIpn(@Body() payload: MomoIpnDto): Promise<void> {
-    return this.gateway.handleMomoIpn(payload);
   }
 }

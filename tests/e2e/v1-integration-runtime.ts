@@ -5,10 +5,9 @@ import { UnauthorizedException } from '@nestjs/common';
 
 import { ResourceAuthorizationService } from '../../src/common/auth/resource-authorization.service';
 import { googlePrincipalUserId } from '../../src/common/identity/deterministic-user-id';
-import { HttpMomoPaymentClient } from '../../src/modules/payment-gateway/momo/momo-client';
 import { PaymentGatewayService } from '../../src/modules/payment-gateway/services/payment-gateway.service';
-import { MomoGatewayAdapter } from '../../src/modules/payment-gateway/providers/momo-gateway.adapter';
 import { GatewayProviderRegistry } from '../../src/modules/payment-gateway/providers/gateway-provider.registry';
+import { SepayGatewayAdapter } from '../../src/modules/payment-gateway/providers/sepay-gateway.adapter';
 import { GatewaySettlementService } from '../../src/modules/payment-gateway/services/gateway-settlement.service';
 import { AuditTrustService } from '../../src/modules/audit-trust/services/audit-trust.service';
 import { TenancyService } from '../../src/modules/tenancy/services/tenancy.service';
@@ -16,11 +15,7 @@ import {
   startGatewayHttpHarness,
   startTrustHttpHarness,
 } from '../core/support/payment-gateway-http-harness';
-import {
-  TEST_MOMO,
-  gatewayFixture,
-  signedCheckoutIpn,
-} from '../integration/persistence/gateway-test-support';
+import { gatewayFixture } from '../integration/persistence/gateway-test-support';
 
 const ISSUER = 'https://accounts.google.com';
 const MEMBER = 'v1-runtime-member';
@@ -29,7 +24,7 @@ const STRANGER = 'v1-runtime-stranger';
 const url = process.env.TEST_DATABASE_URL ?? '';
 if (!url.includes('trooi_test')) {
   console.error(
-    'v1-integration-runtime: TEST_DATABASE_URL must target trooi_test. Live Google/MoMo are not claimed.',
+    'v1-integration-runtime: TEST_DATABASE_URL must target trooi_test. Live Google/SePay are not claimed.',
   );
   process.exit(1);
 }
@@ -59,24 +54,26 @@ async function persistedHttp() {
     joinedAt: '2026-01-01T00:00:00.000Z',
     leftAt: null,
   });
-  const proto = new HttpMomoPaymentClient(TEST_MOMO);
   const authz = new ResourceAuthorizationService(fixture.manager);
-  const gateway = new PaymentGatewayService(new TenancyService(fixture.manager),
+  const gateway = new PaymentGatewayService(
+    new TenancyService(fixture.manager),
     fixture.manager,
-    new GatewayProviderRegistry(new MomoGatewayAdapter({
-      snapshot: (id) => proto.snapshot(id),
-      verifyIpn: proto.verifyIpn.bind(proto),
-      async createCaptureWallet() {
-        return {
-          resultCode: 0,
-          message: 'ok',
-          payUrl: 'https://test-payment.momo.vn/pay',
-          deeplink: null,
-        };
-      },
-    })),
+    new GatewayProviderRegistry(
+      undefined,
+      undefined,
+      new SepayGatewayAdapter({
+        environment: 'production',
+        merchantId: 'SP-TEST',
+        secretKey: 'test-secret',
+        ipnSecretKey: 'test-ipn-secret',
+        publicBaseUrl: 'https://pay.example',
+        handoffSigningKey: 'test-handoff-signing-key',
+        financeDatabase: 'trooi_finance',
+      }),
+    ),
     new GatewaySettlementService(fixture.manager),
-    authz);
+    authz,
+  );
   const checkoutApp = await startGatewayHttpHarness({ service: gateway, authz, verifier });
   const trustApp = await startTrustHttpHarness({
     service: new AuditTrustService(fixture.manager),
@@ -108,20 +105,8 @@ async function persistedHttp() {
     assert.notEqual(checkout.data.status, 'SUCCEEDED');
     const stored = await fixture.finance.findGatewayCheckout(checkout.data.id);
     assert.ok(stored);
+    assert.equal(stored.provider, 'SEPAY');
     assert.equal((await fixture.finance.findPaymentsForTenancy(fixture.ids.tenancy)).length, 0);
-
-    const ipn = await fetch(`${checkoutApp.baseUrl}/finance/checkouts/momo/ipn`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(signedCheckoutIpn(stored)),
-    });
-    assert.equal(ipn.status, 204);
-    assert.equal(await ipn.text(), '');
-    const payments = await fixture.finance.findPaymentsForTenancy(fixture.ids.tenancy);
-    assert.equal(payments.length, 1);
-    assert.equal((await fixture.finance.findPaymentAllocations(payments[0]!.paymentId)).length, 0);
-    assert.equal((await fixture.finance.findReceiptsForPayment(payments[0]!.paymentId)).length, 0);
-    assert.equal(await fixture.finance.findDepositForTenancy(fixture.ids.tenancy), undefined);
 
     const report = await fetch(`${trustApp.baseUrl}/audit-trust/reports`, {
       method: 'POST',
@@ -133,7 +118,7 @@ async function persistedHttp() {
     assert.equal(body.data.reporterUserId, googlePrincipalUserId(ISSUER, STRANGER));
     assert.equal(body.data.status, 'SUBMITTED');
     assert.equal((await fixture.listings.findListing(fixture.ids.listing))?.status, 'PUBLISHED');
-    console.log('v1-integration-runtime: persisted HTTP checkout and trust passed. Live Google/MoMo are not claimed.');
+    console.log('v1-integration-runtime: persisted HTTP checkout and trust passed. Live Google/SePay are not claimed.');
   } finally {
     await checkoutApp.close();
     await trustApp.close();

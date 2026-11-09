@@ -78,7 +78,7 @@ class CheckoutFlowTest {
     @Test
     fun forgedReturnResultCodeZeroDoesNotMarkPaid() {
         val action = interpretPaymentReturn(
-            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to value("resultCode"), "orderId" to value("forgedId"))),
+            PaymentReturnUri("trooi", "payment", "/sepay", mapOf("resultCode" to value("resultCode"), "orderId" to value("forgedId"))),
             PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
         )
         assertTrue(action is PaymentReturnAction.RefreshCheckout)
@@ -92,7 +92,7 @@ class CheckoutFlowTest {
     @Test
     fun returnBeforeOrAfterIpnOnlyRefreshesAuthorizedCheckout() {
         val before = interpretPaymentReturn(
-            PaymentReturnUri("trooi", "payment", "/momo", mapOf("resultCode" to value("resultCode"))),
+            PaymentReturnUri("trooi", "payment", "/sepay", mapOf("resultCode" to value("resultCode"))),
             PendingCheckoutHint(value("tenancyId"), value("amount"), intent.idempotencyKey, value("checkoutId")),
         )
         val afterIpn = isConfirmedGatewayPayment(checkout(value("succeededStatus"), resultingPaymentId = value("paymentId")))
@@ -113,7 +113,7 @@ class CheckoutFlowTest {
         val local = pendingHint(rememberCheckoutId(intent, value("checkoutId")))
         val cleared: PendingCheckoutHint? = null
         assertEquals(PaymentReturnAction.SafeRecovery, interpretPaymentReturn(
-            PaymentReturnUri("trooi", "payment", "/momo", emptyMap()),
+            PaymentReturnUri("trooi", "payment", "/sepay", emptyMap()),
             cleared,
         ))
         assertEquals(value("checkoutId"), local.checkoutId)
@@ -121,10 +121,7 @@ class CheckoutFlowTest {
 
     @Test
     fun onlySignedHttpsPayUrlIsLaunchable() {
-        assertEquals(
-            value("momoPayUrl"),
-            launchableHttpsPayUrl(value("momoPayUrl")),
-        )
+        assertNull(launchableHttpsPayUrl(value("momoPayUrl")))
         assertNull(launchableHttpsPayUrl(value("appPayUrl")))
         assertNull(launchableHttpsPayUrl(value("evilPayUrl")))
         assertNull(launchableHttpsPayUrl(value("httpPayUrl")))

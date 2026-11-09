@@ -16,12 +16,12 @@ import { rentalAssetMediaFlow } from '../support/rental-fixtures';
 
 type DtoClass = new () => object;
 
-test('gateway provider is optional and accepts only MOMO, SEPAY or DEMO, excluding null', () => {
+test('gateway provider is optional and accepts only SEPAY or DEMO, excluding MOMO', () => {
   const body = { tenancyId: 'tenancy-a', amount: '1000' };
   const validate = (input: object) => validateSync(plainToInstance(CreateGatewayCheckoutDto, input), { whitelist: true, forbidNonWhitelisted: true });
   assert.deepEqual(validate(body), []);
-  for (const provider of ['MOMO', 'SEPAY', 'DEMO']) assert.deepEqual(validate({ ...body, provider }), []);
-  for (const provider of [null, '', 'momo', 'OTHER', 1]) {
+  for (const provider of ['SEPAY', 'DEMO']) assert.deepEqual(validate({ ...body, provider }), []);
+  for (const provider of [null, '', 'momo', 'MOMO', 'OTHER', 1]) {
     assert.ok(validate({ ...body, provider }).some((error) => error.property === 'provider'));
   }
 });

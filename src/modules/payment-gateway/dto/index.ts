@@ -5,10 +5,10 @@ import type { GatewayProvider } from '../../../persistence/ports/gateway-checkou
 const MONEY = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 
 export class CreateGatewayCheckoutDto {
-  @ApiPropertyOptional({ enum: ['MOMO', 'SEPAY', 'DEMO'] })
+  @ApiPropertyOptional({ enum: ['SEPAY', 'DEMO'] })
   @ValidateIf((_object, value: unknown) => value !== undefined)
-  @IsIn(['MOMO', 'SEPAY', 'DEMO'])
-  provider?: GatewayProvider;
+  @IsIn(['SEPAY', 'DEMO'])
+  provider?: Exclude<GatewayProvider, 'MOMO'>;
 
   @ApiProperty({ example: '60000000-0000-4000-8000-000000000001' })
   @IsString()

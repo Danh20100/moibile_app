@@ -33,15 +33,6 @@
                 <data
                     android:scheme="trooi"
                     android:host="payment"
-                    android:pathPrefix="/momo" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="trooi"
-                    android:host="payment"
                     android:pathPrefix="/sepay" />
             </intent-filter>
             <intent-filter>

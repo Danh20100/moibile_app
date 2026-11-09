@@ -3,11 +3,9 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../../infrastructure/database/database.module';
 import { TenancyModule } from '../tenancy/tenancy.module';
 import { PaymentGatewayController } from './controllers/payment-gateway.controller';
-import { HttpMomoPaymentClient, loadMomoConfig, MOMO_PAYMENT_CLIENT } from './momo/momo-client';
 import { PaymentGatewayService } from './services/payment-gateway.service';
 import { GatewaySettlementService } from './services/gateway-settlement.service';
 import { GatewayProviderRegistry } from './providers/gateway-provider.registry';
-import { MomoGatewayAdapter } from './providers/momo-gateway.adapter';
 import { DemoGatewayAdapter } from './providers/demo-gateway.adapter';
 import { DemoPaymentController } from './controllers/demo-payment.controller';
 import { SepayHandoffController } from './controllers/sepay-handoff.controller';
@@ -30,7 +28,6 @@ import {
     GatewaySettlementService,
     SlotCheckoutService,
     GatewayProviderRegistry,
-    MomoGatewayAdapter,
     DemoGatewayAdapter,
     SepayGatewayAdapter,
     SepayHandoffService,
@@ -46,10 +43,6 @@ import {
           ? new HttpSepayOrderClient(config)
           : { readInvoice: async () => ({ kind: 'uncertain' as const }) },
       inject: [SEPAY_PRODUCTION_CONFIG],
-    },
-    {
-      provide: MOMO_PAYMENT_CLIENT,
-      useFactory: () => new HttpMomoPaymentClient(loadMomoConfig(process.env)),
     },
   ],
   exports: [PaymentGatewayService],

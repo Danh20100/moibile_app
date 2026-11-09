@@ -36,12 +36,6 @@ x-backend-settings: &backend-settings
   # Explicitly scoped local MVP verification threshold (default 0.90 outside local Compose).
   TROOI_LOCAL_KYC_FACE_THRESHOLD: ${TROOI_LOCAL_KYC_FACE_THRESHOLD:-}
   DEMO_PAYMENT_ENABLED: "false"
-  MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
-  MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
-  MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
-  MOMO_ENDPOINT: ${MOMO_ENDPOINT:-https://test-payment.momo.vn}
-  MOMO_IPN_URL: ${MOMO_IPN_URL:-}
-  MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-trooi://payment/momo}
 
 x-backend-build: &backend-build
   context: .

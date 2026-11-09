@@ -34,7 +34,7 @@ export function buildOpenApiConfig(): Omit<OpenAPIObject, 'paths'> {
     .addTag('Audit & Trust', 'Lưu vết lịch sử nghiệp vụ và báo cáo nội bộ')
     .addTag(
       'Payment Gateway',
-      'MoMo checkout channel. Confirmed Payment is created only after provider IPN.',
+      'SePay checkout channel. Confirmed Payment is created only after provider IPN.',
     )
     .build();
 }
@@ -52,7 +52,6 @@ const PUBLIC_PATHS = [
   { path: '/identity-access/password/reset/request', method: 'post' },
   { path: '/identity-access/password/reset/verify', method: 'post' },
   { path: '/identity-access/auth/refresh', method: 'post' },
-  { path: '/finance/checkouts/momo/ipn', method: 'post' },
   { path: '/finance/checkouts/sepay/ipn', method: 'post' },
 ];
 

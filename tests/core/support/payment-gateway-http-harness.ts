@@ -14,7 +14,7 @@ import type { TransactionManager } from '../../../src/persistence/ports/transact
 const require = createRequire(__filename);
 let compiled = false;
 type GatewayDependencies = {
-  service: Pick<PaymentGatewayService, 'createCheckout' | 'findCheckout' | 'handleMomoIpn'>;
+  service: Pick<PaymentGatewayService, 'createCheckout' | 'findCheckout'>;
   authz: Pick<ResourceAuthorizationService, 'assertCanAccessTenancy' | 'assertCanReadTenancy'>;
   verifier: GoogleIdTokenVerifier;
   demo?: { tx: TransactionManager; config: () => DemoConfig | null; clock: () => Date };

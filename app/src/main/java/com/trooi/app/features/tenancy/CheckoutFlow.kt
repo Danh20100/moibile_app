@@ -90,7 +90,7 @@ fun launchableHttpsPayUrl(
         uri.host.equals(configuredOrigin.host, ignoreCase = true) &&
         uri.port == configuredOrigin.port &&
         uri.rawPath == "/api/v1/finance/checkouts/sepay/handoff"
-    val allowed = (uri.scheme.equals("https", true) && host in setOf("test-payment.momo.vn", "payment.momo.vn")) || pinnedSePay ||
+    val allowed = pinnedSePay ||
         (allowLocalHttp && uri.scheme in setOf("http", "https") && host in setOf("127.0.0.1", "localhost", "10.0.2.2") &&
             uri.rawQuery == null && uri.rawFragment == null &&
             uri.rawPath.matches(Regex("/api/v1/finance/checkouts/demo/pay/[A-Za-z0-9._-]+")))
@@ -114,8 +114,7 @@ fun manualCheckoutAvailable(checkout: GatewayCheckout?, createFailed: Boolean): 
 fun interpretPaymentReturn(uri: PaymentReturnUri, local: PendingCheckoutHint?, allowDemo: Boolean = false): PaymentReturnAction {
     val path = uri.path.orEmpty()
     val recognized = uri.scheme == "trooi" && uri.host == "payment" &&
-        (path == "/momo" || path.startsWith("/momo/") ||
-            path == "/sepay" || path.startsWith("/sepay/") ||
+        (path == "/sepay" || path.startsWith("/sepay/") ||
             (allowDemo && path == "/demo"))
     if (!recognized || local == null) return PaymentReturnAction.SafeRecovery
     val checkoutId = local.checkoutId

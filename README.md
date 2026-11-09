@@ -6,7 +6,16 @@
 
 ## Release-first (quyết định 24/10/2026)
 
-**Không sử dụng Mock/Demo để chạy hay nghiệm thu sản phẩm.** Android Release ↔ NestJS ↔ một PostgreSQL/PostGIS `tro-oi`; Google OAuth, dữ liệu và thanh toán phải được kiểm chứng trên hệ thống thật. Debug-only fixture được giữ cho các bài test nội bộ, không thay thế API và không được đưa vào Release. Chạy `pnpm release:check` trước khi phát hành; hiện tại HTTPS, signing và Identity Session cutover chưa hoàn tất nên **chưa có Release PASS**. Xem [Release-first policy](docs/configuration/release-first.md).
+**Không sử dụng Mock/Demo để chạy hay nghiệm thu sản phẩm.** Android Release ↔ NestJS ↔ một PostgreSQL/PostGIS `tro-oi`; Google OAuth, Email OTP, dữ liệu và thanh toán SePay phải được kiểm chứng trên hệ thống thật. Debug-only fixture được giữ cho các bài test nội bộ, không thay thế API và không được đưa vào Release. Chạy `pnpm release:check` trước khi phát hành; hiện tại HTTPS, signing và Identity Session cutover chưa hoàn tất nên **chưa có Release PASS**. Xem [Release-first policy](docs/configuration/release-first.md).
+
+Cờ demo **phải tắt** (false hoặc trống). Không bật chúng để chạy app:
+
+```dotenv
+TROOI_LOCAL_DEMO_AUTH=false
+TROOI_LOCAL_MEDIA_DEMO=false
+TROOI_LOCAL_COMPREFACE_LAB=false
+TROOI_DEMO_CLAIM_USER_ID=
+```
 
 ## Cấu trúc repository
 
@@ -21,7 +30,7 @@
 | `docs/designs/v1/` | Design/UX reference đang được sử dụng |
 | `tests/` | Unit, conformance, integration, E2E và Android tests |
 | `scripts/` | Công cụ migrate, kiểm thử và tạo dữ liệu |
-| `docker-compose.yml` | **Một** Docker Compose: Backend, PostGIS và các profile tùy chọn |
+| `docker-compose.yml` | **Một** Docker Compose: Backend, PostGIS, MinIO, Redis, CompreFace và các profile tùy chọn |
 | `.env.example` | **Một** mẫu environment; dữ liệu thật lưu trong `.env` bị Git ignore |
 
 Hướng dẫn nghiệp vụ nằm gần source tại các `src/modules/*/README.md`; [database](database/README.md), [bối cảnh kỹ thuật](docs/README.md), [Android tests](tests/android/README.md). Các hợp đồng DB versioned được test tự động; không suy luận quy tắc tài chính chỉ từ giao diện.
@@ -42,7 +51,7 @@ git check-ignore -v .env
 ### Một nguồn cấu hình, một Compose
 
 - **`.env` (local, untracked):** cấu hình Backend/Docker/Google/Maps/SePay và những profile test cần thiết. Chỉ có một template `.env.example` được track.
-- **`docker-compose.yml`:** file Compose duy nhất, với các service mặc định (Backend, PostGIS, MinIO, Redis, CompreFace) và profile cô lập `messaging-test`, `sepay-isolated`, `finance-production`. Các DB test dùng container/volume riêng.
+- **`docker-compose.yml`:** file Compose duy nhất. Mặc định: Backend, PostGIS, MinIO, Redis, CompreFace. Profile cô lập: `messaging-test`, `sepay-isolated`, `finance-production`.
 - **Gradle:** `app/build.gradle.kts` chỉ đọc các biến **client allowlist** qua `-P` → environment → root `.env`. `gradle.properties.example` là mẫu cấu hình Gradle; `local.properties.example` dành cho SDK và `keystore.properties.example` dành cho signing — mỗi loại chỉ một mẫu. Các file thật bị ignore.
 - **Không** copy `SEPAY_SECRET_KEY`, `SEPAY_IPN_SECRET_KEY`, `SEPAY_HANDOFF_SIGNING_KEY`, `POSTGRES_PASSWORD` hoặc private signing key vào APK.
 
@@ -55,7 +64,7 @@ node --env-file=.env scripts/config/check-local.cjs
 docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d --build --wait
 docker compose ps -a
-# Host port lấy từ BACKEND_PORT trong .env (mặc định 3000, máy phát triển đang dùng 3101)
+# Host port lấy từ BACKEND_PORT trong .env (mặc định 3000; .env.example dùng 3101)
 curl.exe -i http://localhost:3101/api/v1/health
 docker compose logs --tail=100 backend
 # KYC/Redis/MinIO đều đã thuộc Compose mặc định; chi tiết: docs/configuration/single-compose-runtime.md
@@ -66,15 +75,9 @@ Backend khởi chạy migrations theo `docker-entrypoint.sh`. PostgreSQL dùng n
 Các profile tùy chọn:
 
 ```powershell
-# Cache và object storage (cấp MINIO_ROOT_PASSWORD riêng trong .env)
-node --env-file=.env scripts/config/check-local.cjs
-docker compose up -d
-
-# Messaging test: chỉ 2 service cô lập; không khởi động Backend mặc định
 node --env-file=.env scripts/config/check-local.cjs messaging-test
 docker compose --env-file .env --profile messaging-test up -d --no-deps messaging-postgres messaging-minio
 
-# Isolated SePay test DB: không phải DB finance/merchant Production
 node --env-file=.env scripts/config/check-local.cjs sepay-isolated
 docker compose --env-file .env --profile sepay-isolated up -d --no-deps sepay-postgres
 ```
@@ -132,13 +135,14 @@ MapLibre được chia sẻ cho màn **Guest Discovery và Owner Location Picker
 
 **Tài liệu tham chiếu**: [MapLibre license](https://github.com/maplibre/maplibre-native/blob/main/platform/android/LICENSE.md), [OpenFreeMap Quick Start](https://openfreemap.org/quick_start/), [OpenFreeMap ToS](https://openfreemap.org/tos/), [OSMF Tile Policy](https://operations.osmfoundation.org/policies/tiles/). Kiểm tra lại điều khoản khi phát hành Production.
 
-## Google OAuth và Maps
+## Đăng nhập: Google OAuth và Email OTP
 
 1. Vào [Google Cloud Console](https://console.cloud.google.com/), tạo/chọn project và cấu hình OAuth consent.
 2. Tạo **Web OAuth Client ID** cho Backend Google ID-token verification: `GOOGLE_CLIENT_ID`. Android Credential Manager dùng cùng Web Client ID qua `TROOI_GOOGLE_WEB_CLIENT_ID`.
 3. Android OAuth Client đã được đăng ký cho **`com.trooi.app`** và SHA-1 **`B7:21:C0:57:38:35:FA:3C:73:8D:84:EA:71:11:F5:78:51:50:E4:8B`**. Phải giữ nguyên cặp này khi build local Google Login; không thêm hậu tố `applicationIdSuffix`, không thay debug signing key. Khi ký Release bằng khóa khác về sau phải đăng ký fingerprint tương ứng và nghiệm thu riêng, không tự đổi OAuth Client hiện có.
-4. Bật Maps SDK for Android, cấp `TROOI_MAPS_API_KEY` **giới hạn package + SHA-1 + API**.
-5. Test login Google thật, nonce, refresh, logout và phân quyền; Debug Mock login không được dùng để khẳng định OAuth E2E PASS.
+4. Email đăng ký / khôi phục mật khẩu: điền đủ `TROOI_OTP_HMAC_SECRET` (≥32 ký tự) và SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`). Thiếu một trong các giá trị này thì OTP không chạy. Cổng `TROOI_IDENTITY_FOUNDATION_RESOLUTION_ENABLED` phải `true` sau cutover preflight; để `false` thì Google exchange và OTP đều không hoàn tất.
+5. Bản đồ Google (tuỳ chọn): bật Maps SDK for Android, cấp `TROOI_MAPS_API_KEY` **giới hạn package + SHA-1 + API**. Mặc định app dùng MapLibre, không cần key này.
+6. Test login Google thật, nonce, refresh, logout, OTP email và phân quyền; Debug Mock login không được dùng để khẳng định OAuth E2E PASS.
 
 ```powershell
 keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
@@ -146,7 +150,7 @@ keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias and
 
 ## Thanh toán SePay / TPBank
 
-TrọƠi tạo Checkout qua NestJS → SePay QR chuyển khoản → ngân hàng **TPBank được liên kết với SePay Merchant** nhận tiền → SePay IPN/REST đối soát → ghi Payment/Entitlement vào PostgreSQL. **Không sử dụng TPBank API Key trực tiếp** trong luồng này.
+Kênh thanh toán live **chỉ SePay**. TrọƠi tạo Checkout qua NestJS → SePay QR chuyển khoản → ngân hàng **TPBank được liên kết với SePay Merchant** nhận tiền → SePay IPN/REST đối soát → ghi Payment/Entitlement vào PostgreSQL. **Không sử dụng TPBank API Key trực tiếp** trong luồng này. HTTP checkout mặc định `SEPAY`; Android không mở ví MoMo.
 
 - Tại [SePay Merchant](https://my.sepay.vn/): liên kết tài khoản nhận tiền được phép, lấy `SEPAY_MERCHANT_ID` và `SEPAY_SECRET_KEY`, cấu hình IPN secret riêng qua `X-Secret-Key`.
 - `SEPAY_ENABLED=true`, `SEPAY_ENVIRONMENT=production` chỉ được bật với `DATABASE_URL` trỏ **finance DB tách biệt**, có `SEPAY_FINANCE_DATABASE` khớp DB name và `SEPAY_PUBLIC_BASE_URL` là HTTPS origin công khai được kiểm soát.
@@ -199,8 +203,6 @@ Run this preflight **before** starting a profile (no secrets are printed):
 ```powershell
 node --env-file=.env scripts/config/check-local.cjs
 docker compose --env-file .env config --quiet
-# Optional services require additional credentials
-node --env-file=.env scripts/config/check-local.cjs
 node --env-file=.env scripts/config/check-local.cjs messaging-test
 node --env-file=.env scripts/config/check-local.cjs sepay-isolated
 ```
@@ -210,6 +212,7 @@ and a local development database. Local PostgreSQL/API ports are bound to `127.0
 and never published to a public network by this Compose configuration. `TROOI_DATABASE_MODE`
 is set by Compose, not manually. `COMPREFACE_*` are optional server-only verification
 settings; leave `COMPREFACE_ENABLED=false` unless the integration is explicitly enabled.
+Keep `TROOI_LOCAL_COMPREFACE_LAB=false` outside an authorized local KYC lab.
 
 ### Production SePay — separate full application/finance runtime
 
