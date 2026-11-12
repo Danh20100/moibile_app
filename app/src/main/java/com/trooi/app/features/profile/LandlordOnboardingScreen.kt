@@ -35,16 +35,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import com.trooi.app.core.model.LocalLandlordApplication
+import com.trooi.app.core.network.BackendApi
+import com.trooi.app.core.network.dto.ApiOutcome
 import com.trooi.app.ui.components.*
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.ResolverStyle
+
+@HiltViewModel
+internal class LandlordPlanViewModel @Inject constructor(private val api: BackendApi) : ViewModel() {
+    private val purchaseId = UUID.randomUUID().toString()
+    private val idempotencyKey = UUID.randomUUID().toString()
+
+    suspend fun alreadyPaid(): Boolean = when (val result = api.planEntitlements()) {
+        is ApiOutcome.Data -> result.value.isNotEmpty()
+        is ApiOutcome.Failure -> false
+    }
+
+    suspend fun start(): Pair<String, String?>? = when (val result = api.createPlanCheckout(purchaseId, idempotencyKey)) {
+        is ApiOutcome.Data -> result.value.id to result.value.payUrl
+        is ApiOutcome.Failure -> null
+    }
+
+    suspend fun reconcile(id: String): String? = when (val result = api.reconcilePlanCheckout(id)) {
+        is ApiOutcome.Data -> result.value.status
+        is ApiOutcome.Failure -> null
+    }
+}
 
 /**
  * Four-step identity-assisted operator setup:
@@ -74,7 +105,11 @@ internal fun LandlordOnboardingScreen(
     var cardReviewed by remember { mutableStateOf(false) }
     var contactConfirmed by remember { mutableStateOf(false) }
     var termsAccepted by remember { mutableStateOf(false) }
-    val kycModel: AutoKycViewModel? = if (backendVerification) androidx.hilt.navigation.compose.hiltViewModel(key = "landlord-kyc") else null
+    val kycModel: AutoKycViewModel? = if (backendVerification) hiltViewModel(key = "landlord-kyc") else null
+    val planModel: LandlordPlanViewModel? = if (backendVerification) hiltViewModel(key = "landlord-plan") else null
+    var planCheckoutId by remember { mutableStateOf<String?>(null) }
+    var planPayUrl by remember { mutableStateOf<String?>(null) }
+    var planPaid by remember { mutableStateOf(false) }
     var scanning by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -141,9 +176,28 @@ internal fun LandlordOnboardingScreen(
         "Quét mặt sau CCCD",
         "Kiểm tra thông tin",
         if (backendVerification) "Selfie và đối chiếu khuôn mặt" else "Thông tin liên hệ",
+        if (backendVerification) "Gói chủ trọ" else "Sẵn sàng quản lý",
         "Sẵn sàng quản lý",
     )
-    LaunchedEffect(step) { scroll.scrollToItem(0); error = null }
+    LaunchedEffect(step) {
+        scroll.scrollToItem(0)
+        error = null
+        if (backendVerification && step == 5 && planCheckoutId == null) {
+            busy = true
+            if (planModel?.alreadyPaid() == true) planPaid = true
+            else {
+                val started = planModel?.start()
+                planCheckoutId = started?.first
+                planPayUrl = started?.second
+                if (started == null) error = "Chưa tạo được QR SePay."
+            }
+            busy = false
+        }
+    }
+
+    fun skipIdentity() {
+        step = if (backendVerification) 5 else 4
+    }
 
     fun advance() {
         focus.clearFocus()
@@ -194,6 +248,15 @@ internal fun LandlordOnboardingScreen(
                 }
                 busy = false
             }
+            5 -> if (backendVerification) scope.launch {
+                busy = true
+                val status = if (planPaid) "SUCCEEDED" else planCheckoutId?.let { planModel?.reconcile(it) }
+                if (status == "SUCCEEDED") {
+                    planPaid = true
+                    step = 6
+                } else error = "Chưa nhận được thanh toán SePay."
+                busy = false
+            } else onFinish()
             else -> onFinish()
         }
     }
@@ -204,7 +267,7 @@ internal fun LandlordOnboardingScreen(
     ) {
         BackHandler {
             if (!busy && !scanning) {
-                if (step == 5) onFinish()
+                if (step == 6 || (step == 5 && !backendVerification)) onFinish()
                 else if (step > 0) step--
                 else exitReview = true
             }
@@ -214,11 +277,15 @@ internal fun LandlordOnboardingScreen(
             contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 TroOiPageTopAppBar(
-                    title = { Text(if (step in 1..4) "Bước $step / 4" else "Trở thành chủ trọ") },
+                    title = { Text(when {
+                        backendVerification && step in 1..5 -> "Bước $step / 5"
+                        step in 1..4 -> "Bước $step / 4"
+                        else -> "Trở thành chủ trọ"
+                    }) },
                     navigationIcon = {
                         IconButton(
                             onClick = {
-                                if (step == 5) onFinish()
+                                if (step == 6 || (step == 5 && !backendVerification)) onFinish()
                                 else if (step > 0) step--
                                 else exitReview = true
                             },
@@ -243,11 +310,21 @@ internal fun LandlordOnboardingScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        if (step in 1..2 || (backendVerification && step == 4)) {
+                            TroOiButton(
+                                "Bổ sung sau",
+                                ::skipIdentity,
+                                enabled = !busy && !scanning,
+                                style = TroOiButtonStyle.TERTIARY,
+                                modifier = Modifier.fillMaxWidth().testTag("onboarding-skip-identity"),
+                            )
+                        }
                         TroOiButton(
                             text = when (step) {
                                 0 -> "Bắt đầu"
                                 4 -> if (backendVerification) "Kiểm tra khuôn mặt" else "Hoàn tất hồ sơ"
-                                5 -> "Vào không gian quản lý"
+                                5 -> if (backendVerification) "Tôi đã chuyển khoản" else "Vào không gian quản lý"
+                                6 -> "Vào không gian quản lý"
                                 else -> "Tiếp tục"
                             },
                             onClick = ::advance,
@@ -266,8 +343,11 @@ internal fun LandlordOnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 item {
-                    if (step in 1..4) {
-                        LinearProgressIndicator(progress = { step / 4f }, modifier = Modifier.fillMaxWidth())
+                    if (step in 1..4 || (backendVerification && step == 5)) {
+                        LinearProgressIndicator(
+                            progress = { step / if (backendVerification) 5f else 4f },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         Spacer(Modifier.height(24.dp))
                     }
                     Text(titles[step], style = MaterialTheme.typography.headlineMedium,
@@ -444,7 +524,39 @@ internal fun LandlordOnboardingScreen(
                         }
                         }
                     }
-                    5 -> item {
+                    5 -> if (!backendVerification) item {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Icon(Icons.Rounded.CheckCircle, null, Modifier.size(54.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                            Text("Hồ sơ chủ trọ đã sẵn sàng.",
+                                style = MaterialTheme.typography.titleLarge)
+                            Text("Bạn có thể tạo khu nhà và thêm phòng đầu tiên trong không gian quản lý.")
+                        }
+                    } else {
+                        item {
+                            Text("49.000đ mỗi tháng. QR SePay hiện bên dưới. Chuyển khoản đúng số tiền, rồi bấm Tôi đã chuyển khoản.",
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
+                        planPayUrl?.let { url ->
+                            item {
+                                AndroidView(
+                                    factory = { webContext ->
+                                        WebView(webContext).apply {
+                                            settings.javaScriptEnabled = true
+                                            settings.domStorageEnabled = true
+                                            webViewClient = WebViewClient()
+                                            loadUrl(url)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(520.dp).testTag("onboarding-plan-qr"),
+                                )
+                            }
+                        }
+                        if (planPaid) item {
+                            Text("Gói đã được ghi nhận.", color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    6 -> item {
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Icon(Icons.Rounded.CheckCircle, null, Modifier.size(54.dp),
                                 tint = MaterialTheme.colorScheme.primary)

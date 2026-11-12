@@ -9,7 +9,9 @@ import { GatewayProviderRegistry } from './providers/gateway-provider.registry';
 import { DemoGatewayAdapter } from './providers/demo-gateway.adapter';
 import { DemoPaymentController } from './controllers/demo-payment.controller';
 import { SepayHandoffController } from './controllers/sepay-handoff.controller';
+import { PlanCheckoutController } from './controllers/plan-checkout.controller';
 import { SlotCheckoutController } from './controllers/slot-checkout.controller';
+import { PlanCheckoutService } from './services/plan-checkout.service';
 import { SlotCheckoutService } from './services/slot-checkout.service';
 import { DemoPaymentService } from './services/demo-payment.service';
 import { SepayHandoffService } from './services/sepay-handoff.service';
@@ -22,11 +24,12 @@ import {
 
 @Module({
   imports: [DatabaseModule, TenancyModule],
-  controllers: [PaymentGatewayController, DemoPaymentController, SepayHandoffController, SlotCheckoutController],
+  controllers: [PaymentGatewayController, DemoPaymentController, SepayHandoffController, SlotCheckoutController, PlanCheckoutController],
   providers: [
     PaymentGatewayService,
     GatewaySettlementService,
     SlotCheckoutService,
+    PlanCheckoutService,
     GatewayProviderRegistry,
     DemoGatewayAdapter,
     SepayGatewayAdapter,

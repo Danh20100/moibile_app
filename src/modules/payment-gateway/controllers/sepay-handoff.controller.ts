@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { Controller, Get, Inject, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
@@ -27,7 +29,10 @@ function page(body: string): string {
   return `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Thanh toán SePay</title></head><body><main>${body}</main></body></html>`;
 }
 
-export function sepayHandoffHtml(view: SepayHandoffView, token: string): string {
+export function sepayHandoffHtml(view: SepayHandoffView, token: string, nonce = ''): string {
+  const submit = nonce
+    ? `<script nonce="${escapeHtml(nonce)}">document.forms[0]&&document.forms[0].submit()</script>`
+    : '';
   if (view.kind === 'form') {
     const inputs = Object.entries(view.fields)
       .map(
@@ -36,7 +41,7 @@ export function sepayHandoffHtml(view: SepayHandoffView, token: string): string 
       )
       .join('');
     return page(
-      `<h1>Chuyển tới SePay</h1><p>Biểu mẫu này mở trang chuyển khoản. Việc gửi biểu mẫu chưa ghi nhận thanh toán.</p><form method="post" action="${escapeHtml(view.action)}">${inputs}<button type="submit">Tiếp tục chuyển khoản</button></form>`,
+      `<h1>Chuyển tới SePay</h1><p>Biểu mẫu này mở trang chuyển khoản. Việc gửi biểu mẫu chưa ghi nhận thanh toán.</p><form method="post" action="${escapeHtml(view.action)}">${inputs}<button type="submit">Tiếp tục chuyển khoản</button></form>${submit}`,
     );
   }
   if (view.kind === 'issued') {
@@ -47,7 +52,7 @@ export function sepayHandoffHtml(view: SepayHandoffView, token: string): string 
   const amount = escapeHtml(view.record.amount);
   const reference = escapeHtml(view.record.referenceCode);
   return page(
-    `<h1>Chuyển khoản ngân hàng</h1><p>${amount} VND</p><p>${reference}</p><form method="post" action="/api/v1/finance/checkouts/sepay/handoff?token=${escapeHtml(encodeURIComponent(token))}"><button type="submit">Mở SePay</button></form>`,
+    `<h1>Chuyển khoản ngân hàng</h1><p>${amount} VND</p><p>${reference}</p><form method="post" action="/api/v1/finance/checkouts/sepay/handoff?token=${escapeHtml(encodeURIComponent(token))}"><button type="submit">Mở SePay</button></form>${submit}`,
   );
 }
 
@@ -58,22 +63,24 @@ export class SepayHandoffController {
 
   @Get('handoff')
   async readHandoff(@Query('token') token: string, @Res() response: Response): Promise<void> {
-    this.headers(response, "'self'");
+    const nonce = randomBytes(16).toString('base64url');
+    this.headers(response, "'self'", nonce);
     const view = await this.handoff.read(token ?? '');
     response
       .status(200)
       .type('html')
-      .send(sepayHandoffHtml(view, token ?? ''));
+      .send(sepayHandoffHtml(view, token ?? '', nonce));
   }
 
   @Post('handoff')
   async releaseHandoff(@Query('token') token: string, @Res() response: Response): Promise<void> {
-    this.headers(response, `'self' ${new URL(SEPAY_PRODUCTION_CHECKOUT_URL).origin}`);
+    const nonce = randomBytes(16).toString('base64url');
+    this.headers(response, `'self' ${new URL(SEPAY_PRODUCTION_CHECKOUT_URL).origin}`, nonce);
     const view = await this.handoff.release(token ?? '');
     response
       .status(200)
       .type('html')
-      .send(sepayHandoffHtml(view, token ?? ''));
+      .send(sepayHandoffHtml(view, token ?? '', nonce));
   }
 
   @Get('return/:result')
@@ -86,10 +93,11 @@ export class SepayHandoffController {
     response.status(200).type('html').send(sepayReturnHtml(result));
   }
 
-  private headers(response: Response, formAction: string): void {
+  private headers(response: Response, formAction: string, scriptNonce = ''): void {
+    const script = scriptNonce ? `'nonce-${scriptNonce}'` : "'none'";
     response.set({
       'Referrer-Policy': 'no-referrer',
-      'Content-Security-Policy': `default-src 'none'; script-src 'none'; style-src 'none'; form-action ${formAction}; base-uri 'none'; frame-ancestors 'none'`,
+      'Content-Security-Policy': `default-src 'none'; script-src ${script}; style-src 'none'; form-action ${formAction}; base-uri 'none'; frame-ancestors 'none'`,
       'X-Content-Type-Options': 'nosniff',
     });
   }

@@ -153,6 +153,11 @@ interface BackendApi {
     suspend fun createSlotCheckout(purchaseId: String, idempotencyKey: String, expectedToken: String? = null): ApiOutcome<SlotCheckoutTransport> =
         ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
     suspend fun slotEntitlements(): ApiOutcome<List<SlotEntitlementTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun createPlanCheckout(purchaseId: String, idempotencyKey: String): ApiOutcome<SlotCheckoutTransport> =
+        ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun reconcilePlanCheckout(id: String): ApiOutcome<SlotCheckoutTransport> =
+        ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
+    suspend fun planEntitlements(): ApiOutcome<List<SlotEntitlementTransport>> = ApiOutcome.Failure(ErrorKind.UNCONFIGURED)
 }
 
 class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : BackendApi {
@@ -614,6 +619,20 @@ class OkHttpBackendApi @Inject constructor(private val client: BackendClient) : 
 
     override suspend fun slotEntitlements() =
         client.get("finance/slot-entitlements", true).decode(::slotEntitlements)
+
+    override suspend fun createPlanCheckout(purchaseId: String, idempotencyKey: String) =
+        client.postJson(
+            "finance/plan-checkouts",
+            com.google.gson.JsonObject().apply { addProperty("purchaseId", purchaseId) }.toString(),
+            authenticated = true,
+            headers = mapOf("Idempotency-Key" to idempotencyKey),
+        ).decode(::slotCheckout)
+
+    override suspend fun reconcilePlanCheckout(id: String) =
+        client.postEmpty("finance/plan-checkouts/$id/reconcile", authenticated = true).decode(::slotCheckout)
+
+    override suspend fun planEntitlements() =
+        client.get("finance/plan-entitlements", true).decode(::slotEntitlements)
 
     private fun slotCheckout(raw: String): SlotCheckoutTransport {
         val json = com.google.gson.JsonParser.parseString(raw).asJsonObject

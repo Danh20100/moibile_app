@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { ConflictException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Inject, Injectable, OnModuleInit, Optional, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { sql, type Kysely } from 'kysely';
 import { DATABASE_CLIENT } from '../../../infrastructure/database/database.tokens';
 import type { Database } from '../../../infrastructure/database/schema.types';
@@ -10,6 +10,7 @@ import { verifyGoogleIdToken } from '../../../integrations/google-identity/verif
 import { GOOGLE_ID_TOKEN_VERIFIER, type GoogleIdTokenVerifier } from '../../../integrations/google-identity';
 import { TRANSACTION_MANAGER, type TransactionManager } from '../../../persistence/ports/transaction-manager';
 import { IdentityFoundationConflict } from '../../../persistence/ports/identity-foundation.repository';
+import { ensureResetTestUser, resetTestEmail } from './reset-test-user';
 
 const ACCESS_LIFETIME_MS = 15 * 60 * 1000;
 const IDLE_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -38,12 +39,16 @@ export interface OrganizationCreateReauthProof { proof: string; expiresAt: strin
 export interface InitialPasswordSetupChallenge { nonce: string; expiresAt: string }
 
 @Injectable()
-export class IdentitySessionService {
+export class IdentitySessionService implements OnModuleInit {
   constructor(
     @Inject(TRANSACTION_MANAGER) private readonly transactions: TransactionManager,
     @Optional() @Inject(GOOGLE_ID_TOKEN_VERIFIER) private readonly verifier?: GoogleIdTokenVerifier,
     @Optional() @Inject(DATABASE_CLIENT) private readonly database?: Kysely<Database>,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await ensureResetTestUser(this.transactions, process.env);
+  }
 
   async issueChallenge(purpose: 'LOGIN' | 'REGISTER'): Promise<IdentityAuthChallenge> {
     this.requireEnabled();
@@ -538,6 +543,9 @@ export class IdentitySessionService {
     if (!snapshot || !credential || !valid) {
       await this.recordRejected('AUTHENTICATION_REJECTED', 'invalid_credentials', loginKey);
       throw new UnauthorizedException('Email or password is incorrect');
+    }
+    if (resetTestEmail(process.env) === normalizedEmail && this.database) {
+      await sql`SELECT trooi_reset_owner_work(${snapshot.email.userId}::uuid)`.execute(this.database);
     }
 
     const now = new Date();
